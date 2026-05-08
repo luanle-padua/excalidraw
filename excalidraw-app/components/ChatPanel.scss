@@ -1,0 +1,203 @@
+.ChatView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--ui-font, "Assistant", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif);
+
+  &__hint {
+    margin: auto;
+    padding: 24px;
+    text-align: center;
+    color: var(--text-primary-color, #1b1b1f);
+    opacity: 0.6;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  &__messages {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  &__empty {
+    margin: auto;
+    color: var(--text-primary-color, #1b1b1f);
+    opacity: 0.5;
+    text-align: center;
+    font-size: 13px;
+    padding: 0 12px;
+  }
+
+  &__msg {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    &--mine {
+      align-items: flex-end;
+    }
+
+    &-meta {
+      font-size: 11px;
+      opacity: 0.6;
+      display: flex;
+      gap: 6px;
+    }
+
+    &-bubble {
+      max-width: 85%;
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: var(--button-hover-bg, #f1f1f4);
+      word-wrap: break-word;
+      white-space: pre-wrap;
+    }
+
+    &--mine &-bubble {
+      background: var(--color-primary, #6965db);
+      color: #fff;
+    }
+  }
+
+  &__form {
+    border-top: 1px solid var(--default-border-color, #ececef);
+    padding: 8px;
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__input {
+    flex: 1;
+    border: 1px solid var(--default-border-color, #d8d8de);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+    background: transparent;
+    color: inherit;
+    resize: none;
+    min-height: 36px;
+    max-height: 120px;
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary, #6965db);
+    }
+  }
+
+  &__send {
+    border: 0;
+    background: var(--color-primary, #6965db);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0 14px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+
+  &__mention {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    margin: 0 1px;
+    border-radius: 6px;
+    background: rgba(105, 101, 219, 0.15);
+    color: var(--color-primary, #6965db);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    border: 1px solid transparent;
+
+    &:hover {
+      background: rgba(105, 101, 219, 0.25);
+      border-color: var(--color-primary, #6965db);
+    }
+  }
+
+  &__msg--mine &__mention {
+    background: rgba(255, 255, 255, 0.25);
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.35);
+      border-color: rgba(255, 255, 255, 0.6);
+    }
+  }
+}
+
+.MentionPicker {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--island-bg-color, #fff);
+  border: 1px solid var(--default-border-color, #ececef);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 5;
+
+  &__empty {
+    padding: 12px;
+    text-align: center;
+    opacity: 0.6;
+    font-size: 12px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+
+    &:hover,
+    &--active {
+      background: rgba(105, 101, 219, 0.1);
+    }
+
+    &-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      object-fit: cover;
+      background: #f1f1f4;
+      flex-shrink: 0;
+    }
+
+    &-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+    }
+  }
+}
+
+.ChatView__form-wrap {
+  position: relative;
+}

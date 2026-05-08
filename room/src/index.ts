@@ -47,6 +47,11 @@ try {
       credentials: true,
     },
     allowEIO3: true,
+    // raise the per-message limit so we can ship file binaries (images,
+    // small docs) inline through the encrypted broadcast channel for the
+    // Meeting Library sync feature. Sized for files up to 30MB +
+    // base64 expansion (~33%) + socket.io framing overhead.
+    maxHttpBufferSize: 50 * 1024 * 1024, // 50MB
   });
 
   io.on("connection", (socket) => {

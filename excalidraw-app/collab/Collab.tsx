@@ -20,7 +20,7 @@ import {
 } from "@excalidraw/common";
 import { decryptData } from "@excalidraw/excalidraw/data/encryption";
 import { getVisibleSceneBounds } from "@excalidraw/element";
-import { newElementWith } from "@excalidraw/element";
+import { newElementWith, newImageElement } from "@excalidraw/element";
 import { isImageElement, isInitializedImageElement } from "@excalidraw/element";
 import { AbortError } from "@excalidraw/excalidraw/errors";
 import { t } from "@excalidraw/excalidraw/i18n";
@@ -87,8 +87,19 @@ import {
 } from "../data/localStorage";
 import { resetBrowserStateVersions } from "../data/tabSync";
 
+import {
+  meetingFilesAtom,
+  isFileSeen,
+  markFileSeen,
+  removeMeetingFile,
+  setMeetingFileLock,
+  upsertMeetingFile,
+} from "../data/meetingLibrary";
+
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
+
+import type { MeetingFile } from "../data/meetingLibrary";
 
 import type {
   SocketUpdateDataSource,
@@ -98,6 +109,16 @@ import type {
 export const collabAPIAtom = atom<CollabAPI | null>(null);
 export const isCollaboratingAtom = atom(false);
 export const isOfflineAtom = atom(false);
+
+export type ChatMessage = {
+  id: string;
+  socketId: string;
+  username: string;
+  text: string;
+  ts: number;
+};
+
+export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
 interface CollabState {
   errorMessage: string | null;
@@ -123,6 +144,11 @@ export interface CollabAPI {
   getUsername: CollabInstance["getUsername"];
   getActiveRoomLink: CollabInstance["getActiveRoomLink"];
   setCollabError: CollabInstance["setErrorDialog"];
+  sendChatMessage: CollabInstance["sendChatMessage"];
+  publishLibraryFile: CollabInstance["publishLibraryFile"];
+  publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
+  publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
+  linkTextToFile: CollabInstance["linkTextToFile"];
 }
 
 interface CollabProps {
@@ -238,6 +264,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       getUsername: this.getUsername,
       getActiveRoomLink: this.getActiveRoomLink,
       setCollabError: this.setErrorDialog,
+      sendChatMessage: this.sendChatMessage,
+      publishLibraryFile: this.publishLibraryFile,
+      publishLibraryFileDelete: this.publishLibraryFileDelete,
+      publishLibraryFileLock: this.publishLibraryFileLock,
+      linkTextToFile: this.linkTextToFile,
     };
 
     appJotaiStore.set(collabAPIAtom, collabAPI);
@@ -528,26 +559,9 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         ? ""
         : import.meta.env.VITE_APP_WS_SERVER_URL;
       const wsOptions = { transports: ["websocket", "polling"] };
-      console.log(
-        "[collab] connecting socket.io",
-        wsServerUrl ? `url=${wsServerUrl}` : `origin=${window.location.origin}`,
-        "roomId=",
-        roomId,
-        "tunnelMode=",
-        tunnelMode,
-      );
       const socket = wsServerUrl
         ? socketIOClient(wsServerUrl, wsOptions)
         : socketIOClient(wsOptions);
-      socket.on("connect", () =>
-        console.log("[collab] socket connected", socket.id),
-      );
-      socket.on("connect_error", (err: any) =>
-        console.error("[collab] socket connect_error", err?.message, err),
-      );
-      socket.on("disconnect", (reason: string) =>
-        console.warn("[collab] socket disconnect", reason),
-      );
       this.portal.socket = this.portal.open(socket, roomId, roomKey);
 
       this.portal.socket.once("connect_error", fallbackInitializationHandler);
@@ -691,6 +705,27 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             break;
           }
 
+          case WS_SUBTYPES.CHAT: {
+            this.appendChatMessage(decryptedData.payload);
+            break;
+          }
+
+          case WS_SUBTYPES.LIBRARY_FILE: {
+            this.applyRemoteLibraryFile(decryptedData.payload.file);
+            break;
+          }
+
+          case WS_SUBTYPES.LIBRARY_FILE_DELETE: {
+            this.applyRemoteLibraryFileDelete(decryptedData.payload.fileId);
+            break;
+          }
+
+          case WS_SUBTYPES.LIBRARY_FILE_LOCK: {
+            const { fileId, lockedBy } = decryptedData.payload;
+            setMeetingFileLock(this.portal.roomId, fileId, lockedBy);
+            break;
+          }
+
           default: {
             assertNever(decryptedData, null);
           }
@@ -707,6 +742,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         roomLinkData: existingRoomLinkData,
       });
       scenePromise.resolve(sceneData);
+    });
+
+    // when a new user joins, share our current Meeting Library so they
+    // receive any files we have already added
+    this.portal.socket.on("new-user", () => {
+      this.broadcastLibrarySnapshot();
     });
 
     this.portal.socket.on(
@@ -1013,6 +1054,211 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   };
 
   getUsername = () => this.state.username;
+
+  private appendChatMessage = (msg: ChatMessage) => {
+    const current = appJotaiStore.get(chatMessagesAtom) ?? [];
+    if (current.some((m) => m.id === msg.id)) {
+      // de-dup if our own echo arrives via broadcast somehow
+      return;
+    }
+    appJotaiStore.set(chatMessagesAtom, [...current, msg]);
+  };
+
+  sendChatMessage = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !this.portal.socket?.id) {
+      return;
+    }
+    const msg: ChatMessage = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      socketId: this.portal.socket.id,
+      username: this.state.username || "Guest",
+      text: trimmed,
+      ts: Date.now(),
+    };
+    // local echo so sender sees their own message immediately
+    this.appendChatMessage(msg);
+    this.portal.broadcastChatMessage({
+      id: msg.id,
+      text: msg.text,
+      ts: msg.ts,
+    });
+  };
+
+  /** Called by MeetingLibrary when the local user adds a file (via upload
+   *  or by pasting onto the canvas). Persists locally and broadcasts to
+   *  peers so they get the binary too. */
+  publishLibraryFile = (file: MeetingFile) => {
+    const roomId = this.portal.roomId;
+    const wasNew = upsertMeetingFile(roomId, file);
+    if (!wasNew) {
+      return;
+    }
+    // also seed the canvas's file map so subsequent inserts using this
+    // fileId render without round-tripping
+    this.excalidrawAPI.addFiles([
+      {
+        id: file.id as FileId,
+        dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+        mimeType: file.mimeType as BinaryFileData["mimeType"],
+        created: Date.now(),
+      },
+    ]);
+    this.portal.broadcastLibraryFile(file);
+  };
+
+  /** Called by MeetingLibrary when the local user deletes a file. Removes
+   *  any canvas image elements referencing it and tells peers to do the
+   *  same. */
+  publishLibraryFileDelete = (fileId: string) => {
+    const roomId = this.portal.roomId;
+    this.removeCanvasImagesByFileId(fileId);
+    if (removeMeetingFile(roomId, fileId)) {
+      this.portal.broadcastLibraryFileDelete(fileId);
+    }
+  };
+
+  /** Called by MeetingLibrary when the local user locks/unlocks a file.
+   *  `lockedBy === null` clears the lock. */
+  publishLibraryFileLock = (fileId: string, lockedBy: string | null) => {
+    const roomId = this.portal.roomId;
+    if (setMeetingFileLock(roomId, fileId, lockedBy)) {
+      this.portal.broadcastLibraryFileLock(fileId, lockedBy);
+    }
+  };
+
+  private applyRemoteLibraryFile = (file: MeetingFile) => {
+    if (isFileSeen(file.id)) {
+      return;
+    }
+    markFileSeen(file.id);
+    this.excalidrawAPI.addFiles([
+      {
+        id: file.id as FileId,
+        dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+        mimeType: file.mimeType as BinaryFileData["mimeType"],
+        created: Date.now(),
+      },
+    ]);
+    upsertMeetingFile(this.portal.roomId, file);
+  };
+
+  private applyRemoteLibraryFileDelete = (fileId: string) => {
+    this.removeCanvasImagesByFileId(fileId);
+    removeMeetingFile(this.portal.roomId, fileId);
+  };
+
+  private removeCanvasImagesByFileId = (fileId: string) => {
+    // Use the "including deleted" set + isDeleted flag (with bumped version
+    // via newElementWith) so Excalidraw broadcasts the deletion to peers
+    // through its normal collab pipeline. Just filtering elements out of
+    // updateScene leaves peers stuck on the old version.
+    const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
+    let changed = false;
+    const next = all.map((el) => {
+      if (
+        !el.isDeleted &&
+        el.type === "image" &&
+        (el as any).fileId === fileId
+      ) {
+        changed = true;
+        return newElementWith(el, { isDeleted: true });
+      }
+      return el;
+    });
+    if (changed) {
+      this.excalidrawAPI.updateScene({ elements: next });
+      // bump our broadcast bookkeeping so the deletion is included in the
+      // next sync
+      this.syncElements(this.excalidrawAPI.getSceneElementsIncludingDeleted());
+    }
+  };
+
+  /** Send all files we currently know about to a freshly-joined peer. We
+   *  emit one broadcast per file so we don't blow past the per-message
+   *  byte limit when libraries grow. Receivers de-dupe by fileId. */
+  private broadcastLibrarySnapshot = () => {
+    const files = appJotaiStore.get(meetingFilesAtom);
+    for (const f of files) {
+      this.portal.broadcastLibraryFile(f);
+    }
+  };
+
+  /** Attach a click-through link from the currently-selected text element
+   *  to the given file. If the file's image isn't on the canvas yet, we
+   *  insert it next to the text first so the link target exists. */
+  linkTextToFile = (file: MeetingFile) => {
+    const appState = this.excalidrawAPI.getAppState();
+    const selectedIds = appState.selectedElementIds || {};
+    const all = this.excalidrawAPI.getSceneElements();
+    const textEl = all.find((el) => selectedIds[el.id] && el.type === "text");
+    if (!textEl) {
+      window.alert(
+        "Chọn 1 text element trên canvas trước, rồi bấm 🔗 để link tới file.",
+      );
+      return;
+    }
+
+    let imageEl = all.find(
+      (el) => el.type === "image" && (el as any).fileId === file.id,
+    );
+
+    let nextElements: any[] = [...all];
+
+    if (!imageEl) {
+      // make sure binary is in the canvas's file map
+      this.excalidrawAPI.addFiles([
+        {
+          id: file.id as FileId,
+          dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+          mimeType: file.mimeType as BinaryFileData["mimeType"],
+          created: Date.now(),
+        },
+      ]);
+      let w = file.width ?? 320;
+      let h = file.height ?? 320;
+      const MAX = 480;
+      if (w > MAX || h > MAX) {
+        const s = MAX / Math.max(w, h);
+        w = Math.round(w * s);
+        h = Math.round(h * s);
+      }
+      const newImg = newImageElement({
+        type: "image",
+        x: textEl.x + (textEl.width || 0) + 32,
+        y: textEl.y,
+        width: w,
+        height: h,
+        fileId: file.id as FileId,
+        status: "saved",
+      });
+      imageEl = newImg as any;
+      nextElements = [...nextElements, newImg];
+    }
+
+    // Build an Excalidraw element link URL — same host, same hash, with
+    // ?element=<imageElementId> so the app's onLinkOpen handler scrolls
+    // to that image when the text's link icon is clicked.
+    const linkURL = (() => {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set("element", imageEl!.id);
+        return u.toString();
+      } catch {
+        return `?element=${imageEl!.id}`;
+      }
+    })();
+
+    nextElements = nextElements.map((el) =>
+      el.id === textEl.id ? newElementWith(el, { link: linkURL }) : el,
+    );
+
+    this.excalidrawAPI.updateScene({ elements: nextElements });
+    this.syncElements(this.excalidrawAPI.getSceneElementsIncludingDeleted());
+  };
 
   setActiveRoomLink = (activeRoomLink: string | null) => {
     this.setState({ activeRoomLink });

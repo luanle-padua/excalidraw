@@ -100,6 +100,7 @@ import Collab, {
   isOfflineAtom,
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
+import { CanvasMention } from "./components/CanvasMention";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
 import {
@@ -325,14 +326,6 @@ const initializeScene = async (opts: {
     }
   }
 
-  console.log(
-    "[init] roomLinkData=",
-    roomLinkData,
-    "collabAPI=",
-    !!opts.collabAPI,
-    "hash=",
-    window.location.hash,
-  );
   if (roomLinkData && opts.collabAPI) {
     const { excalidrawAPI } = opts;
 
@@ -1270,6 +1263,7 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
+      <CanvasMention />
     </div>
   );
 };

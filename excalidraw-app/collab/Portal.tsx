@@ -252,6 +252,58 @@ class Portal {
       this.socket.emit(WS_EVENTS.USER_FOLLOW_CHANGE, payload);
     }
   };
+
+  broadcastChatMessage = (payload: {
+    id: string;
+    text: string;
+    ts: number;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["CHAT"] = {
+        type: WS_SUBTYPES.CHAT,
+        payload: {
+          id: payload.id,
+          socketId: this.socket.id as SocketId,
+          username: this.collab.state.username,
+          text: payload.text,
+          ts: payload.ts,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastLibraryFile = (
+    file: SocketUpdateDataSource["LIBRARY_FILE"]["payload"]["file"],
+  ) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["LIBRARY_FILE"] = {
+        type: WS_SUBTYPES.LIBRARY_FILE,
+        payload: { file },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastLibraryFileDelete = (fileId: string) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["LIBRARY_FILE_DELETE"] = {
+        type: WS_SUBTYPES.LIBRARY_FILE_DELETE,
+        payload: { fileId },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastLibraryFileLock = (fileId: string, lockedBy: string | null) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["LIBRARY_FILE_LOCK"] = {
+        type: WS_SUBTYPES.LIBRARY_FILE_LOCK,
+        payload: { fileId, lockedBy },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
 }
 
 export default Portal;

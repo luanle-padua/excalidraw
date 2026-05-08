@@ -118,6 +118,45 @@ export type SocketUpdateDataSource = {
       username: string;
     };
   };
+  CHAT: {
+    type: WS_SUBTYPES.CHAT;
+    payload: {
+      id: string;
+      socketId: SocketId;
+      username: string;
+      text: string;
+      ts: number;
+    };
+  };
+  LIBRARY_FILE: {
+    type: WS_SUBTYPES.LIBRARY_FILE;
+    payload: {
+      file: {
+        id: string;
+        name: string;
+        ts: number;
+        author: string;
+        mimeType: string;
+        dataURL: string;
+        width?: number;
+        height?: number;
+        lockedBy?: string | null;
+      };
+    };
+  };
+  LIBRARY_FILE_DELETE: {
+    type: WS_SUBTYPES.LIBRARY_FILE_DELETE;
+    payload: {
+      fileId: string;
+    };
+  };
+  LIBRARY_FILE_LOCK: {
+    type: WS_SUBTYPES.LIBRARY_FILE_LOCK;
+    payload: {
+      fileId: string;
+      lockedBy: string | null;
+    };
+  };
 };
 
 export type SocketUpdateDataIncoming =
