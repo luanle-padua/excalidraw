@@ -4,6 +4,10 @@
 .env.production.local
 .env.test.local
 .envrc
+
+# Local-only tooling and TLS material — never commit
+tools/
+certs/
 .eslintcache
 .history
 .idea
