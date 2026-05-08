@@ -1190,16 +1190,27 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   /** Attach a click-through link from the currently-selected text element
    *  to the given file. If the file's image isn't on the canvas yet, we
    *  insert it next to the text first so the link target exists. */
-  linkTextToFile = (file: MeetingFile) => {
+  linkTextToFile = (file: MeetingFile, textElementId?: string) => {
     const appState = this.excalidrawAPI.getAppState();
-    const selectedIds = appState.selectedElementIds || {};
     const all = this.excalidrawAPI.getSceneElements();
-    const textEl = all.find((el) => selectedIds[el.id] && el.type === "text");
-    if (!textEl) {
-      window.alert(
-        "Chọn 1 text element trên canvas trước, rồi bấm 🔗 để link tới file.",
-      );
-      return;
+    let textEl;
+    if (textElementId) {
+      // explicit target (used by inline @-mention after edit ends)
+      textEl = all.find((el) => el.id === textElementId && el.type === "text");
+      if (!textEl) {
+        // text was removed/changed before we could attach the link;
+        // silently bail rather than alerting
+        return;
+      }
+    } else {
+      const selectedIds = appState.selectedElementIds || {};
+      textEl = all.find((el) => selectedIds[el.id] && el.type === "text");
+      if (!textEl) {
+        window.alert(
+          "Chọn 1 text element trên canvas trước, rồi bấm 🔗 để link tới file.",
+        );
+        return;
+      }
     }
 
     let imageEl = all.find(

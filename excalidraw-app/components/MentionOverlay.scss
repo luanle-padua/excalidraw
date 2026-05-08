@@ -1,0 +1,17 @@
+.MentionOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 4;
+}
+
+.MentionOverlay__badge {
+  position: absolute;
+  background: rgba(105, 101, 219, 0.18);
+  border: 1px solid rgba(105, 101, 219, 0.4);
+  border-radius: 4px;
+  box-sizing: border-box;
+  /* visual only — let canvas keep all interactions */
+  pointer-events: none;
+}

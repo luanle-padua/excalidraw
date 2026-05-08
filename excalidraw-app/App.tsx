@@ -101,6 +101,7 @@ import Collab, {
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { CanvasMention } from "./components/CanvasMention";
+import { MentionOverlay } from "./components/MentionOverlay";
 import { AppMainMenu } from "./components/AppMainMenu";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
 import {
@@ -1263,6 +1264,7 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
+      <MentionOverlay />
       <CanvasMention />
     </div>
   );

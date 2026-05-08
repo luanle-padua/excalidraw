@@ -112,18 +112,12 @@ export const CanvasMention = () => {
       lastEditingId = editingId;
 
       if (wasEditing && !editingId) {
-        // edit ended — apply pending link if any
+        // edit ended — apply pending link if any. Pass the element id
+        // explicitly because the user may not have left the text selected,
+        // and updateScene's appState change isn't synchronous anyway.
         const pending = pendingLinkRef.current;
         if (pending && pending.elementId === wasEditing) {
-          // Emulate "this text is selected" by selecting it programmatically
-          // so linkTextToFile finds it.
-          excalidrawAPI.updateScene({
-            appState: {
-              ...excalidrawAPI.getAppState(),
-              selectedElementIds: { [pending.elementId]: true },
-            },
-          });
-          collabAPI?.linkTextToFile(pending.file);
+          collabAPI?.linkTextToFile(pending.file, pending.elementId);
           pendingLinkRef.current = null;
         }
         detach();
@@ -159,8 +153,11 @@ export const CanvasMention = () => {
     const cursor = ta.selectionStart ?? ta.value.length;
     const before = ta.value.slice(0, picker.startIdx);
     const after = ta.value.slice(cursor);
-    // store using same mention encoding as chat so behaviour is consistent
-    const token = `[@${file.name}](file:${file.id}) `;
+    // Plain `@filename ` — Excalidraw text elements render as plain text on
+    // the canvas, so storing the markdown-like `[@name](file:id)` form would
+    // show up as raw characters. The fileId association is tracked via the
+    // element's `link` property (set after edit ends in pendingLinkRef).
+    const token = `@${file.name} `;
     const next = before + token + after;
     ta.value = next;
     // tell Excalidraw the text changed so it updates the underlying element
@@ -222,6 +219,8 @@ export const CanvasMention = () => {
   return createPortal(
     <div
       className="CanvasMentionPicker"
+      // dynamic position relative to the cursor — has to be inline
+      // eslint-disable-next-line react/forbid-dom-props
       style={{ left: picker.position.left, top: picker.position.top }}
       // mousedown rather than click so the textarea doesn't lose focus
       // (which would end the edit before insertion completes)
