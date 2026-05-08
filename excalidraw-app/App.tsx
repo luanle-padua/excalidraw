@@ -325,6 +325,14 @@ const initializeScene = async (opts: {
     }
   }
 
+  console.log(
+    "[init] roomLinkData=",
+    roomLinkData,
+    "collabAPI=",
+    !!opts.collabAPI,
+    "hash=",
+    window.location.hash,
+  );
   if (roomLinkData && opts.collabAPI) {
     const { excalidrawAPI } = opts;
 

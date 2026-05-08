@@ -11,6 +11,22 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#121212" />
 
+    <!-- Eruda: in-page DevTools for mobile (auto-loaded only in dev/tunnel mode) -->
+    <script>
+      if (
+        location.hostname.endsWith(".trycloudflare.com") ||
+        location.hostname === "localhost" ||
+        /^\d+\.\d+\.\d+\.\d+$/.test(location.hostname)
+      ) {
+        var s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/eruda";
+        s.onload = function () {
+          window.eruda && window.eruda.init();
+        };
+        document.head.appendChild(s);
+      }
+    </script>
+
     <!-- Primary Meta Tags -->
     <meta
       name="title"

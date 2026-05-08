@@ -53,6 +53,8 @@ try {
   FIREBASE_CONFIG = {};
 }
 
+const IS_FIREBASE_CONFIGURED = Boolean(FIREBASE_CONFIG?.projectId);
+
 let firebaseApp: ReturnType<typeof initializeApp> | null = null;
 let firestore: ReturnType<typeof getFirestore> | null = null;
 let firebaseStorage: ReturnType<typeof getStorage> | null = null;
@@ -132,6 +134,10 @@ export const isSavedToFirebase = (
   portal: Portal,
   elements: readonly ExcalidrawElement[],
 ): boolean => {
+  if (!IS_FIREBASE_CONFIGURED) {
+    // pretend it's saved so the app doesn't keep retrying / blocking unload
+    return true;
+  }
   if (portal.socket && portal.roomId && portal.roomKey) {
     const sceneVersion = getSceneVersion(elements);
 
@@ -149,6 +155,9 @@ export const saveFilesToFirebase = async ({
   prefix: string;
   files: { id: FileId; buffer: Uint8Array }[];
 }) => {
+  if (!IS_FIREBASE_CONFIGURED) {
+    return { savedFiles: [] as FileId[], erroredFiles: [] as FileId[] };
+  }
   const storage = await loadFirebaseStorage();
 
   const erroredFiles: FileId[] = [];
@@ -189,6 +198,9 @@ export const saveToFirebase = async (
   elements: readonly SyncableExcalidrawElement[],
   appState: AppState,
 ) => {
+  if (!IS_FIREBASE_CONFIGURED) {
+    return null;
+  }
   const { roomId, roomKey, socket } = portal;
   if (
     // bail if no room exists as there's nothing we can do at this point
@@ -251,6 +263,9 @@ export const loadFromFirebase = async (
   roomKey: string,
   socket: Socket | null,
 ): Promise<readonly SyncableExcalidrawElement[] | null> => {
+  if (!IS_FIREBASE_CONFIGURED) {
+    return null;
+  }
   const firestore = _getFirestore();
   const docRef = doc(firestore, "scenes", roomId);
   const docSnap = await getDoc(docRef);
@@ -278,6 +293,9 @@ export const loadFilesFromFirebase = async (
 ) => {
   const loadedFiles: BinaryFileData[] = [];
   const erroredFiles = new Map<FileId, true>();
+  if (!IS_FIREBASE_CONFIGURED) {
+    return { loadedFiles, erroredFiles };
+  }
 
   await Promise.all(
     [...new Set(filesIds)].map(async (id) => {

@@ -520,13 +520,35 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.fallbackInitializationHandler = fallbackInitializationHandler;
 
     try {
-      this.portal.socket = this.portal.open(
-        socketIOClient(import.meta.env.VITE_APP_WS_SERVER_URL, {
-          transports: ["websocket", "polling"],
-        }),
+      // In tunnel mode, ignore VITE_APP_WS_SERVER_URL (which still defaults to
+      // localhost:3002 via .env.development) and connect to current origin so
+      // socket.io requests get proxied through the tunnel back to the room.
+      const tunnelMode = import.meta.env.VITE_DEV_TUNNEL === "true";
+      const wsServerUrl = tunnelMode
+        ? ""
+        : import.meta.env.VITE_APP_WS_SERVER_URL;
+      const wsOptions = { transports: ["websocket", "polling"] };
+      console.log(
+        "[collab] connecting socket.io",
+        wsServerUrl ? `url=${wsServerUrl}` : `origin=${window.location.origin}`,
+        "roomId=",
         roomId,
-        roomKey,
+        "tunnelMode=",
+        tunnelMode,
       );
+      const socket = wsServerUrl
+        ? socketIOClient(wsServerUrl, wsOptions)
+        : socketIOClient(wsOptions);
+      socket.on("connect", () =>
+        console.log("[collab] socket connected", socket.id),
+      );
+      socket.on("connect_error", (err: any) =>
+        console.error("[collab] socket connect_error", err?.message, err),
+      );
+      socket.on("disconnect", (reason: string) =>
+        console.warn("[collab] socket disconnect", reason),
+      );
+      this.portal.socket = this.portal.open(socket, roomId, roomKey);
 
       this.portal.socket.once("connect_error", fallbackInitializationHandler);
     } catch (error: any) {
