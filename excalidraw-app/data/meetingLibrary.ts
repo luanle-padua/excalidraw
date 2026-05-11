@@ -87,6 +87,12 @@ const persist = async (roomId: string | null, items: MeetingFile[]) => {
   }
 };
 
+/** Quick fingerprint for content-based de-duplication. Comparing full
+ *  multi-megabyte dataURLs on every upsert is too slow, but length plus the
+ *  first and last 64 chars is enough to distinguish real images. */
+const fingerprintOf = (dataURL: string) =>
+  `${dataURL.length}:${dataURL.slice(0, 64)}:${dataURL.slice(-64)}`;
+
 /** Add or update a file by id (idempotent). Marks the file as seen so
  *  follow-up onChange events for the same id don't re-trigger insertion. */
 export const upsertMeetingFile = (roomId: string | null, file: MeetingFile) => {
@@ -96,7 +102,20 @@ export const upsertMeetingFile = (roomId: string | null, file: MeetingFile) => {
     return false;
   }
   const current = appJotaiStore.get(meetingFilesAtom);
+  // dedup by id (most common case — Excalidraw onChange re-firing for a
+  // file we just added)
   if (current.some((f) => f.id === file.id)) {
+    seenFileIds.add(file.id);
+    return false;
+  }
+  // dedup by content. If two ingestion paths happen to mint different ids
+  // for the same image (UUID from library upload vs Excalidraw's
+  // hash-based id for paste-on-canvas, or a peer broadcast racing a local
+  // auto-detect), this catches the second occurrence and aliases the
+  // new id to the existing entry's id so future references resolve.
+  const fp = fingerprintOf(file.dataURL);
+  const dup = current.find((f) => fingerprintOf(f.dataURL) === fp);
+  if (dup) {
     seenFileIds.add(file.id);
     return false;
   }

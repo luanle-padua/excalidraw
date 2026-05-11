@@ -11,7 +11,6 @@ import { woff2BrowserPlugin } from "../scripts/woff2/woff2-vite-plugins";
 export default defineConfig(({ mode }) => {
   // To load .env variables
   const envVars = loadEnv(mode, `../`);
-  const tunnelMode = envVars.VITE_DEV_TUNNEL === "true";
   // https://vitejs.dev/config/
   return {
     server: {
@@ -19,24 +18,22 @@ export default defineConfig(({ mode }) => {
       host: true,
       // open the browser
       open: true,
-      // accept any Host header — required when serving via Cloudflare Tunnel
-      // (Vite blocks unknown hosts by default to prevent DNS rebinding)
-      allowedHosts: tunnelMode ? true : undefined,
-      // when fronted by an HTTPS tunnel, HMR client must use wss:443
-      hmr: tunnelMode
-        ? { protocol: "wss", clientPort: 443 }
-        : undefined,
-      // tunnel mode: proxy socket.io to local room so we only need ONE
-      // tunnel (the app's). Client connects to same origin, no second URL.
-      proxy: tunnelMode
-        ? {
-            "/socket.io": {
-              target: "http://localhost:3002",
-              ws: true,
-              changeOrigin: true,
-            },
-          }
-        : undefined,
+      // accept any Host header — needed for both Cloudflare Tunnel and LAN
+      // IP access (Vite blocks unknown hosts by default to prevent DNS
+      // rebinding). Vite's default HMR will pick the right protocol from
+      // the page origin (ws:// for plain http, wss:// when fronted by a
+      // tunnel/proxy that terminates HTTPS).
+      allowedHosts: true,
+      // route the client's /socket.io requests to the local room server
+      // so we only need one host (the Vite dev server) to reach the
+      // collab socket — works for localhost, LAN IP, and tunnel access.
+      proxy: {
+        "/socket.io": {
+          target: "http://localhost:3002",
+          ws: true,
+          changeOrigin: true,
+        },
+      },
     },
     // We need to specify the envDir since now there are no
     //more located in parallel with the vite.config.ts file but in parent dir

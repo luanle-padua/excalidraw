@@ -7,11 +7,16 @@
 }
 
 .MentionOverlay__badge {
+  // Minimal visual cue: just an underline under the @filename substring.
+  // We render this as a thin border-bottom on a zero-height div positioned
+  // at the baseline of the line. This avoids the "boxed badge" look that
+  // looked mis-aligned when text wrapped or the measureText was slightly
+  // off — user explicitly asked for a simple underline.
   position: absolute;
-  background: rgba(105, 101, 219, 0.18);
-  border: 1px solid rgba(105, 101, 219, 0.4);
-  border-radius: 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid var(--color-primary);
+  border-radius: 0;
   box-sizing: border-box;
-  /* visual only — let canvas keep all interactions */
   pointer-events: none;
 }

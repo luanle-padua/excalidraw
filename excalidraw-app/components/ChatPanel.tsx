@@ -7,7 +7,11 @@ import { chatMessagesAtom, collabAPIAtom } from "../collab/Collab";
 import { meetingFilesAtom } from "../data/meetingLibrary";
 import { findActiveMention, parseMessage } from "../data/mentions";
 
+import { AIToolsPanel } from "./mcm/AIToolsPanel";
+import { MCMAssistant } from "./mcm/MCMAssistant";
+
 import "./ChatPanel.scss";
+import "./mcm/MeetingShell.scss";
 
 import type { MeetingFile } from "../data/meetingLibrary";
 
@@ -253,7 +257,7 @@ export const ChatView = () => {
           <textarea
             ref={inputRef}
             className="ChatView__input"
-            placeholder="Tin nhắn… (@ để mention file, Enter gửi, Shift+Enter xuống dòng)"
+            placeholder="Tin nhắn… (gõ @ để mention file)"
             value={draft}
             onChange={handleDraftChange}
             onClick={handleSelectionChange}
@@ -270,6 +274,8 @@ export const ChatView = () => {
           </button>
         </form>
       </div>
+      <AIToolsPanel />
+      <MCMAssistant />
     </div>
   );
 };

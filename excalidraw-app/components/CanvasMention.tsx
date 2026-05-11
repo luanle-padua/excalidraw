@@ -216,6 +216,11 @@ export const CanvasMention = () => {
     return null;
   }
 
+  // mount the floating picker inside the `.excalidraw` container so it
+  // inherits the editor's CSS variables (theme tokens). Falls back to
+  // body if for some reason the container isn't in the DOM yet.
+  const portalTarget = document.querySelector(".excalidraw") ?? document.body;
+
   return createPortal(
     <div
       className="CanvasMentionPicker"
@@ -260,7 +265,7 @@ export const CanvasMention = () => {
         ))
       )}
     </div>,
-    document.body,
+    portalTarget,
   );
 };
 

@@ -1,0 +1,841 @@
+// MCM (Map Canvas Meet) shell — solid Apple-style design language.
+//
+// No glass / no backdrop blur. Every panel is a crisp solid surface,
+// neighbouring panels separated by hairline dividers. Think macOS
+// Finder / Settings: cohesive surfaces fitted together like a lunchbox.
+//
+// Principles:
+//   - One surface colour for all chrome (header, sidebar, bar, panels).
+//   - Hairline 1px dividers between adjoining surfaces.
+//   - Floating panels (STT) get the same surface + a soft drop shadow.
+//   - Brand purple used as an accent only.
+//   - System / SF font stack; tight typographic spacing.
+//   - 12px radius standard; 8px for buttons; 999px for pills/avatars.
+//   - 200ms ease transitions universally.
+
+.mcm-shell {
+  // ----- LIGHT MODE TOKENS (default) ---------------------------------
+  // We CAN'T inherit Excalidraw's CSS vars (`--island-bg-color`,
+  // `--text-primary-color`, …) because those are scoped to `.excalidraw`,
+  // which is a DESCENDANT of this shell — variable lookup walks up the
+  // DOM, not down. So the shell needs its own complete theme palette.
+  --mcm-bg:           #f5f5f7;
+  --mcm-text:         #1b1b1f;
+  --mcm-text-soft:    rgba(27, 27, 31, 0.6);
+  --mcm-text-faint:   rgba(27, 27, 31, 0.4);
+  --mcm-surface:      #ffffff;
+  --mcm-surface-2:    #f0f0f3;
+  --mcm-hairline:     rgba(0, 0, 0, 0.12);
+  --mcm-hairline-2:   rgba(0, 0, 0, 0.06);
+  --mcm-elev:
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 12px 28px rgba(0, 0, 0, 0.12);
+  --mcm-accent:       #6965db;
+  --mcm-accent-soft:  rgba(105, 101, 219, 0.14);
+  --mcm-success:      #16a34a;
+  --mcm-success-soft: #ecfdf5;
+  --mcm-danger:       #dc2626;
+  // Width of Excalidraw's docked sidebar plus a small safety margin so
+  // the participants bar never slides under it.
+  --mcm-sidebar-gutter: 340px;
+
+  // ----- DARK MODE TOKENS ---------------------------------------------
+  // Triggered when Excalidraw is in dark theme (it stamps the
+  // `.theme--dark` class on its root element). `:has()` lets us
+  // detect a descendant from the parent without JS.
+  &:has(.excalidraw.theme--dark) {
+    --mcm-bg:           #121212;
+    --mcm-text:         #ebebef;
+    --mcm-text-soft:    rgba(235, 235, 239, 0.65);
+    --mcm-text-faint:   rgba(235, 235, 239, 0.4);
+    --mcm-surface:      #232329;
+    --mcm-surface-2:    #2c2c34;
+    --mcm-hairline:     rgba(255, 255, 255, 0.12);
+    --mcm-hairline-2:   rgba(255, 255, 255, 0.06);
+    --mcm-elev:
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 12px 28px rgba(0, 0, 0, 0.5);
+    --mcm-accent:       #a8a5ff;
+    --mcm-accent-soft:  rgba(168, 165, 255, 0.18);
+    --mcm-success:      #22c55e;
+    --mcm-success-soft: rgba(34, 197, 94, 0.12);
+  }
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--mcm-bg);
+  color: var(--mcm-text);
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Helvetica Neue",
+    "Segoe UI",
+    Roboto,
+    "Assistant",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.005em;
+
+  // Hide Excalidraw's own floating UI — would overlap our chrome.
+  .layer-ui__wrapper__footer,
+  .layer-ui__wrapper__footer-left,
+  .layer-ui__wrapper__footer-center,
+  .layer-ui__wrapper__footer-right,
+  .layer-ui__wrapper__footer-left.zen-mode-transition,
+  .layer-ui__wrapper__footer-center.zen-mode-transition,
+  .layer-ui__wrapper__footer-right.zen-mode-transition {
+    display: none !important;
+  }
+  .excalidraw-ui-top-right,
+  .plus-banner,
+  .collab-button,
+  .UserList {
+    display: none !important;
+  }
+}
+
+.mcm-shell__canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+
+  > .excalidraw-app {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+// =========================================================================
+// HEADER
+// =========================================================================
+.mcm-header {
+  flex-shrink: 0;
+  height: 60px;
+  padding: 0 20px;
+  background: var(--mcm-surface);
+  border-bottom: 1px solid var(--mcm-hairline);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: 10;
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+
+    &-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #6e6ae3, #4f46d6);
+      box-shadow:
+        inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+        0 1px 2px rgba(79, 70, 214, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: -0.02em;
+    }
+
+    &-name {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+
+      strong {
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+      }
+
+      span {
+        font-size: 10px;
+        color: var(--mcm-text-faint);
+        letter-spacing: 0.05em;
+      }
+    }
+  }
+
+  &__divider {
+    width: 1px;
+    height: 22px;
+    background: var(--mcm-hairline);
+    margin: 0 2px;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+    color: var(--mcm-text);
+    background: transparent;
+    border: 0;
+    padding: 6px 12px;
+    border-radius: 8px;
+    transition: background-color 200ms ease;
+    font-family: inherit;
+    letter-spacing: -0.01em;
+
+    span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    svg {
+      color: var(--mcm-text-faint);
+      flex-shrink: 0;
+      transition: color 200ms ease;
+    }
+
+    &:hover {
+      background: var(--mcm-surface-2);
+
+      svg {
+        color: var(--mcm-accent);
+      }
+    }
+  }
+
+  &__stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--mcm-text);
+    background: var(--mcm-surface-2);
+
+    &-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mcm-success);
+      animation: mcm-pulse 2s ease-in-out infinite;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 200ms ease, color 200ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__btn {
+    height: 34px;
+    border-radius: 9px;
+    padding: 0 14px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    letter-spacing: -0.005em;
+    transition:
+      background-color 200ms ease,
+      color 200ms ease,
+      box-shadow 200ms ease,
+      transform 100ms ease;
+
+    &:active {
+      transform: scale(0.97);
+    }
+
+    &--primary {
+      background: var(--mcm-success);
+      border: 0;
+      color: #fff;
+      box-shadow:
+        inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
+        0 1px 2px rgba(22, 163, 74, 0.25);
+
+      &:hover {
+        background: #15803d;
+      }
+    }
+
+    &--ghost {
+      background: transparent;
+      border: 0;
+      color: var(--mcm-text);
+
+      &:hover {
+        background: var(--mcm-surface-2);
+      }
+    }
+  }
+}
+
+@keyframes mcm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+}
+
+// =========================================================================
+// PARTICIPANTS BAR
+// =========================================================================
+.mcm-people-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: var(--mcm-sidebar-gutter);
+  height: 68px;
+  box-sizing: border-box;
+  padding: 12px 20px;
+  background: var(--mcm-surface);
+  border-top: 1px solid var(--mcm-hairline);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  z-index: 4;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+.mcm-person {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  background: transparent;
+  transition:
+    background-color 200ms ease,
+    transform 100ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+  }
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &--me {
+    background: var(--mcm-accent-soft);
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-accent) 20%, transparent);
+    }
+  }
+
+  &--speaking {
+    background: color-mix(in srgb, var(--mcm-success) 14%, transparent);
+  }
+
+  &__avatar {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    letter-spacing: 0.02em;
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 200ms ease;
+  }
+
+  &--speaking &__avatar {
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 0 0 2px var(--mcm-success),
+      0 0 0 4px color-mix(in srgb, var(--mcm-success) 24%, transparent),
+      0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  &__mic-off {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--mcm-danger);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+      0 0 0 1.5px var(--mcm-surface),
+      0 1px 2px rgba(220, 38, 38, 0.3);
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    white-space: nowrap;
+    letter-spacing: -0.005em;
+  }
+
+  &--me &__name {
+    color: var(--mcm-accent);
+    font-weight: 700;
+  }
+}
+
+// =========================================================================
+// SPEECH-TO-TEXT PANEL — floating solid card
+// =========================================================================
+.mcm-stt {
+  position: absolute;
+  left: 20px;
+  bottom: 88px;
+  width: 440px;
+  max-width: calc(100vw - 40px);
+  max-height: 320px;
+  border-radius: 14px;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  box-shadow: var(--mcm-elev);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 13px;
+  letter-spacing: -0.005em;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--mcm-hairline);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--mcm-text);
+    letter-spacing: -0.005em;
+
+    svg {
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--mcm-surface-2);
+    border: 0;
+    border-radius: 7px;
+    padding: 4px 22px 4px 10px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--mcm-text);
+    cursor: pointer;
+    background-image: linear-gradient(
+        45deg,
+        transparent 50%,
+        var(--mcm-text-soft) 50%
+      ),
+      linear-gradient(135deg, var(--mcm-text-soft) 50%, transparent 50%);
+    background-position:
+      calc(100% - 12px) 50%,
+      calc(100% - 8px) 50%;
+    background-size:
+      4px 4px,
+      4px 4px;
+    background-repeat: no-repeat;
+    transition: background-color 200ms ease;
+
+    &:hover {
+      background-color: var(--mcm-hairline-2);
+    }
+  }
+
+  &__hide {
+    background: transparent;
+    border: 0;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background-color 200ms ease, color 200ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__lines {
+    overflow-y: auto;
+    padding: 12px 16px 14px;
+    flex: 1;
+    min-height: 0;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline) transparent;
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--mcm-hairline);
+      border-radius: 4px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+  }
+
+  &__line {
+    margin-bottom: 14px;
+    line-height: 1.5;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      margin-bottom: 3px;
+      letter-spacing: 0;
+    }
+
+    &-at {
+      font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+      color: var(--mcm-text-faint);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    &-spk {
+      font-weight: 600;
+      color: var(--mcm-text);
+    }
+
+    &-orig {
+      color: var(--mcm-text);
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    &-trans {
+      color: color-mix(in srgb, var(--mcm-accent) 65%, var(--mcm-text) 35%);
+      font-size: 12.5px;
+      margin-top: 2px;
+    }
+  }
+
+  &__footer {
+    padding: 8px 16px;
+    border-top: 1px solid var(--mcm-hairline);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--mcm-success);
+    animation: mcm-pulse 2s ease-in-out infinite;
+  }
+
+  &__live-text {
+    color: var(--mcm-success);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+}
+
+.mcm-stt-show {
+  position: absolute;
+  left: 20px;
+  bottom: 88px;
+  z-index: 6;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mcm-text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: var(--mcm-elev);
+  transition: transform 100ms ease, box-shadow 200ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    color: var(--mcm-accent);
+  }
+}
+
+// =========================================================================
+// AI TOOLS PANEL — sidebar-embedded card
+// =========================================================================
+.mcm-ai-tools {
+  margin: 10px 10px 0;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 12px;
+  padding: 12px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+
+    &-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -0.005em;
+    }
+
+    &-beta {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--mcm-accent);
+      background: var(--mcm-accent-soft);
+      padding: 2px 7px;
+      border-radius: 999px;
+    }
+
+    &-close {
+      background: transparent;
+      border: 0;
+      color: var(--mcm-text-soft);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background-color 200ms ease, color 200ms ease;
+
+      &:hover {
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text);
+      }
+    }
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px;
+    border-radius: 9px;
+    cursor: pointer;
+    border: 0;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    color: var(--mcm-text);
+    font: inherit;
+    transition: background-color 200ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+
+    &-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    &-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &-name {
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: -0.005em;
+    }
+
+    &-desc {
+      font-size: 11px;
+      color: var(--mcm-text-soft);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+  }
+}
+
+// =========================================================================
+// MCM ASSISTANT WIDGET
+// =========================================================================
+.mcm-assistant {
+  margin: 10px;
+  width: calc(100% - 20px);
+  background: var(--mcm-success-soft);
+  border: 1px solid color-mix(in srgb, var(--mcm-success) 30%, transparent);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  transition: transform 100ms ease, box-shadow 200ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 4px 12px color-mix(in srgb, var(--mcm-success) 18%, transparent);
+  }
+
+  &__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #22c55e, #15803d);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+    box-shadow:
+      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 1px 2px rgba(22, 163, 74, 0.25);
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--mcm-text);
+    letter-spacing: -0.005em;
+  }
+
+  &__sub {
+    font-size: 11px;
+    color: var(--mcm-text-soft);
+    margin-top: 1px;
+  }
+
+  &__arrow {
+    color: var(--mcm-success);
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: transform 200ms ease, opacity 200ms ease;
+  }
+
+  &:hover &__arrow {
+    opacity: 1;
+    transform: translateX(2px);
+  }
+}
+
+// Dark-mode tweaks are no longer needed here — `.mcm-shell:has(.excalidraw.theme--dark)`
+// at the top of this file owns the full dark palette via CSS variables,
+// and every panel just consumes those vars.

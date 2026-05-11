@@ -1,4 +1,11 @@
-import { DefaultSidebar, Sidebar, THEME } from "@excalidraw/excalidraw";
+import { useEffect } from "react";
+
+import {
+  DefaultSidebar,
+  Sidebar,
+  THEME,
+  useExcalidrawAPI,
+} from "@excalidraw/excalidraw";
 import {
   messageCircleIcon,
   presentationIcon,
@@ -10,6 +17,11 @@ import { ChatView } from "./ChatPanel";
 import { MeetingLibrary } from "./MeetingLibrary";
 
 import "./AppSidebar.scss";
+
+/** During development we keep the sidebar pinned open on the meeting-library
+ *  tab so reviewers / testers don't have to keep re-opening it. Flip via an
+ *  env var if we want this off later. */
+const ALWAYS_SHOW_SIDEBAR = import.meta.env.DEV;
 
 const meetingLibraryIcon = (
   <svg
@@ -29,9 +41,34 @@ const meetingLibraryIcon = (
 
 export const AppSidebar = () => {
   const { theme, openSidebar } = useUIAppState();
+  const excalidrawAPI = useExcalidrawAPI();
+
+  useEffect(() => {
+    if (!ALWAYS_SHOW_SIDEBAR || !excalidrawAPI) {
+      return;
+    }
+    if (openSidebar) {
+      return;
+    }
+    // Sidebar is closed and we're in dev mode — force it back open on the
+    // chat tab. Re-runs whenever openSidebar becomes null, so closing it
+    // is essentially disabled in dev. We use updateScene + setTimeout
+    // instead of toggleSidebar to avoid racing Excalidraw's own state
+    // init (toggleSidebar silently no-ops if called too early).
+    const t = setTimeout(() => {
+      excalidrawAPI.updateScene({
+        appState: {
+          ...excalidrawAPI.getAppState(),
+          openSidebar: { name: "default", tab: "comments" },
+          defaultSidebarDockedPreference: true,
+        },
+      });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [excalidrawAPI, openSidebar]);
 
   return (
-    <DefaultSidebar>
+    <DefaultSidebar docked={ALWAYS_SHOW_SIDEBAR ? true : undefined}>
       <DefaultSidebar.TabTriggers>
         <Sidebar.TabTrigger
           tab="meeting-library"

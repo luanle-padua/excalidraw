@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { getFontString, sceneCoordsToViewportCoords } from "@excalidraw/common";
 
+import type { ExcalidrawTextElement } from "@excalidraw/element/types";
+
 import { useAtomValue } from "../app-jotai";
 import { meetingFilesAtom } from "../data/meetingLibrary";
 
 import "./MentionOverlay.scss";
-
-import type { ExcalidrawTextElement } from "@excalidraw/element/types";
 
 type Badge = {
   key: string;
