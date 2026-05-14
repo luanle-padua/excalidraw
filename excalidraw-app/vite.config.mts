@@ -33,6 +33,18 @@ export default defineConfig(({ mode }) => {
           ws: true,
           changeOrigin: true,
         },
+        "/turn-credentials": {
+          target: "http://localhost:3002",
+          changeOrigin: true,
+        },
+        "/translate": {
+          target: "http://localhost:3002",
+          changeOrigin: true,
+        },
+        "/chatbot": {
+          target: "http://localhost:3002",
+          changeOrigin: true,
+        },
       },
     },
     // We need to specify the envDir since now there are no

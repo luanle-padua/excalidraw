@@ -1,3 +1,4 @@
+import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingHeader } from "./MeetingHeader";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { VideoTilesStrip } from "./VideoTilesStrip";
@@ -22,6 +23,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => (
     <div className="mcm-shell__canvas-wrap">
       {children}
       <SpeechToTextPanel />
+      <MeetingCallControls />
       <VideoTilesStrip />
     </div>
   </div>

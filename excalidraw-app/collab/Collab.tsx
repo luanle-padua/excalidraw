@@ -96,6 +96,8 @@ import {
   upsertMeetingFile,
 } from "../data/meetingLibrary";
 
+import { fetchBatchTranslation } from "../data/translation";
+
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
 
@@ -110,13 +112,56 @@ export const collabAPIAtom = atom<CollabAPI | null>(null);
 export const isCollaboratingAtom = atom(false);
 export const isOfflineAtom = atom(false);
 
+/** Map of socketId → true for participants currently signaling "hand
+ *  raised". Sticky until that peer broadcasts a lower (or leaves). */
+export const raisedHandsAtom = atom<ReadonlyMap<string, true>>(new Map());
+
+/** Short-lived list of active reactions floating over avatars. Each
+ *  entry is removed after ~3.5s by the consumer that rendered it. */
+export type MeetingReactionEvent = {
+  id: string;
+  socketId: string;
+  emoji: string;
+  ts: number;
+};
+export const meetingReactionsAtom = atom<MeetingReactionEvent[]>([]);
+
+/** Quoted reference embedded on a chat message — the user replied to
+ *  the message identified by `id`. Snippet is the original text (first
+ *  few words), captured at reply-time so renaming the original later
+ *  still shows what was being replied to. */
+export type ChatReplyRef = {
+  id: string;
+  author: string;
+  snippet: string;
+};
+
 export type ChatMessage = {
   id: string;
   socketId: string;
   username: string;
   text: string;
   ts: number;
+  /** emoji → list of socketIds who reacted (deduped). Local atom only;
+   *  receivers update it via the CHAT_REACTION socket subtype. */
+  reactions?: Record<string, string[]>;
+  /** Set when this message is a reply to another. Renders as a quoted
+   *  snippet above the bubble; clicking it scrolls to the original. */
+  replyTo?: ChatReplyRef;
+  /** Translations to {vi, en, ko} pre-computed by the sender's client.
+   *  Receivers read translations[theirPreferredLang] directly — no
+   *  per-viewer /translate hit. Missing keys fall back to the legacy
+   *  /translate path inside `useTranslate`. */
+  translations?: Record<string, string>;
 };
+
+/** Sentinel sender identity for AI-generated replies in chat. Receivers
+ *  match on these to render bot bubbles in the AI-accent colour and
+ *  with the robot avatar. */
+export const BOT_SOCKET_ID = "__mcm_bot__";
+export const BOT_USERNAME = "MCM Bot";
+export const isBotMessage = (m: ChatMessage): boolean =>
+  m.socketId === BOT_SOCKET_ID || m.username === BOT_USERNAME;
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
@@ -145,10 +190,19 @@ export interface CollabAPI {
   getActiveRoomLink: CollabInstance["getActiveRoomLink"];
   setCollabError: CollabInstance["setErrorDialog"];
   sendChatMessage: CollabInstance["sendChatMessage"];
+  sendBotMessage: CollabInstance["sendBotMessage"];
+  toggleChatReaction: CollabInstance["toggleChatReaction"];
+  toggleRaiseHand: CollabInstance["toggleRaiseHand"];
+  isHandRaised: CollabInstance["isHandRaised"];
+  sendMeetingReaction: CollabInstance["sendMeetingReaction"];
+  removeMeetingReaction: CollabInstance["removeMeetingReaction"];
   publishLibraryFile: CollabInstance["publishLibraryFile"];
   publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
   publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
   linkTextToFile: CollabInstance["linkTextToFile"];
+  /** exposed for the WebRTC audio/video mesh — peers reuse this socket
+   *  to signal offer/answer/ICE without opening a second connection */
+  portal: Portal;
 }
 
 interface CollabProps {
@@ -265,10 +319,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       getActiveRoomLink: this.getActiveRoomLink,
       setCollabError: this.setErrorDialog,
       sendChatMessage: this.sendChatMessage,
+      sendBotMessage: this.sendBotMessage,
+      toggleChatReaction: this.toggleChatReaction,
+      toggleRaiseHand: this.toggleRaiseHand,
+      isHandRaised: this.isHandRaised,
+      sendMeetingReaction: this.sendMeetingReaction,
+      removeMeetingReaction: this.removeMeetingReaction,
       publishLibraryFile: this.publishLibraryFile,
       publishLibraryFileDelete: this.publishLibraryFileDelete,
       publishLibraryFileLock: this.publishLibraryFileLock,
       linkTextToFile: this.linkTextToFile,
+      portal: this.portal,
     };
 
     appJotaiStore.set(collabAPIAtom, collabAPI);
@@ -710,6 +771,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             break;
           }
 
+          case WS_SUBTYPES.CHAT_REACTION: {
+            this.applyChatReaction(decryptedData.payload);
+            break;
+          }
+
           case WS_SUBTYPES.LIBRARY_FILE: {
             this.applyRemoteLibraryFile(decryptedData.payload.file);
             break;
@@ -723,6 +789,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           case WS_SUBTYPES.LIBRARY_FILE_LOCK: {
             const { fileId, lockedBy } = decryptedData.payload;
             setMeetingFileLock(this.portal.roomId, fileId, lockedBy);
+            break;
+          }
+
+          case WS_SUBTYPES.RAISE_HAND: {
+            const { socketId, raised } = decryptedData.payload;
+            this.applyRaiseHand(socketId, raised);
+            break;
+          }
+
+          case WS_SUBTYPES.MEETING_REACTION: {
+            this.applyMeetingReaction(decryptedData.payload);
             break;
           }
 
@@ -942,6 +1019,28 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.collaborators = collaborators;
     this.excalidrawAPI.updateScene({ collaborators });
+
+    // Prune raised hands belonging to peers who left the room — they
+    // can't lower their own hand if they're already gone.
+    const currentHands = appJotaiStore.get(raisedHandsAtom);
+    if (currentHands.size > 0) {
+      const validIds = new Set<string>(sockets);
+      const me = this.portal.socket?.id;
+      if (me) {
+        validIds.add(me);
+      }
+      let changed = false;
+      const next = new Map(currentHands);
+      for (const id of next.keys()) {
+        if (!validIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        appJotaiStore.set(raisedHandsAtom, next);
+      }
+    }
   }
 
   updateCollaborator = (socketId: SocketId, updates: Partial<Collaborator>) => {
@@ -1064,27 +1163,232 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     appJotaiStore.set(chatMessagesAtom, [...current, msg]);
   };
 
-  sendChatMessage = (text: string) => {
+  /** Mutate an existing message in place (by id). Used to attach
+   *  translations to our own local echo once /translate-batch returns,
+   *  so the sender sees the translation row without an extra fetch. */
+  private updateChatMessage = (
+    id: string,
+    patch: Partial<ChatMessage>,
+  ) => {
+    const current = appJotaiStore.get(chatMessagesAtom) ?? [];
+    const next = current.map((m) => (m.id === id ? { ...m, ...patch } : m));
+    appJotaiStore.set(chatMessagesAtom, next);
+  };
+
+  /** Apply a reaction change (add / remove) coming from another peer
+   *  — or from our own toggleReaction below (since we go through the
+   *  same path so the local atom stays in sync without a separate echo). */
+  private applyChatReaction = (payload: {
+    messageId: string;
+    emoji: string;
+    reactor: string;
+    action: "add" | "remove";
+  }) => {
+    const current = appJotaiStore.get(chatMessagesAtom) ?? [];
+    const next = current.map((m) => {
+      if (m.id !== payload.messageId) {
+        return m;
+      }
+      const reactions = { ...(m.reactions ?? {}) };
+      const set = new Set(reactions[payload.emoji] ?? []);
+      if (payload.action === "add") {
+        set.add(payload.reactor);
+      } else {
+        set.delete(payload.reactor);
+      }
+      if (set.size === 0) {
+        delete reactions[payload.emoji];
+      } else {
+        reactions[payload.emoji] = Array.from(set);
+      }
+      return { ...m, reactions };
+    });
+    appJotaiStore.set(chatMessagesAtom, next);
+  };
+
+  private applyRaiseHand = (socketId: string, raised: boolean) => {
+    const current = appJotaiStore.get(raisedHandsAtom);
+    const has = current.has(socketId);
+    if (raised && has) {
+      return;
+    }
+    if (!raised && !has) {
+      return;
+    }
+    const next = new Map(current);
+    if (raised) {
+      next.set(socketId, true);
+    } else {
+      next.delete(socketId);
+    }
+    appJotaiStore.set(raisedHandsAtom, next);
+  };
+
+  /** Toggle our own raise-hand state and broadcast to peers. */
+  toggleRaiseHand = () => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const me = this.portal.socket.id;
+    const raised = !appJotaiStore.get(raisedHandsAtom).has(me);
+    this.applyRaiseHand(me, raised);
+    this.portal.broadcastRaiseHand(raised);
+  };
+
+  isHandRaised = (): boolean => {
+    const me = this.portal.socket?.id;
+    if (!me) {
+      return false;
+    }
+    return appJotaiStore.get(raisedHandsAtom).has(me);
+  };
+
+  private applyMeetingReaction = (payload: MeetingReactionEvent) => {
+    const current = appJotaiStore.get(meetingReactionsAtom);
+    // Keep the list bounded; if it ever grows huge under burst usage,
+    // drop the oldest. Consumers also self-expire after ~3.5s.
+    const next = [...current, payload].slice(-32);
+    appJotaiStore.set(meetingReactionsAtom, next);
+  };
+
+  /** Expire a reaction from the floating-reactions atom after its
+   *  animation finishes (the consumer schedules this with setTimeout). */
+  removeMeetingReaction = (id: string) => {
+    const current = appJotaiStore.get(meetingReactionsAtom);
+    const next = current.filter((r) => r.id !== id);
+    if (next.length !== current.length) {
+      appJotaiStore.set(meetingReactionsAtom, next);
+    }
+  };
+
+  /** Broadcast a one-shot emoji reaction. Also echoes locally so the
+   *  sender sees their own floating emoji animate over their avatar. */
+  sendMeetingReaction = (emoji: string) => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `r-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const payload: MeetingReactionEvent = {
+      id,
+      socketId: this.portal.socket.id,
+      emoji,
+      ts: Date.now(),
+    };
+    this.applyMeetingReaction(payload);
+    this.portal.broadcastMeetingReaction(emoji);
+  };
+
+  toggleChatReaction = (messageId: string, emoji: string) => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const me = this.portal.socket.id;
+    const messages = appJotaiStore.get(chatMessagesAtom) ?? [];
+    const target = messages.find((m) => m.id === messageId);
+    const alreadyReacted =
+      target?.reactions?.[emoji]?.includes(me) ?? false;
+    const action: "add" | "remove" = alreadyReacted ? "remove" : "add";
+    // Apply locally first for snappy UI.
+    this.applyChatReaction({
+      messageId,
+      emoji,
+      reactor: me,
+      action,
+    });
+    this.portal.broadcastChatReaction({
+      messageId,
+      emoji,
+      action,
+      reactorUsername: this.state.username || "Guest",
+    });
+  };
+
+  sendChatMessage = async (text: string, replyTo?: ChatReplyRef) => {
     const trimmed = text.trim();
     if (!trimmed || !this.portal.socket?.id) {
       return;
     }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const msg: ChatMessage = {
-      id:
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id,
       socketId: this.portal.socket.id,
       username: this.state.username || "Guest",
       text: trimmed,
       ts: Date.now(),
+      ...(replyTo ? { replyTo } : {}),
     };
-    // local echo so sender sees their own message immediately
+    // Local echo so sender sees their own message immediately; we
+    // patch translations onto it below once the batch fetch lands.
     this.appendChatMessage(msg);
+
+    // Best-effort: pre-translate the message into ALL three target
+    // languages with ONE Gemini call. Once we have translations,
+    // broadcast them along with the text so receivers never have to
+    // call /translate themselves. Fall back to broadcasting without
+    // translations on failure/timeout — receivers will use the legacy
+    // per-viewer /translate path.
+    const translations = await fetchBatchTranslation(trimmed);
+
+    if (translations) {
+      this.updateChatMessage(id, { translations });
+    }
+
     this.portal.broadcastChatMessage({
-      id: msg.id,
+      id,
       text: msg.text,
       ts: msg.ts,
+      replyTo,
+      ...(translations ? { translations } : {}),
+    });
+  };
+
+  /** Inject a message authored by the in-chat AI assistant. Broadcast
+   *  exactly like a regular chat message but with the bot's identity
+   *  overriding our own — every receiver sees it as "MCM Bot" rather
+   *  than the asker, so multiple users asking @bot doesn't create a
+   *  confusing "who is the bot" question. */
+  sendBotMessage = async (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || !this.portal.socket?.id) {
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const msg: ChatMessage = {
+      id,
+      socketId: BOT_SOCKET_ID,
+      username: BOT_USERNAME,
+      text: trimmed,
+      ts: Date.now(),
+    };
+    this.appendChatMessage(msg);
+
+    // Same pre-translate-at-send pattern as sendChatMessage: bot replies
+    // arrive in the asker's preferred language, so other viewers still
+    // need translations. One batch call serves all of them.
+    const translations = await fetchBatchTranslation(trimmed);
+
+    if (translations) {
+      this.updateChatMessage(id, { translations });
+    }
+
+    this.portal.broadcastChatMessage({
+      id,
+      text: msg.text,
+      ts: msg.ts,
+      senderOverride: {
+        socketId: BOT_SOCKET_ID,
+        username: BOT_USERNAME,
+      },
+      ...(translations ? { translations } : {}),
     });
   };
 

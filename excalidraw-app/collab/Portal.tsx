@@ -257,16 +257,50 @@ class Portal {
     id: string;
     text: string;
     ts: number;
+    /** override the sender identity — used for the in-chat AI bot
+     *  reply, which should appear as "MCM Bot" on every receiver
+     *  regardless of which client actually triggered the broadcast */
+    senderOverride?: { socketId: string; username: string };
+    /** quoted-reply pointer; passes through verbatim */
+    replyTo?: { id: string; author: string; snippet: string };
+    /** pre-computed translations attached at send-time (sender called
+     *  /translate-batch once for all targets) */
+    translations?: Record<string, string>;
   }) => {
     if (this.socket?.id) {
       const data: SocketUpdateDataSource["CHAT"] = {
         type: WS_SUBTYPES.CHAT,
         payload: {
           id: payload.id,
-          socketId: this.socket.id as SocketId,
-          username: this.collab.state.username,
+          socketId: (payload.senderOverride?.socketId ??
+            this.socket.id) as SocketId,
+          username:
+            payload.senderOverride?.username ?? this.collab.state.username,
           text: payload.text,
           ts: payload.ts,
+          ...(payload.replyTo ? { replyTo: payload.replyTo } : {}),
+          ...(payload.translations ? { translations: payload.translations } : {}),
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastChatReaction = (payload: {
+    messageId: string;
+    emoji: string;
+    action: "add" | "remove";
+    reactorUsername: string;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["CHAT_REACTION"] = {
+        type: WS_SUBTYPES.CHAT_REACTION,
+        payload: {
+          messageId: payload.messageId,
+          emoji: payload.emoji,
+          reactor: this.socket.id as SocketId,
+          reactorUsername: payload.reactorUsername,
+          action: payload.action,
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);
@@ -302,6 +336,40 @@ class Portal {
         payload: { fileId, lockedBy },
       };
       return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastRaiseHand = (raised: boolean) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["RAISE_HAND"] = {
+        type: WS_SUBTYPES.RAISE_HAND,
+        payload: {
+          socketId: this.socket.id as SocketId,
+          username: this.collab.state.username || "Guest",
+          raised,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  broadcastMeetingReaction = (emoji: string) => {
+    if (this.socket?.id) {
+      const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `r-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const data: SocketUpdateDataSource["MEETING_REACTION"] = {
+        type: WS_SUBTYPES.MEETING_REACTION,
+        payload: {
+          id,
+          socketId: this.socket.id as SocketId,
+          emoji,
+          ts: Date.now(),
+        },
+      };
+      // volatile=true: reactions are ephemeral; missing one doesn't matter
+      return this._broadcastSocketData(data as SocketUpdateData, true);
     }
   };
 }

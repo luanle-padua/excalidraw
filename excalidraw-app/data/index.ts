@@ -126,6 +126,34 @@ export type SocketUpdateDataSource = {
       username: string;
       text: string;
       ts: number;
+      /** Optional reply pointer — set when the user replied to another
+       *  message. Carries a frozen snippet so receivers can render the
+       *  quote without needing the original (which may not be in their
+       *  scrollback yet). */
+      replyTo?: {
+        id: string;
+        author: string;
+        snippet: string;
+      };
+      /** Pre-computed translations for vi/en/ko (or a subset). Sender's
+       *  client calls /translate-batch on send so the message arrives at
+       *  receivers with the translation already attached — eliminates
+       *  per-receiver translate calls. Missing keys fall back to the
+       *  legacy /translate path on the receiver. */
+      translations?: Record<string, string>;
+    };
+  };
+  CHAT_REACTION: {
+    type: WS_SUBTYPES.CHAT_REACTION;
+    payload: {
+      messageId: string;
+      emoji: string;
+      reactor: SocketId;
+      reactorUsername: string;
+      /** "add" appends the reactor to that emoji's set, "remove"
+       *  removes them — the same socketId can only be present once
+       *  per emoji */
+      action: "add" | "remove";
     };
   };
   LIBRARY_FILE: {
@@ -155,6 +183,23 @@ export type SocketUpdateDataSource = {
     payload: {
       fileId: string;
       lockedBy: string | null;
+    };
+  };
+  RAISE_HAND: {
+    type: WS_SUBTYPES.RAISE_HAND;
+    payload: {
+      socketId: SocketId;
+      username: string;
+      raised: boolean;
+    };
+  };
+  MEETING_REACTION: {
+    type: WS_SUBTYPES.MEETING_REACTION;
+    payload: {
+      id: string;
+      socketId: SocketId;
+      emoji: string;
+      ts: number;
     };
   };
 };

@@ -8097,6 +8097,10 @@ class App extends React.Component<AppProps, AppState> {
         pointerDownState.lastCoords.x,
         pointerDownState.lastCoords.y,
       );
+    } else if (this.state.activeTool.type === "revisionCloud") {
+      // Draw a temporary rectangle for the bounding box. The host
+      // post-processes it on pointer-up into a cloud + revision tag.
+      this.createGenericElementOnPointerDown("rectangle", pointerDownState);
     } else if (
       this.state.activeTool.type !== "eraser" &&
       this.state.activeTool.type !== "hand" &&

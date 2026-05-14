@@ -398,6 +398,26 @@ export const FreedrawIcon = createIcon(
   modifiedTablerIconProps,
 );
 
+// Revision cloud — scalloped closed curve with a small triangle revision tag
+// at the top-right, mirroring the architectural drawing convention.
+export const RevisionCloudIcon = createIcon(
+  <g strokeWidth="1.25" fill="none">
+    <path
+      d="M5.5 11.5
+         a2 2 0 0 1 .6-3.4
+         a2.4 2.4 0 0 1 4.2-1.6
+         a2.2 2.2 0 0 1 3.7 1.3
+         a2 2 0 0 1 1.5 3.7
+         a2.1 2.1 0 0 1 -1.3 3.4
+         a2.2 2.2 0 0 1 -3.4 1.4
+         a2.4 2.4 0 0 1 -4 -0.9
+         a2 2 0 0 1 -1.3 -3.9 z"
+    />
+    <path d="M14.5 4.3 l3.2 0 -1.6 2.7 z" />
+  </g>,
+  modifiedTablerIconProps,
+);
+
 // tabler-icons: typography
 export const TextIcon = createIcon(
   <g strokeWidth="1.5">

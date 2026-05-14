@@ -28,9 +28,18 @@ export enum WS_SUBTYPES {
   IDLE_STATUS = "IDLE_STATUS",
   USER_VISIBLE_SCENE_BOUNDS = "USER_VISIBLE_SCENE_BOUNDS",
   CHAT = "CHAT",
+  CHAT_REACTION = "CHAT_REACTION",
   LIBRARY_FILE = "LIBRARY_FILE",
   LIBRARY_FILE_DELETE = "LIBRARY_FILE_DELETE",
   LIBRARY_FILE_LOCK = "LIBRARY_FILE_LOCK",
+  /** Toggle for the "raise hand" indicator on a participant's avatar.
+   *  Sticky — receivers keep the badge until the sender broadcasts a
+   *  lower (raised: false). */
+  RAISE_HAND = "RAISE_HAND",
+  /** One-shot ephemeral emoji reaction (like Zoom's floating reactions).
+   *  Receivers animate the emoji over the sender's avatar for a few
+   *  seconds then drop it. */
+  MEETING_REACTION = "MEETING_REACTION",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

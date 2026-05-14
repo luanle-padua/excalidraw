@@ -101,6 +101,9 @@ import Collab, {
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { CanvasMention } from "./components/CanvasMention";
+import { RevisionCloudController } from "./components/mcm/RevisionCloudController";
+import { AudioRoomController } from "./audio/AudioRoomController";
+import { emitScenePointer } from "./components/mcm/revisionCloudGeometry";
 import { MentionOverlay } from "./components/MentionOverlay";
 import { MeetingShell } from "./components/mcm/MeetingShell";
 import { AppMainMenu } from "./components/AppMainMenu";
@@ -917,7 +920,10 @@ const ExcalidrawWrapper = () => {
           onExport={onExport}
           initialData={initialStatePromiseRef.current.promise}
           isCollaborating={isCollaborating}
-          onPointerUpdate={collabAPI?.onPointerUpdate}
+          onPointerUpdate={(payload) => {
+            collabAPI?.onPointerUpdate?.(payload);
+            emitScenePointer(payload.pointer.x, payload.pointer.y);
+          }}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -1277,6 +1283,8 @@ const ExcalidrawWrapper = () => {
         </Excalidraw>
         <MentionOverlay />
         <CanvasMention />
+        <RevisionCloudController />
+        <AudioRoomController />
       </div>
     </MeetingShell>
   );

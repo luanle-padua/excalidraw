@@ -11,6 +11,7 @@ import {
   TextIcon,
   ImageIcon,
   EraserIcon,
+  RevisionCloudIcon,
   laserPointerToolIcon,
   handIcon,
 } from "./icons";
@@ -103,6 +104,14 @@ export const SHAPES = [
     value: "eraser",
     key: KEYS.E,
     numericKey: KEYS["0"],
+    fillable: false,
+    toolbar: true,
+  },
+  {
+    icon: RevisionCloudIcon,
+    value: "revisionCloud",
+    key: KEYS.Q,
+    numericKey: null,
     fillable: false,
     toolbar: true,
   },

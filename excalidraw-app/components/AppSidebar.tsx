@@ -3,14 +3,9 @@ import { useEffect } from "react";
 import {
   DefaultSidebar,
   Sidebar,
-  THEME,
   useExcalidrawAPI,
 } from "@excalidraw/excalidraw";
-import {
-  messageCircleIcon,
-  presentationIcon,
-} from "@excalidraw/excalidraw/components/icons";
-import { LinkButton } from "@excalidraw/excalidraw/components/LinkButton";
+import { messageCircleIcon } from "@excalidraw/excalidraw/components/icons";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 
 import { ChatView } from "./ChatPanel";
@@ -18,10 +13,10 @@ import { MeetingLibrary } from "./MeetingLibrary";
 
 import "./AppSidebar.scss";
 
-/** During development we keep the sidebar pinned open on the meeting-library
- *  tab so reviewers / testers don't have to keep re-opening it. Flip via an
- *  env var if we want this off later. */
-const ALWAYS_SHOW_SIDEBAR = import.meta.env.DEV;
+/** Sidebar opens only when the user explicitly toggles it from the
+ *  top-right control. Earlier we pinned it open in dev for testing,
+ *  but that covered too much of the canvas during real meetings. */
+const ALWAYS_SHOW_SIDEBAR = false;
 
 const meetingLibraryIcon = (
   <svg
@@ -40,7 +35,7 @@ const meetingLibraryIcon = (
 );
 
 export const AppSidebar = () => {
-  const { theme, openSidebar } = useUIAppState();
+  const { openSidebar } = useUIAppState();
   const excalidrawAPI = useExcalidrawAPI();
 
   useEffect(() => {
@@ -84,42 +79,12 @@ export const AppSidebar = () => {
         >
           {messageCircleIcon}
         </Sidebar.TabTrigger>
-        <Sidebar.TabTrigger
-          tab="presentation"
-          style={{ opacity: openSidebar?.tab === "presentation" ? 1 : 0.4 }}
-        >
-          {presentationIcon}
-        </Sidebar.TabTrigger>
       </DefaultSidebar.TabTriggers>
       <Sidebar.Tab tab="meeting-library">
         <MeetingLibrary />
       </Sidebar.Tab>
       <Sidebar.Tab tab="comments">
         <ChatView />
-      </Sidebar.Tab>
-      <Sidebar.Tab tab="presentation" className="px-3">
-        <div className="app-sidebar-promo-container">
-          <div
-            className="app-sidebar-promo-image"
-            style={{
-              ["--image-source" as any]: `url(/oss_promo_presentations_${
-                theme === THEME.DARK ? "dark" : "light"
-              }.svg)`,
-              backgroundSize: "60%",
-              opacity: 0.4,
-            }}
-          />
-          <div className="app-sidebar-promo-text">
-            Create presentations with Excalidraw+
-          </div>
-          <LinkButton
-            href={`${
-              import.meta.env.VITE_APP_PLUS_LP
-            }/plus?utm_source=excalidraw&utm_medium=app&utm_content=presentations_promo#excalidraw-redirect`}
-          >
-            Sign up now
-          </LinkButton>
-        </div>
       </Sidebar.Tab>
     </DefaultSidebar>
   );

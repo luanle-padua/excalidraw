@@ -26,7 +26,10 @@ const TARGETS = [
 ];
 
 export const SpeechToTextPanel = () => {
-  const [open, setOpen] = useState(true);
+  // Start collapsed — the live transcript can be noisy and we don't
+  // want it covering the canvas on first load. User opens it via the
+  // floating "Live transcript" pill.
+  const [open, setOpen] = useState(false);
   const [target, setTarget] = useState("vi");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 

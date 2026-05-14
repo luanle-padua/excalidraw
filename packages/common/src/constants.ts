@@ -9,7 +9,7 @@ import { COLOR_PALETTE } from "./colors";
 export const supportsResizeObserver =
   typeof window !== "undefined" && "ResizeObserver" in window;
 
-export const APP_NAME = "Excalidraw";
+export const APP_NAME = "MAP CanvasMeet";
 
 // distance when creating text before it's considered `autoResize: false`
 // we're using higher threshold so that clicks that end up being drags
@@ -434,7 +434,9 @@ export const CANVAS_SEARCH_TAB = "search";
 
 export const DEFAULT_SIDEBAR = {
   name: "default",
-  defaultTab: LIBRARY_SIDEBAR_TAB,
+  // MAP CanvasMeet override: the sidebar toggle opens chat ("comments")
+  // first instead of the library, matching the meeting-first workflow.
+  defaultTab: "comments",
 } as const;
 
 export const LIBRARY_DISABLED_TYPES = new Set([
@@ -461,6 +463,7 @@ export const TOOL_TYPE = {
   magicframe: "magicframe",
   embeddable: "embeddable",
   laser: "laser",
+  revisionCloud: "revisionCloud",
 } as const;
 
 export const EDITOR_LS_KEYS = {
