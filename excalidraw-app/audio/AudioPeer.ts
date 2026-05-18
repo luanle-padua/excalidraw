@@ -4,7 +4,10 @@
 // without doing the work at every render.
 
 export type AudioPeerEvents = {
-  onSignal: (signal: { type: "offer" | "answer" | "ice"; data: unknown }) => void;
+  onSignal: (signal: {
+    type: "offer" | "answer" | "ice";
+    data: unknown;
+  }) => void;
   onSpeaking?: (speaking: boolean) => void;
   onClosed?: () => void;
   /** fires once the remote MediaStream arrives — used by the recorder
@@ -115,10 +118,7 @@ export class AudioPeer {
       const playPromise = this.audioEl.play();
       if (playPromise && typeof playPromise.catch === "function") {
         playPromise.catch((err) => {
-          console.warn(
-            `[audio] play() rejected for ${remoteSocketId}`,
-            err,
-          );
+          console.warn(`[audio] play() rejected for ${remoteSocketId}`, err);
         });
       }
       this.attachSpeakingAnalyser(stream);
@@ -239,10 +239,7 @@ export class AudioPeer {
         this.speaking = true;
         this.events.onSpeaking?.(true);
       }
-    } else if (
-      this.speaking &&
-      now - this.lastLoudAt > SPEAKING_RELEASE_MS
-    ) {
+    } else if (this.speaking && now - this.lastLoudAt > SPEAKING_RELEASE_MS) {
       this.speaking = false;
       this.events.onSpeaking?.(false);
     }

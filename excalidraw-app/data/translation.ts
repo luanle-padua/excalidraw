@@ -1,8 +1,10 @@
 // Translation utilities for the chat panel.
 //
-//   • `preferredLanguageAtom` — viewer's chosen UI language (vi / en / ko).
-//     Persisted to localStorage so refresh doesn't reset it. Default is
-//     guessed from `navigator.language` with vi as fallback.
+//   • `preferredLanguageAtom` — viewer's effective MCM language (vi / en / ko).
+//     DERIVED from Excalidraw's `appLangCodeAtom` so the language picker
+//     in the main menu is the single source of truth. Mapping:
+//        vi-VN → vi, ko-KR → ko, everything else → en.
+//     Add a key here when MCM dicts gain a new language (e.g. ja).
 //
 //   • `translationCacheAtom` — per-session in-memory cache of translated
 //     strings keyed by `${targetLang}:${textHash}`. Also mirrored to
@@ -17,6 +19,7 @@
 
 import { useEffect, useState } from "react";
 
+import { appLangCodeAtom } from "../app-language/language-state";
 import { atom, useAtomValue } from "../app-jotai";
 
 export type SupportedLanguage = "vi" | "en" | "ko";
@@ -31,43 +34,35 @@ export const SUPPORTED_LANGUAGES: Array<{
   { code: "ko", label: "Korean", nativeLabel: "한국어" },
 ];
 
-const isSupported = (code: string): code is SupportedLanguage =>
-  SUPPORTED_LANGUAGES.some((l) => l.code === code);
-
-const LANG_LS_KEY = "mcm:preferredLanguage";
 const TRANSLATION_LS_KEY = "mcm:chatTranslations";
 const TRANSLATION_CACHE_MAX = 500;
 
-const guessInitialLanguage = (): SupportedLanguage => {
-  if (typeof window === "undefined") {
-    return "vi";
-  }
-  try {
-    const stored = window.localStorage.getItem(LANG_LS_KEY);
-    if (stored && isSupported(stored)) {
-      return stored;
-    }
-  } catch {
-    // localStorage might be blocked — fall through to navigator
-  }
-  const nav = navigator.language?.slice(0, 2).toLowerCase() ?? "";
-  if (isSupported(nav)) {
-    return nav;
-  }
-  return "vi";
+// Map an Excalidraw editor language code (e.g. "vi-VN", "ko-KR",
+// "de-DE") down to one of the languages MCM chrome + Gemini chat
+// translation support. Extend this map as the MCM dicts gain new
+// languages — anything not listed falls back to English.
+const APP_LANG_TO_MCM_LANG: Record<string, SupportedLanguage> = {
+  "vi-VN": "vi",
+  "ko-KR": "ko",
+  en: "en",
 };
 
-export const preferredLanguageAtom = atom<SupportedLanguage>(
-  guessInitialLanguage(),
+const toMcmLang = (appLang: string): SupportedLanguage => {
+  if (APP_LANG_TO_MCM_LANG[appLang]) {
+    return APP_LANG_TO_MCM_LANG[appLang];
+  }
+  // Match by primary subtag too, in case Excalidraw ever introduces
+  // region variants we haven't pinned (e.g. "vi" without "-VN").
+  const primary = appLang.split("-")[0];
+  return APP_LANG_TO_MCM_LANG[primary] ?? "en";
+};
+
+// Read-only derived atom — the Excalidraw language picker in
+// AppMainMenu is the single source of truth, and it already
+// persists via i18next-browser-languagedetector.
+export const preferredLanguageAtom = atom<SupportedLanguage>((get) =>
+  toMcmLang(get(appLangCodeAtom)),
 );
-
-export const setPreferredLanguage = (lang: SupportedLanguage): void => {
-  try {
-    window.localStorage.setItem(LANG_LS_KEY, lang);
-  } catch {
-    // ignore — best-effort persistence
-  }
-};
 
 // ---------------------------------------------------------------------
 // Translation on/off toggle (driven by the AI Tools panel item). When

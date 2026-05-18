@@ -7,6 +7,11 @@
 # tunnel's log and copies it to the clipboard — no more squinting at
 # three terminal windows.
 #
+# Cloudflare's trycloudflare API can return 500s during short outages
+# (error code 1101). We retry the tunnel up to 3 times before giving
+# up + showing a clear "this is Cloudflare's problem, not yours"
+# message with ngrok as a fallback path.
+#
 # Usage from the repo root:
 #   .\meeting.ps1          # full demo: room + vite + HTTPS tunnel
 #   .\meeting.ps1 -Stop    # kill everything
@@ -114,6 +119,12 @@ if (Wait-Port 3001 120) {
 }
 
 # --- 6. cloudflared quick tunnel ---------------------------------------
+#
+# Cloudflare's trycloudflare.com endpoint can return 500/error-code-1101
+# during short outages (the response isn't JSON, cloudflared blows up
+# parsing it). We retry up to 3 times before giving up — most outages
+# clear in <30s. Each retry uses a fresh subprocess + fresh log so we
+# only "see" the URL from the successful attempt.
 
 if (-not (Test-Path $cf)) {
     Write-Host "ERROR: cloudflared.exe not found at $cf" -ForegroundColor Red
@@ -121,30 +132,60 @@ if (-not (Test-Path $cf)) {
     return
 }
 
-Write-Host "starting cloudflared quick tunnel (HTTPS)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList @(
-    "-NoExit",
-    "-Command",
-    "`$Host.UI.RawUI.WindowTitle = 'cloudflared'; & '$cf' tunnel --url http://localhost:3001 --no-autoupdate --protocol http2 2>&1 | Tee-Object -FilePath '$tunnelLog'"
-) | Out-Null
-
-# --- 7. capture the public URL from the tunnel's log -------------------
-
-Write-Host "waiting for tunnel URL " -NoNewline
-$tunnelURL = $null
-$tries = 0
-while ($tries -lt 60 -and -not $tunnelURL) {
-    Start-Sleep -Seconds 1
-    if (Test-Path $tunnelLog) {
-        $content = Get-Content $tunnelLog -Raw -ErrorAction SilentlyContinue
-        if ($content -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
-            $tunnelURL = $matches[0]
-        }
-    }
-    $tries++
-    Write-Host "." -NoNewline
+function Start-QuickTunnel($logPath) {
+    Start-Process powershell -ArgumentList @(
+        "-NoExit",
+        "-Command",
+        "`$Host.UI.RawUI.WindowTitle = 'cloudflared'; & '$cf' tunnel --url http://localhost:3001 --no-autoupdate --protocol http2 2>&1 | Tee-Object -FilePath '$logPath'"
+    ) | Out-Null
 }
-Write-Host ""
+
+function Wait-TunnelURL($logPath, $timeoutSec) {
+    $n = 0
+    while ($n -lt $timeoutSec) {
+        Start-Sleep -Seconds 1
+        if (Test-Path $logPath) {
+            $content = Get-Content $logPath -Raw -ErrorAction SilentlyContinue
+            if ($content -match 'https://[a-z0-9\-]+\.trycloudflare\.com') {
+                return $matches[0]
+            }
+            # Hard-fail markers: Cloudflare returned an error response we
+            # can't recover from on this attempt. Bail out early so the
+            # outer retry loop can spawn a new cloudflared process.
+            if ($content -match 'failed to unmarshal quick Tunnel' -or
+                $content -match 'error code: 1101') {
+                return "RETRY"
+            }
+        }
+        $n++
+        Write-Host "." -NoNewline
+    }
+    return $null
+}
+
+$tunnelURL = $null
+$maxAttempts = 3
+for ($attempt = 1; $attempt -le $maxAttempts -and -not $tunnelURL; $attempt++) {
+    if ($attempt -gt 1) {
+        Write-Host ""
+        Write-Host "cloudflared quick-tunnel API flaked (attempt $($attempt - 1)). Retrying..." -ForegroundColor Yellow
+        Get-Process cloudflared -ErrorAction SilentlyContinue | ForEach-Object {
+            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path $tunnelLog) { Remove-Item $tunnelLog -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Seconds 3
+    }
+
+    Write-Host "starting cloudflared quick tunnel (attempt $attempt/$maxAttempts)..." -ForegroundColor Cyan
+    Start-QuickTunnel $tunnelLog
+
+    Write-Host "waiting for tunnel URL " -NoNewline
+    $result = Wait-TunnelURL $tunnelLog 45
+    Write-Host ""
+    if ($result -and $result -ne "RETRY") {
+        $tunnelURL = $result
+    }
+}
 
 # --- 8. final summary --------------------------------------------------
 
@@ -174,8 +215,12 @@ if ($tunnelURL) {
     Write-Host "                 Share this with labmate / phone — HTTPS, collab works." -ForegroundColor DarkGray
 } else {
     Write-Host ""
-    Write-Host "  Tunnel URL not found within 60s." -ForegroundColor Red
-    Write-Host "  Check the 'cloudflared' window for the URL manually." -ForegroundColor DarkGray
+    Write-Host "  Cloudflare quick tunnel failed after $maxAttempts attempts." -ForegroundColor Red
+    Write-Host "  This is a transient outage on Cloudflare's side, not your config." -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  Try again in 1-2 minutes:  .\meeting.ps1" -ForegroundColor DarkGray
+    Write-Host "  Or fall back to ngrok:     ngrok http 3001  (separate terminal)" -ForegroundColor DarkGray
+    Write-Host "                             https://ngrok.com/download (free, more reliable)" -ForegroundColor DarkGray
 }
 
 Write-Host ""

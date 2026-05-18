@@ -32,57 +32,18 @@ import {
   useTranslate,
 } from "../data/translation";
 
-import { LanguagePicker } from "./LanguagePicker";
+import { useT } from "../i18n/mcm";
+
+import { pickEmojiFor, shortDisplayName } from "./mcm/animalEmoji";
 
 import "./ChatPanel.scss";
 
 import type { ChatMessage } from "../collab/Collab";
 import type { MeetingFile } from "../data/meetingLibrary";
-import type { SupportedLanguage } from "../data/translation";
 
-// -----------------------------------------------------------------------
-// Localised UI labels — single language per viewer (no bilingual wrap).
-// -----------------------------------------------------------------------
-const HEADER_LABEL: Record<SupportedLanguage, string> = {
-  vi: "Hội thoại",
-  en: "Conversation",
-  ko: "대화",
-};
-const EMPTY_TITLE: Record<SupportedLanguage, string> = {
-  vi: "Chưa có tin nhắn",
-  en: "No messages yet",
-  ko: "메시지 없음",
-};
-const EMPTY_SUBTITLE: Record<SupportedLanguage, string> = {
-  vi: "Gõ @ để mention file, @bot để hỏi AI",
-  en: "Type @ to mention a file, @bot to ask AI",
-  ko: "@로 파일 멘션, @bot으로 AI에게 질문",
-};
-const COMPOSE_PLACEHOLDER: Record<SupportedLanguage, string> = {
-  vi: "Nhập tin nhắn…",
-  en: "Type a message…",
-  ko: "메시지 입력…",
-};
-const SEND_LABEL: Record<SupportedLanguage, string> = {
-  vi: "Gửi",
-  en: "Send",
-  ko: "전송",
-};
-const TRANSLATING_LABEL: Record<SupportedLanguage, string> = {
-  vi: "Đang dịch…",
-  en: "Translating…",
-  ko: "번역 중…",
-};
-const TRANSLATE_TOGGLE_LABEL: Record<SupportedLanguage, string> = {
-  vi: "Tự động dịch",
-  en: "Auto-translate",
-  ko: "자동 번역",
-};
-const MENTION_TITLE = {
-  vi: "Bấm để cuộn tới file trên canvas",
-  en: "Click to scroll to file on canvas",
-  ko: "캔버스의 파일로 이동",
-};
+// Localised UI labels live in excalidraw-app/i18n/mcm/* now —
+// historical Record<SupportedLanguage, string> consts here have been
+// retired in favour of the centralised useT() hook.
 
 // Apple-style "tapback" emoji set — broad coverage with the most
 // useful expressions for design-review chat. Order matters: positive
@@ -144,16 +105,6 @@ const avatarGradient = (seed: string): string => {
   const [a, b] = AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
   return `linear-gradient(135deg,${a},${b})`;
 };
-const initials = (name: string): string =>
-  name
-    .replace(/\(.*?\)/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "?";
-
 const formatTime = (ts: number) => {
   const d = new Date(ts);
   return `${d.getHours().toString().padStart(2, "0")}:${d
@@ -263,28 +214,6 @@ const ReplyIcon = () => (
   </svg>
 );
 
-// Smiley with a tiny "+" — the canonical "add reaction" affordance
-// across Slack, Discord, Linear, and iMessage.
-const SmilePlusIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.7"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    width="15"
-    height="15"
-    aria-hidden="true"
-  >
-    <path d="M21 11.5A9 9 0 1 1 12.5 3" />
-    <path d="M19 4v5" />
-    <path d="M16.5 6.5h5" />
-    <path d="M8 14.5s1.4 1.8 4 1.8 4-1.8 4-1.8" />
-    <line x1="9" y1="10" x2="9.01" y2="10" />
-    <line x1="14.5" y1="10" x2="14.51" y2="10" />
-  </svg>
-);
 const EmptyChatIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -371,7 +300,7 @@ const MessageBubble = ({
   onReply: (msg: ChatMessage) => void;
   onJumpToMessage: (messageId: string) => void;
 }) => {
-  const lang = useAtomValue(preferredLanguageAtom);
+  const t = useT();
   // Pre-translated map shipped on the message (sender called
   // /translate-batch on send). When present, useTranslate returns
   // the matching entry with zero API hits.
@@ -454,7 +383,7 @@ const MessageBubble = ({
           type="button"
           className="ChatView__quote"
           onClick={() => onJumpToMessage(message.replyTo!.id)}
-          title="Cuộn đến tin nhắn gốc"
+          title={t("chat.replyJumpTitle")}
         >
           <span className="ChatView__quote-bar" aria-hidden="true" />
           <span className="ChatView__quote-body">
@@ -475,7 +404,7 @@ const MessageBubble = ({
               key={i}
               className="ChatView__mention"
               onClick={() => onMentionClick(p.fileId)}
-              title={MENTION_TITLE[lang]}
+              title={t("chat.mentionTitle")}
             >
               @{p.name}
             </span>
@@ -487,7 +416,7 @@ const MessageBubble = ({
 
       {!isSameLanguage && (
         <div className="ChatView__translation">
-          {loading ? TRANSLATING_LABEL[lang] : translated}
+          {loading ? t("chat.translating") : translated}
         </div>
       )}
 
@@ -504,7 +433,7 @@ const MessageBubble = ({
                   reacted ? " ChatView__reaction--mine" : ""
                 }`}
                 onClick={() => onReact(message.id, emoji)}
-                title={`${reactors.length} người`}
+                title={t("chat.reactionTooltip", { count: reactors.length })}
               >
                 <span className="ChatView__reaction-emoji">{emoji}</span>
                 <span className="ChatView__reaction-count">
@@ -520,7 +449,7 @@ const MessageBubble = ({
         <div
           className={`ChatView__react-popover ChatView__react-popover--${popoverSide}`}
           role="toolbar"
-          aria-label="Chọn cảm xúc"
+          aria-label={t("chat.reactPickerLabel")}
           onMouseEnter={openPicker}
           onMouseLeave={scheduleClose}
         >
@@ -543,8 +472,8 @@ const MessageBubble = ({
             type="button"
             className="ChatView__react-popover-action"
             onClick={() => onReply(message)}
-            title="Trả lời tin nhắn này"
-            aria-label="Trả lời"
+            title={t("chat.replyTitle")}
+            aria-label={t("chat.replyAriaLabel")}
           >
             <ReplyIcon />
           </button>
@@ -572,22 +501,18 @@ const GroupRow = ({
   onReply: (msg: ChatMessage) => void;
   onJumpToMessage: (messageId: string) => void;
 }) => {
-  const lang = useAtomValue(preferredLanguageAtom);
+  const t = useT();
   const displayName = group.isBot
     ? BOT_USERNAME
     : group.isMine
-    ? lang === "ko"
-      ? "나"
-      : lang === "en"
-      ? "You"
-      : "Bạn"
-    : group.username || "Guest";
+    ? t("chat.you")
+    : shortDisplayName(group.username) || t("participants.guest");
 
   return (
     <div
-      className={`ChatView__group${group.isMine ? " ChatView__group--mine" : ""}${
-        group.isBot ? " ChatView__group--bot" : ""
-      }`}
+      className={`ChatView__group${
+        group.isMine ? " ChatView__group--mine" : ""
+      }${group.isBot ? " ChatView__group--bot" : ""}`}
     >
       {group.isBot ? (
         <div
@@ -598,12 +523,12 @@ const GroupRow = ({
         </div>
       ) : (
         <div
-          className="ChatView__avatar"
+          className="ChatView__avatar ChatView__avatar--emoji"
           // eslint-disable-next-line react/forbid-dom-props
           style={{ background: avatarGradient(displayName) }}
           aria-hidden="true"
         >
-          {initials(displayName)}
+          {pickEmojiFor(group.socketId, group.username || displayName)}
         </div>
       )}
 
@@ -636,6 +561,7 @@ const GroupRow = ({
 // ChatView — the whole panel.
 // -----------------------------------------------------------------------
 export const ChatView = () => {
+  const t = useT();
   const messages = useAtomValue(chatMessagesAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const files = useAtomValue(meetingFilesAtom);
@@ -755,8 +681,8 @@ export const ChatView = () => {
       | React.MouseEvent<HTMLTextAreaElement>
       | React.KeyboardEvent<HTMLTextAreaElement>,
   ) => {
-    const t = e.currentTarget;
-    refreshMention(t.value, t.selectionStart ?? t.value.length);
+    const ta = e.currentTarget;
+    refreshMention(ta.value, ta.selectionStart ?? ta.value.length);
   };
 
   const insertMention = (file: MeetingFile) => {
@@ -883,15 +809,11 @@ export const ChatView = () => {
         throw new Error(`chatbot ${res.status}`);
       }
       const body = (await res.json()) as { answer?: string };
-      const answer =
-        body?.answer?.trim() ||
-        "Xin lỗi, mình chưa trả lời được. Thử lại sau nhé.";
+      const answer = body?.answer?.trim() || t("chat.botFallbackReply");
       collabAPI.sendBotMessage(answer);
     } catch (err) {
       console.warn("[@bot] failed", err);
-      collabAPI.sendBotMessage(
-        "Mình không thể trả lời lúc này (kết nối hoặc API có vấn đề).",
-      );
+      collabAPI.sendBotMessage(t("chat.botErrorReply"));
     } finally {
       setBotPending((prev) => prev.filter((id) => id !== placeholderId));
     }
@@ -939,7 +861,7 @@ export const ChatView = () => {
     const next = `${before}${prefix}@${after}`;
     setDraft(next);
     requestAnimationFrame(() => {
-      const pos = (before + prefix + "@").length;
+      const pos = `${before}${prefix}@`.length;
       ta.focus();
       ta.setSelectionRange(pos, pos);
       refreshMention(next, pos);
@@ -994,9 +916,7 @@ export const ChatView = () => {
       img.src = dataURL;
     });
 
-  const handleFileSelect = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fl = e.target.files;
     if (!fl || fl.length === 0 || !collabAPI) {
       return;
@@ -1005,7 +925,7 @@ export const ChatView = () => {
     const tokens: string[] = [];
     for (const f of Array.from(fl)) {
       if (!f.type.startsWith("image/")) {
-        window.alert(`Tạm thời chỉ hỗ trợ ảnh. Bỏ qua: ${f.name}`);
+        window.alert(t("chat.fileTypeWarning", { name: f.name }));
         continue;
       }
       try {
@@ -1050,9 +970,7 @@ export const ChatView = () => {
         fitToContent: true,
       });
     } else {
-      window.alert(
-        "File này chưa nằm trên canvas. Mở thư viện và bấm vào file đó để chèn lên trước.",
-      );
+      window.alert(t("chat.fileNotOnCanvas"));
     }
   };
 
@@ -1066,9 +984,7 @@ export const ChatView = () => {
     return (
       <div className="ChatView">
         <div className="ChatView__header">
-          <h2 className="ChatView__header-title">
-            {HEADER_LABEL[preferredLang]}
-          </h2>
+          <h2 className="ChatView__header-title">{t("chat.title")}</h2>
         </div>
         <div className="ChatView__messages">
           <div className="ChatView__empty">
@@ -1076,18 +992,10 @@ export const ChatView = () => {
               <EmptyChatIcon />
             </div>
             <div className="ChatView__empty-title">
-              {preferredLang === "ko"
-                ? "라이브 협업을 활성화하세요"
-                : preferredLang === "en"
-                ? "Start a live collaboration session"
-                : "Bật Live Collaboration để bắt đầu"}
+              {t("chat.empty.notInRoomTitle")}
             </div>
             <div className="ChatView__empty-subtitle">
-              {preferredLang === "ko"
-                ? "메시지는 룸 키로 종단간 암호화됩니다."
-                : preferredLang === "en"
-                ? "Messages are end-to-end encrypted with the room key."
-                : "Tin nhắn được mã hoá đầu cuối bằng key của phòng."}
+              {t("chat.empty.notInRoomSubtitle")}
             </div>
           </div>
         </div>
@@ -1098,15 +1006,9 @@ export const ChatView = () => {
   const stopCopyHijack = (e: React.ClipboardEvent) => e.stopPropagation();
 
   return (
-    <div
-      className="ChatView"
-      onCopy={stopCopyHijack}
-      onCut={stopCopyHijack}
-    >
+    <div className="ChatView" onCopy={stopCopyHijack} onCut={stopCopyHijack}>
       <div className="ChatView__header">
-        <h2 className="ChatView__header-title">
-          {HEADER_LABEL[preferredLang]}
-        </h2>
+        <h2 className="ChatView__header-title">{t("chat.title")}</h2>
         <div className="ChatView__header-controls">
           <button
             type="button"
@@ -1114,13 +1016,14 @@ export const ChatView = () => {
               translationEnabled ? " ChatView__translate-toggle--on" : ""
             }`}
             onClick={toggleTranslate}
-            title={`${TRANSLATE_TOGGLE_LABEL[preferredLang]} ${
-              translationEnabled ? "(on)" : "(off)"
-            }`}
+            title={
+              translationEnabled
+                ? t("chat.translateToggleOn")
+                : t("chat.translateToggleOff")
+            }
           >
             <TranslateIcon />
           </button>
-          <LanguagePicker />
         </div>
       </div>
 
@@ -1131,10 +1034,10 @@ export const ChatView = () => {
               <EmptyChatIcon />
             </div>
             <div className="ChatView__empty-title">
-              {EMPTY_TITLE[preferredLang]}
+              {t("chat.empty.noMessagesTitle")}
             </div>
             <div className="ChatView__empty-subtitle">
-              {EMPTY_SUBTITLE[preferredLang]}
+              {t("chat.empty.noMessagesSubtitle")}
             </div>
           </div>
         ) : (
@@ -1184,7 +1087,7 @@ export const ChatView = () => {
         {mention && pickerLength > 0 && (
           <div
             className="MentionPicker"
-            aria-label="Chọn file hoặc bot để mention"
+            aria-label={t("chat.mentionPickerLabel")}
           >
             {showBotOption && (
               <button
@@ -1200,9 +1103,9 @@ export const ChatView = () => {
                   🤖
                 </span>
                 <span className="MentionPicker__item-name">
-                  <strong>MCM Bot</strong>
+                  <strong>{t("chat.mentionBotName")}</strong>
                   <span className="MentionPicker__item-desc">
-                    Hỏi AI về thiết kế / dự án
+                    {t("chat.mentionBotDesc")}
                   </span>
                 </span>
               </button>
@@ -1214,9 +1117,7 @@ export const ChatView = () => {
                   type="button"
                   key={f.id}
                   className={`MentionPicker__item ${
-                    itemIndex === highlight
-                      ? "MentionPicker__item--active"
-                      : ""
+                    itemIndex === highlight ? "MentionPicker__item--active" : ""
                   }`}
                   onMouseEnter={() => setHighlight(itemIndex)}
                   onClick={() => insertMention(f)}
@@ -1240,8 +1141,8 @@ export const ChatView = () => {
           <div className="MentionPicker">
             <div className="MentionPicker__empty">
               {files.length === 0
-                ? "Chưa có file nào trong thư viện phòng."
-                : `Không có file nào khớp "${mention.query}"`}
+                ? t("chat.mentionNoFile")
+                : t("chat.mentionNoMatch", { query: mention.query })}
             </div>
           </div>
         )}
@@ -1252,8 +1153,8 @@ export const ChatView = () => {
             type="file"
             accept="image/*"
             multiple
-            aria-label="Đính kèm ảnh vào chat"
-            title="Đính kèm ảnh"
+            aria-label={t("chat.attachFileAria")}
+            title={t("chat.attach")}
             className="ChatView__file-input"
             onChange={handleFileSelect}
           />
@@ -1277,8 +1178,8 @@ export const ChatView = () => {
                   type="button"
                   className="ChatView__compose-reply-close"
                   onClick={cancelReply}
-                  aria-label="Huỷ trả lời"
-                  title="Huỷ trả lời"
+                  aria-label={t("chat.replyCancelAria")}
+                  title={t("chat.replyCancelAria")}
                 >
                   ×
                 </button>
@@ -1287,7 +1188,7 @@ export const ChatView = () => {
             <textarea
               ref={inputRef}
               className="ChatView__compose-input"
-              placeholder={COMPOSE_PLACEHOLDER[preferredLang]}
+              placeholder={t("chat.composePlaceholder")}
               value={draft}
               onChange={handleDraftChange}
               onClick={handleSelectionChange}
@@ -1302,8 +1203,8 @@ export const ChatView = () => {
                   emojiPickerOpen ? " ChatView__compose-icon-btn--on" : ""
                 }`}
                 onClick={() => setEmojiPickerOpen((v) => !v)}
-                title="Emoji"
-                aria-label="Emoji"
+                title={t("chat.emoji")}
+                aria-label={t("chat.emoji")}
               >
                 <SmileIcon />
               </button>
@@ -1311,8 +1212,8 @@ export const ChatView = () => {
                 type="button"
                 className="ChatView__compose-icon-btn"
                 onClick={triggerMentionPicker}
-                title="Mention file / bot"
-                aria-label="Mention"
+                title={t("chat.mention")}
+                aria-label={t("chat.mention")}
               >
                 <AtIcon />
               </button>
@@ -1320,8 +1221,8 @@ export const ChatView = () => {
                 type="button"
                 className="ChatView__compose-icon-btn"
                 onClick={() => fileInputRef.current?.click()}
-                title="Đính kèm ảnh"
-                aria-label="Attach"
+                title={t("chat.attach")}
+                aria-label={t("chat.attach")}
               >
                 <AttachIcon />
               </button>
@@ -1330,8 +1231,8 @@ export const ChatView = () => {
                 type="submit"
                 className="ChatView__compose-send"
                 disabled={!draft.trim()}
-                aria-label={SEND_LABEL[preferredLang]}
-                title={SEND_LABEL[preferredLang]}
+                aria-label={t("chat.sendLabel")}
+                title={t("chat.sendLabel")}
               >
                 <SendIcon />
               </button>

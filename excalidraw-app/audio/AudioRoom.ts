@@ -81,9 +81,9 @@ export class AudioRoom {
         video: false,
       });
       console.info(
-        `[audio] got local mic stream (tracks=${this.localStream
-          .getAudioTracks()
-          .length})`,
+        `[audio] got local mic stream (tracks=${
+          this.localStream.getAudioTracks().length
+        })`,
       );
     } catch (err) {
       // No microphone on this device → join as a listener. Anything
@@ -91,9 +91,7 @@ export class AudioRoom {
       // surface the error to the UI and bail out.
       const name = (err as Error)?.name;
       if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        console.info(
-          "[audio] no mic on this device — joining as listener",
-        );
+        console.info("[audio] no mic on this device — joining as listener");
         this.localStream = null;
       } else {
         this.active = false;
@@ -211,7 +209,9 @@ export class AudioRoom {
 
   private onRoomUserChange = (clients: string[]) => {
     console.info(
-      `[audio] room-user-change: [${clients.join(", ")}] (self=${this.socket.id})`,
+      `[audio] room-user-change: [${clients.join(", ")}] (self=${
+        this.socket.id
+      })`,
     );
     if (!this.active) {
       return;
@@ -230,9 +230,7 @@ export class AudioRoom {
         continue;
       }
       const shouldInitiate = Boolean(this.socket.id && this.socket.id < id);
-      console.info(
-        `[audio] ensurePeer ${id} (initiate=${shouldInitiate})`,
-      );
+      console.info(`[audio] ensurePeer ${id} (initiate=${shouldInitiate})`);
       void this.ensurePeer(id, shouldInitiate);
     }
   };
@@ -250,9 +248,7 @@ export class AudioRoom {
     // rejoins to silently produce no audio.
     if (signal.type === "offer") {
       if (this.peers.has(signal.from)) {
-        console.info(
-          `[audio] re-offer from ${signal.from} — recreating peer`,
-        );
+        console.info(`[audio] re-offer from ${signal.from} — recreating peer`);
         this.dropPeer(signal.from);
       }
       const peer = await this.ensurePeer(signal.from, /* initiate */ false);

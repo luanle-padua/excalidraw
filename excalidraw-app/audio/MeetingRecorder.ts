@@ -142,8 +142,7 @@ export class MeetingRecorder {
         return;
       }
       const finish = async () => {
-        const mimeType =
-          recorder.mimeType || pickMimeType() || "audio/webm";
+        const mimeType = recorder.mimeType || pickMimeType() || "audio/webm";
         const rawBlob = new Blob(this.chunks, { type: mimeType });
         const durationMs = performance.now() - this.startedAt;
         // Patch the WebM container so VLC / ffprobe / etc. can read

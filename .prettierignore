@@ -1,0 +1,40 @@
+# Build outputs / generated files — never edit by hand
+node_modules/
+dist/
+build/
+coverage/
+**/dist/
+**/build/
+*.tsbuildinfo
+*.timestamp-*.mjs
+
+# Lockfiles
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Agent + skill definitions vendored from upstream (not our source style)
+.claude/agents/
+.claude/skills/
+.claude/settings.local.json
+
+# Legacy docs — out of date with current Prettier config; reformatting
+# would churn unrelated history without changing any code behaviour
+dev-docs/
+docs/
+
+# WASM / vendor bindings — generated, hand-edited reformatting would
+# corrupt the binary handoff
+packages/excalidraw/subset/harfbuzz/harfbuzz-wasm.ts
+packages/excalidraw/subset/woff2/woff2-bindings.ts
+packages/excalidraw/subset/woff2/woff2-wasm.ts
+packages/excalidraw/polyfill.ts
+
+# Room server CI + ops manifests (not our source style)
+room/.github/
+room/dist/
+room/pm2.json
+room/pm2.production.json
+room/tsconfig.json
+room/README.md
+room/.eslintrc.json

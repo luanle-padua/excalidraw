@@ -19,22 +19,20 @@
   // `--text-primary-color`, …) because those are scoped to `.excalidraw`,
   // which is a DESCENDANT of this shell — variable lookup walks up the
   // DOM, not down. So the shell needs its own complete theme palette.
-  --mcm-bg:           #f5f5f7;
-  --mcm-text:         #1b1b1f;
-  --mcm-text-soft:    rgba(27, 27, 31, 0.6);
-  --mcm-text-faint:   rgba(27, 27, 31, 0.4);
-  --mcm-surface:      #ffffff;
-  --mcm-surface-2:    #f0f0f3;
-  --mcm-hairline:     rgba(0, 0, 0, 0.12);
-  --mcm-hairline-2:   rgba(0, 0, 0, 0.06);
-  --mcm-elev:
-    0 1px 2px rgba(0, 0, 0, 0.06),
-    0 12px 28px rgba(0, 0, 0, 0.12);
-  --mcm-accent:       #6965db;
-  --mcm-accent-soft:  rgba(105, 101, 219, 0.14);
-  --mcm-success:      #16a34a;
+  --mcm-bg: #f5f5f7;
+  --mcm-text: #1b1b1f;
+  --mcm-text-soft: rgba(27, 27, 31, 0.6);
+  --mcm-text-faint: rgba(27, 27, 31, 0.4);
+  --mcm-surface: #ffffff;
+  --mcm-surface-2: #f0f0f3;
+  --mcm-hairline: rgba(0, 0, 0, 0.12);
+  --mcm-hairline-2: rgba(0, 0, 0, 0.06);
+  --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 28px rgba(0, 0, 0, 0.12);
+  --mcm-accent: #6965db;
+  --mcm-accent-soft: rgba(105, 101, 219, 0.14);
+  --mcm-success: #16a34a;
   --mcm-success-soft: #ecfdf5;
-  --mcm-danger:       #dc2626;
+  --mcm-danger: #dc2626;
   // Width Excalidraw reserves for its docked right sidebar. We pin the
   // people bar to stop exactly at the sidebar's left edge — no visible
   // dark strip in between. Falls back to 302px (Excalidraw's default
@@ -46,20 +44,18 @@
   // `.theme--dark` class on its root element). `:has()` lets us
   // detect a descendant from the parent without JS.
   &:has(.excalidraw.theme--dark) {
-    --mcm-bg:           #121212;
-    --mcm-text:         #ebebef;
-    --mcm-text-soft:    rgba(235, 235, 239, 0.65);
-    --mcm-text-faint:   rgba(235, 235, 239, 0.4);
-    --mcm-surface:      #232329;
-    --mcm-surface-2:    #2c2c34;
-    --mcm-hairline:     rgba(255, 255, 255, 0.12);
-    --mcm-hairline-2:   rgba(255, 255, 255, 0.06);
-    --mcm-elev:
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 12px 28px rgba(0, 0, 0, 0.5);
-    --mcm-accent:       #a8a5ff;
-    --mcm-accent-soft:  rgba(168, 165, 255, 0.18);
-    --mcm-success:      #22c55e;
+    --mcm-bg: #121212;
+    --mcm-text: #ebebef;
+    --mcm-text-soft: rgba(235, 235, 239, 0.65);
+    --mcm-text-faint: rgba(235, 235, 239, 0.4);
+    --mcm-surface: #232329;
+    --mcm-surface-2: #2c2c34;
+    --mcm-hairline: rgba(255, 255, 255, 0.12);
+    --mcm-hairline-2: rgba(255, 255, 255, 0.06);
+    --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
+    --mcm-accent: #a8a5ff;
+    --mcm-accent-soft: rgba(168, 165, 255, 0.18);
+    --mcm-success: #22c55e;
     --mcm-success-soft: rgba(34, 197, 94, 0.12);
   }
 
@@ -68,15 +64,8 @@
   height: 100%;
   background: var(--mcm-bg);
   color: var(--mcm-text);
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "SF Pro Text",
-    "Helvetica Neue",
-    "Segoe UI",
-    Roboto,
-    "Assistant",
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", "Segoe UI", Roboto, "Assistant", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.005em;
@@ -105,6 +94,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
+
+  // Single source of truth for the bottom-floating UI layout.
+  // `--mcm-bar-height` matches `.mcm-people-bar`'s height.
+  // `--mcm-bar-clearance` is the bottom offset every floating
+  // widget (call-controls, stt-show pill, stt panel) anchors to —
+  // it sits 16px above the bar so avatars/labels never get
+  // clipped or grazed, no matter how many participants are in.
+  --mcm-bar-height: 100px;
+  --mcm-bar-clearance: calc(var(--mcm-bar-height) + 16px);
 
   > .excalidraw-app {
     flex: 1;
@@ -137,8 +135,7 @@
       height: 30px;
       border-radius: 9px;
       background: linear-gradient(135deg, #6e6ae3, #4f46d6);
-      box-shadow:
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
         0 1px 2px rgba(79, 70, 214, 0.25);
       display: flex;
       align-items: center;
@@ -270,11 +267,8 @@
     align-items: center;
     gap: 6px;
     letter-spacing: -0.005em;
-    transition:
-      background-color 200ms ease,
-      color 200ms ease,
-      box-shadow 200ms ease,
-      transform 100ms ease;
+    transition: background-color 200ms ease, color 200ms ease,
+      box-shadow 200ms ease, transform 100ms ease;
 
     &:active {
       transform: scale(0.97);
@@ -284,8 +278,7 @@
       background: var(--mcm-success);
       border: 0;
       color: #fff;
-      box-shadow:
-        inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
+      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
         0 1px 2px rgba(22, 163, 74, 0.25);
 
       &:hover {
@@ -322,7 +315,7 @@
 // =========================================================================
 .mcm-call-controls {
   position: absolute;
-  bottom: 84px;
+  bottom: var(--mcm-bar-clearance);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -473,8 +466,13 @@
 }
 
 @keyframes mcm-rec-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 // =========================================================================
@@ -485,8 +483,7 @@
   &.mcm-call-controls__btn--raised {
     background: color-mix(in srgb, #f59e0b 18%, var(--mcm-surface));
     color: #b45309;
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, #f59e0b 45%, transparent),
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 45%, transparent),
       0 0 0 0 transparent;
 
     .mcm-call-controls__raise-emoji {
@@ -502,11 +499,22 @@
 }
 
 @keyframes mcm-raise-wave {
-  0%, 100% { transform: rotate(0deg); }
-  20% { transform: rotate(-14deg); }
-  40% { transform: rotate(12deg); }
-  60% { transform: rotate(-8deg); }
-  80% { transform: rotate(6deg); }
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-14deg);
+  }
+  40% {
+    transform: rotate(12deg);
+  }
+  60% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(6deg);
+  }
 }
 
 // Wrapper so the popover anchors above the Reactions button.
@@ -532,9 +540,7 @@
   background: var(--mcm-surface);
   border: 1px solid var(--mcm-hairline);
   border-radius: 16px;
-  box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.2);
   z-index: 8;
   animation: mcm-react-pop 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
@@ -552,9 +558,7 @@
   line-height: 1;
   cursor: pointer;
   border-radius: 50%;
-  transition:
-    background-color 120ms ease,
-    transform 120ms ease;
+  transition: background-color 120ms ease, transform 120ms ease;
 
   &:hover {
     background: var(--mcm-surface-2);
@@ -577,10 +581,11 @@
   }
 }
 
-// playback strip sits right under the call controls
+// playback strip stacks ABOVE the call controls (anchor + ~56px gap
+// for one pill row's worth of clearance).
 .mcm-call-playback {
   position: absolute;
-  bottom: 140px;
+  bottom: calc(var(--mcm-bar-clearance) + 56px);
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
@@ -648,7 +653,13 @@
   bottom: 0;
   left: 0;
   right: var(--mcm-sidebar-gutter);
-  height: 52px;
+  // 2-row layout: 60px avatar on top + ~14px name row underneath +
+  // 12px padding around. Bar is transparent so the canvas is still
+  // usable behind the empty regions.
+  // Height is mirrored by `--mcm-bar-height` on .mcm-shell__canvas-wrap
+  // so the floating widgets above can clear it deterministically —
+  // keep the two in sync when adjusting.
+  height: var(--mcm-bar-height, 100px);
   box-sizing: border-box;
   padding: 0 16px;
   // No background — the chips/avatars float over the canvas. Each
@@ -723,9 +734,9 @@
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     overflow-x: auto;
-    padding: 4px 8px 4px 0;
+    padding: 6px 8px 6px 0;
 
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;
@@ -754,27 +765,30 @@
 
 .mcm-person {
   flex-shrink: 0;
+  // Vertical stack now — avatar on top, short name underneath. The
+  // big 60px avatar carries the visual weight; the name underneath
+  // is small text just for ID. Pill rounds the whole stack so
+  // hover / me / speaker accents wrap both the face and the name.
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0;
+  gap: 4px;
   cursor: pointer;
-  padding: 3px;
-  border-radius: 999px;
+  padding: 5px 8px 6px;
+  border-radius: 14px;
   background: transparent;
-  transition:
-    background-color 180ms ease,
-    gap 200ms ease,
-    padding-right 200ms ease;
+  transition: background-color 180ms ease, transform 180ms ease;
+  max-width: 88px;
 
   &:hover {
     background: var(--mcm-surface-2);
+    transform: translateY(-1px);
   }
 
-  // Anyone whose name is being shown (me + current speaker) gets the
-  // pill expanded with the name to the right of the avatar.
+  // Legacy modifier — kept for backwards compat with old templates
+  // but now a no-op because names are always shown.
   &--named {
-    gap: 8px;
-    padding-right: 12px;
+    /* no-op */
   }
 
   &--me {
@@ -802,29 +816,39 @@
 
   &__avatar {
     position: relative;
-    width: 32px;
-    height: 32px;
+    // Bumped ~2x from 32px so the emoji face reads as a real
+    // character, not a button. Bar height was raised to 80px to
+    // accommodate; canvas loses ~28px but the cuteness is worth it.
+    width: 60px;
+    height: 60px;
     border-radius: 50%;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 600;
     text-transform: uppercase;
     flex-shrink: 0;
     letter-spacing: 0.02em;
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
-      0 1px 2px rgba(0, 0, 0, 0.08);
-    transition: box-shadow 200ms ease, transform 220ms ease,
-      opacity 200ms ease;
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.12);
+    transition: box-shadow 200ms ease, transform 220ms ease, opacity 200ms ease;
+  }
+
+  // Emoji face takes the full circle area — sized to read clearly
+  // at the larger 60px container. Subtle drop-shadow keeps it
+  // legible on any gradient background.
+  &__avatar-emoji {
+    font-size: 40px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
+    letter-spacing: 0;
   }
 
   &--speaking &__avatar {
     transform: scale(1.06);
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
       0 0 0 2px var(--mcm-success),
       0 0 0 4px color-mix(in srgb, var(--mcm-success) 22%, transparent),
       0 1px 2px rgba(0, 0, 0, 0.1);
@@ -834,60 +858,61 @@
   // Replaces the previous "everyone shows mic-off" approach: if mic
   // is on, this dot signals presence-in-call without competing with
   // the avatar gradient.
+  // Scaled up for the 60px avatar — original 10/13/18px were sized
+  // for a 32px chip. Same proportional ratios, just bigger.
   &__live-dot {
     position: absolute;
-    bottom: -1px;
-    right: -1px;
-    width: 10px;
-    height: 10px;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     background: var(--mcm-success);
-    box-shadow: 0 0 0 2px var(--mcm-surface);
+    box-shadow: 0 0 0 2.5px var(--mcm-surface);
   }
 
   &__mic-off {
     position: absolute;
-    bottom: -1px;
-    right: -1px;
-    width: 13px;
-    height: 13px;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     background: var(--mcm-danger);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow:
-      0 0 0 1.5px var(--mcm-surface),
-      0 1px 2px rgba(220, 38, 38, 0.3);
+    box-shadow: 0 0 0 2px var(--mcm-surface), 0 1px 3px rgba(220, 38, 38, 0.35);
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
   }
 
   // Top-right ✋ chip — sticky, broadcast over WS_SUBTYPES.RAISE_HAND.
   // Slight bounce on enter so the eye catches the change.
   &__raise-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
-    width: 18px;
-    height: 18px;
+    top: -4px;
+    right: -4px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     background: #fff7ed;
     color: #b45309;
-    font-size: 12px;
+    font-size: 16px;
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow:
-      0 0 0 1.5px var(--mcm-surface),
-      0 2px 4px rgba(245, 158, 11, 0.35);
+    box-shadow: 0 0 0 2px var(--mcm-surface), 0 2px 5px rgba(245, 158, 11, 0.4);
     animation: mcm-raise-pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
   }
 
   &--raised &__avatar {
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
-      0 0 0 2px #f59e0b,
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px #f59e0b,
       0 0 0 4px color-mix(in srgb, #f59e0b 24%, transparent),
       0 1px 2px rgba(0, 0, 0, 0.1);
   }
@@ -896,18 +921,20 @@
   // got clipped by the participants list's overflow scroll. They now
   // render via a portal to <body> (see .mcm-reactions-layer below).
 
-  // Name fades in (and the pill expands via the parent &--named gap
-  // animation) so the strip stays compact for non-speakers.
+  // Short name underneath the avatar — small, centred, single
+  // line with ellipsis. Width matches the parent pill so very
+  // long names get clipped cleanly rather than blowing out the row.
   &__name {
-    max-width: 140px;
+    max-width: 78px;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 12.5px;
+    text-align: center;
+    font-size: 11.5px;
     font-weight: 600;
     color: var(--mcm-text);
     white-space: nowrap;
     letter-spacing: -0.005em;
-    animation: mcm-person-name-in 180ms ease both;
+    line-height: 1.25;
   }
 
   &--me &__name {
@@ -1014,10 +1041,19 @@
 .mcm-stt {
   position: absolute;
   left: 20px;
-  bottom: 88px;
-  width: 440px;
-  max-width: calc(100vw - 40px);
-  max-height: 320px;
+  bottom: var(--mcm-bar-clearance);
+  // Initial size — user resizes via the custom corner handle below.
+  // Same min/max bounds are enforced in JS (SIZE_MIN_*, SIZE_MAX_W_CAP).
+  // Native `resize: both` is intentionally NOT used: it computes new
+  // height from `mouseY - offsetTop`, which inverts (or runs away)
+  // when the element is bottom-anchored. The JS handle owns the math.
+  width: 460px;
+  height: 380px;
+  min-width: 320px;
+  min-height: 220px;
+  max-width: min(900px, calc(100vw - 40px));
+  max-height: calc(100vh - 180px);
+  overflow: hidden;
   border-radius: 14px;
   background: var(--mcm-surface);
   border: 1px solid var(--mcm-hairline);
@@ -1025,32 +1061,116 @@
   z-index: 6;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   font-size: 13px;
   letter-spacing: -0.005em;
 
+  // Header row 1 — title + status + close. Always single-line.
+  // Also serves as the drag handle for the whole panel: the pointer
+  // handlers live on this element so the user can grab anywhere on
+  // the title row (avoiding buttons). Double-click resets position.
   &__header {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--mcm-hairline);
+    padding: 12px 14px 10px;
     flex-shrink: 0;
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    // Disable browser default touch-pan so finger drag actually moves
+    // the panel instead of scrolling the page.
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    // Buttons inside the header (close ×, future toggles) override
+    // the grab cursor — they're click targets, not drag handles.
+    button {
+      cursor: pointer;
+    }
   }
 
   &__title {
     flex: 1;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-weight: 600;
-    font-size: 13px;
+    font-weight: 700;
+    font-size: 14px;
     color: var(--mcm-text);
-    letter-spacing: -0.005em;
+    letter-spacing: -0.015em;
+    min-width: 0;
+
+    > span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     svg {
       color: var(--mcm-accent);
+      flex-shrink: 0;
     }
+  }
+
+  // LIVE / TEST / PAUSED / ERROR pill — single source of truth for
+  // the panel's state. Replaces the previous footer indicator.
+  &__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+
+    &--live {
+      background: color-mix(in srgb, var(--mcm-success) 16%, transparent);
+      color: var(--mcm-success);
+    }
+    &--test {
+      background: color-mix(in srgb, var(--mcm-accent) 16%, transparent);
+      color: var(--mcm-accent);
+    }
+    &--paused {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text-soft);
+    }
+    &--error {
+      background: color-mix(in srgb, var(--mcm-danger) 16%, transparent);
+      color: var(--mcm-danger);
+    }
+  }
+
+  &__status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: mcm-pulse 1.6s ease-in-out infinite;
+  }
+
+  // Header row 2 — controls. Smaller pill-style buttons. Wraps on
+  // narrow widths (e.g. < 380px) without breaking the layout.
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px 12px;
+    border-bottom: 1px solid var(--mcm-hairline);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  &__controls-spacer {
+    flex: 1;
+    min-width: 4px;
   }
 
   &__select {
@@ -1070,12 +1190,8 @@
         var(--mcm-text-soft) 50%
       ),
       linear-gradient(135deg, var(--mcm-text-soft) 50%, transparent 50%);
-    background-position:
-      calc(100% - 12px) 50%,
-      calc(100% - 8px) 50%;
-    background-size:
-      4px 4px,
-      4px 4px;
+    background-position: calc(100% - 12px) 50%, calc(100% - 8px) 50%;
+    background-size: 4px 4px, 4px 4px;
     background-repeat: no-repeat;
     transition: background-color 200ms ease;
 
@@ -1084,17 +1200,23 @@
     }
   }
 
+  // Close button — × icon, sits at the far right of the header row.
   &__hide {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: 0;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    padding: 4px 10px;
-    border-radius: 7px;
+    border-radius: 50%;
     font: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    transition: background-color 200ms ease, color 200ms ease;
+    font-size: 22px;
+    line-height: 1;
+    transition: background-color 160ms ease, color 160ms ease;
+    flex-shrink: 0;
 
     &:hover {
       background: var(--mcm-surface-2);
@@ -1102,14 +1224,124 @@
     }
   }
 
+  // Toggle pill with leading icon — neutral by default, success-tinted
+  // when ON. Used for STT + Dịch.
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--mcm-surface-2);
+    border: 0;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    transition: background-color 160ms ease, color 160ms ease;
+
+    svg {
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--mcm-hairline-2);
+      color: var(--mcm-text);
+    }
+
+    &--on {
+      background: color-mix(in srgb, var(--mcm-success) 16%, transparent);
+      color: var(--mcm-success);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-success) 24%, transparent);
+      }
+    }
+
+    // Translate toggle uses accent (purple) tint when on so it
+    // doesn't look identical to the STT toggle next to it.
+    &--translate.mcm-stt__toggle--on {
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-accent) 22%, transparent);
+      }
+    }
+  }
+
+  // Test-file affordance — outlined ghost button with leading upload
+  // icon. Sits at the far right of the controls row (after spacer).
+  &__test {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    border: 1px dashed var(--mcm-hairline);
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    transition: background-color 160ms ease, color 160ms ease,
+      border-color 160ms ease;
+
+    svg {
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      border-color: var(--mcm-text-soft);
+      color: var(--mcm-text);
+    }
+  }
+
+  // Hidden native file input — the visible trigger is __test.
+  &__file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // Empty state — centred hint when no transcripts yet.
+  &__empty {
+    color: var(--mcm-text-faint);
+    font-size: 12.5px;
+    text-align: center;
+    padding: 20px 12px;
+  }
+
+  // Surface error message in the footer in red.
+  &__err {
+    color: var(--mcm-danger);
+    font-size: 11.5px;
+    font-weight: 500;
+  }
+
   &__lines {
     overflow-y: auto;
-    padding: 12px 16px 14px;
+    padding: 14px 16px 16px;
     flex: 1;
     min-height: 0;
 
     scrollbar-width: thin;
-    scrollbar-color: var(--mcm-hairline) transparent;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 200ms;
+
+    &:hover {
+      scrollbar-color: var(--mcm-hairline) transparent;
+    }
     &::-webkit-scrollbar {
       width: 8px;
     }
@@ -1117,63 +1349,109 @@
       background: transparent;
     }
     &::-webkit-scrollbar-thumb {
-      background: var(--mcm-hairline);
+      background: transparent;
       border-radius: 4px;
       border: 2px solid transparent;
+      background-clip: content-box;
+      transition: background-color 200ms;
+    }
+    &:hover::-webkit-scrollbar-thumb {
+      background: var(--mcm-hairline);
       background-clip: content-box;
     }
   }
 
   &__line {
-    margin-bottom: 14px;
+    margin-bottom: 12px;
     line-height: 1.5;
 
     &:last-child {
       margin-bottom: 0;
     }
 
+    // Interim hypothesis — italic + muted so the eye reads it as
+    // "still being written" vs. a finalised segment.
+    &--interim {
+      opacity: 0.65;
+
+      .mcm-stt__line-orig {
+        font-style: italic;
+        font-weight: 400;
+      }
+    }
+
     &-head {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 8px;
       font-size: 11px;
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       letter-spacing: 0;
     }
 
     &-at {
       font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
       color: var(--mcm-text-faint);
-      font-size: 11px;
+      font-size: 10.5px;
       font-variant-numeric: tabular-nums;
     }
 
+    &-emoji {
+      font-size: 14px;
+      line-height: 1;
+      filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
+      margin-right: -2px;
+    }
+
     &-spk {
-      font-weight: 600;
-      color: var(--mcm-text);
+      font-weight: 700;
+      letter-spacing: -0.005em;
+      font-size: 12px;
+    }
+
+    // Per-segment detected language chip (e.g. "ko", "vi"). Helps
+    // when room is mixed-language and you want to know what
+    // Deepgram thought it was hearing.
+    &-lang {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--mcm-text-faint);
+      background: var(--mcm-surface-2);
+      padding: 1px 5px;
+      border-radius: 4px;
     }
 
     &-orig {
       color: var(--mcm-text);
       font-size: 13.5px;
       font-weight: 500;
+      word-wrap: break-word;
     }
 
+    // Translation row — italic editorial annotation, mirrors the
+    // chat translation style (em-dash + muted accent colour).
     &-trans {
       color: color-mix(in srgb, var(--mcm-accent) 65%, var(--mcm-text) 35%);
       font-size: 12.5px;
-      margin-top: 2px;
+      font-style: italic;
+      margin-top: 3px;
+      line-height: 1.45;
+      word-wrap: break-word;
     }
   }
 
+  // Footer surfaces ONLY when there's an error to show.
   &__footer {
-    padding: 8px 16px;
+    padding: 8px 16px 10px;
     border-top: 1px solid var(--mcm-hairline);
-    font-size: 11px;
+    font-size: 11.5px;
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+    background: color-mix(in srgb, var(--mcm-danger) 6%, transparent);
   }
 
   &__live-dot {
@@ -1191,12 +1469,49 @@
     font-size: 10px;
     text-transform: uppercase;
   }
+
+  // Custom resize handle — bottom-right corner. The native browser
+  // handle would also live here, but `resize:both` is intentionally
+  // off (see comment at the top of .mcm-stt). The two diagonal lines
+  // mimic the standard OS handle so the affordance is recognisable.
+  &__resize-handle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    cursor: nwse-resize;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    z-index: 1;
+    // Subtle two-stripe corner glyph drawn in a single background-image
+    // so we don't need extra DOM. Stripe colour adapts to theme via
+    // the soft-text token.
+    background-image: linear-gradient(
+      135deg,
+      transparent 0 9px,
+      var(--mcm-text-soft) 9px 10px,
+      transparent 10px 13px,
+      var(--mcm-text-soft) 13px 14px,
+      transparent 14px
+    );
+    background-repeat: no-repeat;
+    background-position: bottom right;
+    opacity: 0.55;
+    transition: opacity 120ms;
+
+    &:hover,
+    &:active {
+      opacity: 1;
+    }
+  }
 }
 
 .mcm-stt-show {
   position: absolute;
   left: 20px;
-  bottom: 88px;
+  bottom: var(--mcm-bar-clearance);
   z-index: 6;
   background: var(--mcm-surface);
   border: 1px solid var(--mcm-hairline);
@@ -1224,6 +1539,21 @@
   svg {
     color: var(--mcm-accent);
   }
+
+  // Small numeric badge appended when a transcript log already
+  // exists — signals "there's content waiting" without forcing
+  // the panel open.
+  &__count {
+    margin-left: 4px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--mcm-accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 // =========================================================================
@@ -1246,8 +1576,8 @@
 
   &:hover {
     transform: translateY(-1px);
-    box-shadow:
-      0 4px 12px color-mix(in srgb, var(--mcm-success) 18%, transparent);
+    box-shadow: 0 4px 12px
+      color-mix(in srgb, var(--mcm-success) 18%, transparent);
   }
 
   &__avatar {
@@ -1261,8 +1591,7 @@
     justify-content: center;
     font-weight: 700;
     flex-shrink: 0;
-    box-shadow:
-      inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
       0 1px 2px rgba(22, 163, 74, 0.25);
   }
 
@@ -1300,3 +1629,562 @@
 // Dark-mode tweaks are no longer needed here — `.mcm-shell:has(.excalidraw.theme--dark)`
 // at the top of this file owns the full dark palette via CSS variables,
 // and every panel just consumes those vars.
+
+// =========================================================================
+// HEADER BUTTON COUNT BADGE — used by the "Biên bản" button so the user
+// sees at a glance how many transcript segments are waiting.
+// =========================================================================
+.mcm-header__btn-count {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mcm-accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+// =========================================================================
+// MEETING LOG MODAL
+//
+// Full-screen backdrop with a centred sheet. Two tabs: transcript +
+// summary. Footer holds the action buttons (clear / generate /
+// download). All chrome uses the same surface/hairline tokens as the
+// rest of the shell — no glass / blur / drop-shadow theatrics.
+// =========================================================================
+.mcm-log-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5vh 24px;
+  animation: mcm-log-fade-in 160ms ease both;
+}
+
+@keyframes mcm-log-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.mcm-log-modal {
+  width: min(820px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 18px;
+  box-shadow: var(--mcm-elev);
+  overflow: hidden;
+  font-family: inherit;
+  color: var(--mcm-text);
+  animation: mcm-log-pop 200ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--mcm-hairline);
+    flex-shrink: 0;
+  }
+
+  &__head-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--mcm-text);
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__tabs {
+    display: inline-flex;
+    background: var(--mcm-surface-2);
+    border-radius: 10px;
+    padding: 3px;
+  }
+
+  &__tab {
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    position: relative;
+    transition: background-color 160ms ease, color 160ms ease;
+
+    &:hover {
+      color: var(--mcm-text);
+    }
+
+    &--active {
+      background: var(--mcm-surface);
+      color: var(--mcm-text);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  // Small accent dot on the Tóm tắt tab when a summary exists.
+  &__tab-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--mcm-accent);
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  &__close {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+    transition: background-color 140ms ease, color 140ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 24px;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline) transparent;
+    &::-webkit-scrollbar {
+      width: 10px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: var(--mcm-hairline);
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+  }
+
+  &__empty {
+    padding: 40px 12px;
+    text-align: center;
+    color: var(--mcm-text-soft);
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  // Transcript view
+  &__run {
+    margin-bottom: 18px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    &-spk {
+      font-weight: 700;
+      font-size: 13.5px;
+      letter-spacing: -0.005em;
+    }
+
+    &-at {
+      font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--mcm-text-faint);
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__seg {
+    padding: 4px 0 4px 14px;
+    border-left: 2px solid var(--mcm-hairline);
+    margin-bottom: 4px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--mcm-text);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__seg-lang {
+    margin-left: 8px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint);
+    background: var(--mcm-surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    vertical-align: middle;
+  }
+
+  // Summary view
+  &__section {
+    margin-bottom: 22px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    h3 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--mcm-text-soft);
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--mcm-text);
+    }
+  }
+
+  &__chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--mcm-hairline);
+    font-size: 12.5px;
+    font-weight: 600;
+    background: transparent;
+
+    &--neutral {
+      color: var(--mcm-text-soft);
+      border-color: var(--mcm-hairline);
+    }
+  }
+
+  &__bullets,
+  &__actions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__bullets li {
+    padding-left: 16px;
+    position: relative;
+    font-size: 13.5px;
+    line-height: 1.55;
+
+    &::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--mcm-accent);
+      font-weight: 700;
+    }
+  }
+
+  &__actions li {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--mcm-surface-2);
+    font-size: 13.5px;
+    line-height: 1.55;
+
+    strong {
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__due {
+    color: var(--mcm-text-faint);
+    font-size: 12px;
+  }
+
+  &__error {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--mcm-danger) 12%, transparent);
+    color: var(--mcm-danger);
+    font-size: 12.5px;
+    margin-bottom: 16px;
+  }
+
+  &__spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--mcm-hairline);
+    border-top-color: var(--mcm-accent);
+    margin-right: 8px;
+    vertical-align: middle;
+    animation: mcm-log-spin 700ms linear infinite;
+  }
+
+  // Footer
+  &__footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--mcm-hairline);
+    flex-shrink: 0;
+  }
+
+  &__footer-spacer {
+    flex: 1;
+  }
+
+  &__btn {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 9px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 0;
+    transition: background-color 160ms ease, color 160ms ease,
+      box-shadow 160ms ease;
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    &--ghost {
+      background: transparent;
+      color: var(--mcm-text-soft);
+
+      &:hover:not(:disabled) {
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text);
+      }
+    }
+
+    &--accent {
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--mcm-accent) 22%, transparent);
+      }
+    }
+
+    &--primary {
+      background: var(--mcm-accent);
+      color: #fff;
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, var(--mcm-accent) 88%, #000);
+      }
+    }
+  }
+}
+
+@keyframes mcm-log-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mcm-log-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// =========================================================================
+// PIN + TAPE DECORATIONS on locked canvas images
+// =========================================================================
+// Transparent click-through layer that sits on top of the canvas. The
+// decorations themselves re-enable pointer events so they're clickable
+// (each click unpins the image). Decoration kind/colour/rotation are
+// derived deterministically from the file id by PinnedImagesOverlay,
+// so the canvas feels lively — no two pins look the same.
+.mcm-pin-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 3;
+
+  // ---------- Pin (📌 emoji — looks better than a hand-rolled SVG) -
+  // Font-size is set inline from the image width so the pin scales
+  // with the photo it's stuck on. drop-shadow follows the emoji's
+  // transparent edges (regular box-shadow would draw a square).
+  &__pin {
+    position: absolute;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: 0;
+    line-height: 1;
+    cursor: pointer;
+    pointer-events: auto;
+    -webkit-user-select: none;
+    user-select: none;
+    transform: rotate(var(--pin-rotation, 0deg));
+    transform-origin: 50% 90%; // pivots near the needle tip
+    filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.38))
+      drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18));
+    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      filter 180ms;
+    animation: mcm-pin-stick 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+    &:hover {
+      transform: rotate(var(--pin-rotation, 0deg)) scale(1.15);
+      filter: drop-shadow(0 9px 13px rgba(0, 0, 0, 0.45))
+        drop-shadow(0 1px 0 rgba(0, 0, 0, 0.22));
+    }
+
+    &:active {
+      transform: rotate(var(--pin-rotation, 0deg)) scale(0.95);
+    }
+  }
+
+  // ---------- Tape (washi-style strip) ----------------------------
+  // CSS-only — main strip carries the colour via mask-friendly
+  // semi-transparent overlays so the brand colour still reads but
+  // the strip looks "papery". A faint repeating stripe pattern sits
+  // on top for the washi texture.
+  &__tape {
+    position: absolute;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    cursor: pointer;
+    pointer-events: auto;
+    border-radius: 2px;
+    background-color: var(--tape-color, #fbbf24);
+    background-image:
+      // jagged "torn" highlight along the top + bottom edges
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.5) 0,
+        rgba(255, 255, 255, 0.5) 2px,
+        transparent 2px,
+        transparent calc(100% - 2px),
+        rgba(0, 0, 0, 0.12) calc(100% - 2px)
+      ),
+      // washi stripe pattern
+      repeating-linear-gradient(
+        110deg,
+        rgba(255, 255, 255, 0.18) 0,
+        rgba(255, 255, 255, 0.18) 4px,
+        transparent 4px,
+        transparent 10px
+      );
+    opacity: 0.85;
+    transform: rotate(var(--tape-rotation, 0deg));
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.25),
+      inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 180ms, box-shadow 180ms;
+    animation: mcm-tape-stick 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+    &:hover {
+      opacity: 1;
+      transform: rotate(var(--tape-rotation, 0deg)) scale(1.08);
+      box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.32),
+        inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+    }
+
+    &:active {
+      transform: rotate(var(--tape-rotation, 0deg)) scale(0.97);
+    }
+  }
+}
+
+@keyframes mcm-pin-stick {
+  // Falls from above + lands with a slight overshoot — like a thumbtack
+  // being pushed in.
+  0% {
+    transform: rotate(var(--pin-rotation, 0deg)) translateY(-60px) scale(1.4);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(var(--pin-rotation, 0deg)) translateY(0) scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(var(--pin-rotation, 0deg)) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mcm-tape-stick {
+  // Slides in horizontally from off-screen + settles — like a strip
+  // being laid down by hand.
+  0% {
+    transform: rotate(var(--tape-rotation, 0deg)) translateX(-40px) scale(1.05);
+    opacity: 0;
+  }
+  60% {
+    transform: rotate(var(--tape-rotation, 0deg)) translateX(0) scale(1.02);
+    opacity: 0.95;
+  }
+  100% {
+    transform: rotate(var(--tape-rotation, 0deg)) translateX(0) scale(1);
+    opacity: 0.85;
+  }
+}

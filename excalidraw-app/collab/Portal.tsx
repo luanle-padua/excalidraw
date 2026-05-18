@@ -279,7 +279,9 @@ class Portal {
           text: payload.text,
           ts: payload.ts,
           ...(payload.replyTo ? { replyTo: payload.replyTo } : {}),
-          ...(payload.translations ? { translations: payload.translations } : {}),
+          ...(payload.translations
+            ? { translations: payload.translations }
+            : {}),
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);
@@ -370,6 +372,28 @@ class Portal {
       };
       // volatile=true: reactions are ephemeral; missing one doesn't matter
       return this._broadcastSocketData(data as SocketUpdateData, true);
+    }
+  };
+
+  broadcastSTTSegment = (segment: {
+    id: string;
+    text: string;
+    lang?: string;
+    ts: number;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["STT_SEGMENT"] = {
+        type: WS_SUBTYPES.STT_SEGMENT,
+        payload: {
+          id: segment.id,
+          socketId: this.socket.id as SocketId,
+          username: this.collab.state.username || "Guest",
+          text: segment.text,
+          ...(segment.lang ? { lang: segment.lang } : {}),
+          ts: segment.ts,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
     }
   };
 }

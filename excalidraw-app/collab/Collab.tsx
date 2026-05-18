@@ -97,9 +97,16 @@ import {
 } from "../data/meetingLibrary";
 
 import { fetchBatchTranslation } from "../data/translation";
+import {
+  liveTranscriptsAtom,
+  saveTranscriptLog,
+  transcriptionLogAtom,
+} from "../data/transcription";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
+
+import type { TranscriptSegment } from "../data/transcription";
 
 import type { MeetingFile } from "../data/meetingLibrary";
 
@@ -196,6 +203,9 @@ export interface CollabAPI {
   isHandRaised: CollabInstance["isHandRaised"];
   sendMeetingReaction: CollabInstance["sendMeetingReaction"];
   removeMeetingReaction: CollabInstance["removeMeetingReaction"];
+  publishSTTSegment: CollabInstance["publishSTTSegment"];
+  setLocalInterimTranscript: CollabInstance["setLocalInterimTranscript"];
+  clearLocalInterimTranscript: CollabInstance["clearLocalInterimTranscript"];
   publishLibraryFile: CollabInstance["publishLibraryFile"];
   publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
   publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
@@ -325,6 +335,9 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       isHandRaised: this.isHandRaised,
       sendMeetingReaction: this.sendMeetingReaction,
       removeMeetingReaction: this.removeMeetingReaction,
+      publishSTTSegment: this.publishSTTSegment,
+      setLocalInterimTranscript: this.setLocalInterimTranscript,
+      clearLocalInterimTranscript: this.clearLocalInterimTranscript,
       publishLibraryFile: this.publishLibraryFile,
       publishLibraryFileDelete: this.publishLibraryFileDelete,
       publishLibraryFileLock: this.publishLibraryFileLock,
@@ -788,7 +801,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
           case WS_SUBTYPES.LIBRARY_FILE_LOCK: {
             const { fileId, lockedBy } = decryptedData.payload;
-            setMeetingFileLock(this.portal.roomId, fileId, lockedBy);
+            if (setMeetingFileLock(this.portal.roomId, fileId, lockedBy)) {
+              // Mirror the lock onto any canvas image referencing this
+              // file locally too. Excalidraw's element sync handles its
+              // own peer-to-peer fanout, so we don't broadcast from here.
+              this.setCanvasImagesLockedByFileId(fileId, lockedBy !== null);
+            }
             break;
           }
 
@@ -800,6 +818,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
           case WS_SUBTYPES.MEETING_REACTION: {
             this.applyMeetingReaction(decryptedData.payload);
+            break;
+          }
+
+          case WS_SUBTYPES.STT_SEGMENT: {
+            this.applySTTSegment(decryptedData.payload);
             break;
           }
 
@@ -1166,10 +1189,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   /** Mutate an existing message in place (by id). Used to attach
    *  translations to our own local echo once /translate-batch returns,
    *  so the sender sees the translation row without an extra fetch. */
-  private updateChatMessage = (
-    id: string,
-    patch: Partial<ChatMessage>,
-  ) => {
+  private updateChatMessage = (id: string, patch: Partial<ChatMessage>) => {
     const current = appJotaiStore.get(chatMessagesAtom) ?? [];
     const next = current.map((m) => (m.id === id ? { ...m, ...patch } : m));
     appJotaiStore.set(chatMessagesAtom, next);
@@ -1261,6 +1281,115 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
   };
 
+  // -----------------------------------------------------------------
+  // Speech-to-text segments
+  // -----------------------------------------------------------------
+
+  /** Receive a finalized STT segment from a peer — append to the log
+   *  atom and clear any matching interim entry from that speaker. Also
+   *  persists the log to localStorage so refreshes don't lose
+   *  transcripts. */
+  private applySTTSegment = (payload: {
+    id: string;
+    socketId: string;
+    username: string;
+    text: string;
+    lang?: string;
+    ts: number;
+  }) => {
+    const segment: TranscriptSegment = {
+      id: payload.id,
+      socketId: payload.socketId,
+      username: payload.username,
+      text: payload.text,
+      lang: payload.lang,
+      ts: payload.ts,
+    };
+    const log = appJotaiStore.get(transcriptionLogAtom) ?? [];
+    // De-dup by id in case the same message arrives twice (e.g.
+    // sender's local echo + broadcast).
+    if (log.some((s) => s.id === segment.id)) {
+      return;
+    }
+    const next = [...log, segment];
+    appJotaiStore.set(transcriptionLogAtom, next);
+
+    // Clear the interim line for that speaker — finalised text now
+    // lives in the log.
+    const interims = appJotaiStore.get(liveTranscriptsAtom);
+    if (interims[payload.socketId]) {
+      const cleaned = { ...interims };
+      delete cleaned[payload.socketId];
+      appJotaiStore.set(liveTranscriptsAtom, cleaned);
+    }
+
+    // Persist by roomId so the log survives reload.
+    const roomId = this.portal.roomId;
+    if (roomId) {
+      saveTranscriptLog(roomId, next);
+    }
+  };
+
+  /** Called by the local STTSession when Deepgram emits a final
+   *  segment. Echoes locally + broadcasts to peers. */
+  publishSTTSegment = (segment: {
+    text: string;
+    lang?: string;
+    ts: number;
+  }) => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const id =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `stt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    this.applySTTSegment({
+      id,
+      socketId: this.portal.socket.id,
+      username: this.state.username || "Guest",
+      text: segment.text,
+      lang: segment.lang,
+      ts: segment.ts,
+    });
+    this.portal.broadcastSTTSegment({ id, ...segment });
+  };
+
+  /** Update the local interim hypothesis for the current user. Not
+   *  broadcast — interim is noisy and viewer-local UX. */
+  setLocalInterimTranscript = (text: string) => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const me = this.portal.socket.id;
+    const current = appJotaiStore.get(liveTranscriptsAtom);
+    appJotaiStore.set(liveTranscriptsAtom, {
+      ...current,
+      [me]: {
+        socketId: me,
+        username: this.state.username || "Guest",
+        text,
+        ts: Date.now(),
+      },
+    });
+  };
+
+  /** Clear our own interim line — call when audio session stops or
+   *  when the worklet sees end-of-speech. */
+  clearLocalInterimTranscript = () => {
+    if (!this.portal.socket?.id) {
+      return;
+    }
+    const me = this.portal.socket.id;
+    const current = appJotaiStore.get(liveTranscriptsAtom);
+    if (!current[me]) {
+      return;
+    }
+    const cleaned = { ...current };
+    delete cleaned[me];
+    appJotaiStore.set(liveTranscriptsAtom, cleaned);
+  };
+
   /** Broadcast a one-shot emoji reaction. Also echoes locally so the
    *  sender sees their own floating emoji animate over their avatar. */
   sendMeetingReaction = (emoji: string) => {
@@ -1288,8 +1417,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const me = this.portal.socket.id;
     const messages = appJotaiStore.get(chatMessagesAtom) ?? [];
     const target = messages.find((m) => m.id === messageId);
-    const alreadyReacted =
-      target?.reactions?.[emoji]?.includes(me) ?? false;
+    const alreadyReacted = target?.reactions?.[emoji]?.includes(me) ?? false;
     const action: "add" | "remove" = alreadyReacted ? "remove" : "add";
     // Apply locally first for snappy UI.
     this.applyChatReaction({
@@ -1426,10 +1554,15 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   };
 
   /** Called by MeetingLibrary when the local user locks/unlocks a file.
-   *  `lockedBy === null` clears the lock. */
+   *  `lockedBy === null` clears the lock. Also flips the matching canvas
+   *  image elements' native `locked` flag so Excalidraw stops responding
+   *  to drag/resize attempts on them — peers receive both the library
+   *  lock event AND the element update through Excalidraw's normal
+   *  sync pipeline. */
   publishLibraryFileLock = (fileId: string, lockedBy: string | null) => {
     const roomId = this.portal.roomId;
     if (setMeetingFileLock(roomId, fileId, lockedBy)) {
+      this.setCanvasImagesLockedByFileId(fileId, lockedBy !== null);
       this.portal.broadcastLibraryFileLock(fileId, lockedBy);
     }
   };
@@ -1477,6 +1610,35 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       this.excalidrawAPI.updateScene({ elements: next });
       // bump our broadcast bookkeeping so the deletion is included in the
       // next sync
+      this.syncElements(this.excalidrawAPI.getSceneElementsIncludingDeleted());
+    }
+  };
+
+  /** Mirror library-file lock state onto every canvas image element
+   *  that references it. Setting Excalidraw's native `locked` flag
+   *  blocks drag/resize/select in the editor, and our PinnedImagesOverlay
+   *  paints the 📌 badge on top — visual + functional in one pass.
+   *  Broadcast through the normal sync pipeline so peers see it too. */
+  private setCanvasImagesLockedByFileId = (
+    fileId: string,
+    locked: boolean,
+  ) => {
+    const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
+    let changed = false;
+    const next = all.map((el) => {
+      if (
+        !el.isDeleted &&
+        el.type === "image" &&
+        (el as any).fileId === fileId &&
+        el.locked !== locked
+      ) {
+        changed = true;
+        return newElementWith(el, { locked });
+      }
+      return el;
+    });
+    if (changed) {
+      this.excalidrawAPI.updateScene({ elements: next });
       this.syncElements(this.excalidrawAPI.getSceneElementsIncludingDeleted());
     }
   };

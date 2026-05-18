@@ -41,7 +41,24 @@ export default defineConfig(({ mode }) => {
           target: "http://localhost:3002",
           changeOrigin: true,
         },
+        "/translate-batch": {
+          target: "http://localhost:3002",
+          changeOrigin: true,
+        },
         "/chatbot": {
+          target: "http://localhost:3002",
+          changeOrigin: true,
+        },
+        // Realtime speech-to-text. Must be `ws: true` so the WebSocket
+        // upgrade is forwarded — without it Vite returns 404 on the
+        // upgrade request and the browser shows "WebSocket is closed
+        // before the connection is established".
+        "/stt": {
+          target: "http://localhost:3002",
+          ws: true,
+          changeOrigin: true,
+        },
+        "/summarize": {
           target: "http://localhost:3002",
           changeOrigin: true,
         },

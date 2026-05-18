@@ -8,6 +8,13 @@ import percentages from "./locales/percentages.json";
 
 const COMPLETION_THRESHOLD = 85;
 
+// MCM fork — Vietnamese and Korean are our two primary user
+// languages, so we ship them even when upstream Excalidraw's
+// translation memory is below the threshold (currently vi-VN ~70%,
+// ko-KR ~75%). Missing keys still fall back to English at runtime,
+// so the worst case is a few untranslated buttons.
+const MCM_FORCE_INCLUDE_LANGS = new Set(["vi-VN", "ko-KR"]);
+
 export interface Language {
   code: string;
   label: string;
@@ -68,6 +75,7 @@ export const languages: Language[] = [
   ]
     .filter(
       (lang) =>
+        MCM_FORCE_INCLUDE_LANGS.has(lang.code) ||
         (percentages as Record<string, number>)[lang.code] >=
         COMPLETION_THRESHOLD,
     )

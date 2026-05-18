@@ -12,6 +12,8 @@ import { useEffect, useRef } from "react";
 
 import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
+import { sttEnabledAtom } from "../data/transcription";
+import { preferredLanguageAtom } from "../data/translation";
 
 import { AudioRoom } from "./AudioRoom";
 import {
@@ -20,15 +22,25 @@ import {
   recorderInstanceAtom,
   recordingStateAtom,
 } from "./audioState";
+import { STTSession } from "./sttSession";
+
+import type { STTLang } from "./sttSession";
 
 export const AudioRoomController = () => {
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const recorder = useAtomValue(recorderInstanceAtom);
+  const audioState = useAtomValue(audioStateAtom);
+  const sttEnabled = useAtomValue(sttEnabledAtom);
+  const preferredLang = useAtomValue(preferredLanguageAtom);
   const setAudioState = useSetAtom(audioStateAtom);
   const setAudioRoomInstance = useSetAtom(audioRoomInstanceAtom);
   const setRecordingState = useSetAtom(recordingStateAtom);
   const setRecorderInstance = useSetAtom(recorderInstanceAtom);
+  /** Live STT session bound to the user's own mic. Spun up when the
+   *  audio call goes live, torn down when the call ends or STT
+   *  toggle is flipped off. */
+  const sttRef = useRef<STTSession | null>(null);
   /** keep a ref of the live AudioRoom for cleanup independent of React
    *  render timing — we must close peer connections deterministically */
   const roomRef = useRef<AudioRoom | null>(null);
@@ -122,10 +134,7 @@ export const AudioRoomController = () => {
         if (name === "NotAllowedError") {
           message =
             "Mic bị từ chối — bật quyền microphone trong trình duyệt rồi thử lại.";
-        } else if (
-          name === "NotReadableError" ||
-          name === "TrackStartError"
-        ) {
+        } else if (name === "NotReadableError" || name === "TrackStartError") {
           message =
             "Mic đang bị app khác chiếm (Teams/Zoom...). Thoát app đó rồi thử lại.";
         }
@@ -142,7 +151,86 @@ export const AudioRoomController = () => {
     });
     roomRef.current = room;
     setAudioRoomInstance(room);
-  }, [collabAPI, activeRoomLink, setAudioRoomInstance, setAudioState]);
+  }, [
+    collabAPI,
+    activeRoomLink,
+    setAudioRoomInstance,
+    setAudioState,
+    setRecorderInstance,
+    setRecordingState,
+  ]);
+
+  // -----------------------------------------------------------------
+  // STT session lifecycle — driven by (audio live + STT toggle on +
+  // we can transmit). Mirrors the audio call lifecycle exactly: when
+  // the user joins a call with a working mic, we start streaming their
+  // audio to Deepgram in parallel. When they leave or mute the STT
+  // toggle, we tear it down.
+  // -----------------------------------------------------------------
+  useEffect(() => {
+    const shouldRunSTT =
+      audioState.status === "live" &&
+      audioState.canTransmit &&
+      sttEnabled &&
+      !!collabAPI;
+
+    const teardownSTT = async () => {
+      const session = sttRef.current;
+      if (!session) {
+        return;
+      }
+      sttRef.current = null;
+      await session.stop();
+      collabAPI?.clearLocalInterimTranscript();
+    };
+
+    if (!shouldRunSTT) {
+      void teardownSTT();
+      return;
+    }
+
+    if (sttRef.current) {
+      // Already running — no-op (sttEnabled/lang changes mid-call
+      // require a restart, handled by the deps array).
+      return;
+    }
+
+    const stream = roomRef.current?.getLocalStream();
+    if (!stream) {
+      // Audio just went live but the local stream isn't ready yet.
+      // The effect will re-run when audioState updates next.
+      return;
+    }
+
+    const lang: STTLang = (preferredLang ?? "multi") as STTLang;
+    const session = new STTSession({
+      lang,
+      onInterim: (text) => {
+        collabAPI?.setLocalInterimTranscript(text);
+      },
+      onFinal: (text, ts) => {
+        collabAPI?.publishSTTSegment({ text, lang, ts });
+      },
+      onError: (msg) => {
+        console.warn("[stt] session error:", msg);
+      },
+    });
+    sttRef.current = session;
+    void session.start(stream).catch((err) => {
+      console.warn("[stt] failed to start session:", err);
+      sttRef.current = null;
+    });
+
+    return () => {
+      void teardownSTT();
+    };
+  }, [
+    audioState.status,
+    audioState.canTransmit,
+    sttEnabled,
+    preferredLang,
+    collabAPI,
+  ]);
 
   // Hard cleanup on unmount — closes peer connections, releases mic.
   useEffect(() => {
@@ -151,6 +239,11 @@ export const AudioRoomController = () => {
       if (room) {
         room.stop();
         roomRef.current = null;
+      }
+      const session = sttRef.current;
+      if (session) {
+        void session.stop();
+        sttRef.current = null;
       }
     };
   }, []);

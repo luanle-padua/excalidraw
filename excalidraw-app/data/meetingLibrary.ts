@@ -89,9 +89,20 @@ const persist = async (roomId: string | null, items: MeetingFile[]) => {
 
 /** Quick fingerprint for content-based de-duplication. Comparing full
  *  multi-megabyte dataURLs on every upsert is too slow, but length plus the
- *  first and last 64 chars is enough to distinguish real images. */
-const fingerprintOf = (dataURL: string) =>
-  `${dataURL.length}:${dataURL.slice(0, 64)}:${dataURL.slice(-64)}`;
+ *  first and last 128 chars of the BASE64 PAYLOAD (after the comma) is
+ *  enough to distinguish real images.
+ *
+ *  Why strip the `data:image/...;base64,` prefix: when Excalidraw ingests
+ *  a dropped image it normalises the MIME (e.g. files mislabelled as PNG
+ *  but actually JPEG get rewritten to image/jpeg). The byte payload is
+ *  identical but the prefix is different — comparing the whole dataURL
+ *  string would then miss the dedup and we'd end up with two library
+ *  entries for the same image (the original bug). */
+const fingerprintOf = (dataURL: string) => {
+  const commaAt = dataURL.indexOf(",");
+  const payload = commaAt >= 0 ? dataURL.slice(commaAt + 1) : dataURL;
+  return `${payload.length}:${payload.slice(0, 128)}:${payload.slice(-128)}`;
+};
 
 /** Add or update a file by id (idempotent). Marks the file as seen so
  *  follow-up onChange events for the same id don't re-trigger insertion. */

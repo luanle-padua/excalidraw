@@ -3,6 +3,8 @@ import express from "express";
 import http from "http";
 import { Server as SocketIO } from "socket.io";
 
+import { mountSTT } from "./stt";
+
 type UserToFollow = {
   socketId: string;
   username: string;
@@ -77,17 +79,12 @@ app.get("/turn-credentials", async (_req, res) => {
   const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN;
 
   if (!tokenId || !apiToken) {
-    res
-      .status(503)
-      .json({ error: "TURN not configured on this server" });
+    res.status(503).json({ error: "TURN not configured on this server" });
     return;
   }
 
   const now = Date.now();
-  if (
-    turnCache &&
-    turnCache.expiresAt - TURN_CACHE_REFRESH_BEFORE_MS > now
-  ) {
+  if (turnCache && turnCache.expiresAt - TURN_CACHE_REFRESH_BEFORE_MS > now) {
     res.json(turnCache.body);
     return;
   }
@@ -209,10 +206,11 @@ const translateWithGemini = async (
 Text to translate:
 ${text}`;
 
-  const model =
-    process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
+  const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model,
+    )}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -234,9 +232,7 @@ ${text}`;
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(
-      `Gemini ${res.status}: ${body.slice(0, 200)}`,
-    );
+    throw new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
   }
 
   const json: any = await res.json();
@@ -285,10 +281,11 @@ Languages: ${propEntries.map(([, n]) => n).join(", ")}
 Text:
 ${text}`;
 
-  const model =
-    process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
+  const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model,
+    )}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -344,15 +341,11 @@ ${text}`;
 app.post("/translate-batch", async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res
-      .status(503)
-      .json({ error: "Translation provider not configured" });
+    res.status(503).json({ error: "Translation provider not configured" });
     return;
   }
 
-  const body = req.body as
-    | { text?: unknown; targets?: unknown }
-    | undefined;
+  const body = req.body as { text?: unknown; targets?: unknown } | undefined;
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const targetsRaw = Array.isArray(body?.targets) ? body!.targets : [];
   const targets = targetsRaw
@@ -417,15 +410,11 @@ app.post("/translate-batch", async (req, res) => {
 app.post("/translate", async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res
-      .status(503)
-      .json({ error: "Translation provider not configured" });
+    res.status(503).json({ error: "Translation provider not configured" });
     return;
   }
 
-  const body = req.body as
-    | { text?: unknown; target?: unknown }
-    | undefined;
+  const body = req.body as { text?: unknown; target?: unknown } | undefined;
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const target = typeof body?.target === "string" ? body.target : "";
   const targetLangName = TRANSLATION_LANGUAGE_NAMES[target];
@@ -516,17 +505,14 @@ OUTPUT: just the reply.`;
 app.post("/chatbot", async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    res
-      .status(503)
-      .json({ error: "Assistant provider not configured" });
+    res.status(503).json({ error: "Assistant provider not configured" });
     return;
   }
 
   const body = req.body as ChatbotRequestBody | undefined;
   const question =
     typeof body?.question === "string" ? body.question.trim() : "";
-  const language =
-    typeof body?.language === "string" ? body.language : "vi";
+  const language = typeof body?.language === "string" ? body.language : "vi";
   const recent = Array.isArray(body?.recent)
     ? (body!.recent as ChatbotContextMessage[]).slice(-10)
     : [];
@@ -555,11 +541,12 @@ app.post("/chatbot", async (req, res) => {
     ? `Recent chat (for context only — do NOT summarise it back unless asked):\n${transcriptLines}\n\nNew question:\n${question}`
     : `New question:\n${question}`;
 
-  const model =
-    process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
+  const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
   try {
     const cfRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        model,
+      )}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -582,8 +569,7 @@ app.post("/chatbot", async (req, res) => {
       return;
     }
     const json: any = await cfRes.json();
-    const answer =
-      json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const answer = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!answer) {
       res.status(502).json({ error: "Empty answer from Gemini" });
       return;
@@ -595,7 +581,207 @@ app.post("/chatbot", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------
+// Meeting summary — Gemini called once after the meeting to produce
+// a structured recap of the transcript log.
+//
+// Returns JSON shaped like:
+//   { summary, decisions[], actionItems[], participants[] }
+//
+// Client posts the full transcript log + the viewer's preferred output
+// language so the recap reads naturally for whoever's reviewing.
+// ---------------------------------------------------------------------
+
+const SUMMARY_SYSTEM_PROMPT = `You are a meeting recap assistant for a multilingual design-review meeting between Vietnamese and Korean architecture / construction teams.
+
+Given the full transcript (a list of {speaker, text, lang, ts} segments — speakers may have spoken in different languages), produce a STRUCTURED recap.
+
+OUTPUT (JSON, no markdown):
+{
+  "summary":   "3-6 sentence overview of what was discussed. Plain prose, in the requested OUTPUT LANGUAGE.",
+  "decisions": ["short bullet — e.g. 'mở rộng cửa giữa phòng khách & sân thượng thêm 600mm'"],
+  "actionItems": [{ "owner": "name or role", "task": "what to do", "due": "date or null" }],
+  "participants": ["unique speaker names sorted by first appearance"],
+  "keyTopics": ["short list of high-level themes — 'natural lighting', 'wet area routing', ..."]
+}
+
+RULES
+- Translate everything in the output to the requested OUTPUT LANGUAGE (vi / en / ko). If you can't tell, default to Vietnamese.
+- Be faithful: don't invent decisions or action items the transcript doesn't actually contain. Empty array is correct when there were none.
+- Preserve technical terms (dimensions, material codes, room names) verbatim — don't translate "RC", "GL+1500", "200x600mm".
+- Preserve @mentions like @bot, @filename.
+- Keep "owner" names as written in the transcript — don't anglicise.
+- If transcript is too short / fragmented to recap (< 2 substantive segments), set summary to a polite "Cuộc họp chưa có đủ nội dung để tóm tắt" / equivalent and leave arrays empty.
+
+Return ONLY the JSON object. No backticks, no preamble.`;
+
+app.post("/summarize", async (req, res) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: "Summary provider (Gemini) not configured" });
+    return;
+  }
+
+  const body = req.body as
+    | {
+        segments?: Array<{
+          speaker?: string;
+          text?: string;
+          lang?: string;
+          ts?: number;
+        }>;
+        language?: string;
+      }
+    | undefined;
+
+  const segments = Array.isArray(body?.segments) ? body!.segments : [];
+  const cleanSegments = segments
+    .filter(
+      (s): s is { speaker: string; text: string; lang?: string; ts?: number } =>
+        !!s &&
+        typeof s.speaker === "string" &&
+        typeof s.text === "string" &&
+        s.text.trim().length > 0,
+    )
+    .map((s) => ({
+      speaker: s.speaker.slice(0, 60),
+      text: s.text.slice(0, 2000),
+      lang: typeof s.lang === "string" ? s.lang : undefined,
+      ts: typeof s.ts === "number" ? s.ts : undefined,
+    }));
+
+  if (cleanSegments.length === 0) {
+    res.status(400).json({ error: "No transcript segments to summarise" });
+    return;
+  }
+
+  const lang =
+    typeof body?.language === "string" &&
+    ["vi", "en", "ko"].includes(body.language)
+      ? body.language
+      : "vi";
+  const languageName = TRANSLATION_LANGUAGE_NAMES[lang] || "Vietnamese";
+
+  // Cap payload size — Gemini Flash handles ~1M tokens but we don't
+  // want to upload a 50k-segment transcript by accident.
+  const MAX_SEGMENTS = 1500;
+  const trimmed =
+    cleanSegments.length > MAX_SEGMENTS
+      ? cleanSegments.slice(cleanSegments.length - MAX_SEGMENTS)
+      : cleanSegments;
+
+  const userPrompt = `OUTPUT LANGUAGE: ${languageName}
+
+TRANSCRIPT (${trimmed.length} segments):
+${trimmed
+  .map(
+    (s, i) =>
+      `${i + 1}. [${s.speaker}${s.lang ? `, ${s.lang}` : ""}] ${s.text}`,
+  )
+  .join("\n")}`;
+
+  const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        model,
+      )}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: SUMMARY_SYSTEM_PROMPT }],
+          },
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 4096,
+            // Strict JSON output — eliminates fragile post-parsing.
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object",
+              properties: {
+                summary: { type: "string" },
+                decisions: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                actionItems: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      owner: { type: "string" },
+                      task: { type: "string" },
+                      due: { type: "string" },
+                    },
+                    required: ["owner", "task"],
+                  },
+                },
+                participants: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+                keyTopics: {
+                  type: "array",
+                  items: { type: "string" },
+                },
+              },
+              required: [
+                "summary",
+                "decisions",
+                "actionItems",
+                "participants",
+                "keyTopics",
+              ],
+            },
+          },
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error(
+        "Gemini summary failed:",
+        response.status,
+        errBody.slice(0, 200),
+      );
+      res.status(502).json({ error: "Summary provider error" });
+      return;
+    }
+
+    const json: any = await response.json();
+    const out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof out !== "string" || !out.trim()) {
+      res.status(502).json({ error: "Empty summary response" });
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(out);
+    } catch (parseErr) {
+      res.status(502).json({
+        error: `Summary JSON parse failed: ${(parseErr as Error).message}`,
+      });
+      return;
+    }
+    res.json(parsed);
+  } catch (err) {
+    console.error("Summary request error:", err);
+    res.status(500).json({ error: "Summary request failed" });
+  }
+});
+
 const server = http.createServer(app);
+
+// Mount the realtime STT WebSocket proxy at /stt. Must be attached
+// BEFORE socket.io binds to the same http server — socket.io will
+// otherwise intercept all upgrade requests. The proxy filters by
+// request URL so socket.io only sees non-/stt upgrades.
+mountSTT(server);
 
 server.listen(port, () => {
   serverDebug(`listening on port: ${port}`);
@@ -683,9 +869,7 @@ try {
       if (!payload || typeof payload.to !== "string") {
         return;
       }
-      socketDebug(
-        `${socket.id} -> ${payload.to} rtc-signal (${payload.type})`,
-      );
+      socketDebug(`${socket.id} -> ${payload.to} rtc-signal (${payload.type})`);
       io.to(payload.to).emit("rtc-signal", {
         from: socket.id,
         type: payload.type,

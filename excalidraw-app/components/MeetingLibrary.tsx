@@ -29,6 +29,15 @@ const newFileId = () =>
 
 const MAX_INSERT_DIMENSION = 480; // px (logical) — keeps images sane in viewport
 
+// Custom MIME used when the user drags a library item onto the canvas.
+// The browser would otherwise treat the dragged <img> as a generic image
+// drop, and Excalidraw would re-ingest it with a fresh hash-based fileId,
+// triggering the auto-detect onChange → publishLibraryFile loop that
+// added a duplicate library entry (the original bug). We instead carry
+// just the library file id; our capture-phase drop listener intercepts,
+// reuses the existing fileId, and inserts at the drop coordinates.
+const MCM_LIBRARY_DRAG_MIME = "application/x-mcm-library-file-id";
+
 const readAsDataURL = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -158,11 +167,60 @@ export const MeetingLibrary = () => {
     }
   };
 
+  // Shared insert helper. `at` is the scene-space CENTER of the new
+  // image; callers pick whether that's the viewport centre (click) or
+  // the drop position (drag-from-library). Reusing this guarantees
+  // both paths funnel through the SAME fileId — so the auto-detect
+  // onChange handler always finds the file already-seen and never
+  // creates a duplicate library entry.
+  const insertImageAt = useCallback(
+    (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
+      if (!excalidrawAPI) {
+        return;
+      }
+      const elements = excalidrawAPI.getSceneElements();
+      // make sure the file is in the canvas's file map (re-add — addFiles
+      // is idempotent for identical ids)
+      excalidrawAPI.addFiles([
+        {
+          id: file.id as FileId,
+          dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+          mimeType: file.mimeType as BinaryFileData["mimeType"],
+          created: Date.now(),
+        },
+      ]);
+
+      let w = file.width ?? 320;
+      let h = file.height ?? 320;
+      if (w > MAX_INSERT_DIMENSION || h > MAX_INSERT_DIMENSION) {
+        const scale = MAX_INSERT_DIMENSION / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+
+      const img = newImageElement({
+        type: "image",
+        x: at.sceneX - w / 2,
+        y: at.sceneY - h / 2,
+        width: w,
+        height: h,
+        fileId: file.id as FileId,
+        status: "saved",
+      });
+
+      excalidrawAPI.updateScene({
+        elements: [...elements, img],
+      });
+    },
+    [excalidrawAPI],
+  );
+
   const handleInsert = (file: MeetingFile) => {
     if (!excalidrawAPI) {
       return;
     }
-    // if the image is already on the canvas, jump to it instead of duplicating
+    // if the image is already on the canvas, jump to it instead of
+    // duplicating
     const elements = excalidrawAPI.getSceneElements();
     const existing = elements.find(
       (el) => el.type === "image" && (el as any).fileId === file.id,
@@ -175,42 +233,97 @@ export const MeetingLibrary = () => {
       return;
     }
 
-    // make sure the file is in the canvas's file map (re-add — addFiles is
-    // idempotent for identical ids)
-    excalidrawAPI.addFiles([
-      {
-        id: file.id as FileId,
-        dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
-        mimeType: file.mimeType as BinaryFileData["mimeType"],
-        created: Date.now(),
-      },
-    ]);
-
+    // Click-to-insert lands at the viewport centre.
     const appState = excalidrawAPI.getAppState();
-    let w = file.width ?? 320;
-    let h = file.height ?? 320;
-    if (w > MAX_INSERT_DIMENSION || h > MAX_INSERT_DIMENSION) {
-      const scale = MAX_INSERT_DIMENSION / Math.max(w, h);
-      w = Math.round(w * scale);
-      h = Math.round(h * scale);
-    }
-    const cx = -appState.scrollX + appState.width / 2 / appState.zoom.value;
-    const cy = -appState.scrollY + appState.height / 2 / appState.zoom.value;
-
-    const img = newImageElement({
-      type: "image",
-      x: cx - w / 2,
-      y: cy - h / 2,
-      width: w,
-      height: h,
-      fileId: file.id as FileId,
-      status: "saved",
-    });
-
-    excalidrawAPI.updateScene({
-      elements: [...elements, img],
+    insertImageAt(file, {
+      sceneX: -appState.scrollX + appState.width / 2 / appState.zoom.value,
+      sceneY: -appState.scrollY + appState.height / 2 / appState.zoom.value,
     });
   };
+
+  // Drag-start on a library item: serialise just the file id. The
+  // browser-default img drag is suppressed via `draggable={false}` on
+  // the thumbnail so it can't compete.
+  const handleItemDragStart = (
+    file: MeetingFile,
+    e: React.DragEvent<HTMLDivElement>,
+  ) => {
+    if (!e.dataTransfer) {
+      return;
+    }
+    e.dataTransfer.setData(MCM_LIBRARY_DRAG_MIME, file.id);
+    e.dataTransfer.setData("text/plain", file.name);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
+  // Drop interceptor on the Excalidraw container. Registered in the
+  // CAPTURE phase so it runs BEFORE Excalidraw's React onDrop handler;
+  // when our custom MIME is present we stopPropagation + preventDefault
+  // so Excalidraw never sees the event and never auto-ingests a new
+  // file. Without our MIME we no-op and let Excalidraw handle normally
+  // (paste/drop from outside the app still works as before).
+  useEffect(() => {
+    if (!excalidrawAPI) {
+      return undefined;
+    }
+    const container = document.querySelector(
+      ".excalidraw-container",
+    ) as HTMLElement | null;
+    if (!container) {
+      return undefined;
+    }
+
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes(MCM_LIBRARY_DRAG_MIME)) {
+        // Tell the browser we accept this drop (otherwise the drop
+        // event never fires on some platforms).
+        e.preventDefault();
+      }
+    };
+
+    const onDrop = (e: DragEvent) => {
+      const id = e.dataTransfer?.getData(MCM_LIBRARY_DRAG_MIME);
+      if (!id) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+
+      const file = items.find((f) => f.id === id);
+      if (!file) {
+        return;
+      }
+      // jump to existing if already on canvas
+      const elements = excalidrawAPI.getSceneElements();
+      const existing = elements.find(
+        (el) => el.type === "image" && (el as any).fileId === file.id,
+      );
+      if (existing) {
+        excalidrawAPI.scrollToContent(existing, {
+          animate: true,
+          fitToContent: true,
+        });
+        return;
+      }
+      // Convert client coords to scene coords using the container rect
+      // + current scroll/zoom from appState.
+      const rect = container.getBoundingClientRect();
+      const appState = excalidrawAPI.getAppState();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      insertImageAt(file, {
+        sceneX: -appState.scrollX + screenX / appState.zoom.value,
+        sceneY: -appState.scrollY + screenY / appState.zoom.value,
+      });
+    };
+
+    container.addEventListener("dragover", onDragOver, true);
+    container.addEventListener("drop", onDrop, true);
+    return () => {
+      container.removeEventListener("dragover", onDragOver, true);
+      container.removeEventListener("drop", onDrop, true);
+    };
+  }, [excalidrawAPI, items, insertImageAt]);
 
   const me = collabAPI?.getUsername() || "Local";
 
@@ -305,11 +418,21 @@ export const MeetingLibrary = () => {
                 key={file.id}
                 className="MeetingLibrary__item"
                 onClick={() => handleInsert(file)}
-                title={`${file.name} — bấm để chèn vào canvas`}
+                draggable
+                onDragStart={(e) => handleItemDragStart(file, e)}
+                title={`${file.name} — bấm hoặc kéo vào canvas`}
               >
                 <div className="MeetingLibrary__item-thumb">
                   {isImage ? (
-                    <img src={file.dataURL} alt={file.name} loading="lazy" />
+                    <img
+                      src={file.dataURL}
+                      alt={file.name}
+                      loading="lazy"
+                      // Suppress the browser-default img drag so it can't
+                      // race our custom item-level drag (which carries the
+                      // library file id via custom MIME).
+                      draggable={false}
+                    />
                   ) : (
                     <span className="MeetingLibrary__item-fallback">
                       {file.mimeType.split("/")[1] || "file"}

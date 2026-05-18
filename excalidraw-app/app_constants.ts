@@ -40,6 +40,10 @@ export enum WS_SUBTYPES {
    *  Receivers animate the emoji over the sender's avatar for a few
    *  seconds then drop it. */
   MEETING_REACTION = "MEETING_REACTION",
+  /** Finalized speech-to-text segment from a participant. Broadcast so
+   *  every peer sees subtitles for whoever's speaking. Interim
+   *  hypotheses stay local to the speaker — too noisy to broadcast. */
+  STT_SEGMENT = "STT_SEGMENT",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

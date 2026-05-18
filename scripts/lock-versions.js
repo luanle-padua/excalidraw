@@ -40,7 +40,12 @@ function lockVersion(version) {
 function walk(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === "build" || entry.name === ".git") {
+    if (
+      entry.name === "node_modules" ||
+      entry.name === "dist" ||
+      entry.name === "build" ||
+      entry.name === ".git"
+    ) {
       continue;
     }
     const full = path.join(dir, entry.name);
@@ -86,4 +91,6 @@ for (const f of files) {
   }
 }
 
-console.log(`\nLocked ${total} version range(s) across ${files.length} package.json file(s).`);
+console.log(
+  `\nLocked ${total} version range(s) across ${files.length} package.json file(s).`,
+);

@@ -202,6 +202,18 @@ export type SocketUpdateDataSource = {
       ts: number;
     };
   };
+  STT_SEGMENT: {
+    type: WS_SUBTYPES.STT_SEGMENT;
+    payload: {
+      id: string;
+      socketId: SocketId;
+      username: string;
+      text: string;
+      /** ISO 639-1 language detected by Deepgram, if available. */
+      lang?: string;
+      ts: number;
+    };
+  };
 };
 
 export type SocketUpdateDataIncoming =

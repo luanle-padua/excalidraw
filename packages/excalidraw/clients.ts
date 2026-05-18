@@ -27,6 +27,103 @@ function hashToInteger(id: string) {
   return hash;
 }
 
+// ---------------------------------------------------------------------
+// MCM cursor labels — friendly emoji avatar + short name for remote
+// peers' canvas cursors. Mirrors the logic in
+// excalidraw-app/components/mcm/animalEmoji.ts (kept in sync by hand;
+// extracting to a shared package would require restructuring imports
+// across the monorepo for one feature).
+// ---------------------------------------------------------------------
+
+// Map known "Adjective Animal" usernames straight to the species
+// emoji. Anything not in this map falls back to a deterministic pick
+// from the cute-critter pool, so EVERY peer gets a face.
+//
+// CRITICAL: this map MUST stay in sync with `ANIMAL_EMOJI` in
+// excalidraw-app/components/mcm/animalEmoji.ts — otherwise the same
+// peer renders with different emojis in the participants bar (which
+// uses the app-side map) vs. the canvas cursor (this file). Keep the
+// keys + emoji choices identical, including aliases (hare↔rabbit,
+// rhino↔rhinoceros, hippo↔hippopotamus, dodo, etc.).
+const MCM_ANIMAL_EMOJI: Record<string, string> = {
+  // Mammals
+  cat: "🐱", dog: "🐶", fox: "🦊", wolf: "🐺", lion: "🦁", tiger: "🐯",
+  leopard: "🐆", cheetah: "🐆", bear: "🐻", panda: "🐼", koala: "🐨",
+  monkey: "🐵", gorilla: "🦍", orangutan: "🦧", chimpanzee: "🐒",
+  baboon: "🐒", rabbit: "🐰", hare: "🐰", squirrel: "🐿️",
+  chipmunk: "🐿️", beaver: "🦫", otter: "🦦", hedgehog: "🦔",
+  mouse: "🐭", rat: "🐀", hamster: "🐹", horse: "🐴", zebra: "🦓",
+  donkey: "🫏", cow: "🐮", buffalo: "🐃", ox: "🐂", bull: "🐂",
+  pig: "🐷", boar: "🐗", sheep: "🐑", ram: "🐏", goat: "🐐",
+  deer: "🦌", elk: "🦌", moose: "🫎", reindeer: "🦌", giraffe: "🦒",
+  camel: "🐫", llama: "🦙", alpaca: "🦙", elephant: "🐘",
+  rhinoceros: "🦏", rhino: "🦏", hippopotamus: "🦛", hippo: "🦛",
+  kangaroo: "🦘", bat: "🦇", sloth: "🦥", raccoon: "🦝", skunk: "🦨",
+  badger: "🦡", mole: "🐭",
+  // Birds
+  bird: "🐦", chicken: "🐔", rooster: "🐓", duck: "🦆", swan: "🦢",
+  goose: "🪿", turkey: "🦃", peacock: "🦚", parrot: "🦜", owl: "🦉",
+  eagle: "🦅", hawk: "🦅", flamingo: "🦩", dodo: "🦤", penguin: "🐧",
+  // Reptiles + amphibians
+  crocodile: "🐊", alligator: "🐊", turtle: "🐢", tortoise: "🐢",
+  snake: "🐍", lizard: "🦎", gecko: "🦎", iguana: "🦎", frog: "🐸",
+  toad: "🐸",
+  // Aquatic
+  fish: "🐟", shark: "🦈", dolphin: "🐬", whale: "🐳", octopus: "🐙",
+  squid: "🦑", crab: "🦀", lobster: "🦞", shrimp: "🦐", oyster: "🦪",
+  jellyfish: "🪼", seal: "🦭",
+  // Insects + small critters
+  bee: "🐝", ant: "🐜", butterfly: "🦋", beetle: "🪲", ladybug: "🐞",
+  spider: "🕷️", scorpion: "🦂", worm: "🪱", snail: "🐌",
+  // Mythical
+  dragon: "🐉", unicorn: "🦄", dinosaur: "🦖", trex: "🦖",
+  pterodactyl: "🦕", brontosaurus: "🦕", mammoth: "🦣",
+};
+
+const MCM_FALLBACK_POOL = [
+  "🦊", "🐼", "🐨", "🦁", "🐯", "🐻", "🐰", "🐱", "🐶", "🐭",
+  "🐹", "🦝", "🦔", "🦦", "🦥", "🦘", "🦒", "🐵", "🐧", "🦉",
+  "🦆", "🦩", "🐢", "🐙", "🐳", "🐬", "🦋", "🐝", "🐞", "🦄",
+];
+
+const mcmCleanName = (raw: string): string =>
+  raw.replace(/\(.*?\)/g, "").trim();
+
+const mcmShortName = (username: string): string => {
+  const cleaned = mcmCleanName(username);
+  const parts = cleaned.split(/\s+/);
+  if (parts.length < 2) {
+    return cleaned;
+  }
+  const tail = parts[parts.length - 1].toLowerCase();
+  return MCM_ANIMAL_EMOJI[tail] ? parts[parts.length - 1] : cleaned;
+};
+
+// MUST stay identical to `stableHash` in excalidraw-app/components/mcm/
+// animalEmoji.ts — otherwise the same socketId picks different
+// emojis in the participants bar vs. the canvas cursor and the
+// visual link between the two breaks. Specifically: x * 31 + char
+// with explicit `| 0` to force 32-bit signed truncation, so long
+// strings overflow exactly the same way in both places.
+const mcmHash = (key: string): number => {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) {
+    h = (h * 31 + key.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h);
+};
+
+const mcmPickEmoji = (identityKey: string, username: string): string => {
+  const cleaned = mcmCleanName(username);
+  const tail = (cleaned.split(/\s+/).pop() || "").toLowerCase();
+  if (MCM_ANIMAL_EMOJI[tail]) {
+    return MCM_ANIMAL_EMOJI[tail];
+  }
+  const key = identityKey || username || "anon";
+  return MCM_FALLBACK_POOL[mcmHash(key) % MCM_FALLBACK_POOL.length];
+};
+
+
 export const getClientColor = (
   socketId: SocketId,
   collaborator: Collaborator | undefined,
@@ -181,78 +278,101 @@ export const renderRemoteCursors = ({
       context.stroke();
     }
 
-    const username = renderConfig.remotePointerUsernames.get(socketId) || "";
+    // MCM cursor label — under the arrow we draw a circular avatar
+    // (gradient fill, big emoji centred) plus a small short-name pill
+    // beneath. Matches the participant bar so peers' faces feel
+    // consistent across canvas + chrome.
+    const rawUsername =
+      renderConfig.remotePointerUsernames.get(socketId) || "";
+    const shortName = mcmShortName(rawUsername);
+    const cursorEmoji = mcmPickEmoji(socketId, rawUsername);
 
-    if (!isOutOfBounds && username) {
-      context.font = "600 12px sans-serif"; // font has to be set before context.measureText()
+    if (!isOutOfBounds && shortName) {
+      // Anchor below the arrow tip so the arrow still indicates the
+      // click point cleanly.
+      const avatarRadius = 18;
+      const arrowTailY = y + 14;
+      const avatarCenterX = x + 8;
+      const avatarCenterY = arrowTailY + avatarRadius + 4;
 
-      const offsetX = (isSpeaking ? x + 0 : x) + width / 2;
-      const offsetY = (isSpeaking ? y + 0 : y) + height + 2;
-      const paddingHorizontal = 5;
-      const paddingVertical = 3;
-      const measure = context.measureText(username);
-      const measureHeight =
-        measure.actualBoundingBoxDescent + measure.actualBoundingBoxAscent;
-      const finalHeight = Math.max(measureHeight, 12);
+      // Save text-state we touch so we don't bleed into other
+      // renderers (canvas state is global per frame here).
+      const prevAlign = context.textAlign;
+      const prevBaseline = context.textBaseline;
 
-      const boxX = offsetX - 1;
-      const boxY = offsetY - 1;
-      const boxWidth = measure.width + 2 + paddingHorizontal * 2 + 2;
-      const boxHeight = finalHeight + 2 + paddingVertical * 2 + 2;
+      // Speaking ring — green halo around the avatar.
+      if (isSpeaking) {
+        context.beginPath();
+        context.arc(
+          avatarCenterX,
+          avatarCenterY,
+          avatarRadius + 4,
+          0,
+          2 * Math.PI,
+        );
+        context.fillStyle = IS_SPEAKING_COLOR;
+        context.fill();
+      }
+
+      // White outline so the disc reads on any canvas background.
+      context.beginPath();
+      context.arc(
+        avatarCenterX,
+        avatarCenterY,
+        avatarRadius + 2,
+        0,
+        2 * Math.PI,
+      );
+      context.fillStyle = COLOR_WHITE;
+      context.fill();
+
+      // Avatar disc — same colour family as the user's pointer.
+      context.beginPath();
+      context.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, 2 * Math.PI);
+      context.fillStyle = background;
+      context.fill();
+
+      // Big centred emoji. The optical-Y nudge accounts for emoji
+      // glyphs having their visual centre slightly below the
+      // typographic centre.
+      context.font =
+        '24px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(cursorEmoji, avatarCenterX, avatarCenterY + 1);
+
+      // Short-name pill below the avatar.
+      context.font = '600 11px sans-serif';
+      context.textBaseline = "middle";
+      const nameMeasure = context.measureText(shortName);
+      const namePadH = 6;
+      const namePadV = 3;
+      const nameBoxW = nameMeasure.width + namePadH * 2;
+      const nameBoxH = 11 + namePadV * 2 + 2;
+      const nameBoxX = avatarCenterX - nameBoxW / 2;
+      const nameBoxY = avatarCenterY + avatarRadius + 6;
+
       if (context.roundRect) {
         context.beginPath();
-        context.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
+        context.roundRect(nameBoxX, nameBoxY, nameBoxW, nameBoxH, 6);
         context.fillStyle = background;
         context.fill();
+        context.lineWidth = 1.5;
         context.strokeStyle = COLOR_WHITE;
         context.stroke();
-
-        if (isSpeaking) {
-          context.beginPath();
-          context.roundRect(boxX - 2, boxY - 2, boxWidth + 4, boxHeight + 4, 8);
-          context.strokeStyle = IS_SPEAKING_COLOR;
-          context.stroke();
-        }
       } else {
-        roundRect(context, boxX, boxY, boxWidth, boxHeight, 8, COLOR_WHITE);
+        roundRect(context, nameBoxX, nameBoxY, nameBoxW, nameBoxH, 6, COLOR_WHITE);
       }
       context.fillStyle = COLOR_CHARCOAL_BLACK;
-
       context.fillText(
-        username,
-        offsetX + paddingHorizontal + 1,
-        offsetY +
-          paddingVertical +
-          measure.actualBoundingBoxAscent +
-          Math.floor((finalHeight - measureHeight) / 2) +
-          2,
+        shortName,
+        avatarCenterX,
+        nameBoxY + nameBoxH / 2,
       );
 
-      // draw three vertical bars signalling someone is speaking
-      if (isSpeaking) {
-        context.fillStyle = IS_SPEAKING_COLOR;
-        const barheight = 8;
-        const margin = 8;
-        const gap = 5;
-        context.fillRect(
-          boxX + boxWidth + margin,
-          boxY + (boxHeight / 2 - barheight / 2),
-          2,
-          barheight,
-        );
-        context.fillRect(
-          boxX + boxWidth + margin + gap,
-          boxY + (boxHeight / 2 - (barheight * 2) / 2),
-          2,
-          barheight * 2,
-        );
-        context.fillRect(
-          boxX + boxWidth + margin + gap * 2,
-          boxY + (boxHeight / 2 - barheight / 2),
-          2,
-          barheight,
-        );
-      }
+      // Restore text alignment for whatever runs next.
+      context.textAlign = prevAlign;
+      context.textBaseline = prevBaseline;
     }
 
     context.restore();

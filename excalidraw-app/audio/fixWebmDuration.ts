@@ -186,8 +186,7 @@ export const fixWebmDuration = async (
           cursor += gSizeInfo.value;
         }
 
-        const durationInTicks =
-          (durationMs * 1_000_000) / timecodeScaleNs;
+        const durationInTicks = (durationMs * 1_000_000) / timecodeScaleNs;
 
         // Build the Duration element: id (2 bytes 0x4489) + size VINT (1 byte
         // for 8) + 8 bytes float64
@@ -203,8 +202,7 @@ export const fixWebmDuration = async (
         //   new Info size VINT (length-preserving) +
         //   new Info body (durationBytes + original info body) +
         //   bytes[infoEnd .. end)
-        const newInfoBodySize =
-          childSizeInfo.value + durationBytes.length;
+        const newInfoBodySize = childSizeInfo.value + durationBytes.length;
         // Keep the size field the same width as the original so all
         // outer offsets (Segment size, etc.) stay valid.
         const newSizeBytes = writeVint(newInfoBodySize, childSizeSize);

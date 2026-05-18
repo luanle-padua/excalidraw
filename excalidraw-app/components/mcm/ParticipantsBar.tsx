@@ -10,6 +10,8 @@ import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
+
 import { useAtomValue } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import {
@@ -18,23 +20,13 @@ import {
   meetingReactionsAtom,
   raisedHandsAtom,
 } from "../../collab/Collab";
+import { useT } from "../../i18n/mcm";
 
+import { pickEmojiFor, shortDisplayName } from "./animalEmoji";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
 
-import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
-
-import type { MockParticipant } from "./meetingMock";
 import type { MeetingReactionEvent } from "../../collab/Collab";
-
-const initials = (name: string) =>
-  name
-    .replace(/\(.*?\)/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase() || "?";
+import type { MockParticipant } from "./meetingMock";
 
 // Deterministic gradient from any string so peers without an assigned
 // Excalidraw color still get a stable, distinguishable avatar tile.
@@ -145,16 +137,26 @@ type Tile = {
 // data-socket-id and a separate MeetingReactionsOverlay portals
 // floating emojis onto <body> at the avatar's screen position.
 const Person = ({ p }: { p: Tile }) => {
-  const displayName = p.name.replace(/\s*\(.*?\)\s*$/, "");
-  const showName = p.isMe || p.speaking || p.handRaised;
+  const t = useT();
+  // Full name for the tooltip — always the original so user-set
+  // names ("Mai", "Park Junho") are preserved verbatim on hover.
+  const fullName = p.name.replace(/\s*\(.*?\)\s*$/, "");
+  const displayName = shortDisplayName(p.name);
+  // Always pick an emoji — animal names map to their species,
+  // everyone else gets a deterministic cute critter keyed off
+  // socketId so the face is stable across sessions.
+  const emoji = pickEmojiFor(p.id, p.name);
+  // Always show the short name now — the bar is in 2-row vertical
+  // layout (avatar on top, name below). Speaker / me still get
+  // their own visual accents via colour modifiers.
   return (
     <div
       className={`mcm-person${p.isMe ? " mcm-person--me" : ""}${
         p.speaking ? " mcm-person--speaking" : ""
       }${!p.inCall ? " mcm-person--idle" : ""}${
-        showName ? " mcm-person--named" : ""
-      }${p.handRaised ? " mcm-person--raised" : ""}`}
-      title={displayName}
+        p.handRaised ? " mcm-person--raised" : ""
+      } mcm-person--named mcm-person--emoji`}
+      title={fullName}
       data-socket-id={p.id}
     >
       <div
@@ -164,11 +166,13 @@ const Person = ({ p }: { p: Tile }) => {
         // eslint-disable-next-line react/forbid-dom-props
         style={{ background: p.avatar }}
       >
-        {initials(p.name)}
+        <span className="mcm-person__avatar-emoji" aria-hidden="true">
+          {emoji}
+        </span>
         {p.handRaised && (
           <span
             className="mcm-person__raise-badge"
-            aria-label="Đang giơ tay"
+            aria-label={t("participants.raiseHandAria")}
           >
             ✋
           </span>
@@ -177,14 +181,15 @@ const Person = ({ p }: { p: Tile }) => {
           <span className="mcm-person__live-dot" aria-hidden="true" />
         )}
         {p.inCall && !p.micOn && (
-          <span className="mcm-person__mic-off" aria-label="Muted">
+          <span
+            className="mcm-person__mic-off"
+            aria-label={t("participants.micOffAria")}
+          >
             <MicOffIcon />
           </span>
         )}
       </div>
-      {showName && (
-        <span className="mcm-person__name">{displayName}</span>
-      )}
+      <span className="mcm-person__name">{displayName}</span>
     </div>
   );
 };
@@ -203,7 +208,8 @@ const mockTile = (p: MockParticipant): Tile => ({
 
 const REACTION_TTL_MS = 3200;
 
-export const VideoTilesStrip = () => {
+export const ParticipantsBar = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
@@ -265,7 +271,7 @@ export const VideoTilesStrip = () => {
     const previewTiles = MOCK_PARTICIPANTS.slice(0, 4).map(mockTile);
     return (
       <>
-        <footer className="mcm-people-bar" aria-label="Participants">
+        <footer className="mcm-people-bar" aria-label={t("participants.label")}>
           <CountChip
             inRoom={previewTiles.length}
             inCall={previewTiles.filter((t) => t.inCall).length}
@@ -298,7 +304,7 @@ export const VideoTilesStrip = () => {
 
   // Self first
   const selfSocketId = collabAPI?.portal.socket?.id ?? "me";
-  const selfName = collabAPI?.getUsername() || "You";
+  const selfName = collabAPI?.getUsername() || t("participants.you");
   const selfInCall = audioState.status === "live";
   tiles.push({
     id: selfSocketId,
@@ -318,7 +324,7 @@ export const VideoTilesStrip = () => {
       continue;
     }
     const peer = audioState.peers.get(socketId);
-    const name = c.username || "Khách";
+    const name = c.username || t("participants.guest");
     const avatar = c.color?.background
       ? `linear-gradient(135deg,${c.color.background},${
           c.color.stroke ?? c.color.background
@@ -342,7 +348,7 @@ export const VideoTilesStrip = () => {
 
   return (
     <>
-      <footer className="mcm-people-bar" aria-label="Participants">
+      <footer className="mcm-people-bar" aria-label={t("participants.label")}>
         <CountChip inRoom={tiles.length} inCall={inCallCount} />
         <div className="mcm-people-bar__list">
           {tiles.map((p) => (
@@ -458,21 +464,26 @@ const CountChip = ({
   inRoom: number;
   inCall: number;
   previewMode?: boolean;
-}) => (
-  <div className="mcm-people-bar__chip" aria-hidden="true">
-    <span className="mcm-people-bar__chip-cell">
-      <PeopleIcon />
-      <span className="mcm-people-bar__chip-num">{inRoom}</span>
-    </span>
-    <span className="mcm-people-bar__chip-divider" />
-    <span className="mcm-people-bar__chip-cell">
-      <MicOnIcon />
-      <span className="mcm-people-bar__chip-num">{inCall}</span>
-    </span>
-    {previewMode && (
-      <span className="mcm-people-bar__chip-preview">Preview</span>
-    )}
-  </div>
-);
+}) => {
+  const t = useT();
+  return (
+    <div className="mcm-people-bar__chip" aria-hidden="true">
+      <span className="mcm-people-bar__chip-cell">
+        <PeopleIcon />
+        <span className="mcm-people-bar__chip-num">{inRoom}</span>
+      </span>
+      <span className="mcm-people-bar__chip-divider" />
+      <span className="mcm-people-bar__chip-cell">
+        <MicOnIcon />
+        <span className="mcm-people-bar__chip-num">{inCall}</span>
+      </span>
+      {previewMode && (
+        <span className="mcm-people-bar__chip-preview">
+          {t("participants.previewBadge")}
+        </span>
+      )}
+    </div>
+  );
+};
 
-export default VideoTilesStrip;
+export default ParticipantsBar;

@@ -49,9 +49,7 @@ const SECONDARY = {
 } as const;
 
 export const AIToolsPanel = () => {
-  const [translationEnabled, setTransEnabled] = useAtom(
-    translationEnabledAtom,
-  );
+  const [translationEnabled, setTransEnabled] = useAtom(translationEnabledAtom);
   const lang = useAtomValue(preferredLanguageAtom);
 
   const sec = (key: keyof typeof SECONDARY): string => SECONDARY[key][lang];
