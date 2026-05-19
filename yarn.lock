@@ -5694,6 +5694,21 @@ dunder-proto@^1.0.0, dunder-proto@^1.0.1:
     es-errors "^1.3.0"
     gopd "^1.2.0"
 
+dxf-viewer@1.0.47:
+  version "1.0.47"
+  resolved "https://registry.yarnpkg.com/dxf-viewer/-/dxf-viewer-1.0.47.tgz#4379947681a9cbced7151341a9005fc81934db77"
+  integrity sha512-px+9JhttYt4s6WNBvJ47eF07V1qsQk9tSN9JCbSfEMXO/XmYTjYHXVPTEv+1APSm5wGbrFUtt4gmdmiD3wBjyA==
+  dependencies:
+    earcut "^3.0.0"
+    loglevel "^1.9.1"
+    opentype.js "^1.3.4"
+    three "^0.161.0"
+
+earcut@^3.0.0:
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/earcut/-/earcut-3.0.2.tgz#d478a29aaf99acf418151493048aa197d0512248"
+  integrity sha512-X7hshQbLyMJ/3RPhyObLARM2sNxxmRALLKx1+NVFFnQ9gKzmCrxm9+uLIAdBcvc8FNLpctqlQ2V6AE92Ol9UDQ==
+
 eastasianwidth@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/eastasianwidth/-/eastasianwidth-0.2.0.tgz#696ce2ec0aa0e6ea93a397ffcf24aa7840c827cb"
@@ -7751,6 +7766,11 @@ log-update@^4.0.0:
     slice-ansi "^4.0.0"
     wrap-ansi "^6.2.0"
 
+loglevel@^1.9.1:
+  version "1.9.2"
+  resolved "https://registry.yarnpkg.com/loglevel/-/loglevel-1.9.2.tgz#c2e028d6c757720107df4e64508530db6621ba08"
+  integrity sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg==
+
 long@^5.0.0:
   version "5.3.1"
   resolved "https://registry.yarnpkg.com/long/-/long-5.3.1.tgz#9d4222d3213f38a5ec809674834e0f0ab21abe96"
@@ -8226,6 +8246,11 @@ opener@^1.5.1:
   version "1.5.2"
   resolved "https://registry.yarnpkg.com/opener/-/opener-1.5.2.tgz#5d37e1f35077b9dcac4301372271afdeb2a13598"
   integrity sha512-ur5UIdyw5Y7yEj9wLzhqXiy6GZ3Mwx0yGI+5sMn2r0N0v3cKJvUmFH5yPP+WXh9e0xfyzyJX95D8l088DNFj7A==
+
+opentype.js@^1.3.4:
+  version "1.3.5"
+  resolved "https://registry.yarnpkg.com/opentype.js/-/opentype.js-1.3.5.tgz#64649a265d2a9dfd49e544539d2f695ac519a714"
+  integrity sha512-thKDiELidAApOvXlncrpwDZKJCa9fXLEKM4+FoEWI+qTLDeNb+h7EkN+8a7KQODsB1GZ+Exz9KknkoPrEdXZDw==
 
 optionator@^0.9.1:
   version "0.9.4"
@@ -9763,6 +9788,11 @@ text-table@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/text-table/-/text-table-0.2.0.tgz#7f5ee823ae805207c00af2df4a84ec3fcfa570b4"
   integrity sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==
+
+three@^0.161.0:
+  version "0.161.0"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.161.0.tgz#38aafaa82fe5467fde2e33933515d1b6beb17d91"
+  integrity sha512-LC28VFtjbOyEu5b93K0bNRLw1rQlMJ85lilKsYj6dgTu+7i17W+JCCEbvrpmNHF1F3NAUqDSWq50UD7w9H2xQw==
 
 through@^2.3.8:
   version "2.3.8"

@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+import { CADViewPane } from "./cad/CADViewPane";
+import { CADViewTriggers } from "./cad/CADViewTriggers";
+import { DXFCanvasOverlay } from "./dxf/DXFCanvasOverlay";
 import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLogModal } from "./MeetingLogModal";
@@ -32,12 +35,21 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         onOpenLog={() => setLogOpen(true)}
       />
       <div className="mcm-shell__canvas-wrap">
-        {children}
-        <PinnedImagesOverlay />
-        <StickerPicker />
-        <SpeechToTextPanel />
-        <MeetingCallControls />
-        <ParticipantsBar />
+        {/* Canvas area takes the remaining height once FrameViewPane
+            claims its share at the bottom. All overlays anchor here
+            so their absolute positioning is relative to the canvas
+            area, NOT the FrameViewPane. */}
+        <div className="mcm-shell__canvas-area">
+          {children}
+          <DXFCanvasOverlay />
+          <PinnedImagesOverlay />
+          <StickerPicker />
+          <CADViewTriggers />
+          <SpeechToTextPanel />
+          <MeetingCallControls />
+          <ParticipantsBar />
+        </div>
+        <CADViewPane />
       </div>
       <TranscriptionController />
       {logOpen && <MeetingLogModal onClose={() => setLogOpen(false)} />}

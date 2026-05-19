@@ -67,6 +67,14 @@ export default defineConfig(({ mode }) => {
     // We need to specify the envDir since now there are no
     //more located in parallel with the vite.config.ts file but in parent dir
     envDir: "../",
+    optimizeDeps: {
+      // Force Vite to pre-bundle dxf-viewer + its three.js dependency
+      // at dev server startup. Without this, the dynamic import in
+      // <DXFRenderer /> can race the on-demand dep-scanner — Vite
+      // returns 404 for /node_modules/.vite/deps/dxf-viewer.js the
+      // first time a user uploads a DXF after a cold server start.
+      include: ["dxf-viewer", "three"],
+    },
     resolve: {
       alias: [
         {
@@ -126,6 +134,18 @@ export default defineConfig(({ mode }) => {
           replacement: path.resolve(
             __dirname,
             "../packages/fractional-indexing/src/index.ts",
+          ),
+        },
+        // dxf-viewer does `import opentype from "opentype.js"` (default
+        // import). opentype.js v1.3+ ships an ESM build (.mjs) with only
+        // NAMED exports — no default — which breaks dxf-viewer at build
+        // time. Force resolution to the CJS bundle (.js), which carries
+        // a UMD footer that exposes `default` for interop.
+        {
+          find: /^opentype\.js$/,
+          replacement: path.resolve(
+            __dirname,
+            "../node_modules/opentype.js/dist/opentype.js",
           ),
         },
       ],

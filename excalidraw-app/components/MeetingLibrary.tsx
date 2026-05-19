@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { newImageElement } from "@excalidraw/element";
+import {
+  newElement,
+  newImageElement,
+  syncInvalidIndices,
+} from "@excalidraw/element";
 
 import type { BinaryFileData } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
+
+import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
 
 import { useAtomValue } from "../app-jotai";
 import { collabAPIAtom } from "../collab/Collab";
@@ -12,6 +18,7 @@ import {
   canDeleteFile,
   canUnlockFile,
   hydrateMeetingFiles,
+  isDxfFile,
   isFileSeen,
   markFileSeen,
   meetingFilesAtom,
@@ -122,25 +129,44 @@ export const MeetingLibrary = () => {
       const username = collabAPI.getUsername() || "Local";
       const list = Array.from(fileList);
       for (const file of list) {
-        if (!file.type.startsWith("image/")) {
-          window.alert(`Tạm thời chỉ hỗ trợ ảnh. Bỏ qua: ${file.name}`);
+        const isImage = file.type.startsWith("image/");
+        const isDxf = isDxfFile(file);
+        if (!isImage && !isDxf) {
+          window.alert(
+            `Tạm thời chỉ hỗ trợ ảnh và DXF. Bỏ qua: ${file.name}`,
+          );
           continue;
         }
         try {
           const dataURL = await readAsDataURL(file);
           const id = newFileId();
-          const dims = await probeImageDimensions(dataURL);
-          // collabAPI handles: addFiles to canvas + persist + broadcast
-          collabAPI.publishLibraryFile({
-            id,
-            name: file.name,
-            ts: Date.now(),
-            author: username,
-            mimeType: file.type,
-            dataURL,
-            width: dims?.width,
-            height: dims?.height,
-          });
+          if (isDxf) {
+            // DXF metadata (layers, bounds, thumbnail) is parsed
+            // lazily when the file first renders — keep upload fast.
+            // The browser sometimes hands DXF as octet-stream; we
+            // pin it to a stable mimeType so peers detect it the
+            // same way locally.
+            collabAPI.publishLibraryFile({
+              id,
+              name: file.name,
+              ts: Date.now(),
+              author: username,
+              mimeType: "image/vnd.dxf",
+              dataURL,
+            });
+          } else {
+            const dims = await probeImageDimensions(dataURL);
+            collabAPI.publishLibraryFile({
+              id,
+              name: file.name,
+              ts: Date.now(),
+              author: username,
+              mimeType: file.type,
+              dataURL,
+              width: dims?.width,
+              height: dims?.height,
+            });
+          }
         } catch (error: any) {
           console.error("[meetingLibrary] failed to ingest file", error);
         }
@@ -167,18 +193,72 @@ export const MeetingLibrary = () => {
     }
   };
 
+  // Insert a DXF anchor at the given scene-space CENTER. We use a
+  // plain rectangle element (transparent stroke + fill) with a
+  // marker on customData — the <DXFCanvasOverlay /> picks these up
+  // and paints the actual DXF on top. Default size matches a
+  // landscape A4 ratio (480×320) which fits most floor plans; the
+  // user resizes via Excalidraw's normal selection handles after.
+  const DXF_DEFAULT_W = 480;
+  const DXF_DEFAULT_H = 320;
+  const insertDxfAt = useCallback(
+    (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
+      if (!excalidrawAPI) {
+        return;
+      }
+      // Use INCLUDING DELETED so we preserve the full fractional-index
+      // sequence Excalidraw maintains for tombstoned elements. Passing
+      // only the live subset to updateScene confused the later index
+      // re-order pass (e.g. when the user moves the new element between
+      // frames) and crashed with InvalidFractionalIndexError, freezing
+      // every imported element. See packages/element/src/Scene.ts.
+      const elements = excalidrawAPI.getSceneElementsIncludingDeleted();
+      const anchor = newElement({
+        type: "rectangle",
+        x: at.sceneX - DXF_DEFAULT_W / 2,
+        y: at.sceneY - DXF_DEFAULT_H / 2,
+        width: DXF_DEFAULT_W,
+        height: DXF_DEFAULT_H,
+        strokeColor: "transparent",
+        backgroundColor: "transparent",
+        fillStyle: "solid",
+        strokeWidth: 1,
+        strokeStyle: "solid",
+        roughness: 0,
+        opacity: 100,
+        roundness: null,
+        customData: {
+          mcmType: DXF_ANCHOR_KIND,
+          dxfFileId: file.id,
+        },
+      });
+      // syncInvalidIndices fills in valid fractional indices for newly
+      // added elements (newElement returns one with index=null). Without
+      // this, Excalidraw's later index-reorder pass (triggered when the
+      // user moves the element between frames) sees `null` and throws
+      // InvalidFractionalIndexError, freezing the whole scene.
+      excalidrawAPI.updateScene({
+        elements: syncInvalidIndices([...elements, anchor]),
+      });
+    },
+    [excalidrawAPI],
+  );
+
   // Shared insert helper. `at` is the scene-space CENTER of the new
   // image; callers pick whether that's the viewport centre (click) or
   // the drop position (drag-from-library). Reusing this guarantees
   // both paths funnel through the SAME fileId — so the auto-detect
   // onChange handler always finds the file already-seen and never
   // creates a duplicate library entry.
+  // Same INCLUDING-DELETED rationale as insertDxfAt — see the comment
+  // there. Without it, freshly-inserted images crash the scene the
+  // moment the user drags them across a frame boundary.
   const insertImageAt = useCallback(
     (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
       if (!excalidrawAPI) {
         return;
       }
-      const elements = excalidrawAPI.getSceneElements();
+      const elements = excalidrawAPI.getSceneElementsIncludingDeleted();
       // make sure the file is in the canvas's file map (re-add — addFiles
       // is idempotent for identical ids)
       excalidrawAPI.addFiles([
@@ -208,8 +288,10 @@ export const MeetingLibrary = () => {
         status: "saved",
       });
 
+      // syncInvalidIndices assigns a valid fractional index to the
+      // freshly-minted image — see the explanation in insertDxfAt.
       excalidrawAPI.updateScene({
-        elements: [...elements, img],
+        elements: syncInvalidIndices([...elements, img]),
       });
     },
     [excalidrawAPI],
@@ -219,12 +301,24 @@ export const MeetingLibrary = () => {
     if (!excalidrawAPI) {
       return;
     }
-    // if the image is already on the canvas, jump to it instead of
-    // duplicating
     const elements = excalidrawAPI.getSceneElements();
-    const existing = elements.find(
-      (el) => el.type === "image" && (el as any).fileId === file.id,
-    );
+    const isDxf = isDxfFile(file);
+
+    // If this file already lives on the canvas, scroll to it instead
+    // of dropping a duplicate. For DXF we look for the matching anchor
+    // rectangle (via customData.dxfFileId); for images we look for the
+    // matching image element fileId.
+    const existing = elements.find((el) => {
+      if (isDxf) {
+        const data = el.customData as Record<string, unknown> | undefined;
+        return (
+          el.type === "rectangle" &&
+          data?.mcmType === DXF_ANCHOR_KIND &&
+          data?.dxfFileId === file.id
+        );
+      }
+      return el.type === "image" && (el as any).fileId === file.id;
+    });
     if (existing) {
       excalidrawAPI.scrollToContent(existing, {
         animate: true,
@@ -235,10 +329,15 @@ export const MeetingLibrary = () => {
 
     // Click-to-insert lands at the viewport centre.
     const appState = excalidrawAPI.getAppState();
-    insertImageAt(file, {
+    const at = {
       sceneX: -appState.scrollX + appState.width / 2 / appState.zoom.value,
       sceneY: -appState.scrollY + appState.height / 2 / appState.zoom.value,
-    });
+    };
+    if (isDxf) {
+      insertDxfAt(file, at);
+    } else {
+      insertImageAt(file, at);
+    }
   };
 
   // Drag-start on a library item: serialise just the file id. The
@@ -293,11 +392,20 @@ export const MeetingLibrary = () => {
       if (!file) {
         return;
       }
-      // jump to existing if already on canvas
+      const isDxf = isDxfFile(file);
+      // Jump to existing canvas instance instead of duplicating.
       const elements = excalidrawAPI.getSceneElements();
-      const existing = elements.find(
-        (el) => el.type === "image" && (el as any).fileId === file.id,
-      );
+      const existing = elements.find((el) => {
+        if (isDxf) {
+          const data = el.customData as Record<string, unknown> | undefined;
+          return (
+            el.type === "rectangle" &&
+            data?.mcmType === DXF_ANCHOR_KIND &&
+            data?.dxfFileId === file.id
+          );
+        }
+        return el.type === "image" && (el as any).fileId === file.id;
+      });
       if (existing) {
         excalidrawAPI.scrollToContent(existing, {
           animate: true,
@@ -305,16 +413,19 @@ export const MeetingLibrary = () => {
         });
         return;
       }
-      // Convert client coords to scene coords using the container rect
-      // + current scroll/zoom from appState.
       const rect = container.getBoundingClientRect();
       const appState = excalidrawAPI.getAppState();
-      const screenX = e.clientX - rect.left;
-      const screenY = e.clientY - rect.top;
-      insertImageAt(file, {
-        sceneX: -appState.scrollX + screenX / appState.zoom.value,
-        sceneY: -appState.scrollY + screenY / appState.zoom.value,
-      });
+      const at = {
+        sceneX:
+          -appState.scrollX + (e.clientX - rect.left) / appState.zoom.value,
+        sceneY:
+          -appState.scrollY + (e.clientY - rect.top) / appState.zoom.value,
+      };
+      if (isDxf) {
+        insertDxfAt(file, at);
+      } else {
+        insertImageAt(file, at);
+      }
     };
 
     container.addEventListener("dragover", onDragOver, true);
@@ -323,7 +434,7 @@ export const MeetingLibrary = () => {
       container.removeEventListener("dragover", onDragOver, true);
       container.removeEventListener("drop", onDrop, true);
     };
-  }, [excalidrawAPI, items, insertImageAt]);
+  }, [excalidrawAPI, items, insertImageAt, insertDxfAt]);
 
   const me = collabAPI?.getUsername() || "Local";
 
@@ -388,19 +499,21 @@ export const MeetingLibrary = () => {
           onClick={handlePickFiles}
           disabled={!excalidrawAPI}
         >
-          {dragOver ? "Thả file để tải lên" : "+ Tải ảnh lên · hoặc kéo thả"}
+          {dragOver
+            ? "Thả file để tải lên"
+            : "+ Tải ảnh / DXF lên · hoặc kéo thả"}
         </button>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.dxf,application/dxf,image/vnd.dxf"
           multiple
-          aria-label="Chọn ảnh để tải lên thư viện phòng"
+          aria-label="Chọn ảnh hoặc file DXF để tải lên thư viện phòng"
           className="MeetingLibrary__file-input"
           onChange={handleFileInputChange}
         />
         <div className="MeetingLibrary__hint-line">
-          Ảnh paste/kéo vào canvas tự động xuất hiện ở đây.
+          Hỗ trợ ảnh + DXF. Ảnh paste/kéo vào canvas tự xuất hiện ở đây.
         </div>
       </div>
       <div className="MeetingLibrary__grid">
@@ -412,18 +525,57 @@ export const MeetingLibrary = () => {
           </div>
         ) : (
           items.map((file) => {
-            const isImage = file.mimeType.startsWith("image/");
+            const isImage = file.mimeType.startsWith("image/dxf")
+              ? false
+              : file.mimeType.startsWith("image/");
+            const isDxf = isDxfFile(file);
             return (
               <div
                 key={file.id}
-                className="MeetingLibrary__item"
+                className={`MeetingLibrary__item${
+                  isDxf ? " MeetingLibrary__item--dxf" : ""
+                }`}
                 onClick={() => handleInsert(file)}
                 draggable
                 onDragStart={(e) => handleItemDragStart(file, e)}
                 title={`${file.name} — bấm hoặc kéo vào canvas`}
               >
                 <div className="MeetingLibrary__item-thumb">
-                  {isImage ? (
+                  {isDxf && file.dxfMeta?.thumbnail ? (
+                    <img
+                      src={file.dxfMeta.thumbnail}
+                      alt={file.name}
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  ) : isDxf ? (
+                    // DXF without a baked thumbnail yet — show a
+                    // recognisable CAD glyph instead of the generic
+                    // mime-type fallback so users can tell at a glance
+                    // which library items are drawings.
+                    <span
+                      className="MeetingLibrary__item-fallback MeetingLibrary__item-fallback--dxf"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="32"
+                        height="32"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M4 4h12l4 4v12H4z" />
+                        <path d="M16 4v4h4" />
+                        <path d="M7 12h10M7 15h6M7 18h8" />
+                      </svg>
+                      <span className="MeetingLibrary__item-fallback-label">
+                        DXF
+                      </span>
+                    </span>
+                  ) : isImage ? (
                     <img
                       src={file.dataURL}
                       alt={file.name}

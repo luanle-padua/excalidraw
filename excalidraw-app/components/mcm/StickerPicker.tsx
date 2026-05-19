@@ -10,7 +10,7 @@
 // sits next to the stylus tip rather than under the user's hand.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { newImageElement } from "@excalidraw/element";
+import { newImageElement, syncInvalidIndices } from "@excalidraw/element";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -195,8 +195,17 @@ export const StickerPicker = () => {
         fileId: id as FileId,
         status: "saved",
       });
+      // syncInvalidIndices assigns a valid fractional index to the
+      // freshly-minted element. CRITICAL: pass elements INCLUDING
+      // deleted ones so we preserve the full index sequence Excalidraw
+      // tracks for tombstones. Without it, dragging the sticker
+      // between frames later crashes with InvalidFractionalIndexError
+      // and freezes every imported element. (See MeetingLibrary.tsx.)
       excalidrawAPI.updateScene({
-        elements: [...excalidrawAPI.getSceneElements(), element],
+        elements: syncInvalidIndices([
+          ...excalidrawAPI.getSceneElementsIncludingDeleted(),
+          element,
+        ]),
       });
       if (collabAPI) {
         collabAPI.publishLibraryFile({

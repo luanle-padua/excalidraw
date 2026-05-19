@@ -18,6 +18,33 @@ export type MeetingFile = {
   /** username of the participant that locked this file. When set, only the
    *  locker (or the original author) can unlock or delete it. */
   lockedBy?: string | null;
+  /** DXF-specific metadata populated on upload when the file is a CAD
+   *  drawing. Absent for image files. The layer + bounds info is
+   *  cheap (extracted once during the initial render) and lets the
+   *  split-pane show a layer tree without re-parsing the DXF every
+   *  time. The thumbnail is a baked PNG snapshot used as the library
+   *  preview tile (DXF files don't have a native thumbnail). */
+  dxfMeta?: {
+    layers: Array<{ name: string; color?: number }>;
+    bounds: { minX: number; minY: number; maxX: number; maxY: number };
+    thumbnail?: string;
+  };
+};
+
+/** Quick predicate for DXF detection that doesn't rely on browser mime
+ *  sniffing — browsers often hand back `application/octet-stream` for
+ *  DXF, so we fall back to the file extension. */
+export const isDxfFile = (input: {
+  name?: string;
+  type?: string;
+  mimeType?: string;
+}): boolean => {
+  const mime = input.type ?? input.mimeType ?? "";
+  if (mime === "image/vnd.dxf" || mime === "application/dxf") {
+    return true;
+  }
+  const name = input.name ?? "";
+  return name.toLowerCase().endsWith(".dxf");
 };
 
 const STORAGE_PREFIX = "meeting-canvas:files:";
