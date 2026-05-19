@@ -169,6 +169,7 @@ export const ko: Widened<typeof vi> = {
   },
 
   pin: {
+    pinTitle: "클릭하여 이 이미지에 핀 꽂기",
     unpinTitle: "클릭하여 이 이미지의 핀을 제거",
     permissionDenied:
       "{locker}(핀을 꽂은 사람) 또는 {author}(업로더)만 핀을 제거할 수 있습니다.",

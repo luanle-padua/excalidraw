@@ -159,6 +159,7 @@ export const en: Widened<typeof vi> = {
   },
 
   pin: {
+    pinTitle: "Click to pin this image",
     unpinTitle: "Click to unpin this image",
     permissionDenied:
       "Only {locker} (who pinned it) or {author} (the uploader) can unpin.",

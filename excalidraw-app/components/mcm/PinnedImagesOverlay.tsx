@@ -13,7 +13,7 @@
 // Clicking a decoration removes the pin (if the user has permission).
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import type {
   AppState,
@@ -54,23 +54,24 @@ const stableHash = (s: string): number => {
   return Math.abs(h);
 };
 
+// Lock decoration is now PIN-ONLY: when a file is locked we always
+// stamp the MAP-branded thumbtack on it, no random tape/sticker mix.
+// User-driven stickers + stamps live in their own toolbar picker —
+// keeping the auto-decoration single-purpose makes "this image is
+// locked" instantly readable.
 type Decoration = {
-  kind: "pin" | "tape";
+  kind: "pin";
   color: string;
-  /** degrees — small random tilt so a row of decorations doesn't read
-   *  as a perfect grid. */
+  /** degrees — small random tilt so a row of pinned images doesn't
+   *  read as a perfect grid. */
   rotation: number;
 };
 
 const decorationFor = (fileId: string): Decoration => {
   const h = stableHash(fileId);
   const color = PALETTE[h % PALETTE.length];
-  // ~30% tape, 70% pin — pins are more recognisable, tape adds variety.
-  const kind: Decoration["kind"] = ((h * 17) >>> 0) % 10 < 3 ? "tape" : "pin";
-  // pin tilts further than tape (real tape lays mostly flat).
-  const rotationRange = kind === "pin" ? 30 : 16;
-  const rotation = (((h * 31) >>> 0) % rotationRange) - rotationRange / 2;
-  return { kind, color, rotation };
+  const rotation = (((h * 31) >>> 0) % 30) - 15;
+  return { kind: "pin", color, rotation };
 };
 
 // -----------------------------------------------------------------------
@@ -80,8 +81,11 @@ type PinPosition = {
   /** stable key for React reconciliation */
   key: string;
   /** the library file id that backs this canvas element — needed so the
-   *  click handler can call publishLibraryFileLock(fileId, null). */
+   *  click handler can call publishLibraryFileLock(fileId, …). */
   fileId: string | null;
+  /** "locked" → render the real pin/tape decoration (click → unlock).
+   *  "selected-unlocked" → render a ghost pin button (click → lock). */
+  state: "locked" | "selected-unlocked";
   /** image rect in viewport px, used for layout (pin sticks at top-right
    *  corner; tape lays across the top centre). */
   left: number;
@@ -119,6 +123,7 @@ export const PinnedImagesOverlay = () => {
     ) => {
       const next: PinPosition[] = [];
       const zoom = appState.zoom.value;
+      const selectedIds = appState.selectedElementIds;
       for (const el of elements) {
         if (!isImage(el)) {
           continue;
@@ -126,7 +131,14 @@ export const PinnedImagesOverlay = () => {
         const fileId = typeof el.fileId === "string" ? el.fileId : null;
         const fileLocked = fileId !== null && lockedLibraryFileIds.has(fileId);
         const elementLocked = el.locked === true;
-        if (!fileLocked && !elementLocked) {
+        const isLocked = fileLocked || elementLocked;
+        const isSelected = !!selectedIds[el.id];
+        // Render anchor when locked (real decoration) OR when selected
+        // but unlocked (ghost pin to offer a one-click lock action).
+        // Selected-AND-locked images already have their decoration,
+        // which itself is the click-to-unlock affordance.
+        const showGhost = isSelected && !isLocked && fileId !== null;
+        if (!isLocked && !showGhost) {
           continue;
         }
         const viewportX = (el.x + appState.scrollX) * zoom;
@@ -134,6 +146,7 @@ export const PinnedImagesOverlay = () => {
         next.push({
           key: el.id,
           fileId,
+          state: isLocked ? "locked" : "selected-unlocked",
           left: viewportX,
           top: viewportY,
           width: el.width * zoom,
@@ -145,6 +158,7 @@ export const PinnedImagesOverlay = () => {
           const same = prev.every(
             (p, i) =>
               p.key === next[i].key &&
+              p.state === next[i].state &&
               p.left === next[i].left &&
               p.top === next[i].top &&
               p.width === next[i].width &&
@@ -167,104 +181,254 @@ export const PinnedImagesOverlay = () => {
     return unsub;
   }, [excalidrawAPI, files]);
 
-  // Permission-aware unpin. For files that have a `lockedBy` user we
-  // route through publishLibraryFileLock so peers get the update too
-  // (which in turn clears the element.locked flag via the matching
-  // sync logic in Collab.setCanvasImagesLockedByFileId). For files
-  // that are NOT in our library map (rare edge case where someone
-  // toggled Excalidraw's native lock directly) we just leave the
-  // element locked — the user can clear it via Excalidraw's selection
-  // panel instead.
+  // Two paths converge here:
+  //   • file IS in meetingFilesAtom → route through publishLibraryFileLock
+  //     so the library entry's lockedBy + element.locked + peer broadcast
+  //     all stay in sync. Permission check applies on unlock.
+  //   • file NOT in meetingFilesAtom (legacy paste, direct addFiles, or
+  //     just lost track) → fall back to toggleCanvasImageElementLock,
+  //     which only flips Excalidraw's native element.locked + broadcasts
+  //     via Excalidraw's own element sync. No permission gate — anyone
+  //     with edit access to the canvas can toggle a raw element lock,
+  //     matching Excalidraw's built-in behaviour.
   const handleUnpin = (fileId: string | null) => {
     if (!fileId || !collabAPI) {
       return;
     }
     const file = files.find((f) => f.id === fileId);
-    if (!file || !file.lockedBy) {
+    if (file && file.lockedBy) {
+      const username = collabAPI.getUsername() || "Local";
+      if (!canUnlockFile(file, username)) {
+        window.alert(
+          t("pin.permissionDenied", {
+            locker: file.lockedBy,
+            author: file.author,
+          }),
+        );
+        return;
+      }
+      collabAPI.publishLibraryFileLock(fileId, null);
       return;
     }
-    const username = collabAPI.getUsername() || "Local";
-    if (!canUnlockFile(file, username)) {
-      window.alert(
-        t("pin.permissionDenied", {
-          locker: file.lockedBy,
-          author: file.author,
-        }),
-      );
+    // Element-only lock (file not tracked or already unlocked at file
+    // level but element.locked is still on).
+    collabAPI.toggleCanvasImageElementLock(fileId, false);
+  };
+
+  const handlePin = (fileId: string | null) => {
+    if (!fileId || !collabAPI) {
       return;
     }
-    collabAPI.publishLibraryFileLock(fileId, null);
+    const file = files.find((f) => f.id === fileId);
+    if (file) {
+      if (file.lockedBy) {
+        return;
+      }
+      const username = collabAPI.getUsername() || "Local";
+      collabAPI.publishLibraryFileLock(fileId, username);
+      return;
+    }
+    collabAPI.toggleCanvasImageElementLock(fileId, true);
   };
 
   if (pins.length === 0) {
     return null;
   }
 
+  // pointerdown handler on the buttons stops Excalidraw's canvas-level
+  // listeners from receiving the press, which otherwise deselects the
+  // image (the source of the ghost pin) BEFORE the click fires — the
+  // disappearing target then swallowed the click event. Calling
+  // stopPropagation + the native stopImmediatePropagation belts-and-
+  // braces it (Excalidraw mostly delegates via React but also adds
+  // some window-level handlers during drag state).
+  const swallowPointer = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
+  };
+
   return (
-    <div className="mcm-pin-layer" aria-hidden="true">
+    <div className="mcm-pin-layer">
       {pins.map((p) => {
-        const dec = decorationFor(p.fileId ?? p.key);
-        // Pin sticks at the top-right corner, the tape lays across the
-        // top edge with the tape's centre at ~80% of the image width
-        // (offset right so it reads as decorative, not blocking).
-        if (dec.kind === "pin") {
-          // Emoji renders larger than the box because OS emoji fonts
-          // pad heavily inside their bounding box. The `size` here
-          // controls font-size; the actual visual is ~80% of that.
-          const size = Math.max(40, Math.min(72, p.width * 0.18));
+        // GHOST PIN: clicking the body of a selected unlocked image
+        // → shows a faded SVG pin at the top-right corner inviting
+        // "pin this". On hover it firms up; click locks (and on next
+        // render becomes a real pin/tape).
+        if (p.state === "selected-unlocked") {
+          const size = Math.max(44, Math.min(76, p.width * 0.2));
           const left = p.left + p.width - size * 0.55;
-          const top = p.top - size * 0.4;
+          const top = p.top - size * 0.35;
           return (
             <button
               key={p.key}
               type="button"
-              className="mcm-pin-layer__pin"
-              // Per-pin layout is data-driven.
+              className="mcm-pin-layer__pin mcm-pin-layer__pin--ghost"
               // eslint-disable-next-line react/forbid-dom-props
               style={
                 {
                   left,
                   top,
-                  fontSize: size,
-                  "--pin-rotation": `${dec.rotation}deg`,
+                  width: size,
+                  height: size * 1.15,
+                  "--pin-rotation": "0deg",
                 } as React.CSSProperties
               }
-              onClick={() => handleUnpin(p.fileId)}
-              title={t("pin.unpinTitle")}
+              onPointerDown={swallowPointer}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePin(p.fileId);
+              }}
+              title={t("pin.pinTitle")}
             >
-              📌
+              <MapPinSVG />
             </button>
           );
         }
-        // Tape: rectangular strip glued across the top edge, half off
-        // the image (so it reads as decorative, like a polaroid in a
-        // mood board). Width scales with image width.
-        const tapeW = Math.max(60, Math.min(180, p.width * 0.45));
-        const tapeH = 26;
-        const left = p.left + p.width * 0.5 - tapeW * 0.5;
-        const top = p.top - tapeH * 0.55;
+
+        // LOCKED → render the MAP pin (only kind now — stickers and
+        // stamps are user-driven via the toolbar picker).
+        const dec = decorationFor(p.fileId ?? p.key);
+        const size = Math.max(44, Math.min(76, p.width * 0.2));
+        const left = p.left + p.width - size * 0.55;
+        const top = p.top - size * 0.35;
         return (
           <button
             key={p.key}
             type="button"
-            className="mcm-pin-layer__tape"
+            className="mcm-pin-layer__pin"
             // eslint-disable-next-line react/forbid-dom-props
             style={
               {
                 left,
                 top,
-                width: tapeW,
-                height: tapeH,
-                "--tape-color": dec.color,
-                "--tape-rotation": `${dec.rotation}deg`,
+                width: size,
+                height: size * 1.15,
+                "--pin-rotation": `${dec.rotation}deg`,
               } as React.CSSProperties
             }
-            onClick={() => handleUnpin(p.fileId)}
+            onPointerDown={swallowPointer}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleUnpin(p.fileId);
+            }}
             title={t("pin.unpinTitle")}
-          />
+          >
+            <MapPinSVG />
+          </button>
         );
       })}
     </div>
+  );
+};
+
+// -----------------------------------------------------------------------
+// MAP pin SVG — properly designed thumbtack with the brand "M" baked
+// into the head. Uses radial gradients for the rounded glossy head and
+// a tapered linear gradient on the needle, plus a soft shadow. The
+// M is rendered as <text> inside the SVG so it tilts/scales perfectly
+// with the pin, no overlay alignment headaches.
+//
+// We mint unique gradient IDs per instance via useId — multiple pins
+// on the page would otherwise share the first SVG's gradient defs and
+// break theme variations down the line.
+// -----------------------------------------------------------------------
+const MapPinSVG = () => {
+  const id = useId();
+  const headGrad = `mcm-pin-head-${id}`;
+  const needleGrad = `mcm-pin-needle-${id}`;
+  return (
+    <svg
+      viewBox="0 0 100 115"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        {/* radial gradient gives the head a 3D ball look — bright
+            upper-left highlight, deep wine red at the bottom */}
+        <radialGradient id={headGrad} cx="32%" cy="28%" r="78%">
+          <stop offset="0%" stopColor="#ffb4b4" />
+          <stop offset="35%" stopColor="#ef4444" />
+          <stop offset="100%" stopColor="#7f1d1d" />
+        </radialGradient>
+        {/* metallic needle gradient — light strip down the middle */}
+        <linearGradient id={needleGrad} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#3f3f46" />
+          <stop offset="50%" stopColor="#a1a1aa" />
+          <stop offset="100%" stopColor="#27272a" />
+        </linearGradient>
+      </defs>
+
+      {/* ground shadow under needle tip */}
+      <ellipse cx="50" cy="110" rx="9" ry="2" fill="rgba(0,0,0,0.28)" />
+
+      {/* needle */}
+      <path d="M44 58 L56 58 L52.5 108 L47.5 108 Z" fill={`url(#${needleGrad})`} />
+      {/* needle highlight stripe */}
+      <path
+        d="M47.5 58 L49.5 58 L48.7 104 L47.5 104 Z"
+        fill="rgba(255,255,255,0.45)"
+      />
+
+      {/* head */}
+      <circle cx="50" cy="36" r="30" fill={`url(#${headGrad})`} />
+
+      {/* soft inner bottom shade for roundness */}
+      <ellipse
+        cx="50"
+        cy="48"
+        rx="26"
+        ry="14"
+        fill="rgba(0,0,0,0.18)"
+        opacity="0.6"
+      />
+
+      {/* glossy highlight on top-left */}
+      <ellipse
+        cx="37"
+        cy="22"
+        rx="14"
+        ry="7"
+        fill="rgba(255,255,255,0.45)"
+      />
+      <ellipse
+        cx="34"
+        cy="20"
+        rx="7"
+        ry="3.5"
+        fill="rgba(255,255,255,0.7)"
+      />
+
+      {/* outer rim shadow for definition against light backgrounds */}
+      <circle
+        cx="50"
+        cy="36"
+        r="30"
+        fill="none"
+        stroke="rgba(0,0,0,0.18)"
+        strokeWidth="1"
+      />
+
+      {/* MAP brand M — centred on head, bold sans-serif, white */}
+      <text
+        x="50"
+        y="36"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontFamily="-apple-system, 'SF Pro Display', 'Segoe UI', 'Arial Black', sans-serif"
+        fontWeight="900"
+        fontSize="32"
+        fill="#ffffff"
+        letterSpacing="-1"
+        style={{ paintOrder: "stroke" }}
+        stroke="rgba(0,0,0,0.2)"
+        strokeWidth="0.6"
+      >
+        M
+      </text>
+    </svg>
   );
 };
 

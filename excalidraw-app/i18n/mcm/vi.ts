@@ -173,6 +173,7 @@ export const vi = {
 
   // ---------------- Pin / lock affordance --------------------------
   pin: {
+    pinTitle: "Bấm để ghim ảnh này",
     unpinTitle: "Bấm để bỏ ghim ảnh này",
     permissionDenied:
       "Chỉ {locker} (người ghim) hoặc {author} (người tải lên) có thể bỏ ghim.",

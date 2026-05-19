@@ -209,6 +209,11 @@ export interface CollabAPI {
   publishLibraryFile: CollabInstance["publishLibraryFile"];
   publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
   publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
+  /** Element-only lock toggle. Use when the file isn't tracked by the
+   *  meeting library (legacy paste, direct addFiles, etc.) — these
+   *  images still want the pin/tape affordance but don't have a
+   *  library entry to gate on. */
+  toggleCanvasImageElementLock: CollabInstance["toggleCanvasImageElementLock"];
   linkTextToFile: CollabInstance["linkTextToFile"];
   /** exposed for the WebRTC audio/video mesh — peers reuse this socket
    *  to signal offer/answer/ICE without opening a second connection */
@@ -341,6 +346,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       publishLibraryFile: this.publishLibraryFile,
       publishLibraryFileDelete: this.publishLibraryFileDelete,
       publishLibraryFileLock: this.publishLibraryFileLock,
+      toggleCanvasImageElementLock: this.toggleCanvasImageElementLock,
       linkTextToFile: this.linkTextToFile,
       portal: this.portal,
     };
@@ -1612,6 +1618,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // next sync
       this.syncElements(this.excalidrawAPI.getSceneElementsIncludingDeleted());
     }
+  };
+
+  /** Public element-only lock toggle for images that don't live in the
+   *  meeting library (legacy paste, addFiles from outside, etc.). Just
+   *  flips Excalidraw's native `locked` flag — broadcast happens via
+   *  Excalidraw's own element sync. Returns true if anything changed. */
+  toggleCanvasImageElementLock = (fileId: string, locked: boolean) => {
+    this.setCanvasImagesLockedByFileId(fileId, locked);
   };
 
   /** Mirror library-file lock state onto every canvas image element

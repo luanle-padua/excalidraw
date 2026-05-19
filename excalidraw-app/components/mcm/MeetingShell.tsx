@@ -5,6 +5,7 @@ import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
+import { StickerPicker } from "./StickerPicker";
 import { ParticipantsBar } from "./ParticipantsBar";
 import { TranscriptionController } from "./TranscriptionController";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
@@ -33,6 +34,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       <div className="mcm-shell__canvas-wrap">
         {children}
         <PinnedImagesOverlay />
+        <StickerPicker />
         <SpeechToTextPanel />
         <MeetingCallControls />
         <ParticipantsBar />
