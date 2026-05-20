@@ -932,16 +932,22 @@ export const ChatView = () => {
         const dataURL = await readAsDataURL(f);
         const id = newFileId();
         const dims = await probeImageDims(dataURL);
-        collabAPI.publishLibraryFile({
-          id,
-          name: f.name,
-          ts: Date.now(),
-          author: username,
-          mimeType: f.type,
-          dataURL,
-          width: dims?.width,
-          height: dims?.height,
-        });
+        // Explicit upload from chat attachment picker — same rationale
+        // as MeetingLibrary's ingestFiles: trust the user's intent and
+        // don't silently dedup on content fingerprint.
+        collabAPI.publishLibraryFile(
+          {
+            id,
+            name: f.name,
+            ts: Date.now(),
+            author: username,
+            mimeType: f.type,
+            dataURL,
+            width: dims?.width,
+            height: dims?.height,
+          },
+          { allowContentDup: true },
+        );
         tokens.push(`[@${f.name}](file:${id})`);
       } catch (err) {
         console.warn("chat upload failed", err);

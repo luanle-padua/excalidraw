@@ -10,8 +10,6 @@ import {
 import type { BinaryFileData } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 
-import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
-
 import { useAtomValue } from "../app-jotai";
 import { collabAPIAtom } from "../collab/Collab";
 import {
@@ -24,6 +22,8 @@ import {
   meetingFilesAtom,
   probeImageDimensions,
 } from "../data/meetingLibrary";
+
+import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
 
 import "./MeetingLibrary.scss";
 
@@ -132,40 +132,51 @@ export const MeetingLibrary = () => {
         const isImage = file.type.startsWith("image/");
         const isDxf = isDxfFile(file);
         if (!isImage && !isDxf) {
-          window.alert(
-            `Tạm thời chỉ hỗ trợ ảnh và DXF. Bỏ qua: ${file.name}`,
-          );
+          window.alert(`Tạm thời chỉ hỗ trợ ảnh và DXF. Bỏ qua: ${file.name}`);
           continue;
         }
         try {
           const dataURL = await readAsDataURL(file);
           const id = newFileId();
+          // Explicit upload — the user picked this file deliberately, so
+          // even if the byte payload exactly matches an existing library
+          // entry (e.g. they copied `plan.dxf` to `plan-copy.dxf` and
+          // imported the copy) we honour the upload and create a new
+          // entry. The auto-detect path that watches canvas paste/drop
+          // events leaves `allowContentDup` unset, so the duplicate-image
+          // collapse still works there.
           if (isDxf) {
             // DXF metadata (layers, bounds, thumbnail) is parsed
             // lazily when the file first renders — keep upload fast.
             // The browser sometimes hands DXF as octet-stream; we
             // pin it to a stable mimeType so peers detect it the
             // same way locally.
-            collabAPI.publishLibraryFile({
-              id,
-              name: file.name,
-              ts: Date.now(),
-              author: username,
-              mimeType: "image/vnd.dxf",
-              dataURL,
-            });
+            collabAPI.publishLibraryFile(
+              {
+                id,
+                name: file.name,
+                ts: Date.now(),
+                author: username,
+                mimeType: "image/vnd.dxf",
+                dataURL,
+              },
+              { allowContentDup: true },
+            );
           } else {
             const dims = await probeImageDimensions(dataURL);
-            collabAPI.publishLibraryFile({
-              id,
-              name: file.name,
-              ts: Date.now(),
-              author: username,
-              mimeType: file.type,
-              dataURL,
-              width: dims?.width,
-              height: dims?.height,
-            });
+            collabAPI.publishLibraryFile(
+              {
+                id,
+                name: file.name,
+                ts: Date.now(),
+                author: username,
+                mimeType: file.type,
+                dataURL,
+                width: dims?.width,
+                height: dims?.height,
+              },
+              { allowContentDup: true },
+            );
           }
         } catch (error: any) {
           console.error("[meetingLibrary] failed to ingest file", error);

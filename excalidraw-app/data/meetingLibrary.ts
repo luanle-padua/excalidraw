@@ -115,25 +115,54 @@ const persist = async (roomId: string | null, items: MeetingFile[]) => {
 };
 
 /** Quick fingerprint for content-based de-duplication. Comparing full
- *  multi-megabyte dataURLs on every upsert is too slow, but length plus the
- *  first and last 128 chars of the BASE64 PAYLOAD (after the comma) is
- *  enough to distinguish real images.
+ *  multi-megabyte dataURLs on every upsert is too slow, but a length
+ *  + four sample slices of the BASE64 PAYLOAD (after the comma) is
+ *  enough to distinguish real files without scanning their entirety.
  *
  *  Why strip the `data:image/...;base64,` prefix: when Excalidraw ingests
  *  a dropped image it normalises the MIME (e.g. files mislabelled as PNG
  *  but actually JPEG get rewritten to image/jpeg). The byte payload is
  *  identical but the prefix is different — comparing the whole dataURL
  *  string would then miss the dedup and we'd end up with two library
- *  entries for the same image (the original bug). */
+ *  entries for the same image (the original bug).
+ *
+ *  Why FOUR sample slices (start + 25% + 75% + end) rather than just
+ *  the original (start + end): two DXF files exported from the same
+ *  CAD package share long, identical headers (HEADER/SECTION block,
+ *  ACADVER, DWGCODEPAGE…) and identical EOF markers. If their byte
+ *  lengths happened to match too, the old `start+end` fingerprint
+ *  collided and the second file was silently dropped — that's the
+ *  "select multiple DXFs → only one enters library" bug. Sampling the
+ *  middle catches genuine content differences inside the boilerplate. */
 const fingerprintOf = (dataURL: string) => {
   const commaAt = dataURL.indexOf(",");
   const payload = commaAt >= 0 ? dataURL.slice(commaAt + 1) : dataURL;
-  return `${payload.length}:${payload.slice(0, 128)}:${payload.slice(-128)}`;
+  const len = payload.length;
+  const q1 = Math.floor(len * 0.25);
+  const q3 = Math.floor(len * 0.75);
+  return [
+    len,
+    payload.slice(0, 64),
+    payload.slice(q1, q1 + 64),
+    payload.slice(q3, q3 + 64),
+    payload.slice(-64),
+  ].join(":");
 };
 
 /** Add or update a file by id (idempotent). Marks the file as seen so
- *  follow-up onChange events for the same id don't re-trigger insertion. */
-export const upsertMeetingFile = (roomId: string | null, file: MeetingFile) => {
+ *  follow-up onChange events for the same id don't re-trigger insertion.
+ *
+ *  `opts.allowContentDup` skips the content fingerprint check — used by
+ *  explicit user upload paths (file picker / drag-drop) where importing
+ *  a duplicate file is intentional (e.g. user copied X.dxf to X-copy.dxf
+ *  and wants both as separate library entries). Auto-detect paths
+ *  (paste-on-canvas onChange) leave it false so paste+upload of the
+ *  same image still collapses into one entry. */
+export const upsertMeetingFile = (
+  roomId: string | null,
+  file: MeetingFile,
+  opts?: { allowContentDup?: boolean },
+) => {
   // Refuse to resurrect explicitly-deleted files even if a stale broadcast
   // from a peer that hasn't seen the deletion yet tries to push it back.
   if (deletedFileIds.has(file.id)) {
@@ -151,11 +180,20 @@ export const upsertMeetingFile = (roomId: string | null, file: MeetingFile) => {
   // hash-based id for paste-on-canvas, or a peer broadcast racing a local
   // auto-detect), this catches the second occurrence and aliases the
   // new id to the existing entry's id so future references resolve.
-  const fp = fingerprintOf(file.dataURL);
-  const dup = current.find((f) => fingerprintOf(f.dataURL) === fp);
-  if (dup) {
-    seenFileIds.add(file.id);
-    return false;
+  //
+  // Only applies BETWEEN files of the same mime type — comparing a PNG
+  // dataURL fingerprint against a DXF entry would be meaningless and,
+  // worst case, cause a cross-type collision that drops a genuinely
+  // new file. We compare like-with-like.
+  if (!opts?.allowContentDup) {
+    const fp = fingerprintOf(file.dataURL);
+    const dup = current.find(
+      (f) => f.mimeType === file.mimeType && fingerprintOf(f.dataURL) === fp,
+    );
+    if (dup) {
+      seenFileIds.add(file.id);
+      return false;
+    }
   }
   seenFileIds.add(file.id);
   const next = [file, ...current];

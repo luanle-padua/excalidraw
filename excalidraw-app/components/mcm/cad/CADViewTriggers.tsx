@@ -261,9 +261,14 @@ const RightClickTrigger = () => {
       });
     };
     window.addEventListener("contextmenu", onContextMenu, true);
-    return () =>
-      window.removeEventListener("contextmenu", onContextMenu, true);
-    // hitTestDxfAnchor closes over excalidrawAPI + files via lexical scope.
+    return () => window.removeEventListener("contextmenu", onContextMenu, true);
+    // hitTestDxfAnchor is closed over but its identity changes on
+    // every render — listing it as a dep would force the effect to
+    // re-bind the contextmenu listener every render, which is both
+    // wasteful and a re-entrancy hazard. The function reads
+    // excalidrawAPI + files which ARE listed, so its behaviour is
+    // already correct under their changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [excalidrawAPI, files]);
 
   useEffect(() => {

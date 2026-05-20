@@ -103,6 +103,8 @@ import {
   transcriptionLogAtom,
 } from "../data/transcription";
 
+import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache";
+
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
 
@@ -1528,10 +1530,23 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   /** Called by MeetingLibrary when the local user adds a file (via upload
    *  or by pasting onto the canvas). Persists locally and broadcasts to
-   *  peers so they get the binary too. */
-  publishLibraryFile = (file: MeetingFile) => {
+   *  peers so they get the binary too.
+   *
+   *  `opts.allowContentDup` skips the content fingerprint check inside
+   *  upsertMeetingFile. Use it from EXPLICIT user upload paths (file
+   *  picker, drag-drop) where re-importing a duplicate file is a
+   *  deliberate action — the user expects to see a second library
+   *  entry. Default (false) keeps dedup for auto-detect paths so a
+   *  paste-on-canvas + library-button-upload of the same image still
+   *  collapses into one entry. */
+  publishLibraryFile = (
+    file: MeetingFile,
+    opts?: { allowContentDup?: boolean },
+  ) => {
     const roomId = this.portal.roomId;
-    const wasNew = upsertMeetingFile(roomId, file);
+    const wasNew = upsertMeetingFile(roomId, file, {
+      allowContentDup: opts?.allowContentDup,
+    });
     if (!wasNew) {
       return;
     }
@@ -1554,6 +1569,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   publishLibraryFileDelete = (fileId: string) => {
     const roomId = this.portal.roomId;
     this.removeCanvasImagesByFileId(fileId);
+    clearDxfSnapshotsForFile(fileId);
     if (removeMeetingFile(roomId, fileId)) {
       this.portal.broadcastLibraryFileDelete(fileId);
     }
@@ -1591,6 +1607,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   private applyRemoteLibraryFileDelete = (fileId: string) => {
     this.removeCanvasImagesByFileId(fileId);
+    clearDxfSnapshotsForFile(fileId);
     removeMeetingFile(this.portal.roomId, fileId);
   };
 
@@ -1599,18 +1616,30 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // via newElementWith) so Excalidraw broadcasts the deletion to peers
     // through its normal collab pipeline. Just filtering elements out of
     // updateScene leaves peers stuck on the old version.
+    //
+    // Matches BOTH plain image elements (el.fileId === fileId) AND DXF
+    // anchor rectangles (customData.dxfFileId === fileId). The two share
+    // a single library-file id space, so deleting the file deletes every
+    // canvas representation of it regardless of element type.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
     const next = all.map((el) => {
-      if (
-        !el.isDeleted &&
-        el.type === "image" &&
-        (el as any).fileId === fileId
-      ) {
-        changed = true;
-        return newElementWith(el, { isDeleted: true });
+      if (el.isDeleted) {
+        return el;
       }
-      return el;
+      const data = (el as any).customData as
+        | Record<string, unknown>
+        | undefined;
+      const matches =
+        (el.type === "image" && (el as any).fileId === fileId) ||
+        (el.type === "rectangle" &&
+          data?.mcmType === "dxf-anchor" &&
+          data?.dxfFileId === fileId);
+      if (!matches) {
+        return el;
+      }
+      changed = true;
+      return newElementWith(el, { isDeleted: true });
     });
     if (changed) {
       this.excalidrawAPI.updateScene({ elements: next });
@@ -1633,23 +1662,30 @@ class Collab extends PureComponent<CollabProps, CollabState> {
    *  blocks drag/resize/select in the editor, and our PinnedImagesOverlay
    *  paints the 📌 badge on top — visual + functional in one pass.
    *  Broadcast through the normal sync pipeline so peers see it too. */
-  private setCanvasImagesLockedByFileId = (
-    fileId: string,
-    locked: boolean,
-  ) => {
+  private setCanvasImagesLockedByFileId = (fileId: string, locked: boolean) => {
+    // Mirrors `removeCanvasImagesByFileId`'s element-kind matching:
+    // image elements + DXF anchor rectangles both back library files
+    // and both need their `locked` flag flipped when the file is
+    // (un)locked.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
     const next = all.map((el) => {
-      if (
-        !el.isDeleted &&
-        el.type === "image" &&
-        (el as any).fileId === fileId &&
-        el.locked !== locked
-      ) {
-        changed = true;
-        return newElementWith(el, { locked });
+      if (el.isDeleted || el.locked === locked) {
+        return el;
       }
-      return el;
+      const data = (el as any).customData as
+        | Record<string, unknown>
+        | undefined;
+      const matches =
+        (el.type === "image" && (el as any).fileId === fileId) ||
+        (el.type === "rectangle" &&
+          data?.mcmType === "dxf-anchor" &&
+          data?.dxfFileId === fileId);
+      if (!matches) {
+        return el;
+      }
+      changed = true;
+      return newElementWith(el, { locked });
     });
     if (changed) {
       this.excalidrawAPI.updateScene({ elements: next });

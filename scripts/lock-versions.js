@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 /**
  * Strip `^` and `~` prefixes from version ranges in every package.json
  * across the repo so `yarn install` (and any tooling that reads
@@ -29,7 +30,9 @@ const SECTIONS = [
 ];
 
 function isLockable(version) {
-  if (typeof version !== "string") return false;
+  if (typeof version !== "string") {
+    return false;
+  }
   return /^[~^]\d/.test(version); // starts with ^ or ~ followed by a digit
 }
 
@@ -64,7 +67,9 @@ function processFile(file) {
   let changed = 0;
 
   for (const section of SECTIONS) {
-    if (!pkg[section] || typeof pkg[section] !== "object") continue;
+    if (!pkg[section] || typeof pkg[section] !== "object") {
+      continue;
+    }
     for (const [name, version] of Object.entries(pkg[section])) {
       if (isLockable(version)) {
         pkg[section][name] = lockVersion(version);

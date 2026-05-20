@@ -853,7 +853,6 @@ const ExcalidrawWrapper = () => {
     );
   }
 
-
   return (
     <MeetingShell>
       <div

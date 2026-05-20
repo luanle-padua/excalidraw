@@ -242,9 +242,7 @@ export const StickerPicker = () => {
     const isCanvasTarget = (e: PointerEvent) => {
       const container = document.querySelector(".excalidraw-container");
       return (
-        !!container &&
-        e.target instanceof Node &&
-        container.contains(e.target)
+        !!container && e.target instanceof Node && container.contains(e.target)
       );
     };
     const onMove = (e: PointerEvent) => {
@@ -317,7 +315,13 @@ export const StickerPicker = () => {
       const dataURL = await pathToDataURL(path);
       const dims = await probeDims(dataURL);
       setOpenKind(null);
-      setPlacing({ kind, path, dataURL, width: dims.width, height: dims.height });
+      setPlacing({
+        kind,
+        path,
+        dataURL,
+        width: dims.width,
+        height: dims.height,
+      });
     } catch (err) {
       console.error("[StickerPicker] failed to load asset", err);
     }
@@ -351,9 +355,7 @@ export const StickerPicker = () => {
     return null;
   }
 
-  const activeKind = openKind
-    ? KINDS.find((k) => k.kind === openKind)
-    : null;
+  const activeKind = openKind ? KINDS.find((k) => k.kind === openKind) : null;
 
   return (
     <>

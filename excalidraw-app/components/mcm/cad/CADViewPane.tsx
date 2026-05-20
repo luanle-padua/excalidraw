@@ -14,13 +14,7 @@
 //     CAD area maximised when the panel is closed.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtomValue } from "../../../app-jotai";
 import {
@@ -113,7 +107,7 @@ export const CADViewPane = () => {
     height: number;
   } | null>(null);
 
-  const handleBodyRef = (el: HTMLDivElement | null) => {
+  const handleBodyRef = useCallback((el: HTMLDivElement | null) => {
     // Tear down any prior observer when the body remounts.
     if (roRef.current) {
       roRef.current.disconnect();
@@ -144,7 +138,8 @@ export const CADViewPane = () => {
       }
     });
     roRef.current.observe(el);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ----- Renderer controls + layer panel ---------------------------
   // controls per active tab — captured via DXFRenderer.onReady. Layer
@@ -203,7 +198,6 @@ export const CADViewPane = () => {
   const handleFit = () => {
     controlsRef.current?.fitToExtent(0.05);
   };
-
 
   // Reset captured controls + layers when tab switches (renderer
   // re-mounts via key prop). Wait for the new mount's onReady.
@@ -362,7 +356,7 @@ export const CADViewPane = () => {
         </button>
       </div>
 
-      <div ref={bodyRef} className="mcm-cad-view__body">
+      <div ref={handleBodyRef} className="mcm-cad-view__body">
         {/* keyed by activeFileId so a tab-switch fully re-mounts the
             renderer — cleanest way to swap WebGL contexts safely. */}
         {/* Wait for the real body measurement before mounting the

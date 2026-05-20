@@ -77,7 +77,7 @@ export const languages: Language[] = [
       (lang) =>
         MCM_FORCE_INCLUDE_LANGS.has(lang.code) ||
         (percentages as Record<string, number>)[lang.code] >=
-        COMPLETION_THRESHOLD,
+          COMPLETION_THRESHOLD,
     )
     .sort((left, right) => (left.label > right.label ? 1 : -1)),
 ];

@@ -47,43 +47,155 @@ function hashToInteger(id: string) {
 // rhino↔rhinoceros, hippo↔hippopotamus, dodo, etc.).
 const MCM_ANIMAL_EMOJI: Record<string, string> = {
   // Mammals
-  cat: "🐱", dog: "🐶", fox: "🦊", wolf: "🐺", lion: "🦁", tiger: "🐯",
-  leopard: "🐆", cheetah: "🐆", bear: "🐻", panda: "🐼", koala: "🐨",
-  monkey: "🐵", gorilla: "🦍", orangutan: "🦧", chimpanzee: "🐒",
-  baboon: "🐒", rabbit: "🐰", hare: "🐰", squirrel: "🐿️",
-  chipmunk: "🐿️", beaver: "🦫", otter: "🦦", hedgehog: "🦔",
-  mouse: "🐭", rat: "🐀", hamster: "🐹", horse: "🐴", zebra: "🦓",
-  donkey: "🫏", cow: "🐮", buffalo: "🐃", ox: "🐂", bull: "🐂",
-  pig: "🐷", boar: "🐗", sheep: "🐑", ram: "🐏", goat: "🐐",
-  deer: "🦌", elk: "🦌", moose: "🫎", reindeer: "🦌", giraffe: "🦒",
-  camel: "🐫", llama: "🦙", alpaca: "🦙", elephant: "🐘",
-  rhinoceros: "🦏", rhino: "🦏", hippopotamus: "🦛", hippo: "🦛",
-  kangaroo: "🦘", bat: "🦇", sloth: "🦥", raccoon: "🦝", skunk: "🦨",
-  badger: "🦡", mole: "🐭",
+  cat: "🐱",
+  dog: "🐶",
+  fox: "🦊",
+  wolf: "🐺",
+  lion: "🦁",
+  tiger: "🐯",
+  leopard: "🐆",
+  cheetah: "🐆",
+  bear: "🐻",
+  panda: "🐼",
+  koala: "🐨",
+  monkey: "🐵",
+  gorilla: "🦍",
+  orangutan: "🦧",
+  chimpanzee: "🐒",
+  baboon: "🐒",
+  rabbit: "🐰",
+  hare: "🐰",
+  squirrel: "🐿️",
+  chipmunk: "🐿️",
+  beaver: "🦫",
+  otter: "🦦",
+  hedgehog: "🦔",
+  mouse: "🐭",
+  rat: "🐀",
+  hamster: "🐹",
+  horse: "🐴",
+  zebra: "🦓",
+  donkey: "🫏",
+  cow: "🐮",
+  buffalo: "🐃",
+  ox: "🐂",
+  bull: "🐂",
+  pig: "🐷",
+  boar: "🐗",
+  sheep: "🐑",
+  ram: "🐏",
+  goat: "🐐",
+  deer: "🦌",
+  elk: "🦌",
+  moose: "🫎",
+  reindeer: "🦌",
+  giraffe: "🦒",
+  camel: "🐫",
+  llama: "🦙",
+  alpaca: "🦙",
+  elephant: "🐘",
+  rhinoceros: "🦏",
+  rhino: "🦏",
+  hippopotamus: "🦛",
+  hippo: "🦛",
+  kangaroo: "🦘",
+  bat: "🦇",
+  sloth: "🦥",
+  raccoon: "🦝",
+  skunk: "🦨",
+  badger: "🦡",
+  mole: "🐭",
   // Birds
-  bird: "🐦", chicken: "🐔", rooster: "🐓", duck: "🦆", swan: "🦢",
-  goose: "🪿", turkey: "🦃", peacock: "🦚", parrot: "🦜", owl: "🦉",
-  eagle: "🦅", hawk: "🦅", flamingo: "🦩", dodo: "🦤", penguin: "🐧",
+  bird: "🐦",
+  chicken: "🐔",
+  rooster: "🐓",
+  duck: "🦆",
+  swan: "🦢",
+  goose: "🪿",
+  turkey: "🦃",
+  peacock: "🦚",
+  parrot: "🦜",
+  owl: "🦉",
+  eagle: "🦅",
+  hawk: "🦅",
+  flamingo: "🦩",
+  dodo: "🦤",
+  penguin: "🐧",
   // Reptiles + amphibians
-  crocodile: "🐊", alligator: "🐊", turtle: "🐢", tortoise: "🐢",
-  snake: "🐍", lizard: "🦎", gecko: "🦎", iguana: "🦎", frog: "🐸",
+  crocodile: "🐊",
+  alligator: "🐊",
+  turtle: "🐢",
+  tortoise: "🐢",
+  snake: "🐍",
+  lizard: "🦎",
+  gecko: "🦎",
+  iguana: "🦎",
+  frog: "🐸",
   toad: "🐸",
   // Aquatic
-  fish: "🐟", shark: "🦈", dolphin: "🐬", whale: "🐳", octopus: "🐙",
-  squid: "🦑", crab: "🦀", lobster: "🦞", shrimp: "🦐", oyster: "🦪",
-  jellyfish: "🪼", seal: "🦭",
+  fish: "🐟",
+  shark: "🦈",
+  dolphin: "🐬",
+  whale: "🐳",
+  octopus: "🐙",
+  squid: "🦑",
+  crab: "🦀",
+  lobster: "🦞",
+  shrimp: "🦐",
+  oyster: "🦪",
+  jellyfish: "🪼",
+  seal: "🦭",
   // Insects + small critters
-  bee: "🐝", ant: "🐜", butterfly: "🦋", beetle: "🪲", ladybug: "🐞",
-  spider: "🕷️", scorpion: "🦂", worm: "🪱", snail: "🐌",
+  bee: "🐝",
+  ant: "🐜",
+  butterfly: "🦋",
+  beetle: "🪲",
+  ladybug: "🐞",
+  spider: "🕷️",
+  scorpion: "🦂",
+  worm: "🪱",
+  snail: "🐌",
   // Mythical
-  dragon: "🐉", unicorn: "🦄", dinosaur: "🦖", trex: "🦖",
-  pterodactyl: "🦕", brontosaurus: "🦕", mammoth: "🦣",
+  dragon: "🐉",
+  unicorn: "🦄",
+  dinosaur: "🦖",
+  trex: "🦖",
+  pterodactyl: "🦕",
+  brontosaurus: "🦕",
+  mammoth: "🦣",
 };
 
 const MCM_FALLBACK_POOL = [
-  "🦊", "🐼", "🐨", "🦁", "🐯", "🐻", "🐰", "🐱", "🐶", "🐭",
-  "🐹", "🦝", "🦔", "🦦", "🦥", "🦘", "🦒", "🐵", "🐧", "🦉",
-  "🦆", "🦩", "🐢", "🐙", "🐳", "🐬", "🦋", "🐝", "🐞", "🦄",
+  "🦊",
+  "🐼",
+  "🐨",
+  "🦁",
+  "🐯",
+  "🐻",
+  "🐰",
+  "🐱",
+  "🐶",
+  "🐭",
+  "🐹",
+  "🦝",
+  "🦔",
+  "🦦",
+  "🦥",
+  "🦘",
+  "🦒",
+  "🐵",
+  "🐧",
+  "🦉",
+  "🦆",
+  "🦩",
+  "🐢",
+  "🐙",
+  "🐳",
+  "🐬",
+  "🦋",
+  "🐝",
+  "🐞",
+  "🦄",
 ];
 
 const mcmCleanName = (raw: string): string =>
@@ -122,7 +234,6 @@ const mcmPickEmoji = (identityKey: string, username: string): string => {
   const key = identityKey || username || "anon";
   return MCM_FALLBACK_POOL[mcmHash(key) % MCM_FALLBACK_POOL.length];
 };
-
 
 export const getClientColor = (
   socketId: SocketId,
@@ -282,8 +393,7 @@ export const renderRemoteCursors = ({
     // (gradient fill, big emoji centred) plus a small short-name pill
     // beneath. Matches the participant bar so peers' faces feel
     // consistent across canvas + chrome.
-    const rawUsername =
-      renderConfig.remotePointerUsernames.get(socketId) || "";
+    const rawUsername = renderConfig.remotePointerUsernames.get(socketId) || "";
     const shortName = mcmShortName(rawUsername);
     const cursorEmoji = mcmPickEmoji(socketId, rawUsername);
 
@@ -342,7 +452,7 @@ export const renderRemoteCursors = ({
       context.fillText(cursorEmoji, avatarCenterX, avatarCenterY + 1);
 
       // Short-name pill below the avatar.
-      context.font = '600 11px sans-serif';
+      context.font = "600 11px sans-serif";
       context.textBaseline = "middle";
       const nameMeasure = context.measureText(shortName);
       const namePadH = 6;
@@ -361,14 +471,18 @@ export const renderRemoteCursors = ({
         context.strokeStyle = COLOR_WHITE;
         context.stroke();
       } else {
-        roundRect(context, nameBoxX, nameBoxY, nameBoxW, nameBoxH, 6, COLOR_WHITE);
+        roundRect(
+          context,
+          nameBoxX,
+          nameBoxY,
+          nameBoxW,
+          nameBoxH,
+          6,
+          COLOR_WHITE,
+        );
       }
       context.fillStyle = COLOR_CHARCOAL_BLACK;
-      context.fillText(
-        shortName,
-        avatarCenterX,
-        nameBoxY + nameBoxH / 2,
-      );
+      context.fillText(shortName, avatarCenterX, nameBoxY + nameBoxH / 2);
 
       // Restore text alignment for whatever runs next.
       context.textAlign = prevAlign;

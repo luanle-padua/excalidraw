@@ -15,19 +15,17 @@
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { useEffect, useId, useState } from "react";
 
-import type {
-  AppState,
-  BinaryFiles,
-} from "@excalidraw/excalidraw/types";
+import { newElementWith } from "@excalidraw/element";
+
+import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type {
   ExcalidrawElement,
   ExcalidrawImageElement,
 } from "@excalidraw/element/types";
 
-import { useAtomValue } from "../../app-jotai";
-import { collabAPIAtom } from "../../collab/Collab";
-import { canUnlockFile, meetingFilesAtom } from "../../data/meetingLibrary";
 import { useT } from "../../i18n/mcm";
+
+import { isDxfAnchorElement } from "./dxf/DXFCanvasOverlay";
 
 // -----------------------------------------------------------------------
 // Decoration palette + chooser
@@ -97,23 +95,38 @@ type PinPosition = {
 const isImage = (el: ExcalidrawElement): el is ExcalidrawImageElement =>
   el.type === "image" && !el.isDeleted;
 
+/** Pins live on EITHER images OR DXF anchors — both back a library
+ *  file via different field paths (`el.fileId` vs
+ *  `el.customData.dxfFileId`). The pin overlay doesn't care which kind
+ *  it is; it just needs the rect + the library file id, so we unify
+ *  the lookup once at the recompute boundary. Returns null for
+ *  elements that aren't pinnable, so the caller can `continue`. */
+const pinnableInfoFor = (
+  el: ExcalidrawElement,
+): { fileId: string | null; kind: "image" | "dxf" } | null => {
+  if (el.isDeleted) {
+    return null;
+  }
+  if (isImage(el)) {
+    return {
+      fileId: typeof el.fileId === "string" ? el.fileId : null,
+      kind: "image",
+    };
+  }
+  if (isDxfAnchorElement(el)) {
+    return { fileId: el.customData.dxfFileId, kind: "dxf" };
+  }
+  return null;
+};
+
 export const PinnedImagesOverlay = () => {
   const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
-  const collabAPI = useAtomValue(collabAPIAtom);
-  const files = useAtomValue(meetingFilesAtom);
   const [pins, setPins] = useState<PinPosition[]>([]);
 
   useEffect(() => {
     if (!excalidrawAPI) {
       return undefined;
-    }
-
-    const lockedLibraryFileIds = new Set<string>();
-    for (const f of files) {
-      if (f.lockedBy) {
-        lockedLibraryFileIds.add(f.id);
-      }
     }
 
     const recompute = (
@@ -125,13 +138,19 @@ export const PinnedImagesOverlay = () => {
       const zoom = appState.zoom.value;
       const selectedIds = appState.selectedElementIds;
       for (const el of elements) {
-        if (!isImage(el)) {
+        const info = pinnableInfoFor(el);
+        if (!info) {
           continue;
         }
-        const fileId = typeof el.fileId === "string" ? el.fileId : null;
-        const fileLocked = fileId !== null && lockedLibraryFileIds.has(fileId);
-        const elementLocked = el.locked === true;
-        const isLocked = fileLocked || elementLocked;
+        const fileId = info.fileId;
+        // Pin display is now ELEMENT-only: showing a pin reflects the
+        // state of THIS specific canvas instance. Two copies of the
+        // same library file can therefore be pinned independently —
+        // pinning one no longer cascades to its siblings. File-level
+        // locks from the library still cascade to elements via Collab's
+        // setCanvasImagesLockedByFileId, so library lock → element.locked,
+        // which is what the pin reads.
+        const isLocked = el.locked === true;
         const isSelected = !!selectedIds[el.id];
         // Render anchor when locked (real decoration) OR when selected
         // but unlocked (ghost pin to offer a one-click lock action).
@@ -179,56 +198,43 @@ export const PinnedImagesOverlay = () => {
     );
     const unsub = excalidrawAPI.onChange(recompute);
     return unsub;
-  }, [excalidrawAPI, files]);
+  }, [excalidrawAPI]);
 
-  // Two paths converge here:
-  //   • file IS in meetingFilesAtom → route through publishLibraryFileLock
-  //     so the library entry's lockedBy + element.locked + peer broadcast
-  //     all stay in sync. Permission check applies on unlock.
-  //   • file NOT in meetingFilesAtom (legacy paste, direct addFiles, or
-  //     just lost track) → fall back to toggleCanvasImageElementLock,
-  //     which only flips Excalidraw's native element.locked + broadcasts
-  //     via Excalidraw's own element sync. No permission gate — anyone
-  //     with edit access to the canvas can toggle a raw element lock,
-  //     matching Excalidraw's built-in behaviour.
-  const handleUnpin = (fileId: string | null) => {
-    if (!fileId || !collabAPI) {
+  // Pin / unpin are ELEMENT-scoped — each click toggles the native
+  // `locked` flag on just the clicked canvas element. Two anchors that
+  // reference the same library file can therefore be pinned (or not)
+  // independently, which is the user-visible point of the change:
+  // previously the click routed through publishLibraryFileLock, which
+  // set the FILE's lockedBy and cascaded to every canvas instance.
+  //
+  // Library-level lock (the "🔒" button next to each file in the
+  // sidebar) still exists as a separate affordance for "lock all
+  // instances at once" and "protect from delete" — it remains
+  // file-scoped and untouched by this handler.
+  const setElementLocked = (elementId: string, locked: boolean) => {
+    if (!excalidrawAPI) {
       return;
     }
-    const file = files.find((f) => f.id === fileId);
-    if (file && file.lockedBy) {
-      const username = collabAPI.getUsername() || "Local";
-      if (!canUnlockFile(file, username)) {
-        window.alert(
-          t("pin.permissionDenied", {
-            locker: file.lockedBy,
-            author: file.author,
-          }),
-        );
-        return;
+    const all = excalidrawAPI.getSceneElementsIncludingDeleted();
+    let changed = false;
+    const next = all.map((el) => {
+      if (el.id !== elementId || el.locked === locked) {
+        return el;
       }
-      collabAPI.publishLibraryFileLock(fileId, null);
-      return;
+      changed = true;
+      return newElementWith(el, { locked });
+    });
+    if (changed) {
+      excalidrawAPI.updateScene({ elements: next });
     }
-    // Element-only lock (file not tracked or already unlocked at file
-    // level but element.locked is still on).
-    collabAPI.toggleCanvasImageElementLock(fileId, false);
   };
 
-  const handlePin = (fileId: string | null) => {
-    if (!fileId || !collabAPI) {
-      return;
-    }
-    const file = files.find((f) => f.id === fileId);
-    if (file) {
-      if (file.lockedBy) {
-        return;
-      }
-      const username = collabAPI.getUsername() || "Local";
-      collabAPI.publishLibraryFileLock(fileId, username);
-      return;
-    }
-    collabAPI.toggleCanvasImageElementLock(fileId, true);
+  const handleUnpin = (elementId: string) => {
+    setElementLocked(elementId, false);
+  };
+
+  const handlePin = (elementId: string) => {
+    setElementLocked(elementId, true);
   };
 
   if (pins.length === 0) {
@@ -276,7 +282,9 @@ export const PinnedImagesOverlay = () => {
               onPointerDown={swallowPointer}
               onClick={(e) => {
                 e.stopPropagation();
-                handlePin(p.fileId);
+                // p.key is the canvas element id — pin THIS instance
+                // only, not every copy that shares p.fileId.
+                handlePin(p.key);
               }}
               title={t("pin.pinTitle")}
             >
@@ -309,7 +317,9 @@ export const PinnedImagesOverlay = () => {
             onPointerDown={swallowPointer}
             onClick={(e) => {
               e.stopPropagation();
-              handleUnpin(p.fileId);
+              // p.key is the canvas element id — unpin THIS instance
+              // only, not every copy that shares p.fileId.
+              handleUnpin(p.key);
             }}
             title={t("pin.unpinTitle")}
           >
@@ -365,7 +375,10 @@ const MapPinSVG = () => {
       <ellipse cx="50" cy="110" rx="9" ry="2" fill="rgba(0,0,0,0.28)" />
 
       {/* needle */}
-      <path d="M44 58 L56 58 L52.5 108 L47.5 108 Z" fill={`url(#${needleGrad})`} />
+      <path
+        d="M44 58 L56 58 L52.5 108 L47.5 108 Z"
+        fill={`url(#${needleGrad})`}
+      />
       {/* needle highlight stripe */}
       <path
         d="M47.5 58 L49.5 58 L48.7 104 L47.5 104 Z"
@@ -386,20 +399,8 @@ const MapPinSVG = () => {
       />
 
       {/* glossy highlight on top-left */}
-      <ellipse
-        cx="37"
-        cy="22"
-        rx="14"
-        ry="7"
-        fill="rgba(255,255,255,0.45)"
-      />
-      <ellipse
-        cx="34"
-        cy="20"
-        rx="7"
-        ry="3.5"
-        fill="rgba(255,255,255,0.7)"
-      />
+      <ellipse cx="37" cy="22" rx="14" ry="7" fill="rgba(255,255,255,0.45)" />
+      <ellipse cx="34" cy="20" rx="7" ry="3.5" fill="rgba(255,255,255,0.7)" />
 
       {/* outer rim shadow for definition against light backgrounds */}
       <circle

@@ -30,12 +30,24 @@ import {
 
 import type { DxfViewer } from "dxf-viewer";
 
+/** Camera state — world centre + effective viewport width — that
+ *  fully describes a dxf-viewer view in a serialisable form. The
+ *  three fields plus the canvas aspect ratio (which we don't store)
+ *  are enough to round-trip a `SetView` call. */
+export type DXFViewState = { cx: number; cy: number; w: number };
+
 export type DXFRendererControls = {
   fitToExtent: (padding?: number) => void;
   setLayerVisible: (name: string, visible: boolean) => void;
   getLayers: () => Array<{ name: string; displayName: string; color: number }>;
   /** Returns a PNG blob of the current view — useful for thumbnails. */
   exportPng: () => Promise<Blob | null>;
+  /** Read the renderer's current camera state so the parent can
+   *  persist it (e.g. to customData) and snapshot the matching PNG. */
+  getView: () => DXFViewState | null;
+  /** Apply a saved camera state. Used by the parent on remount so the
+   *  user's last pan/zoom survives focus → exit → re-enter cycles. */
+  setView: (view: DXFViewState) => void;
 };
 
 type Props = {
@@ -75,6 +87,31 @@ const loadDxfViewerModule = async (): Promise<typeof import("dxf-viewer")> => {
   }
   cachedModule = await import("dxf-viewer");
   return cachedModule;
+};
+
+// dxf-viewer's GetBounds returns the drawing's bounding box in MODEL
+// space (raw CAD coordinates — can be in the millions for survey
+// drawings), but the scene is rendered with GetOrigin() subtracted so
+// the geometry sits around (0,0). dxf-viewer's own internal auto-fit
+// after Load subtracts `scene.origin` from the bounds before calling
+// FitView; calling FitView with raw model-space bounds aims the
+// camera at the model centroid which is usually far outside the
+// rendered scene → "fit" leaves the view blank or shifted to a corner.
+// This helper does the same origin-subtraction that the library does
+// internally so our Fit button + autoFit on load behave correctly.
+const fitToBounds = (viewer: DxfViewer, padding: number) => {
+  const b = viewer.GetBounds();
+  if (!b) {
+    return;
+  }
+  const o = viewer.GetOrigin();
+  viewer.FitView(
+    b.minX - o.x,
+    b.maxX - o.x,
+    b.minY - o.y,
+    b.maxY - o.y,
+    padding,
+  );
 };
 
 export const DXFRenderer = ({
@@ -195,18 +232,14 @@ export const DXFRenderer = ({
           Math.max(1, sizeRef.current.height),
         );
         if (autoFit) {
-          const b = viewer.GetBounds();
-          if (b) {
-            viewer.FitView(b.minX, b.maxX, b.minY, b.maxY, 0.05);
-          }
+          fitToBounds(viewer, 0.05);
         }
         viewer.Render();
         setStatus("ready");
         onReadyRef.current?.({
           fitToExtent: (padding = 0.05) => {
-            const b = viewer?.GetBounds();
-            if (b && viewer) {
-              viewer.FitView(b.minX, b.maxX, b.minY, b.maxY, padding);
+            if (viewer) {
+              fitToBounds(viewer, padding);
             }
           },
           setLayerVisible: (name, visible) => {
@@ -214,13 +247,53 @@ export const DXFRenderer = ({
           },
           getLayers: () => Array.from(viewer?.GetLayers() ?? []),
           exportPng: async () => {
-            const canvas = viewer?.GetCanvas();
+            if (!viewer) {
+              return null;
+            }
+            const canvas = viewer.GetCanvas();
             if (!canvas) {
               return null;
             }
+            // Force a fresh render into the back buffer immediately
+            // before reading it. dxf-viewer constructs its
+            // WebGLRenderer with the Three.js default
+            // `preserveDrawingBuffer: false`, which means the GPU is
+            // allowed to invalidate the drawing buffer after the
+            // browser composites a frame. If we call toBlob() without
+            // first re-rendering, what we read back can be a cleared
+            // (transparent) frame — which manifests as the snapshot
+            // <img> showing nothing after the user exits focus mode.
+            viewer.Render();
             return new Promise((resolve) =>
               canvas.toBlob((b) => resolve(b), "image/png"),
             );
+          },
+          getView: () => {
+            if (!viewer) {
+              return null;
+            }
+            // Reverse of SetView: world centre is `cam.position +
+            // frustum centroid`; effective width compensates for the
+            // OrbitControls zoom multiplier so the value can be fed
+            // straight back into SetView later. Same math as the
+            // resize effect below — kept in lockstep with that.
+            const cam = viewer.GetCamera();
+            return {
+              cx: cam.position.x + (cam.left + cam.right) / 2,
+              cy: cam.position.y + (cam.top + cam.bottom) / 2,
+              w: (cam.right - cam.left) / (cam.zoom || 1),
+            };
+          },
+          setView: (view) => {
+            if (!viewer) {
+              return;
+            }
+            // dxf-viewer's SetView ignores the `z` field at runtime
+            // but its TS signature insists on a Three Vector3 — same
+            // cast as the resize effect.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            viewer.SetView({ x: view.cx, y: view.cy, z: 0 } as any, view.w);
+            viewer.Render();
           },
         });
       } catch (err) {
@@ -253,9 +326,16 @@ export const DXFRenderer = ({
     // status is INTENTIONALLY not in deps — setStatus is called
     // inside the loader and we don't want to tear the viewer down
     // just because we transitioned from loading→ready.
-    // file.dataURL identity changes when peers re-publish — re-load
-    // intentionally. Otherwise we'd serve a stale render.
-  }, [file, autoFit, instanceId, fileId]);
+    // We depend on `file?.dataURL` rather than the `file` object so
+    // that re-hydration of `meetingFilesAtom` (e.g. when the user
+    // opens the library tab and MeetingLibrary calls hydrateMeetingFiles)
+    // does not destroy + reload the viewer just because the array got
+    // a fresh object identity. Reload still happens when content
+    // changes (peer republish → new dataURL). Reading `file.dataURL`
+    // inside the loader from the latest closure is safe because the
+    // effect re-runs whenever dataURL identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file?.dataURL, autoFit, instanceId, fileId]);
 
   // Preserve the user's view region (sticker behavior) across
   // container resize: as the anchor / pane grows or shrinks, the
