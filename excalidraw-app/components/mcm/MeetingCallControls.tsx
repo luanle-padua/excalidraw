@@ -20,6 +20,8 @@ import {
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
 
+import { RecordingButton } from "./RecordingControls";
+
 const Icon = ({ d, size = 18 }: { d: string; size?: number }) => (
   <svg
     viewBox="0 0 24 24"
@@ -190,16 +192,23 @@ export const MeetingCallControls = () => {
     return null;
   }
 
-  const { status, muted, canTransmit, peers, errorMessage } = audioState;
-  const peerCount = peers.size;
+  const { status, muted, canTransmit, errorMessage } = audioState;
 
   if (status === "live") {
+    // Compact layout — icons only, tooltips carry the labels. The
+    // previous bar with full text labels (Mute / Raise hand /
+    // Reactions / 2 in room / Leave call) was the widest UI element
+    // on the canvas and overlapped the lower CAD / DXF anchors.
+    // Switching to icons reclaims that screen space; the
+    // participants strip already shows the people count, so we drop
+    // the redundant "X in room" counter here.
+    const micTitle = !canTransmit
+      ? t("callControls.listenOnlyTitle")
+      : muted
+      ? t("callControls.unmute")
+      : t("callControls.mute");
     return (
-      <div className="mcm-call-controls mcm-call-controls--live">
-        {/* Mute is the PRIMARY action — always rendered as a clear
-              button (disabled in listen-only so the user still sees
-              "where the control is" instead of just a "👂 listening"
-              label). */}
+      <div className="mcm-call-controls mcm-call-controls--live mcm-call-controls--compact">
         <button
           type="button"
           className={`mcm-call-controls__btn mcm-call-controls__btn--mic${
@@ -207,33 +216,12 @@ export const MeetingCallControls = () => {
           }${!canTransmit ? " mcm-call-controls__btn--mic-listen" : ""}`}
           onClick={canTransmit ? toggleMute : undefined}
           disabled={!canTransmit}
-          aria-label={
-            !canTransmit
-              ? t("callControls.listenOnlyTitle")
-              : muted
-              ? t("callControls.unmute")
-              : t("callControls.mute")
-          }
-          title={
-            !canTransmit
-              ? t("callControls.listenOnlyTitle")
-              : muted
-              ? t("callControls.unmute")
-              : t("callControls.mute")
-          }
+          aria-label={micTitle}
+          title={micTitle}
         >
           {muted || !canTransmit ? <MicOffIcon /> : <MicOnIcon />}
-          <span>
-            {!canTransmit
-              ? t("callControls.listenOnly")
-              : muted
-              ? t("callControls.unmute")
-              : t("callControls.mute")}
-          </span>
         </button>
 
-        {/* Raise hand — sticky toggle. Visible badge state lets the
-              user see whether their hand is up at a glance. */}
         <button
           type="button"
           className={`mcm-call-controls__btn mcm-call-controls__btn--raise${
@@ -245,18 +233,15 @@ export const MeetingCallControls = () => {
               ? t("callControls.lowerHand")
               : t("callControls.raiseHand")
           }
+          aria-label={
+            myHandRaised
+              ? t("callControls.lowerHand")
+              : t("callControls.raiseHand")
+          }
         >
           <span className="mcm-call-controls__raise-emoji">✋</span>
-          <span>
-            {myHandRaised
-              ? t("callControls.lowerHand")
-              : t("callControls.raiseHand")}
-          </span>
         </button>
 
-        {/* Reactions — opens a small popover with 6 quick emojis.
-              Each one fires a one-shot broadcast that animates over
-              the sender's avatar in the participants strip. */}
         <div className="mcm-call-controls__reactions" ref={reactionsPopoverRef}>
           <button
             type="button"
@@ -265,9 +250,9 @@ export const MeetingCallControls = () => {
             }`}
             onClick={() => setReactionsOpen((v) => !v)}
             title={t("callControls.reactions")}
+            aria-label={t("callControls.reactions")}
           >
             <SmileyIcon />
-            <span>{t("callControls.reactions")}</span>
           </button>
           {reactionsOpen && (
             <div
@@ -290,11 +275,12 @@ export const MeetingCallControls = () => {
           )}
         </div>
 
-        <span className="mcm-call-controls__count">
-          {peerCount === 0
-            ? t("callControls.callingNoPeers")
-            : t("participants.countInRoom", { count: peerCount + 1 })}
-        </span>
+        {/* Recording — host gets an active record/stop icon; non-host
+              sees the same icon disabled with a tooltip naming the
+              host. Lives in the call bar so the feature is exactly
+              where users look for call-related controls. */}
+        <RecordingButton />
+
         <button
           type="button"
           className="mcm-call-controls__btn mcm-call-controls__btn--leave"
@@ -303,7 +289,6 @@ export const MeetingCallControls = () => {
           title={t("callControls.leaveCall")}
         >
           <PhoneOffIcon />
-          <span>{t("callControls.leaveCall")}</span>
         </button>
       </div>
     );

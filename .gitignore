@@ -35,3 +35,5 @@ meta*.json
 # transient verification screenshots from local Playwright runs
 canvas-nav-widget.png
 narrow-toolbar-after.png
+call-bar-pre-live.png
+text-translate-before.png

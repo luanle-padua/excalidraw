@@ -49,6 +49,12 @@ export enum WS_SUBTYPES {
    *  AND on every change so late-joining peers get the latest values
    *  via the snapshot rebroadcast in `broadcastUserProfileSnapshot`. */
   USER_PROFILE = "USER_PROFILE",
+  /** Host-driven meeting recording state. Broadcast every time the
+   *  host flips between "recording" and "not recording" so peers can
+   *  surface the red "Đang ghi âm" banner. Includes startedAt so
+   *  late-joiners and re-renders compute the elapsed timer locally
+   *  rather than waiting for a tick broadcast. */
+  RECORDING_STATE = "RECORDING_STATE",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

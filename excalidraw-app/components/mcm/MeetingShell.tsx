@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
-import { userProfileAtom } from "../../data/userProfile";
+import { ensureMyJoinedAt, userProfileAtom } from "../../data/userProfile";
 
 import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
@@ -17,6 +17,7 @@ import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
 import { ParticipantsBar } from "./ParticipantsBar";
+import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
 import { UserProfileModal } from "./UserProfileModal";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
@@ -50,6 +51,16 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   const collabAPI = useAtomValue(collabAPIAtom);
   const userProfile = useAtomValue(userProfileAtom);
+
+  // Capture the user's session start timestamp as early as possible —
+  // before any collab broadcast fires. Host election ranks participants
+  // by smallest joinedAt, so anchoring it here (rather than letting it
+  // happen when broadcastUserProfileSnapshot first runs after the
+  // socket connects) means a user with a slow network handshake still
+  // wins host over a peer who joined later but connected faster.
+  useEffect(() => {
+    ensureMyJoinedAt();
+  }, []);
 
   // Hydrate the meeting-library atom AS SOON AS the shell mounts (or
   // the user joins / changes room). The library tile used to do this
@@ -102,6 +113,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <MeetingCallControls />
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
+          <TextTranslateOverlay />
         </div>
         <CADViewPane />
       </div>

@@ -107,13 +107,22 @@ import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache
 import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
 
 import {
+  ensureMyJoinedAt,
   importUserProfileFromLocalStorage,
+  markMeAsFirstInRoom,
   peerProfilesAtom,
+  persistHostClaimForRoom,
+  removePeerJoinedAt,
   removePeerProfile,
+  resetMyJoinedAt,
   resolveAvatarUrlWithDefault,
+  restoreHostClaimForRoom,
+  setMySocketId,
+  upsertPeerJoinedAt,
   upsertPeerProfile,
   userProfileAtom,
 } from "../data/userProfile";
+import { resetRoomRecording, setRoomRecording } from "../data/roomRecording";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
@@ -221,6 +230,7 @@ export interface CollabAPI {
   publishLibraryFile: CollabInstance["publishLibraryFile"];
   publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
   publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
+  publishRecordingState: CollabInstance["publishRecordingState"];
   /** Element-only lock toggle. Use when the file isn't tracked by the
    *  meeting library (legacy paste, direct addFiles, etc.) — these
    *  images still want the pin/tape affordance but don't have a
@@ -397,6 +407,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       publishLibraryFile: this.publishLibraryFile,
       publishLibraryFileDelete: this.publishLibraryFileDelete,
       publishLibraryFileLock: this.publishLibraryFileLock,
+      publishRecordingState: this.publishRecordingState,
       toggleCanvasImageElementLock: this.toggleCanvasImageElementLock,
       linkTextToFile: this.linkTextToFile,
       portal: this.portal,
@@ -577,6 +588,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       });
       LocalData.resumeSave("collaboration");
     }
+    // Reset the host-detection scaffolding so a re-joined room
+    // doesn't keep the previous session's socket id / join time
+    // tilting the host election. mySocketId is re-set on next
+    // socket "connect"; joinedAt is rebroadcast on next profile sync.
+    setMySocketId(null);
+    resetMyJoinedAt();
+    resetRoomRecording();
   };
 
   private fetchImageFilesFromFirebase = async (opts: {
@@ -694,6 +712,24 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         ? socketIOClient(wsServerUrl, wsOptions)
         : socketIOClient(wsOptions);
       this.portal.socket = this.portal.open(socket, roomId, roomKey);
+
+      // If we previously claimed host for THIS roomId, re-apply the
+      // sentinel joinedAt BEFORE the first USER_PROFILE broadcast so
+      // the reconnect lands with host already pinned to us. The
+      // "first-in-room" event will NOT fire on a reload (a peer is
+      // already in the room) so we have to restore from storage.
+      restoreHostClaimForRoom(roomId);
+
+      // Mirror the socket id into a jotai atom so derived host election
+      // (hostSocketIdAtom) can include the local user without
+      // having to read this.portal.socket from a render path. The
+      // socket may not be ready yet — the on("connect") handler below
+      // patches in the real id once it lands.
+      const setIdFromSocket = () => {
+        setMySocketId(this.portal.socket?.id ?? null);
+      };
+      setIdFromSocket();
+      this.portal.socket.on("connect", setIdFromSocket);
 
       this.portal.socket.once("connect_error", fallbackInitializationHandler);
     } catch (error: any) {
@@ -901,12 +937,31 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.USER_PROFILE: {
-            const { socketId, username, company, avatar } =
+            const { socketId, username, company, avatar, joinedAt } =
               decryptedData.payload;
             upsertPeerProfile(socketId, {
               username,
               ...(company ? { company } : {}),
               ...(avatar ? { avatar } : {}),
+            });
+            if (typeof joinedAt === "number" && Number.isFinite(joinedAt)) {
+              upsertPeerJoinedAt(socketId, joinedAt);
+            }
+            break;
+          }
+
+          case WS_SUBTYPES.RECORDING_STATE: {
+            // Trust the message blindly — the host id check is done at
+            // RENDER time against `hostSocketIdAtom` so a late-arriving
+            // late-joiner who hasn't seen the host's USER_PROFILE yet
+            // still gets the banner once the host id resolves locally.
+            const { recording, hostSocketId, hostName, startedAt } =
+              decryptedData.payload;
+            setRoomRecording({
+              recording,
+              hostSocketId,
+              hostName: hostName ?? null,
+              startedAt: startedAt ?? null,
             });
             break;
           }
@@ -922,6 +977,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       if (this.portal.socket) {
         this.portal.socket.off("first-in-room");
       }
+      // The server fires "first-in-room" only on whoever shows up to
+      // an empty room — by definition the user who originated the
+      // link. Pin them as host election winner with a sentinel
+      // joinedAt, persist the claim to localStorage so a reload of
+      // THIS room doesn't silently transfer host to a peer who
+      // happens to have an earlier Date.now() joinedAt, then
+      // rebroadcast so peers update their host atom.
+      markMeAsFirstInRoom();
+      persistHostClaimForRoom(this.portal.roomId ?? null);
+      this.broadcastUserProfileSnapshot();
       const sceneData = await this.initializeRoom({
         fetchScene: true,
         roomLinkData: existingRoomLinkData,
@@ -1153,12 +1218,15 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
     // Drop peer profile entries for participants who just left so
     // their stale name / company / avatar don't linger in the next
-    // session if the same socketId is reused.
+    // session if the same socketId is reused. Also drop their
+    // joinedAt — leaving them in would cause the host election to
+    // keep picking a ghost participant as host.
     const validIds = new Set<string>(sockets);
     const currentProfiles = appJotaiStore.get(peerProfilesAtom);
     for (const peerId of currentProfiles.keys()) {
       if (!validIds.has(peerId)) {
         removePeerProfile(peerId);
+        removePeerJoinedAt(peerId);
       }
     }
   }
@@ -1820,10 +1888,34 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   broadcastUserProfileSnapshot = () => {
     const profile = appJotaiStore.get(userProfileAtom);
     const username = profile?.username || this.state.username || "Guest";
+    // joinedAt is a session value (set once on first broadcast and
+    // reused thereafter); peers sort by it to pick the host
+    // deterministically — see hostSocketIdAtom in userProfile.ts.
+    const joinedAt = ensureMyJoinedAt();
     this.portal.broadcastUserProfile({
       username,
       ...(profile?.company ? { company: profile.company } : {}),
       ...(profile?.avatar ? { avatar: profile.avatar } : {}),
+      joinedAt,
+    });
+  };
+
+  /** Host-only broadcast wrapper for RECORDING_STATE. Called by the
+   *  RecordingControls component on start / stop. We do NOT check
+   *  hostship here — that's the UI layer's responsibility (only the
+   *  host's UI exposes the button); if some other peer tried to call
+   *  this, every receiver still validates by comparing `hostSocketId`
+   *  against their locally-computed `hostSocketIdAtom`. */
+  publishRecordingState = (state: {
+    recording: boolean;
+    startedAt: number | null;
+  }) => {
+    const profile = appJotaiStore.get(userProfileAtom);
+    const hostName = profile?.username || this.state.username || undefined;
+    this.portal.broadcastRecordingState({
+      recording: state.recording,
+      startedAt: state.startedAt,
+      ...(hostName ? { hostName } : {}),
     });
   };
 

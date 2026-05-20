@@ -225,6 +225,34 @@ export type SocketUpdateDataSource = {
        *  treat anything else as "no avatar" and fall back to the
        *  emoji tile. */
       avatar?: string;
+      /** Sender's session start timestamp (ms since epoch). Used by
+       *  every peer to deterministically pick "the host" as the
+       *  participant with the smallest joinedAt — see
+       *  `hostSocketIdAtom` in `data/userProfile.ts`. Stays stable
+       *  across re-broadcasts within the same browser session so
+       *  late joiners see the same ordering as everyone else. */
+      joinedAt?: number;
+    };
+  };
+  RECORDING_STATE: {
+    type: WS_SUBTYPES.RECORDING_STATE;
+    payload: {
+      /** Recording active (true) or just stopped (false). */
+      recording: boolean;
+      /** Socket id of the host that owns this recording. Receivers
+       *  validate against the locally-computed host id before
+       *  trusting the message — that way a stale tab whose user
+       *  is no longer the host can't tell everyone they're
+       *  recording. */
+      hostSocketId: SocketId;
+      /** Optional display name so the indicator can say
+       *  "Luan đang ghi âm" without each peer looking the host up
+       *  in the profile map. */
+      hostName?: string;
+      /** When the recording started, ms since epoch. Null when
+       *  `recording === false`. Lets every peer render an elapsed
+       *  timer that converges from the same baseline. */
+      startedAt: number | null;
     };
   };
 };

@@ -26,6 +26,7 @@ import {
   raisedHandsAtom,
 } from "../../collab/Collab";
 import {
+  hostSocketIdAtom,
   peerProfilesAtom,
   resolveAvatarUrlWithDefault,
   userProfileAtom,
@@ -143,6 +144,11 @@ type Tile = {
    *  we render <img> instead of the deterministic emoji fallback so
    *  the tile carries a recognisable face. */
   avatarUrl?: string | null;
+  /** True for the participant currently elected as host (the
+   *  link-sharer in steady state). Drives the small "Host" pill that
+   *  sits above the avatar so everyone in the room sees who's host
+   *  without needing to interact with the recording feature. */
+  isHost?: boolean;
 };
 
 // Display rules:
@@ -230,6 +236,8 @@ const Person = ({
         p.handRaised ? " mcm-person--raised" : ""
       }${p.isFollowed ? " mcm-person--followed" : ""}${
         followable ? " mcm-person--followable" : ""
+      }${
+        p.isHost ? " mcm-person--host" : ""
       } mcm-person--named mcm-person--emoji`}
       title={tip}
       data-socket-id={p.id}
@@ -254,6 +262,25 @@ const Person = ({
         ) : (
           <span className="mcm-person__avatar-emoji" aria-hidden="true">
             {emoji}
+          </span>
+        )}
+        {p.isHost && (
+          <span
+            className="mcm-person__host-badge"
+            aria-label="Host của cuộc họp"
+            title="Host của cuộc họp"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="10"
+              height="10"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              {/* Small crown — reads as "host" instantly without
+                  needing a tooltip on touch devices. */}
+              <path d="M3 7l4.5 3L12 5l4.5 5L21 7l-1.5 11h-15z" />
+            </svg>
           </span>
         )}
         {p.handRaised && (
@@ -330,6 +357,11 @@ export const ParticipantsBar = ({
   // round-trip through the socket); peers come from broadcasts.
   const myProfile = useAtomValue(userProfileAtom);
   const peerProfiles = useAtomValue(peerProfilesAtom);
+  // Single source of truth for "who is host" — derived from the
+  // smallest joinedAt across self + every peer's USER_PROFILE
+  // payload. The link-sharer's sentinel `joinedAt = 1` ensures they
+  // always win the election.
+  const hostSocketId = useAtomValue(hostSocketIdAtom);
 
   // We live outside Excalidraw's internal provider tree, so we can't
   // call useUIAppState() — instead we subscribe to the imperative
@@ -491,6 +523,7 @@ export const ParticipantsBar = ({
     reactions: reactionsBySocket.get(selfSocketId) ?? [],
     company: myProfile?.company,
     avatarUrl: resolveAvatarUrlWithDefault(myProfile?.avatar, selfSocketId),
+    isHost: !!hostSocketId && hostSocketId === selfSocketId,
   });
 
   // Everyone else
@@ -525,6 +558,7 @@ export const ParticipantsBar = ({
       isFollowed,
       company: peerProfile?.company,
       avatarUrl: resolveAvatarUrlWithDefault(peerProfile?.avatar, socketId),
+      isHost: !!hostSocketId && hostSocketId === socketId,
     });
   }
 

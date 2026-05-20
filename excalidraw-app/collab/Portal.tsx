@@ -400,11 +400,14 @@ class Portal {
   /** Push the local user's display profile (name + company + avatar)
    *  to everyone in the room. Called once after the socket join so
    *  late-joiners learn who we are, then again whenever the local
-   *  profile changes via the settings modal. */
+   *  profile changes via the settings modal. The optional joinedAt
+   *  field carries the sender's session start time so peers can
+   *  deterministically pick the host (smallest joinedAt wins). */
   broadcastUserProfile = (profile: {
     username: string;
     company?: string;
     avatar?: string;
+    joinedAt?: number;
   }) => {
     if (this.socket?.id) {
       const data: SocketUpdateDataSource["USER_PROFILE"] = {
@@ -414,6 +417,32 @@ class Portal {
           username: profile.username,
           ...(profile.company ? { company: profile.company } : {}),
           ...(profile.avatar ? { avatar: profile.avatar } : {}),
+          ...(typeof profile.joinedAt === "number"
+            ? { joinedAt: profile.joinedAt }
+            : {}),
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  /** Host-only broadcast: tell everyone in the room that recording
+   *  has started or stopped. Peers gate this against their locally
+   *  computed `hostSocketIdAtom` before trusting it, so a stranded
+   *  ex-host tab can't keep pretending it's recording. */
+  broadcastRecordingState = (state: {
+    recording: boolean;
+    hostName?: string;
+    startedAt: number | null;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["RECORDING_STATE"] = {
+        type: WS_SUBTYPES.RECORDING_STATE,
+        payload: {
+          recording: state.recording,
+          hostSocketId: this.socket.id as SocketId,
+          ...(state.hostName ? { hostName: state.hostName } : {}),
+          startedAt: state.startedAt,
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);

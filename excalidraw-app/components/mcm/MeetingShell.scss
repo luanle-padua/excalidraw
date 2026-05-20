@@ -335,8 +335,8 @@
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px;
+  gap: 4px;
+  padding: 4px;
   background: var(--mcm-surface);
   border: 1px solid var(--mcm-hairline);
   border-radius: 999px;
@@ -345,6 +345,29 @@
   color: var(--mcm-text);
   font-size: 13px;
   font-weight: 500;
+
+  // Compact icon-only layout for the live-call state. Buttons drop
+  // their text spans and shrink to a 32px touch target — keeps the
+  // bar narrow so it doesn't overlap the lower canvas content.
+  // Non-live states (join, error, connecting) still use the wide
+  // labelled buttons because they're transitory and benefit from
+  // explicit text.
+  &--compact {
+    .mcm-call-controls__btn {
+      gap: 0;
+      padding: 6px;
+      width: 32px;
+      height: 32px;
+      justify-content: center;
+    }
+
+    .mcm-call-controls__btn--leave,
+    .mcm-call-controls__btn--mic,
+    .mcm-call-controls__btn--muted {
+      width: 36px;
+      height: 32px;
+    }
+  }
 
   &--error {
     background: color-mix(in srgb, #f43f5e 14%, var(--mcm-surface));
@@ -946,6 +969,37 @@
     justify-content: center;
     box-shadow: 0 0 0 2px var(--mcm-surface), 0 2px 5px rgba(245, 158, 11, 0.4);
     animation: mcm-raise-pop 380ms cubic-bezier(0.2, 0.9, 0.3, 1.4);
+  }
+
+  // Host crown — sits in the TOP-LEFT corner of the avatar so it
+  // can coexist with the raise-hand badge (top-right) and the
+  // follow eye (top-centre). Small + amber so it reads as "status
+  // marker", not as a notification.
+  &__host-badge {
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fbbf24;
+    color: #78350f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px var(--mcm-surface),
+      0 2px 4px rgba(245, 158, 11, 0.45);
+    z-index: 2;
+  }
+
+  // Avatar ring tint for the host so the tile reads as "host" even
+  // when the badge is partially clipped by overflow (e.g. when the
+  // bar is horizontally scrolled). Subtle gold ring, doesn't fight
+  // the existing speaking / raised / followed states.
+  &--host &__avatar {
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 0 0 2px #fbbf24,
+      0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &--raised &__avatar {
@@ -4430,4 +4484,319 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+// =========================================================================
+// TEXT TRANSLATE OVERLAY — floating "Translate ▾" near a selected text
+// =========================================================================
+// The overlay root is just a positioning anchor that fills the canvas
+// area; the actual button lives inside `__anchor`, absolutely positioned
+// in viewport coordinates so it tracks pan/zoom each frame. pointer-events
+// stay off the root so the canvas underneath keeps receiving drags;
+// only the button + menu opt in.
+.mcm-text-translate {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+
+  &__anchor {
+    position: absolute;
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: stretch;
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
+      sans-serif;
+    animation: mcm-text-translate-popin 140ms ease-out both;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    height: 28px;
+    background: var(--mcm-surface, #ffffff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+    border-radius: 8px 0 0 8px;
+    border-right: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mcm-text, #1b1b1f);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 120ms;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+
+    // Solo form when there's no caret next to it (the "Cập nhật"
+    // re-translate button doesn't get a language picker).
+    &--stale {
+      border-radius: 8px;
+      border-right: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+      background: color-mix(in srgb, #f59e0b 18%, var(--mcm-surface, #fff));
+      color: #b45309;
+
+      &:hover:not(:disabled) {
+        background: color-mix(in srgb, #f59e0b 28%, var(--mcm-surface, #fff));
+      }
+    }
+  }
+
+  &__caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 28px;
+    background: var(--mcm-surface, #ffffff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+    border-radius: 0 8px 8px 0;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    font-size: 10px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+    transition: background-color 120ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+  }
+
+  &__menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 152px;
+    padding: 4px;
+    background: var(--mcm-surface, #ffffff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    z-index: 1;
+    animation: mcm-text-translate-popin 140ms ease-out both;
+  }
+
+  &__menu-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 0;
+    background: transparent;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--mcm-text, #1b1b1f);
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 100ms;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+@keyframes mcm-text-translate-popin {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// =========================================================================
+// RECORDING — everything lives INSIDE the call-controls pill
+// =========================================================================
+// No floating banner across the canvas. While a recording is active,
+// the record button transforms into an inline pill ("🔴 0:05 ■" for
+// host, "🔴 0:05" for peers) that sits in the same slot of the call
+// bar where the idle record button lives. The pill replaces what
+// used to be a wide top-center banner — the user found that overlay
+// "lung tung" (visually cluttered), so the new design surfaces state
+// where the rest of the call controls already live.
+.mcm-recording-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, #dc2626 16%, var(--mcm-surface, #fff));
+  color: #991b1b;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 120ms;
+  animation: mcm-recording-slide 220ms ease-out both;
+
+  &--host {
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, #dc2626 26%, var(--mcm-surface, #fff));
+    }
+  }
+
+  // Peer variant: read-only — no hover affordance + cursor: default
+  // so the user doesn't mistake the timer for something they can click.
+  &--peer {
+    cursor: default;
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: progress;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #dc2626;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+    animation: mcm-recording-pulse 1.4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  &__timer {
+    line-height: 1;
+  }
+
+  &__stop {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #dc2626;
+    color: #ffffff;
+    margin-left: 2px;
+    flex-shrink: 0;
+
+    svg {
+      width: 10px;
+      height: 10px;
+    }
+  }
+}
+
+// Wrapper around the inline record button(s) inside the call-controls
+// pill. Mostly a layout helper — flex row with a tiny gap so the
+// optional Re-download button can sit next to the record button
+// without a structural change.
+.mcm-recording-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mcm-recording-btn {
+  // Inherits the .mcm-call-controls__btn base sizing in compact mode
+  // (32px square). Variant colours below pull it visually closer to
+  // the "Leave call" red, which keeps recording semantically grouped
+  // with the destructive / important actions in the pill.
+  &--start:not(:disabled) {
+    color: #dc2626;
+
+    &:hover {
+      background: color-mix(in srgb, #dc2626 14%, transparent);
+    }
+  }
+
+  &--start:disabled {
+    color: color-mix(in srgb, #dc2626 50%, var(--mcm-text, #1b1b1f));
+    opacity: 0.55;
+  }
+
+  &--stop {
+    background: #dc2626;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+    }
+  }
+
+  &--download {
+    color: var(--mcm-accent, #6965db);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+    }
+  }
+
+  &__spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: mcm-recording-spin 0.7s linear infinite;
+  }
+
+  &__err {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 11px;
+  }
+}
+
+@keyframes mcm-recording-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(220, 38, 38, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+}
+
+@keyframes mcm-recording-slide {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mcm-recording-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
