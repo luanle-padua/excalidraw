@@ -7,6 +7,7 @@ import { userProfileAtom } from "../../data/userProfile";
 
 import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
+import { CanvasNavWidget } from "./CanvasNavWidget";
 import { DXFCanvasOverlay } from "./dxf/DXFCanvasOverlay";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
 import { MeetingCallControls } from "./MeetingCallControls";
@@ -100,6 +101,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <SpeechToTextPanel />
           <MeetingCallControls />
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
+          <CanvasNavWidget />
         </div>
         <CADViewPane />
       </div>

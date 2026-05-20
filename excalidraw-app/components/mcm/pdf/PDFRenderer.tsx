@@ -150,6 +150,16 @@ export const PDFRenderer = ({
   // becomes ready, or the container resizes. Each render writes to
   // canvas.width = pixel width, height is derived from the page's
   // aspect ratio (pdfRendering.renderTo sets canvas.height itself).
+  //
+  // We render at a generous pixel-width FLOOR (`SNAPSHOT_MIN_PIXEL_WIDTH`)
+  // even when the anchor is small on screen, because the resulting
+  // canvas is captured into Excalidraw's file map and reused as the
+  // anchor's image texture. If we only rendered at `width * dpr`,
+  // zooming in on the canvas would visibly blur the PDF — small text
+  // in particular (CAD drawings, technical PDFs) becomes unreadable.
+  // 2400 px @ 96 DPI ~= a US-Letter rendered at ~3x scale, which keeps
+  // text crisp up to ~3x canvas zoom while staying within a couple of
+  // MB per page for a typical PDF.
   useEffect(() => {
     if (status !== "ready") {
       return;
@@ -159,7 +169,9 @@ export const PDFRenderer = ({
     if (!handle || !canvas) {
       return;
     }
-    const pixelWidth = Math.max(1, Math.floor(width * window.devicePixelRatio));
+    const SNAPSHOT_MIN_PIXEL_WIDTH = 2400;
+    const displayPixelWidth = Math.floor(width * window.devicePixelRatio);
+    const pixelWidth = Math.max(1, displayPixelWidth, SNAPSHOT_MIN_PIXEL_WIDTH);
     canvas.width = pixelWidth;
     let cancelled = false;
     void handle.renderTo(canvas, page).then(() => {

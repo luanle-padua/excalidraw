@@ -24,6 +24,7 @@ import {
 import { isDxfFile, meetingFilesAtom } from "../../../data/meetingLibrary";
 
 import { isDxfAnchorElement } from "../dxf/DXFCanvasOverlay";
+import { findOrCreateToolbarExtras } from "../toolbarExtras";
 
 const CADIcon = () => (
   <svg
@@ -350,11 +351,12 @@ export const CADViewTriggers = () => {
   const [toolbarEl, setToolbarEl] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
-    const find = () =>
-      (document.querySelector(".App-toolbar") as HTMLElement) ?? null;
-    setToolbarEl(find());
+    // Shared MCM extras host inside .App-toolbar — see toolbarExtras.ts
+    // for why both pickers route through it instead of portalling
+    // directly into .App-toolbar.
+    setToolbarEl(findOrCreateToolbarExtras());
     const obs = new MutationObserver(() => {
-      const next = find();
+      const next = findOrCreateToolbarExtras();
       setToolbarEl((prev) => (prev === next ? prev : next));
     });
     obs.observe(document.body, { childList: true, subtree: true });

@@ -300,7 +300,11 @@ export const TITLE_TIMEOUT = 10000;
 export const VERSION_TIMEOUT = 30000;
 export const SCROLL_TIMEOUT = 100;
 export const ZOOM_STEP = 0.1;
-export const MIN_ZOOM = 0.1;
+// Lowered from 0.1 (upstream default) to 0.05 so tablet users can
+// pull back further to see whole-canvas overviews of large CAD/PDF
+// layouts. The minimap widget complements this by giving a precise
+// pointer to where you are once you've zoomed out.
+export const MIN_ZOOM = 0.05;
 export const MAX_ZOOM = 30;
 export const HYPERLINK_TOOLTIP_DELAY = 300;
 

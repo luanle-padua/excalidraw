@@ -21,6 +21,8 @@ import {
   cadViewStateAtom,
   closeCadFileTab,
   closeCadViewPane,
+  getMaxCadViewWidth,
+  getMinCadViewWidth,
   setActiveCadTab,
   setCadViewWidth,
 } from "../../../data/cadViewState";
@@ -30,8 +32,6 @@ import { DXFRenderer } from "../dxf/DXFRenderer";
 
 import type { DXFRendererControls } from "../dxf/DXFRenderer";
 
-const MIN_PANE_WIDTH = 280;
-
 type LayerInfo = { name: string; displayName: string; color: number };
 
 export const CADViewPane = () => {
@@ -39,15 +39,45 @@ export const CADViewPane = () => {
   const state = useAtomValue(cadViewStateAtom);
   const files = useAtomValue(meetingFilesAtom);
 
+  // The persisted openFileIds list is keyed by user, not by meeting —
+  // joining a different room can resurrect tabs whose file id only
+  // existed in the previous room's library, giving the user a phantom
+  // "DXF" tab whose body shows the "không tìm thấy" placeholder.
+  // We only ever render tabs whose file id resolves to a real entry
+  // in the current meeting's library; the matching effect below
+  // prunes those stale ids from the persisted state once.
+  const knownFileIds = useMemo(() => new Set(files.map((f) => f.id)), [files]);
+  const visibleFileIds = useMemo(
+    () => state.openFileIds.filter((id) => knownFileIds.has(id)),
+    [state.openFileIds, knownFileIds],
+  );
+
+  useEffect(() => {
+    // Wait until at least one library file has loaded before pruning —
+    // otherwise the very first render (pre-hydration) would wipe every
+    // valid tab as "unknown". Once files are non-empty we know the
+    // library is populated for THIS meeting; anything left in
+    // openFileIds that isn't here is leftover state from a different
+    // meeting and safe to close.
+    if (files.length === 0) {
+      return;
+    }
+    for (const id of state.openFileIds) {
+      if (!knownFileIds.has(id)) {
+        closeCadFileTab(id);
+      }
+    }
+  }, [files.length, state.openFileIds, knownFileIds]);
+
   const fileNames = useMemo(() => {
     const map = new Map<string, string>();
     for (const f of files) {
-      if (state.openFileIds.includes(f.id)) {
+      if (visibleFileIds.includes(f.id)) {
         map.set(f.id, f.name || "DXF");
       }
     }
     return map;
-  }, [files, state.openFileIds]);
+  }, [files, visibleFileIds]);
 
   // ----- Resize (left edge — drag LEFT to grow) --------------------
   const resizeRef = useRef<{
@@ -55,6 +85,10 @@ export const CADViewPane = () => {
     baseW: number;
   } | null>(null);
   const [liveWidth, setLiveWidth] = useState<number | null>(null);
+  // Separate boolean so the resize handle gets a dragging className
+  // without re-rendering on every pointer-move (we throttle width
+  // updates via rAF but the class flip should be one-shot).
+  const [isResizing, setIsResizing] = useState(false);
 
   const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) {
@@ -64,6 +98,7 @@ export const CADViewPane = () => {
     e.currentTarget.setPointerCapture(e.pointerId);
     resizeRef.current = { startX: e.clientX, baseW: state.width };
     setLiveWidth(state.width);
+    setIsResizing(true);
   };
 
   const handleResizePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -71,7 +106,15 @@ export const CADViewPane = () => {
       return;
     }
     const dx = e.clientX - resizeRef.current.startX;
-    setLiveWidth(Math.max(MIN_PANE_WIDTH, resizeRef.current.baseW - dx));
+    // Clamp to BOTH min and max during drag — without the max clamp
+    // overshooting the cap would snap the pane back on release,
+    // which feels like the resize "broke" mid-motion.
+    const proposed = resizeRef.current.baseW - dx;
+    const clamped = Math.max(
+      getMinCadViewWidth(),
+      Math.min(getMaxCadViewWidth(), proposed),
+    );
+    setLiveWidth(clamped);
   };
 
   const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -86,6 +129,7 @@ export const CADViewPane = () => {
     }
     resizeRef.current = null;
     setLiveWidth(null);
+    setIsResizing(false);
   };
 
   // ----- Body size (callback ref + ResizeObserver) -----------------
@@ -236,23 +280,30 @@ export const CADViewPane = () => {
     };
   }, [layerPanelOpen]);
 
-  if (!excalidrawAPI || !state.open || state.openFileIds.length === 0) {
+  if (!excalidrawAPI || !state.open || visibleFileIds.length === 0) {
     return null;
   }
 
-  const activeFileId = state.activeFileId ?? state.openFileIds[0];
+  // Prefer the persisted active id if it survived the visibility
+  // filter, otherwise fall back to the first visible tab — never to a
+  // ghost id that would just render the not-found state.
+  const activeFileId = visibleFileIds.includes(state.activeFileId ?? "")
+    ? state.activeFileId
+    : visibleFileIds[0];
   const effectiveWidth = liveWidth ?? state.width;
 
   return (
     <aside
-      className="mcm-cad-view"
+      className={`mcm-cad-view${isResizing ? " mcm-cad-view--resizing" : ""}`}
       aria-label="CAD view"
       // width is data-driven (user-resizable).
       // eslint-disable-next-line react/forbid-dom-props
       style={{ width: effectiveWidth }}
     >
       <div
-        className="mcm-cad-view__resize-handle"
+        className={`mcm-cad-view__resize-handle${
+          isResizing ? " mcm-cad-view__resize-handle--dragging" : ""
+        }`}
         onPointerDown={handleResizePointerDown}
         onPointerMove={handleResizePointerMove}
         onPointerUp={handleResizePointerUp}
@@ -263,7 +314,7 @@ export const CADViewPane = () => {
       />
       <div className="mcm-cad-view__header">
         <div className="mcm-cad-view__tabs">
-          {state.openFileIds.map((fid) => {
+          {visibleFileIds.map((fid) => {
             const isActive = fid === activeFileId;
             const name = fileNames.get(fid) ?? "DXF";
             return (

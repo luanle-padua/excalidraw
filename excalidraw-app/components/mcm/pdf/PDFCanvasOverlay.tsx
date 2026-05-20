@@ -129,77 +129,46 @@ const capturePdfSnapshot = (
   });
 };
 
-/** Image-anchor variant of capturePdfSnapshot: writes BOTH to the
- *  shared snapshot cache AND to Excalidraw's binary-file map so the
- *  canvas image element re-renders with the freshly painted PDF page.
- *  `anchor.snapshotFileId` is the file id Excalidraw is using for
- *  this specific anchor's image content; replacing the file under
- *  that id swaps the picture without changing the element id, so
- *  any "Bring to Front" / "Send to Back" arrangement the user has
- *  applied stays put.
- *
- *  Why the delete-then-add dance: Excalidraw's `addFiles` calls
- *  `addMissingFiles` internally, which SKIPS any id already present
- *  in the file map (and consequently does NOT call
- *  `clearImageShapeCache` for it). So calling addFiles with the same
- *  id a second time is a no-op — the image element keeps rendering
- *  the original snapshot forever. Pulling the entry out of the
- *  live `this.files` reference returned by `getFiles()` (App.tsx
- *  line 767: `getFiles: () => this.files`) makes the next addFiles
- *  treat the id as fresh, which clears the image-shape cache and
- *  forces the canvas to repaint with the new dataURL. */
-const capturePdfAndUpdateFile = (
-  controls: PDFRendererControls,
-  anchor: AnchorPosition,
-  renderedPage: number,
+/** Bypass Excalidraw's `addMissingFiles` "skip if id present" guard
+ *  so the supplied snapshot replaces (not coexists with) whatever
+ *  bytes currently live under `fileId`. Returning to the original
+ *  delete-then-add dance: `getFiles()` hands back the internal
+ *  `this.files` reference (App.tsx:767), so deleting on it actually
+ *  evicts the entry, and the next `addFiles` treats the id as fresh,
+ *  clears the image-shape cache, and forces the canvas to repaint. */
+const writePdfSnapshotToFileMap = (
   excalidrawAPI: ReturnType<typeof useExcalidrawAPI>,
+  snapshotFileId: string,
+  dataUrl: string,
 ): void => {
-  if (!anchor.snapshotFileId) {
+  if (!excalidrawAPI) {
     return;
   }
-  requestAnimationFrame(() => {
-    void controls
-      .exportPng()
-      .then((blob) => (blob ? blobToDataUrl(blob) : null))
-      .then((dataUrl) => {
-        if (!dataUrl) {
-          return;
-        }
-        setPdfSnapshot(pdfSnapshotKey(anchor.fileId, renderedPage), dataUrl);
-        if (!excalidrawAPI || !anchor.snapshotFileId) {
-          return;
-        }
-        // Evict any cached file under this id so the upcoming
-        // addFiles sees it as new and bypasses Excalidraw's
-        // addMissingFiles "skip if present" guard.
-        const filesMap = excalidrawAPI.getFiles() as Record<
-          string,
-          BinaryFileData | undefined
-        >;
-        if (filesMap[anchor.snapshotFileId]) {
-          delete filesMap[anchor.snapshotFileId];
-        }
-        excalidrawAPI.addFiles([
-          {
-            id: anchor.snapshotFileId as FileId,
-            dataURL: dataUrl as unknown as BinaryFileData["dataURL"],
-            mimeType: "image/png" as BinaryFileData["mimeType"],
-            created: Date.now(),
-          },
-        ]);
-      })
-      .catch((err) => {
-        console.warn("[PDFCanvasOverlay] snapshot+filemap update failed", err);
-      });
-  });
+  const filesMap = excalidrawAPI.getFiles() as Record<
+    string,
+    BinaryFileData | undefined
+  >;
+  if (filesMap[snapshotFileId]) {
+    delete filesMap[snapshotFileId];
+  }
+  excalidrawAPI.addFiles([
+    {
+      id: snapshotFileId as FileId,
+      dataURL: dataUrl as unknown as BinaryFileData["dataURL"],
+      mimeType: "image/png" as BinaryFileData["mimeType"],
+      created: Date.now(),
+    },
+  ]);
 };
 
 export const PDFCanvasOverlay = () => {
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
   // Re-render on snapshot cache updates so passive anchors flip from
-  // live renderer to <img> the moment a sibling populates the cache.
-  useAtomValue(pdfSnapshotVersionAtom);
+  // live renderer to <img> the moment a sibling populates the cache,
+  // AND so the cache→file-map sync effect re-runs whenever the
+  // snapshotter writes a fresh page into the cache.
+  const snapshotVersion = useAtomValue(pdfSnapshotVersionAtom);
   const [anchors, setAnchors] = useState<AnchorPosition[]>([]);
   const anchorsRef = useRef<AnchorPosition[]>([]);
   anchorsRef.current = anchors;
@@ -210,6 +179,14 @@ export const PDFCanvasOverlay = () => {
   // PDFRenderer's onReady fire, so the focus toolbar can drive page
   // navigation + snapshotting.
   const controlsRef = useRef<Map<string, PDFRendererControls>>(new Map());
+  // Tracks which (fileId::page) snapshot is currently sitting in
+  // Excalidraw's file map under each anchor's snapshotFileId. We use
+  // it to (a) avoid re-writing identical bytes on every render, and
+  // (b) detect when the canvas image is stale relative to
+  // customData.pdfPage — the case that broke peer page-sync once the
+  // snapshot cache became warm enough that mountHiddenSnapshotter no
+  // longer fired on every page change.
+  const writtenSnapshotKeyRef = useRef<Map<string, string>>(new Map());
 
   const knownFileIds = useMemo(() => {
     const s = new Set<string>();
@@ -226,8 +203,9 @@ export const PDFCanvasOverlay = () => {
   // pdfjs loads. Seed every image anchor's snapshotFileId with the
   // library-baked page-1 thumbnail (or a 1×1 transparent PNG when the
   // PDF didn't bake a thumbnail) so SOMETHING is on the canvas the
-  // instant the element appears. The actual page snapshot follows
-  // via capturePdfAndUpdateFile.
+  // instant the element appears. The actual page snapshot is written
+  // later by the cache→file-map sync effect once the snapshotter
+  // produces it.
   useEffect(() => {
     if (!excalidrawAPI) {
       return;
@@ -339,6 +317,48 @@ export const PDFCanvasOverlay = () => {
     });
     excalidrawAPI.updateScene({ elements: next });
   }, [anchors, excalidrawAPI]);
+
+  // Single owner of "what bytes live under each anchor's
+  // snapshotFileId in Excalidraw's file map". The snapshotter writes
+  // ONLY to the cache (via capturePdfSnapshot in onPageRendered);
+  // this effect is what actually flips the canvas image. That split
+  // is the holistic fix for the peer page-sync regression: previously
+  // the file map was written only as a side-effect of mounting the
+  // snapshotter, which `mountHiddenSnapshotter` correctly skipped
+  // whenever the cache had the requested page. The result was that
+  // jumping back to an already-cached page on a passive peer never
+  // re-wrote the file map, so the canvas stayed on whatever page was
+  // last snapshotted there.
+  //
+  // Now: whenever anchors change (page changed, anchor added) OR the
+  // snapshot cache changes (a fresh page was just rendered into it),
+  // we walk every image anchor and ensure the file map under its
+  // snapshotFileId holds the cached PNG for its current page. The
+  // writtenSnapshotKeyRef short-circuits no-op rewrites.
+  useEffect(() => {
+    if (!excalidrawAPI) {
+      return;
+    }
+    const written = writtenSnapshotKeyRef.current;
+    for (const a of anchors) {
+      if (a.kind !== "image" || !a.snapshotFileId) {
+        continue;
+      }
+      const key = pdfSnapshotKey(a.fileId, a.page);
+      if (written.get(a.snapshotFileId) === key) {
+        continue;
+      }
+      const cached = getPdfSnapshot(key);
+      if (!cached) {
+        // Cold cache — the mountHiddenSnapshotter path will spin up
+        // a renderer; its cache write bumps snapshotVersion and we
+        // re-enter this effect to push it into the file map.
+        continue;
+      }
+      writePdfSnapshotToFileMap(excalidrawAPI, a.snapshotFileId, cached);
+      written.set(a.snapshotFileId, key);
+    }
+  }, [anchors, snapshotVersion, excalidrawAPI]);
 
   /** Update an anchor's customData.pdfPage and flush to peers via
    *  updateScene. Both Prev and Next buttons funnel through this so
@@ -692,17 +712,15 @@ export const PDFCanvasOverlay = () => {
                       if (!captured) {
                         return;
                       }
-                      // Push into the existing snapshot cache (so
-                      // sibling anchors can reuse it) AND directly
-                      // into Excalidraw's file map keyed by the
-                      // anchor's snapshot file id (so the canvas
-                      // image element flips to the freshly-rendered
-                      // page). Both writes are idempotent.
-                      capturePdfAndUpdateFile(
+                      // Cache-only write. The cache→file-map effect
+                      // (subscribed to snapshotVersion) picks this up
+                      // on its next run and replaces the anchor's
+                      // snapshotFileId bytes — same path that handles
+                      // page changes back to already-cached pages, so
+                      // peers stay in sync regardless of cache state.
+                      capturePdfSnapshot(
                         captured,
-                        a,
-                        rendered,
-                        excalidrawAPI,
+                        pdfSnapshotKey(a.fileId, rendered),
                       );
                     }}
                   />

@@ -2695,6 +2695,26 @@
 // match the surrounding shape buttons. The icon itself is a tiny PNG
 // preview of the first asset in that category — instantly readable as
 // "sticker" vs "stamp" without text labels.
+// Shared wrapper that hosts every MCM-injected toolbar button
+// (sticker + stamp pickers, CAD-view trigger). Keeping them inside
+// one host means the parent flex direction can flip between row
+// (desktop) and column (mobile) without our extras stacking into
+// separate rows — they're always laid out as ONE horizontal strip.
+//
+// Desktop: sits to the right of Excalidraw's shape switcher inside
+//   the .App-toolbar Island; aligned to the row baseline.
+// Mobile : sits as a single row directly below the .mobile-toolbar
+//   (because the parent .App-toolbar is flex-direction: column).
+//   align-self: flex-end keeps the strip right-aligned so the
+//   primary mobile toolbar dominates the visual space.
+.mcm-toolbar-extras {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
 .mcm-deco-trigger {
   position: relative;
   // Hairline inset frame around the preview gives the PNG a sticker-y
@@ -4002,16 +4022,20 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   // Vertical resize gutter on the LEFT edge — drag left to grow the
-  // pane, right to shrink. Wider hit-target than the visible line so
-  // pen / touch users can grab reliably; the visible 2px bar is just
-  // a paint cue inside the larger transparent grab zone.
+  // pane, right to shrink. The hit-target is intentionally wider than
+  // the visible bar so pen / touch users can grab reliably. The bar
+  // (`::after`) is a faint hairline by default and thickens to the
+  // accent colour on hover or while dragging; a centred pill grip
+  // (`::before`) appears as an extra affordance the moment the user
+  // hovers, so the handle is discoverable without needing to "find"
+  // the invisible 8px strip.
   &__resize-handle {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 8px;
-    margin-left: -4px; // centre the grab zone over the pane edge
+    width: 10px;
+    margin-left: -5px; // centre the grab zone over the pane edge
     cursor: ew-resize;
     touch-action: none;
     -webkit-user-select: none;
@@ -4029,14 +4053,61 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       width: 1px;
       margin-left: -0.5px;
       background: var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-      transition: background-color 140ms, width 140ms;
+      transition: background-color 140ms, width 140ms, margin-left 140ms;
     }
 
-    &:hover::after,
-    &:active::after {
+    &::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 4px;
+      height: 36px;
+      border-radius: 999px;
+      background: var(--mcm-hairline, rgba(0, 0, 0, 0.22));
+      opacity: 0;
+      transition: opacity 140ms ease, background-color 140ms;
+      pointer-events: none;
+    }
+
+    &:hover::before {
+      opacity: 1;
+    }
+
+    &:hover::after {
       background: var(--mcm-accent, #6965db);
       width: 2px;
       margin-left: -1px;
+    }
+
+    // While actively dragging keep the grip + bar lit even if the
+    // pointer briefly leaves the hit area (PointerCapture keeps the
+    // pointermove events flowing, but :hover may drop). Mirrors the
+    // common "rail stays bright while you drag" pattern.
+    &--dragging {
+      &::before {
+        opacity: 1;
+        background: var(--mcm-accent, #6965db);
+        height: 48px;
+      }
+
+      &::after {
+        background: var(--mcm-accent, #6965db);
+        width: 2px;
+        margin-left: -1px;
+      }
+    }
+  }
+
+  // Body cursor swap during drag: prevents the cursor from flickering
+  // back to default whenever it crosses out of the 10px hit zone into
+  // the actual pane content while the user is mid-drag.
+  &--resizing {
+    cursor: ew-resize;
+
+    * {
+      cursor: ew-resize !important;
     }
   }
 }
@@ -4207,6 +4278,153 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   0% {
     opacity: 0;
     transform: translateY(-4px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// =========================================================================
+// CANVAS NAVIGATION WIDGET — floating bottom-right zoom controls + minimap
+// =========================================================================
+// Anchors to the bottom-right of the canvas area. Sits ABOVE the CAD pane
+// edge (z-index 6) so it never disappears behind the resize gutter or the
+// participants strip. The minimap, when open, floats just above the bar
+// in the same column so the two elements read as one widget.
+.mcm-canvas-nav {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
+  pointer-events: none; // children opt-in so the widget doesn't
+                        // swallow pointer events outside its visible boxes
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
+    sans-serif;
+
+  &__bar {
+    pointer-events: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    background: var(--mcm-surface, #ffffff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  &__btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text, #1b1b1f);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 120ms, color 120ms;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    &--active {
+      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      color: var(--mcm-accent, #6965db);
+    }
+
+    &--map {
+      font-size: 14px;
+    }
+  }
+
+  &__pct {
+    min-width: 44px;
+    height: 28px;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text, #1b1b1f);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color 120ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+  }
+
+  &__divider {
+    width: 1px;
+    height: 18px;
+    background: var(--mcm-hairline-2, rgba(0, 0, 0, 0.1));
+    margin: 0 2px;
+  }
+
+  &__minimap {
+    pointer-events: auto;
+    width: 220px;
+    height: 150px;
+    background: var(--mcm-surface, #ffffff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+    cursor: crosshair;
+    touch-action: none;
+    animation: mcm-canvas-nav-popin 160ms cubic-bezier(0.34, 1.56, 0.64, 1)
+      both;
+
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  // Each scene element drawn as a faint outlined block — fill kept
+  // ultra-subtle so dense scenes don't turn into a dark wall.
+  &__el {
+    fill: color-mix(in srgb, var(--mcm-text, #1b1b1f) 8%, transparent);
+    stroke: color-mix(in srgb, var(--mcm-text, #1b1b1f) 22%, transparent);
+    stroke-width: 0.6;
+  }
+
+  // Current viewport box — accent fill at low alpha + crisp border so
+  // it reads as "you are here" against the element backdrop.
+  &__viewport {
+    fill: color-mix(in srgb, var(--mcm-accent, #6965db) 18%, transparent);
+    stroke: var(--mcm-accent, #6965db);
+    stroke-width: 1.2;
+    pointer-events: none;
+  }
+}
+
+@keyframes mcm-canvas-nav-popin {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
   }
   100% {
     opacity: 1;

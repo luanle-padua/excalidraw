@@ -21,6 +21,7 @@ import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 
 import { STAMP_ASSETS, STICKER_ASSETS } from "./decorations/assets";
+import { findOrCreateToolbarExtras } from "./toolbarExtras";
 
 const MAX_INSERT = 240; // px (logical) on canvas
 
@@ -102,14 +103,16 @@ export const StickerPicker = () => {
   // only commit the placement on pointerup if movement is small.
   const placeStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Locate Excalidraw's toolbar in the DOM, re-locate on remount
-  // (zen mode, viewport switch).
+  // Locate (and lazily create) the MCM extras host inside Excalidraw's
+  // toolbar. Routing through a shared wrapper instead of portalling
+  // straight into .App-toolbar keeps our buttons grouped as a single
+  // horizontal strip in mobile mode (where .App-toolbar flips to
+  // flex-direction: column and each direct child would otherwise be
+  // a full-width row). Re-locate on remount (zen mode, layout flip).
   useEffect(() => {
-    const find = () =>
-      (document.querySelector(".App-toolbar") as HTMLElement) ?? null;
-    setToolbarEl(find());
+    setToolbarEl(findOrCreateToolbarExtras());
     const obs = new MutationObserver(() => {
-      const next = find();
+      const next = findOrCreateToolbarExtras();
       setToolbarEl((prev) => (prev === next ? prev : next));
     });
     obs.observe(document.body, { childList: true, subtree: true });

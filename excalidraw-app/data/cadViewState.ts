@@ -24,6 +24,17 @@ const DEFAULT_WIDTH = 480;
 const MIN_WIDTH = 280;
 const MAX_WIDTH_FRAC = 0.7;
 
+/** Largest width the pane is allowed to take, derived from the
+ *  current viewport. Exposed so the resize handler can clamp live
+ *  during drag instead of only on commit (otherwise overshooting the
+ *  cap causes a visible snap-back on release). */
+export const getMaxCadViewWidth = (): number => {
+  const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
+  return Math.floor(vw * MAX_WIDTH_FRAC);
+};
+
+export const getMinCadViewWidth = (): number => MIN_WIDTH;
+
 const guessInitial = (): CADViewState => {
   const defaults: CADViewState = {
     open: false,

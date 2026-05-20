@@ -31,3 +31,7 @@ dev-dist
 html
 meta*.json
 .claude
+.playwright-mcp/
+# transient verification screenshots from local Playwright runs
+canvas-nav-widget.png
+narrow-toolbar-after.png
