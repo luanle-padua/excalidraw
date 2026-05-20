@@ -251,6 +251,43 @@ export const getClientColor = (
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
+// ---------------------------------------------------------------------
+// MCM avatar image cache for remote cursors. We can't synchronously
+// load images inside the per-frame canvas render, so each unique
+// avatar URL gets a single Image element lazy-loaded once and cached
+// here. The render path checks `loaded` — if true, draws the image;
+// if false, falls through to the emoji disc until the next frame
+// where the load may have completed (cursor renders re-fire on every
+// MOUSE_LOCATION update, so this catches up within a few hundred ms
+// without any explicit scene-invalidate plumbing).
+// ---------------------------------------------------------------------
+type MCMAvatarEntry = { img: HTMLImageElement; loaded: boolean };
+const MCM_AVATAR_CACHE = new Map<string, MCMAvatarEntry>();
+
+const mcmGetLoadedAvatar = (url: string): HTMLImageElement | null => {
+  const cached = MCM_AVATAR_CACHE.get(url);
+  if (cached) {
+    return cached.loaded ? cached.img : null;
+  }
+  const img = new Image();
+  const entry: MCMAvatarEntry = { img, loaded: false };
+  MCM_AVATAR_CACHE.set(url, entry);
+  // crossOrigin so future canvas reads (exportPng etc) don't taint the
+  // canvas. Library + data: URLs are same-origin so this is a no-op,
+  // but harmless if a future profile points at a CDN avatar.
+  img.crossOrigin = "anonymous";
+  img.onload = () => {
+    entry.loaded = true;
+  };
+  img.onerror = () => {
+    // Eviction so a transient 404 doesn't trap callers forever — the
+    // next frame's render will retry the load.
+    MCM_AVATAR_CACHE.delete(url);
+  };
+  img.src = url;
+  return null;
+};
+
 /**
  * returns first char, capitalized
  */
@@ -301,6 +338,15 @@ export const renderRemoteCursors = ({
     const background = getClientColor(socketId, collaborator);
 
     context.save();
+    // Counter Excalidraw's dark-theme canvas filter
+    // (`invert(93%) hue-rotate(180deg)`, see css/theme.scss). Applying
+    // the SAME filter at the context level double-inverts our draws,
+    // so the cursor + label end up looking identical to light theme
+    // — avatar colours stay true, white pill stays white, charcoal
+    // text stays charcoal.
+    if (appState.theme === THEME.DARK) {
+      context.filter = "invert(93%) hue-rotate(180deg)";
+    }
     context.strokeStyle = background;
     context.fillStyle = background;
 
@@ -399,11 +445,14 @@ export const renderRemoteCursors = ({
 
     if (!isOutOfBounds && shortName) {
       // Anchor below the arrow tip so the arrow still indicates the
-      // click point cleanly.
-      const avatarRadius = 18;
+      // click point cleanly. Shrunk from 18 → 14 once the company
+      // sub-line was added: the full label stack was getting heavy
+      // enough to dominate the cursor, so trimming the avatar +
+      // tightening the gap keeps the column compact.
+      const avatarRadius = 14;
       const arrowTailY = y + 14;
       const avatarCenterX = x + 8;
-      const avatarCenterY = arrowTailY + avatarRadius + 4;
+      const avatarCenterY = arrowTailY + avatarRadius + 3;
 
       // Save text-state we touch so we don't bleed into other
       // renderers (canvas state is global per frame here).
@@ -436,31 +485,68 @@ export const renderRemoteCursors = ({
       context.fillStyle = COLOR_WHITE;
       context.fill();
 
-      // Avatar disc — same colour family as the user's pointer.
+      // Avatar disc — same colour family as the user's pointer. Used
+      // as a backdrop so transparent avatars still read clearly, and
+      // as the only fill if the image hasn't loaded yet.
       context.beginPath();
       context.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, 2 * Math.PI);
       context.fillStyle = background;
       context.fill();
 
-      // Big centred emoji. The optical-Y nudge accounts for emoji
-      // glyphs having their visual centre slightly below the
-      // typographic centre.
-      context.font =
-        '24px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(cursorEmoji, avatarCenterX, avatarCenterY + 1);
+      // If the collaborator has an avatar URL (custom upload OR
+      // library image picked in the MCM profile modal) AND it has
+      // finished loading, paint that as the avatar disc. We clip to
+      // the same circle as the backdrop so the image stays round.
+      // No image yet → fall through to the emoji glyph below, which
+      // is what every peer rendered before the profile feature.
+      const avatarImg = collaborator?.avatarUrl
+        ? mcmGetLoadedAvatar(collaborator.avatarUrl)
+        : null;
+      if (avatarImg) {
+        context.save();
+        context.beginPath();
+        context.arc(avatarCenterX, avatarCenterY, avatarRadius, 0, 2 * Math.PI);
+        context.clip();
+        context.drawImage(
+          avatarImg,
+          avatarCenterX - avatarRadius,
+          avatarCenterY - avatarRadius,
+          avatarRadius * 2,
+          avatarRadius * 2,
+        );
+        context.restore();
+      } else {
+        // Centred emoji at the new smaller size. The optical-Y nudge
+        // accounts for emoji glyphs having their visual centre
+        // slightly below the typographic centre.
+        context.font =
+          '18px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(cursorEmoji, avatarCenterX, avatarCenterY + 1);
+      }
 
-      // Short-name pill below the avatar.
-      context.font = "600 11px sans-serif";
-      context.textBaseline = "middle";
-      const nameMeasure = context.measureText(shortName);
+      // Stacked label: name pill + optional company sub-line.
+      // Company comes off the Collaborator (sourced from
+      // userProfileAtom in Collab), and only renders when set so
+      // peers without a profile stay compact.
+      const company = collaborator?.company?.trim() ?? "";
       const namePadH = 6;
       const namePadV = 3;
+
+      context.font = "600 11px sans-serif";
+      context.textBaseline = "middle";
+      // The image-avatar branch above never sets textAlign (only the
+      // emoji branch does), so without this line the name + company
+      // would render LEFT-anchored at avatarCenterX instead of
+      // centred — i.e. the labels would visibly drift left of the
+      // pill on any peer who picked a custom avatar.
+      context.textAlign = "center";
+      const nameMeasure = context.measureText(shortName);
       const nameBoxW = nameMeasure.width + namePadH * 2;
       const nameBoxH = 11 + namePadV * 2 + 2;
       const nameBoxX = avatarCenterX - nameBoxW / 2;
-      const nameBoxY = avatarCenterY + avatarRadius + 6;
+      const nameBoxY = avatarCenterY + avatarRadius + 5;
 
       if (context.roundRect) {
         context.beginPath();
@@ -483,6 +569,31 @@ export const renderRemoteCursors = ({
       }
       context.fillStyle = COLOR_CHARCOAL_BLACK;
       context.fillText(shortName, avatarCenterX, nameBoxY + nameBoxH / 2);
+
+      // Company sub-line — smaller font, white text with a thin dark
+      // shadow halo so it reads against any canvas background without
+      // needing its own pill. Truncated visually by the natural
+      // measureText limit; we don't bother with ellipsis since
+      // company strings are bounded to 48 chars at the profile modal.
+      if (company) {
+        const companyY = nameBoxY + nameBoxH + 4 + 5;
+        context.font = "500 10px sans-serif";
+        context.textBaseline = "middle";
+        context.textAlign = "center";
+        // 4-direction halo so the text reads on light AND dark
+        // backgrounds without a second pill draw.
+        context.fillStyle = "rgba(0, 0, 0, 0.55)";
+        for (const [dx, dy] of [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
+          context.fillText(company, avatarCenterX + dx, companyY + dy);
+        }
+        context.fillStyle = COLOR_WHITE;
+        context.fillText(company, avatarCenterX, companyY);
+      }
 
       // Restore text alignment for whatever runs next.
       context.textAlign = prevAlign;

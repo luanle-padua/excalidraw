@@ -26,6 +26,7 @@ import type {
 import { useT } from "../../i18n/mcm";
 
 import { isDxfAnchorElement } from "./dxf/DXFCanvasOverlay";
+import { isPdfAnchorElement } from "./pdf/PDFCanvasOverlay";
 
 // -----------------------------------------------------------------------
 // Decoration palette + chooser
@@ -95,26 +96,35 @@ type PinPosition = {
 const isImage = (el: ExcalidrawElement): el is ExcalidrawImageElement =>
   el.type === "image" && !el.isDeleted;
 
-/** Pins live on EITHER images OR DXF anchors — both back a library
- *  file via different field paths (`el.fileId` vs
- *  `el.customData.dxfFileId`). The pin overlay doesn't care which kind
- *  it is; it just needs the rect + the library file id, so we unify
- *  the lookup once at the recompute boundary. Returns null for
- *  elements that aren't pinnable, so the caller can `continue`. */
+/** Pins live on images, DXF anchors, and PDF anchors — all three
+ *  back a library file via different field paths (`el.fileId`,
+ *  `el.customData.dxfFileId`, `el.customData.pdfFileId`). The pin
+ *  overlay doesn't care which kind it is; it just needs the rect + the
+ *  library file id, so we unify the lookup once at the recompute
+ *  boundary. Returns null for elements that aren't pinnable, so the
+ *  caller can `continue`. */
 const pinnableInfoFor = (
   el: ExcalidrawElement,
-): { fileId: string | null; kind: "image" | "dxf" } | null => {
+): { fileId: string | null; kind: "image" | "dxf" | "pdf" } | null => {
   if (el.isDeleted) {
     return null;
+  }
+  // Check the typed anchors FIRST. Image-based PDF anchors are
+  // `el.type === "image"` too, so the plain `isImage` branch would
+  // shadow them and report the per-anchor snapshot fileId instead
+  // of the library pdfFileId — locks + delete cascades would then
+  // target the wrong file.
+  if (isDxfAnchorElement(el)) {
+    return { fileId: el.customData.dxfFileId, kind: "dxf" };
+  }
+  if (isPdfAnchorElement(el)) {
+    return { fileId: el.customData.pdfFileId, kind: "pdf" };
   }
   if (isImage(el)) {
     return {
       fileId: typeof el.fileId === "string" ? el.fileId : null,
       kind: "image",
     };
-  }
-  if (isDxfAnchorElement(el)) {
-    return { fileId: el.customData.dxfFileId, kind: "dxf" };
   }
   return null;
 };

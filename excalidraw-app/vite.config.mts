@@ -68,12 +68,15 @@ export default defineConfig(({ mode }) => {
     //more located in parallel with the vite.config.ts file but in parent dir
     envDir: "../",
     optimizeDeps: {
-      // Force Vite to pre-bundle dxf-viewer + its three.js dependency
-      // at dev server startup. Without this, the dynamic import in
-      // <DXFRenderer /> can race the on-demand dep-scanner — Vite
-      // returns 404 for /node_modules/.vite/deps/dxf-viewer.js the
-      // first time a user uploads a DXF after a cold server start.
-      include: ["dxf-viewer", "three"],
+      // Force Vite to pre-bundle dxf-viewer + three.js + pdfjs-dist at
+      // dev server startup. Without this, the dynamic imports in
+      // <DXFRenderer /> and pdfRendering.ts race Vite's on-demand
+      // dep-scanner — Vite returns 404 for
+      // /node_modules/.vite/deps/<dep>.js the first time the user
+      // uploads or opens that file kind after a cold server start
+      // (the symptom is "Failed to fetch dynamically imported
+      // module" in the browser console).
+      include: ["dxf-viewer", "three", "pdfjs-dist"],
     },
     resolve: {
       alias: [

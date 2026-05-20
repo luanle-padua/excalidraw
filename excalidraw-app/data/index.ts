@@ -214,6 +214,19 @@ export type SocketUpdateDataSource = {
       ts: number;
     };
   };
+  USER_PROFILE: {
+    type: WS_SUBTYPES.USER_PROFILE;
+    payload: {
+      socketId: SocketId;
+      username: string;
+      company?: string;
+      /** Either `"lib:NN.png"` for a built-in gallery avatar OR a
+       *  `data:image/...` URL for a user-uploaded image. Receivers
+       *  treat anything else as "no avatar" and fall back to the
+       *  emoji tile. */
+      avatar?: string;
+    };
+  };
 };
 
 export type SocketUpdateDataIncoming =

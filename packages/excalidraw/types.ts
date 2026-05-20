@@ -80,6 +80,11 @@ export type Collaborator = Readonly<{
   // The url of the collaborator's avatar, defaults to username initials
   // if not present
   avatarUrl?: string;
+  // MCM extension: optional company / organisation label rendered
+  // under the username on cursor labels + UserList so peers can tell
+  // who's from which org at a glance. Wired from the same
+  // userProfileAtom that drives the participants bar avatars.
+  company?: string;
   // user id. If supplied, we'll filter out duplicates when rendering user avatars.
   id?: string;
   socketId?: SocketId;

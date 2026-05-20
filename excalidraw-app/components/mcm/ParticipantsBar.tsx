@@ -8,9 +8,14 @@
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { useEffect, useState } from "react";
+
 import { createPortal } from "react-dom";
 
-import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
+import type {
+  Collaborator,
+  SocketId,
+  UserToFollow,
+} from "@excalidraw/excalidraw/types";
 
 import { useAtomValue } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
@@ -20,10 +25,17 @@ import {
   meetingReactionsAtom,
   raisedHandsAtom,
 } from "../../collab/Collab";
+import {
+  peerProfilesAtom,
+  resolveAvatarUrlWithDefault,
+  userProfileAtom,
+} from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { pickEmojiFor, shortDisplayName } from "./animalEmoji";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
+
+import type { HTMLAttributes } from "react";
 
 import type { MeetingReactionEvent } from "../../collab/Collab";
 import type { MockParticipant } from "./meetingMock";
@@ -120,6 +132,17 @@ type Tile = {
   handRaised: boolean;
   /** any floating reactions currently animating over this avatar */
   reactions: MeetingReactionEvent[];
+  /** true when the local user is currently following this participant
+   *  (their viewport is locked to ours via Excalidraw's userToFollow).
+   *  Drives the eye badge on the avatar tile. */
+  isFollowed?: boolean;
+  /** Company line from the user's profile — if present we render it
+   *  underneath the display name. Empty / undefined skips the line. */
+  company?: string;
+  /** Resolved URL to an avatar image (library or uploaded). When set,
+   *  we render <img> instead of the deterministic emoji fallback so
+   *  the tile carries a recognisable face. */
+  avatarUrl?: string | null;
 };
 
 // Display rules:
@@ -136,7 +159,18 @@ type Tile = {
 // implicitly clips both axes). Instead we tag the row with a
 // data-socket-id and a separate MeetingReactionsOverlay portals
 // floating emojis onto <body> at the avatar's screen position.
-const Person = ({ p }: { p: Tile }) => {
+const Person = ({
+  p,
+  onFollowToggle,
+  onOpenProfile,
+}: {
+  p: Tile;
+  onFollowToggle?: (tile: Tile) => void;
+  /** Click handler used ONLY for the self tile — opens the profile
+   *  editor (avatar / name / company). For other people the click
+   *  routes through `onFollowToggle` instead. */
+  onOpenProfile?: () => void;
+}) => {
   const t = useT();
   // Full name for the tooltip — always the original so user-set
   // names ("Mai", "Park Junho") are preserved verbatim on hover.
@@ -149,32 +183,93 @@ const Person = ({ p }: { p: Tile }) => {
   // Always show the short name now — the bar is in 2-row vertical
   // layout (avatar on top, name below). Speaker / me still get
   // their own visual accents via colour modifiers.
+  //
+  // Two distinct click affordances on the tile:
+  //   • Own tile (`isMe`) → open profile editor (avatar / name /
+  //     company). Nothing to follow; the only meaningful action is
+  //     "fix my own info".
+  //   • Anyone else → toggle viewport follow.
+  // The tip + the click handler swap accordingly.
+  const selfClickable = !!p.isMe && !!onOpenProfile;
+  const followable = !p.isMe && !!onFollowToggle;
+  const clickable = selfClickable || followable;
+  const tipSelf = `${fullName} — ${t("profile.openSettings")}`;
+  const tipFollow = p.isFollowed
+    ? `${fullName} — ${t("participants.unfollowHint")}`
+    : `${fullName} — ${t("participants.followHint")}`;
+  const tip = selfClickable ? tipSelf : followable ? tipFollow : fullName;
+  // Spread the interactive attributes only when the tile is clickable.
+  // The static role="button" literal is required by the
+  // jsx-a11y/aria-role rule — passing it through a ternary makes the
+  // rule reject the expression as "not a valid ARIA role" even though
+  // "button" is.
+  const handleClick = selfClickable
+    ? () => onOpenProfile?.()
+    : followable
+    ? () => onFollowToggle?.(p)
+    : undefined;
+  const interactiveProps: HTMLAttributes<HTMLDivElement> =
+    clickable && handleClick
+      ? {
+          role: "button",
+          tabIndex: 0,
+          onClick: handleClick,
+          onKeyDown: (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleClick();
+            }
+          },
+        }
+      : {};
   return (
     <div
       className={`mcm-person${p.isMe ? " mcm-person--me" : ""}${
         p.speaking ? " mcm-person--speaking" : ""
       }${!p.inCall ? " mcm-person--idle" : ""}${
         p.handRaised ? " mcm-person--raised" : ""
+      }${p.isFollowed ? " mcm-person--followed" : ""}${
+        followable ? " mcm-person--followable" : ""
       } mcm-person--named mcm-person--emoji`}
-      title={fullName}
+      title={tip}
       data-socket-id={p.id}
+      {...interactiveProps}
     >
       <div
-        className="mcm-person__avatar"
+        className={`mcm-person__avatar${
+          p.avatarUrl ? " mcm-person__avatar--image" : ""
+        }`}
         // gradient per-participant — has to be inline since the colour
         // mix is data-driven
         // eslint-disable-next-line react/forbid-dom-props
-        style={{ background: p.avatar }}
+        style={{ background: p.avatarUrl ? undefined : p.avatar }}
       >
-        <span className="mcm-person__avatar-emoji" aria-hidden="true">
-          {emoji}
-        </span>
+        {p.avatarUrl ? (
+          <img
+            className="mcm-person__avatar-image"
+            src={p.avatarUrl}
+            alt=""
+            draggable={false}
+          />
+        ) : (
+          <span className="mcm-person__avatar-emoji" aria-hidden="true">
+            {emoji}
+          </span>
+        )}
         {p.handRaised && (
           <span
             className="mcm-person__raise-badge"
             aria-label={t("participants.raiseHandAria")}
           >
             ✋
+          </span>
+        )}
+        {p.isFollowed && (
+          <span
+            className="mcm-person__follow-badge"
+            aria-label={t("participants.followingAria")}
+          >
+            👁
           </span>
         )}
         {p.inCall && p.micOn && (
@@ -190,6 +285,11 @@ const Person = ({ p }: { p: Tile }) => {
         )}
       </div>
       <span className="mcm-person__name">{displayName}</span>
+      {p.company && (
+        <span className="mcm-person__company" title={p.company}>
+          {p.company}
+        </span>
+      )}
     </div>
   );
 };
@@ -208,7 +308,16 @@ const mockTile = (p: MockParticipant): Tile => ({
 
 const REACTION_TTL_MS = 3200;
 
-export const ParticipantsBar = () => {
+type ParticipantsBarProps = {
+  /** Open the local user's profile editor — wired from MeetingShell
+   *  so a click on your own avatar tile pops the same modal that the
+   *  header gear icon does. */
+  onOpenProfile?: () => void;
+};
+
+export const ParticipantsBar = ({
+  onOpenProfile,
+}: ParticipantsBarProps = {}) => {
   const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -216,6 +325,11 @@ export const ParticipantsBar = () => {
   const audioState = useAtomValue(audioStateAtom);
   const raisedHands = useAtomValue(raisedHandsAtom);
   const liveReactions = useAtomValue(meetingReactionsAtom);
+  // Local + peer UserProfiles drive the company line + custom avatar
+  // image on each tile. Self reads its own profile directly (no
+  // round-trip through the socket); peers come from broadcasts.
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
 
   // We live outside Excalidraw's internal provider tree, so we can't
   // call useUIAppState() — instead we subscribe to the imperative
@@ -225,21 +339,76 @@ export const ParticipantsBar = () => {
   const [collaborators, setCollaborators] = useState<
     ReadonlyMap<SocketId, Collaborator>
   >(() => new Map());
+  // Mirror of Excalidraw's appState.userToFollow so we can highlight
+  // the avatar currently being followed AND render the "Đang follow X
+  // — Esc để thoát" banner.
+  const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
 
   useEffect(() => {
     if (!excalidrawAPI) {
       return;
     }
     setCollaborators(excalidrawAPI.getAppState().collaborators);
+    setUserToFollow(excalidrawAPI.getAppState().userToFollow ?? null);
     const unsub = excalidrawAPI.onChange((_elements, appState) => {
       // referential check — the collab layer constructs a new Map on
       // every roster change, so this is a cheap O(1) gate.
       setCollaborators((prev) =>
         prev === appState.collaborators ? prev : appState.collaborators,
       );
+      setUserToFollow((prev) => {
+        const next = appState.userToFollow ?? null;
+        if (
+          prev?.socketId === next?.socketId &&
+          prev?.username === next?.username
+        ) {
+          return prev;
+        }
+        return next;
+      });
     });
     return unsub;
   }, [excalidrawAPI]);
+
+  /** Toggle local follow of a peer. Setting appState.userToFollow
+   *  triggers Excalidraw's `onUserFollow` callback, which Collab
+   *  broadcasts via USER_FOLLOW_CHANGE — the followed peer then
+   *  streams its visible scene bounds back over the room's existing
+   *  USER_VISIBLE_SCENE_BOUNDS channel and our viewport auto-zooms
+   *  to match. All of that is built in to the Excalidraw + Collab
+   *  pipeline; this handler just flips the appState bit. */
+  const handleFollowToggle = (tile: Tile) => {
+    if (!excalidrawAPI || tile.isMe) {
+      return;
+    }
+    const alreadyFollowing = userToFollow?.socketId === tile.id;
+    excalidrawAPI.updateScene({
+      appState: alreadyFollowing
+        ? { userToFollow: null }
+        : {
+            userToFollow: {
+              socketId: tile.id as SocketId,
+              username: tile.name,
+            },
+          },
+    });
+  };
+
+  // Esc-to-stop. Mirrors the keyboard shortcut Excalidraw uses for
+  // most overlays, and makes the badge dismissable without reaching
+  // for the avatar again.
+  useEffect(() => {
+    if (!userToFollow || !excalidrawAPI) {
+      return undefined;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        excalidrawAPI.updateScene({ appState: { userToFollow: null } });
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [userToFollow, excalidrawAPI]);
 
   // Auto-expire floating reactions after their animation finishes. We
   // schedule one timeout per reaction id; cleanup on unmount or when
@@ -279,7 +448,7 @@ export const ParticipantsBar = () => {
           />
           <div className="mcm-people-bar__list">
             {previewTiles.map((p) => (
-              <Person key={p.id} p={p} />
+              <Person key={p.id} p={p} onOpenProfile={onOpenProfile} />
             ))}
           </div>
         </footer>
@@ -304,7 +473,11 @@ export const ParticipantsBar = () => {
 
   // Self first
   const selfSocketId = collabAPI?.portal.socket?.id ?? "me";
-  const selfName = collabAPI?.getUsername() || t("participants.you");
+  // Profile name wins over Collab's stored username so that renaming
+  // through the profile modal reflects locally even before the
+  // collabAPI.setUsername round-trip lands.
+  const selfName =
+    myProfile?.username || collabAPI?.getUsername() || t("participants.you");
   const selfInCall = audioState.status === "live";
   tiles.push({
     id: selfSocketId,
@@ -316,6 +489,8 @@ export const ParticipantsBar = () => {
     inCall: selfInCall,
     handRaised: raisedHands.has(selfSocketId),
     reactions: reactionsBySocket.get(selfSocketId) ?? [],
+    company: myProfile?.company,
+    avatarUrl: resolveAvatarUrlWithDefault(myProfile?.avatar, selfSocketId),
   });
 
   // Everyone else
@@ -324,12 +499,18 @@ export const ParticipantsBar = () => {
       continue;
     }
     const peer = audioState.peers.get(socketId);
-    const name = c.username || t("participants.guest");
+    const peerProfile = peerProfiles.get(socketId);
+    // Profile name wins over Collab's username so peer renames show
+    // up immediately. Falls back to the Excalidraw username or a
+    // generic "Guest" while we wait for their first USER_PROFILE
+    // broadcast.
+    const name = peerProfile?.username || c.username || t("participants.guest");
     const avatar = c.color?.background
       ? `linear-gradient(135deg,${c.color.background},${
           c.color.stroke ?? c.color.background
         })`
       : gradientFor(socketId);
+    const isFollowed = userToFollow?.socketId === socketId;
     tiles.push({
       id: socketId,
       name,
@@ -341,18 +522,32 @@ export const ParticipantsBar = () => {
       inCall: !!peer,
       handRaised: raisedHands.has(socketId),
       reactions: reactionsBySocket.get(socketId) ?? [],
+      isFollowed,
+      company: peerProfile?.company,
+      avatarUrl: resolveAvatarUrlWithDefault(peerProfile?.avatar, socketId),
     });
   }
 
   const inCallCount = tiles.filter((t) => t.inCall).length;
 
+  // NB: we deliberately do NOT render a custom "Đang follow X" banner
+  // here — Excalidraw's UI layer already paints its own follow
+  // indicator (purple pill near the top toolbar with a × to stop), so
+  // a second banner would be duplicate/competing UI. The avatar eye
+  // badge + Esc handler give us our extra affordances; Excalidraw owns
+  // the textual confirmation strip.
   return (
     <>
       <footer className="mcm-people-bar" aria-label={t("participants.label")}>
         <CountChip inRoom={tiles.length} inCall={inCallCount} />
         <div className="mcm-people-bar__list">
           {tiles.map((p) => (
-            <Person key={p.id} p={p} />
+            <Person
+              key={p.id}
+              p={p}
+              onFollowToggle={handleFollowToggle}
+              onOpenProfile={onOpenProfile}
+            />
           ))}
         </div>
       </footer>

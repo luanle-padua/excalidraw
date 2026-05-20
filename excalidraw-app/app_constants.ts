@@ -44,6 +44,11 @@ export enum WS_SUBTYPES {
    *  every peer sees subtitles for whoever's speaking. Interim
    *  hypotheses stay local to the speaker — too noisy to broadcast. */
   STT_SEGMENT = "STT_SEGMENT",
+  /** User profile (display name + company + avatar) layered on top of
+   *  Excalidraw's built-in Collaborator.username. Sent once on join
+   *  AND on every change so late-joining peers get the latest values
+   *  via the snapshot rebroadcast in `broadcastUserProfileSnapshot`. */
+  USER_PROFILE = "USER_PROFILE",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

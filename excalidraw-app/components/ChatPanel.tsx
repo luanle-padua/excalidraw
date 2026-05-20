@@ -34,12 +34,19 @@ import {
 
 import { useT } from "../i18n/mcm";
 
-import { pickEmojiFor, shortDisplayName } from "./mcm/animalEmoji";
+import {
+  peerProfilesAtom,
+  resolveAvatarUrlWithDefault,
+  userProfileAtom,
+} from "../data/userProfile";
+
+import { shortDisplayName } from "./mcm/animalEmoji";
 
 import "./ChatPanel.scss";
 
 import type { ChatMessage } from "../collab/Collab";
 import type { MeetingFile } from "../data/meetingLibrary";
+import type { UserProfile } from "../data/userProfile";
 
 // Localised UI labels live in excalidraw-app/i18n/mcm/* now —
 // historical Record<SupportedLanguage, string> consts here have been
@@ -85,26 +92,10 @@ const COMPOSE_EMOJI_PALETTE = [
   "💡",
 ];
 
-// Avatar gradient is deterministic from the username so the same person
-// reads as the same colour across the chat AND the participants strip.
-const AVATAR_PALETTE: [string, string][] = [
-  ["#34d399", "#0ea5e9"],
-  ["#f472b6", "#ef4444"],
-  ["#fbbf24", "#f97316"],
-  ["#60a5fa", "#6366f1"],
-  ["#a78bfa", "#ec4899"],
-  ["#22d3ee", "#3b82f6"],
-  ["#fb7185", "#f59e0b"],
-  ["#84cc16", "#10b981"],
-];
-const avatarGradient = (seed: string): string => {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) {
-    h = (h * 31 + seed.charCodeAt(i)) | 0;
-  }
-  const [a, b] = AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length];
-  return `linear-gradient(135deg,${a},${b})`;
-};
+// avatarGradient + AVATAR_PALETTE removed: the chat now uses
+// `resolveAvatarUrlWithDefault` which always returns a library image
+// URL, so we no longer need the per-user gradient fallback that used
+// to back the unicode emoji bubble.
 const formatTime = (ts: number) => {
   const d = new Date(ts);
   return `${d.getHours().toString().padStart(2, "0")}:${d
@@ -502,11 +493,35 @@ const GroupRow = ({
   onJumpToMessage: (messageId: string) => void;
 }) => {
   const t = useT();
+  // Pull the sender's profile (name + custom avatar) — self for our
+  // own messages, peer cache otherwise. Without this the chat
+  // showed the deterministic animal emoji even after the user picked
+  // a real face in their profile editor.
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
+  const senderProfile: UserProfile | undefined = group.isBot
+    ? undefined
+    : group.isMine
+    ? myProfile ?? undefined
+    : peerProfiles.get(group.socketId);
+  // Profile name overrides the broadcast username so renames pop
+  // immediately. Falls back to the message header username then to
+  // a generic "Guest" so anonymous peers still render.
+  const resolvedName =
+    senderProfile?.username || group.username || t("participants.guest");
   const displayName = group.isBot
     ? BOT_USERNAME
     : group.isMine
     ? t("chat.you")
-    : shortDisplayName(group.username) || t("participants.guest");
+    : shortDisplayName(resolvedName) || t("participants.guest");
+  // ALWAYS a real image URL — when the sender hasn't picked an
+  // avatar, `resolveAvatarUrlWithDefault` falls back to a
+  // deterministic library image keyed off socketId, so the chat
+  // never reverts to a plain unicode emoji "animal" face.
+  const avatarImageUrl = resolveAvatarUrlWithDefault(
+    senderProfile?.avatar,
+    group.socketId,
+  );
 
   return (
     <div
@@ -523,12 +538,10 @@ const GroupRow = ({
         </div>
       ) : (
         <div
-          className="ChatView__avatar ChatView__avatar--emoji"
-          // eslint-disable-next-line react/forbid-dom-props
-          style={{ background: avatarGradient(displayName) }}
+          className="ChatView__avatar ChatView__avatar--image"
           aria-hidden="true"
         >
-          {pickEmojiFor(group.socketId, group.username || displayName)}
+          <img src={avatarImageUrl} alt="" draggable={false} />
         </div>
       )}
 

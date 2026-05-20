@@ -29,6 +29,16 @@ export type MeetingFile = {
     bounds: { minX: number; minY: number; maxX: number; maxY: number };
     thumbnail?: string;
   };
+  /** PDF-specific metadata populated on upload. `pageCount` is read
+   *  from the document on ingest so the library tile can show a "12
+   *  pg" badge without re-parsing later, and so the canvas anchor's
+   *  page-nav toolbar knows how far the user can advance. The
+   *  thumbnail is a baked PNG of page 1 used as the library preview
+   *  (PDFs have no native thumbnail). */
+  pdfMeta?: {
+    pageCount: number;
+    thumbnail?: string;
+  };
 };
 
 /** Quick predicate for DXF detection that doesn't rely on browser mime
@@ -45,6 +55,23 @@ export const isDxfFile = (input: {
   }
   const name = input.name ?? "";
   return name.toLowerCase().endsWith(".dxf");
+};
+
+/** Quick predicate for PDF — analogous to isDxfFile. Browsers usually
+ *  send `application/pdf` so the mime check covers most cases; the
+ *  filename fallback catches rare empty-mime uploads (e.g. drag from
+ *  some shells / network shares). */
+export const isPdfFile = (input: {
+  name?: string;
+  type?: string;
+  mimeType?: string;
+}): boolean => {
+  const mime = input.type ?? input.mimeType ?? "";
+  if (mime === "application/pdf") {
+    return true;
+  }
+  const name = input.name ?? "";
+  return name.toLowerCase().endsWith(".pdf");
 };
 
 const STORAGE_PREFIX = "meeting-canvas:files:";
@@ -91,18 +118,53 @@ export const hydrateMeetingFiles = async (roomId: string | null) => {
       idbGet(storageKey(roomId)) as Promise<MeetingFile[] | undefined>,
       idbGet(deletedKey(roomId)) as Promise<string[] | undefined>,
     ]);
-    const items = stored ?? [];
-    for (const f of items) {
-      seenFileIds.add(f.id);
-    }
+    const storedItems = stored ?? [];
     for (const id of deleted ?? []) {
       seenFileIds.add(id);
       deletedFileIds.add(id);
     }
-    appJotaiStore.set(meetingFilesAtom, items);
+    // MERGE rather than OVERWRITE the atom. A naive `set(atom, items)`
+    // here loses any files that landed in the atom while we were
+    // awaiting idbGet — specifically, peer library broadcasts arriving
+    // through applyRemoteLibraryFile during the join handshake. That's
+    // the regression that made "trong library của user khác thiếu
+    // file" happen for DXFs (small payload → broadcast fast → reliably
+    // hits the race window; PDFs ship a thumbnail so they tend to
+    // arrive AFTER hydrate completes and survive).
+    //
+    // Merge rules:
+    //   • storedItems form the base (last-known persistent state).
+    //   • currentAtom files override on id-collision because they
+    //     carry the freshest peer state (e.g. updated lockedBy that
+    //     just synced in).
+    //   • deletedFileIds takes precedence over both — never resurrect
+    //     a file the user explicitly deleted in another session.
+    const currentAtom = appJotaiStore.get(meetingFilesAtom);
+    const byId = new Map<string, MeetingFile>();
+    for (const f of storedItems) {
+      if (!deletedFileIds.has(f.id)) {
+        byId.set(f.id, f);
+        seenFileIds.add(f.id);
+      }
+    }
+    for (const f of currentAtom) {
+      if (!deletedFileIds.has(f.id)) {
+        byId.set(f.id, f);
+        seenFileIds.add(f.id);
+      }
+    }
+    const merged = Array.from(byId.values());
+    appJotaiStore.set(meetingFilesAtom, merged);
+    // If the race actually delivered something the storage didn't
+    // have yet, flush the merged set back to IDB so a subsequent
+    // reload starts from the union, not just the original cache.
+    if (currentAtom.length > 0 && merged.length !== storedItems.length) {
+      void persist(roomId, merged);
+    }
   } catch (error: any) {
     console.error("[meetingLibrary] failed to hydrate", error);
-    appJotaiStore.set(meetingFilesAtom, []);
+    // Don't wipe the atom on hydrate failure — keep any peer
+    // broadcasts already received.
   }
 };
 

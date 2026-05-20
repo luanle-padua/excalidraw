@@ -396,6 +396,29 @@ class Portal {
       return this._broadcastSocketData(data as SocketUpdateData);
     }
   };
+
+  /** Push the local user's display profile (name + company + avatar)
+   *  to everyone in the room. Called once after the socket join so
+   *  late-joiners learn who we are, then again whenever the local
+   *  profile changes via the settings modal. */
+  broadcastUserProfile = (profile: {
+    username: string;
+    company?: string;
+    avatar?: string;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["USER_PROFILE"] = {
+        type: WS_SUBTYPES.USER_PROFILE,
+        payload: {
+          socketId: this.socket.id as SocketId,
+          username: profile.username,
+          ...(profile.company ? { company: profile.company } : {}),
+          ...(profile.avatar ? { avatar: profile.avatar } : {}),
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
 }
 
 export default Portal;

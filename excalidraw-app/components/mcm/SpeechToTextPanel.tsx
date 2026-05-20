@@ -28,9 +28,14 @@ import {
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { preferredLanguageAtom, useTranslate } from "../../data/translation";
+import {
+  peerProfilesAtom,
+  resolveAvatarUrlWithDefault,
+  userProfileAtom,
+} from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
-import { emojiForUsername, shortDisplayName } from "./animalEmoji";
+import { shortDisplayName } from "./animalEmoji";
 
 import type { STTLang } from "../../audio/sttSession";
 import type { TranscriptSegment } from "../../data/transcription";
@@ -118,16 +123,37 @@ const SegmentRow = ({
     assumedSource: seg.lang as SupportedLanguage | undefined,
   });
   const showTranslation = translateEnabled && !isSameLanguage;
-  const emoji = emojiForUsername(seg.username);
-  const shortName = shortDisplayName(seg.username);
+  // Resolve the speaker's profile so the line carries their actual
+  // chosen avatar + display name instead of the deterministic animal
+  // emoji + raw socket username. Self reads its own profile atom
+  // directly; everyone else falls back to whatever we last received
+  // via USER_PROFILE.
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
+  const selfSocketId = useAtomValue(collabAPIAtom)?.portal.socket?.id;
+  const speakerProfile =
+    seg.socketId === selfSocketId
+      ? myProfile ?? undefined
+      : peerProfiles.get(seg.socketId);
+  const speakerName = speakerProfile?.username || seg.username;
+  // Always render an img — `resolveAvatarUrlWithDefault` falls back
+  // to a deterministic library image when the speaker hasn't picked
+  // an avatar, so the transcript never reverts to a plain unicode
+  // emoji.
+  const avatarUrl = resolveAvatarUrlWithDefault(
+    speakerProfile?.avatar,
+    seg.socketId,
+  );
+  const shortName = shortDisplayName(speakerName);
   return (
     <div className="mcm-stt__line">
       <div className="mcm-stt__line-head">
-        {emoji && (
-          <span className="mcm-stt__line-emoji" aria-hidden="true">
-            {emoji}
-          </span>
-        )}
+        <img
+          className="mcm-stt__line-avatar"
+          src={avatarUrl}
+          alt=""
+          draggable={false}
+        />
         <span
           className="mcm-stt__line-spk"
           // per-speaker colour from the same palette as avatars
@@ -145,6 +171,51 @@ const SegmentRow = ({
           — {loading ? t("stt.translating") : translated}
         </div>
       )}
+    </div>
+  );
+};
+
+/** Live transcript row for the speaker's INTERIM (still-in-flight)
+ *  hypothesis. Almost identical to SegmentRow's header but without
+ *  the translate plumbing, and the speaker is usually the local user
+ *  (their own audio being recognised by Deepgram in real time). */
+const InterimLine = ({
+  entry,
+}: {
+  entry: { socketId: string; username: string; text: string };
+}) => {
+  const t = useT();
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
+  const selfSocketId = useAtomValue(collabAPIAtom)?.portal.socket?.id;
+  const speakerProfile =
+    entry.socketId === selfSocketId
+      ? myProfile ?? undefined
+      : peerProfiles.get(entry.socketId);
+  const name = speakerProfile?.username || entry.username;
+  const avatarUrl = resolveAvatarUrlWithDefault(
+    speakerProfile?.avatar,
+    entry.socketId,
+  );
+  return (
+    <div className="mcm-stt__line mcm-stt__line--interim">
+      <div className="mcm-stt__line-head">
+        <img
+          className="mcm-stt__line-avatar"
+          src={avatarUrl}
+          alt=""
+          draggable={false}
+        />
+        <span
+          className="mcm-stt__line-spk"
+          // eslint-disable-next-line react/forbid-dom-props
+          style={{ color: colorFor(entry.socketId) }}
+        >
+          {shortDisplayName(name)}
+        </span>
+        <span className="mcm-stt__line-at">{t("stt.speakingNow")}</span>
+      </div>
+      <div className="mcm-stt__line-orig">{entry.text}</div>
     </div>
   );
 };
@@ -764,27 +835,7 @@ export const SpeechToTextPanel = () => {
         ))}
 
         {interimEntries.map((entry) => (
-          <div
-            key={`interim-${entry.socketId}`}
-            className="mcm-stt__line mcm-stt__line--interim"
-          >
-            <div className="mcm-stt__line-head">
-              {emojiForUsername(entry.username) && (
-                <span className="mcm-stt__line-emoji" aria-hidden="true">
-                  {emojiForUsername(entry.username)}
-                </span>
-              )}
-              <span
-                className="mcm-stt__line-spk"
-                // eslint-disable-next-line react/forbid-dom-props
-                style={{ color: colorFor(entry.socketId) }}
-              >
-                {shortDisplayName(entry.username)}
-              </span>
-              <span className="mcm-stt__line-at">{t("stt.speakingNow")}</span>
-            </div>
-            <div className="mcm-stt__line-orig">{entry.text}</div>
-          </div>
+          <InterimLine key={`interim-${entry.socketId}`} entry={entry} />
         ))}
       </div>
 

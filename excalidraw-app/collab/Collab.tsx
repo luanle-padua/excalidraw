@@ -104,6 +104,16 @@ import {
 } from "../data/transcription";
 
 import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache";
+import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
+
+import {
+  importUserProfileFromLocalStorage,
+  peerProfilesAtom,
+  removePeerProfile,
+  resolveAvatarUrlWithDefault,
+  upsertPeerProfile,
+  userProfileAtom,
+} from "../data/userProfile";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
@@ -308,6 +318,43 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     window.addEventListener("offline", this.onOfflineStatusToggle);
     window.addEventListener(EVENT.UNLOAD, this.onUnload);
 
+    // Hydrate the local UserProfile from localStorage so the atom is
+    // populated before any socket events fire. If the user has never
+    // saved a profile, the atom stays null and the settings modal
+    // will auto-open via the meeting shell.
+    const storedProfile = importUserProfileFromLocalStorage();
+    if (storedProfile) {
+      appJotaiStore.set(userProfileAtom, storedProfile);
+    }
+    // Rebroadcast our profile to every peer whenever the local user
+    // edits it (e.g. renames themselves or picks a new avatar). The
+    // sub callback is async-tolerant — the socket-not-connected case
+    // is handled inside Portal.broadcastUserProfile.
+    const unsubProfile = appJotaiStore.sub(userProfileAtom, () => {
+      if (this.portal.socket) {
+        this.broadcastUserProfileSnapshot();
+      }
+    });
+
+    // When a peer's profile arrives or changes, push the new name /
+    // avatar onto their Collaborator entry so the on-canvas cursor
+    // label + Excalidraw's built-in UserList refresh immediately —
+    // without this they'd only update on the peer's next mouse move.
+    const unsubPeerProfiles = appJotaiStore.sub(peerProfilesAtom, () => {
+      const peers = appJotaiStore.get(peerProfilesAtom);
+      for (const [socketId, profile] of peers) {
+        // Default to a deterministic library image when the peer
+        // hasn't picked an avatar — keeps Excalidraw's on-canvas
+        // cursor + built-in UserList off the placeholder initials.
+        const avatarUrl = resolveAvatarUrlWithDefault(profile.avatar, socketId);
+        this.updateCollaborator(socketId as SocketId, {
+          username: profile.username,
+          avatarUrl,
+          ...(profile.company ? { company: profile.company } : {}),
+        });
+      }
+    });
+
     const unsubOnUserFollow = this.excalidrawAPI.onUserFollow((payload) => {
       this.portal.socket && this.portal.broadcastUserFollowed(payload);
     });
@@ -320,6 +367,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.onUmmount = () => {
       unsubOnUserFollow();
       unsubOnScrollChange();
+      unsubProfile();
+      unsubPeerProfiles();
     };
 
     this.onOfflineStatusToggle();
@@ -734,11 +783,28 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               // @ts-ignore legacy, see #2094 (#2097)
               decryptedData.payload.socketID;
 
+            // Layer the peer's profile (custom display name + uploaded
+            // avatar) onto Excalidraw's Collaborator so the on-canvas
+            // cursor + the built-in UserList both reflect the values
+            // the user picked in the profile modal. Falls back to the
+            // raw MOUSE_LOCATION username when no profile has arrived
+            // yet.
+            const profile = appJotaiStore.get(peerProfilesAtom).get(socketId);
+            // Always send a real image URL — falls back to a library
+            // avatar deterministic from socketId when no profile has
+            // arrived yet, so the on-canvas cursor never shows the
+            // default initials placeholder.
+            const avatarUrl = resolveAvatarUrlWithDefault(
+              profile?.avatar,
+              socketId,
+            );
             this.updateCollaborator(socketId, {
               pointer,
               button,
               selectedElementIds,
-              username,
+              username: profile?.username || username,
+              avatarUrl,
+              ...(profile?.company ? { company: profile.company } : {}),
             });
 
             break;
@@ -834,6 +900,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             break;
           }
 
+          case WS_SUBTYPES.USER_PROFILE: {
+            const { socketId, username, company, avatar } =
+              decryptedData.payload;
+            upsertPeerProfile(socketId, {
+              username,
+              ...(company ? { company } : {}),
+              ...(avatar ? { avatar } : {}),
+            });
+            break;
+          }
+
           default: {
             assertNever(decryptedData, null);
           }
@@ -856,6 +933,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // receive any files we have already added
     this.portal.socket.on("new-user", () => {
       this.broadcastLibrarySnapshot();
+      this.broadcastUserProfileSnapshot();
     });
 
     this.portal.socket.on(
@@ -1070,6 +1148,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       }
       if (changed) {
         appJotaiStore.set(raisedHandsAtom, next);
+      }
+    }
+
+    // Drop peer profile entries for participants who just left so
+    // their stale name / company / avatar don't linger in the next
+    // session if the same socketId is reused.
+    const validIds = new Set<string>(sockets);
+    const currentProfiles = appJotaiStore.get(peerProfilesAtom);
+    for (const peerId of currentProfiles.keys()) {
+      if (!validIds.has(peerId)) {
+        removePeerProfile(peerId);
       }
     }
   }
@@ -1570,6 +1659,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const roomId = this.portal.roomId;
     this.removeCanvasImagesByFileId(fileId);
     clearDxfSnapshotsForFile(fileId);
+    clearPdfSnapshotsForFile(fileId);
     if (removeMeetingFile(roomId, fileId)) {
       this.portal.broadcastLibraryFileDelete(fileId);
     }
@@ -1608,6 +1698,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private applyRemoteLibraryFileDelete = (fileId: string) => {
     this.removeCanvasImagesByFileId(fileId);
     clearDxfSnapshotsForFile(fileId);
+    clearPdfSnapshotsForFile(fileId);
     removeMeetingFile(this.portal.roomId, fileId);
   };
 
@@ -1617,9 +1708,10 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // through its normal collab pipeline. Just filtering elements out of
     // updateScene leaves peers stuck on the old version.
     //
-    // Matches BOTH plain image elements (el.fileId === fileId) AND DXF
-    // anchor rectangles (customData.dxfFileId === fileId). The two share
-    // a single library-file id space, so deleting the file deletes every
+    // Matches plain image elements (el.fileId === fileId), DXF anchor
+    // rectangles (customData.dxfFileId === fileId), and PDF anchor
+    // rectangles (customData.pdfFileId === fileId). All three share a
+    // single library-file id space, so deleting the file deletes every
     // canvas representation of it regardless of element type.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
@@ -1630,11 +1722,19 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       const data = (el as any).customData as
         | Record<string, unknown>
         | undefined;
+      // PDF / DXF anchors can be EITHER rectangles (legacy) OR images
+      // (post-refactor for native z-order). Match on customData so
+      // both element types are covered. The plain-image branch
+      // (el.fileId === fileId) still covers direct image-insert
+      // cases — it skips PDF/DXF anchors because their customData
+      // carries an mcmType, so the el.fileId there is the per-anchor
+      // snapshot id, not the library id.
       const matches =
-        (el.type === "image" && (el as any).fileId === fileId) ||
-        (el.type === "rectangle" &&
-          data?.mcmType === "dxf-anchor" &&
-          data?.dxfFileId === fileId);
+        (data?.mcmType === "dxf-anchor" && data?.dxfFileId === fileId) ||
+        (data?.mcmType === "pdf-anchor" && data?.pdfFileId === fileId) ||
+        (el.type === "image" &&
+          !data?.mcmType &&
+          (el as any).fileId === fileId);
       if (!matches) {
         return el;
       }
@@ -1664,8 +1764,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
    *  Broadcast through the normal sync pipeline so peers see it too. */
   private setCanvasImagesLockedByFileId = (fileId: string, locked: boolean) => {
     // Mirrors `removeCanvasImagesByFileId`'s element-kind matching:
-    // image elements + DXF anchor rectangles both back library files
-    // and both need their `locked` flag flipped when the file is
+    // image elements, DXF anchors, and PDF anchors all back library
+    // files and all need their `locked` flag flipped when the file is
     // (un)locked.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
@@ -1676,11 +1776,19 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       const data = (el as any).customData as
         | Record<string, unknown>
         | undefined;
+      // PDF / DXF anchors can be EITHER rectangles (legacy) OR images
+      // (post-refactor for native z-order). Match on customData so
+      // both element types are covered. The plain-image branch
+      // (el.fileId === fileId) still covers direct image-insert
+      // cases — it skips PDF/DXF anchors because their customData
+      // carries an mcmType, so the el.fileId there is the per-anchor
+      // snapshot id, not the library id.
       const matches =
-        (el.type === "image" && (el as any).fileId === fileId) ||
-        (el.type === "rectangle" &&
-          data?.mcmType === "dxf-anchor" &&
-          data?.dxfFileId === fileId);
+        (data?.mcmType === "dxf-anchor" && data?.dxfFileId === fileId) ||
+        (data?.mcmType === "pdf-anchor" && data?.pdfFileId === fileId) ||
+        (el.type === "image" &&
+          !data?.mcmType &&
+          (el as any).fileId === fileId);
       if (!matches) {
         return el;
       }
@@ -1701,6 +1809,22 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     for (const f of files) {
       this.portal.broadcastLibraryFile(f);
     }
+  };
+
+  /** Push our latest UserProfile to peers. Triggered both on new-user
+   *  join (so the late-joiner learns who we are) and whenever the
+   *  local user edits their profile via the settings modal. Falls back
+   *  to Excalidraw's username if the profile atom hasn't been
+   *  hydrated yet — that way peers still get a name even before the
+   *  user opens the profile editor. */
+  broadcastUserProfileSnapshot = () => {
+    const profile = appJotaiStore.get(userProfileAtom);
+    const username = profile?.username || this.state.username || "Guest";
+    this.portal.broadcastUserProfile({
+      username,
+      ...(profile?.company ? { company: profile.company } : {}),
+      ...(profile?.avatar ? { avatar: profile.avatar } : {}),
+    });
   };
 
   /** Attach a click-through link from the currently-selected text element

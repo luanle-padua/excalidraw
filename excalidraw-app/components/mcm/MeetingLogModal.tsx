@@ -22,9 +22,14 @@ import {
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
+import {
+  peerProfilesAtom,
+  resolveAvatarUrlWithDefault,
+  userProfileAtom,
+} from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
-import { emojiForUsername, shortDisplayName } from "./animalEmoji";
+import { shortDisplayName } from "./animalEmoji";
 
 import type {
   MeetingSummary,
@@ -179,6 +184,12 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const [summary, setSummary] = useAtom(meetingSummaryAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
+  // Profile lookup powers the avatar img + name override on each
+  // speaker run. Self reads its own atom directly so renames pop
+  // immediately even before the broadcast lands.
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
+  const selfSocketId = collabAPI?.portal.socket?.id;
   const [tab, setTab] = useState<Tab>("transcript");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -363,28 +374,39 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 </div>
               ) : (
                 runs.map((run, idx) => {
-                  const emoji = emojiForUsername(run.username);
+                  // Same profile-aware resolution as STT + chat: the
+                  // log shows the user's chosen avatar + display name,
+                  // falling back to a deterministic library image
+                  // keyed off socketId (so a transcript before profile
+                  // setup still shows a real face, not a placeholder).
+                  const speakerProfile =
+                    run.socketId === selfSocketId
+                      ? myProfile ?? undefined
+                      : peerProfiles.get(run.socketId);
+                  const speakerName = speakerProfile?.username || run.username;
+                  const avatarUrl = resolveAvatarUrlWithDefault(
+                    speakerProfile?.avatar,
+                    run.socketId,
+                  );
                   return (
                     <div
                       key={`${run.socketId}-${run.startTs}-${idx}`}
                       className="mcm-log-modal__run"
                     >
                       <div className="mcm-log-modal__run-head">
-                        {emoji && (
-                          <span
-                            className="mcm-log-modal__run-emoji"
-                            aria-hidden="true"
-                          >
-                            {emoji}
-                          </span>
-                        )}
+                        <img
+                          className="mcm-log-modal__run-avatar"
+                          src={avatarUrl}
+                          alt=""
+                          draggable={false}
+                        />
                         <span
                           className="mcm-log-modal__run-spk"
                           // per-speaker color matches the avatar + STT panel
                           // eslint-disable-next-line react/forbid-dom-props
                           style={{ color: colorFor(run.socketId) }}
                         >
-                          {shortDisplayName(run.username)}
+                          {shortDisplayName(speakerName)}
                         </span>
                         <span className="mcm-log-modal__run-at">
                           {fmtTime(run.startTs)}
