@@ -41,6 +41,21 @@ export const FONT_METADATA: Record<number, FontMetadata> = {
       lineHeight: 1.25,
     },
   },
+  // Caveat metrics taken from the Google Fonts woff2 (Caveat-Regular,
+  // version 4.001). The default MCM font. Loaded over CDN — no local
+  // woff2 in this repo, registered in Fonts.init with an empty
+  // descriptor list so Excalidraw treats the family as valid but
+  // doesn't try to fetch its own copy. lineHeight a touch taller than
+  // Excalifont because Caveat's flourishes ride higher / lower than
+  // its em box and clip visually at 1.25.
+  [FONT_FAMILY.Caveat]: {
+    metrics: {
+      unitsPerEm: 1000,
+      ascender: 970,
+      descender: -390,
+      lineHeight: 1.35,
+    },
+  },
   [FONT_FAMILY.Nunito]: {
     metrics: {
       unitsPerEm: 1000,

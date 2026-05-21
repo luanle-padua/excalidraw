@@ -10,12 +10,16 @@
 // sits next to the stylus tip rather than under the user's hand.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { newImageElement, syncInvalidIndices } from "@excalidraw/element";
+import {
+  newElementWith,
+  newImageElement,
+  syncInvalidIndices,
+} from "@excalidraw/element";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { BinaryFileData } from "@excalidraw/excalidraw/types";
-import type { FileId } from "@excalidraw/element/types";
+import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
@@ -153,6 +157,21 @@ export const StickerPicker = () => {
 
   // Insert the placed asset onto the canvas at scene coordinates
   // converted from the pointer's clientX/Y.
+  //
+  // Stamps differ from stickers in one critical way: when a stamp is
+  // dropped on top of an existing image element, it ADHERES to that
+  // image — the two share an Excalidraw `groupIds` entry so dragging
+  // one moves both. That matches how a physical rubber stamp works
+  // (mark on the photo, mark travels with the photo when you move
+  // it). The binding uses Excalidraw's native grouping primitive so
+  // selection, copy, ungroup all keep working the way the user
+  // expects. Stickers stay free-floating; we never bind them.
+  //
+  // We deliberately skip binding when the underlying element is an
+  // MCM-specific anchor (PDF / DXF) — those have their own
+  // navigation toolbars and snapshot lifecycles, and inheriting a
+  // group with the stamp would entangle the anchor's drag behavior
+  // with random user decoration.
   const placeAt = useCallback(
     async (clientX: number, clientY: number) => {
       if (!excalidrawAPI || !placing) {
@@ -189,6 +208,65 @@ export const StickerPicker = () => {
           created: Date.now(),
         },
       ]);
+
+      // Hit-test: find a target image to stick this stamp to. Only
+      // applies for stamps. Scan in REVERSE so the topmost image
+      // under the click wins (matches what the user visually sees).
+      // Skip anchors (PDF/DXF/translation children/other stamps) so
+      // we don't entangle MCM bookkeeping elements.
+      let targetImage: ExcalidrawElement | null = null;
+      if (placing.kind === "stamp") {
+        const sceneElements = excalidrawAPI.getSceneElements();
+        for (let i = sceneElements.length - 1; i >= 0; i--) {
+          const el = sceneElements[i];
+          if (el.type !== "image" || el.isDeleted) {
+            continue;
+          }
+          const mcmType =
+            el.customData &&
+            typeof (el.customData as Record<string, unknown>).mcmType ===
+              "string"
+              ? ((el.customData as Record<string, unknown>).mcmType as string)
+              : null;
+          // Skip MCM anchors AND prior stamps — stamping a stamp is
+          // a no-op semantically (you'd just want to delete the old
+          // one); and PDF/DXF anchors own their drag behavior.
+          if (mcmType && mcmType !== "stamp-target") {
+            continue;
+          }
+          if (
+            sceneX >= el.x &&
+            sceneX <= el.x + el.width &&
+            sceneY >= el.y &&
+            sceneY <= el.y + el.height
+          ) {
+            targetImage = el;
+            break;
+          }
+        }
+      }
+
+      // Resolve the groupIds to assign to the new stamp. If the
+      // target image is already in a group, the stamp joins that
+      // group. If it isn't, we mint a fresh group id and patch the
+      // target image to share it — so both elements become a 2-member
+      // group as far as Excalidraw is concerned.
+      let stampGroupIds: string[] = [];
+      let targetImagePatch: ExcalidrawElement | null = null;
+      if (targetImage) {
+        if (targetImage.groupIds.length > 0) {
+          stampGroupIds = [...targetImage.groupIds];
+        } else {
+          const groupId = `mcm-stamp-group-${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+          stampGroupIds = [groupId];
+          targetImagePatch = newElementWith(targetImage, {
+            groupIds: [groupId],
+          });
+        }
+      }
+
       const element = newImageElement({
         type: "image",
         x: sceneX - w / 2,
@@ -197,6 +275,16 @@ export const StickerPicker = () => {
         height: h,
         fileId: id as FileId,
         status: "saved",
+        groupIds: stampGroupIds,
+        customData: {
+          // Mark this element as an MCM stamp so subsequent
+          // stamp placements skip it during hit-testing (stamping
+          // a stamp is meaningless).
+          mcmType: placing.kind === "stamp" ? "stamp" : "sticker",
+          // Cross-reference back to the parent image for debugging
+          // and any future "remove stamp from image" UI. Optional.
+          ...(targetImage ? { mcmStampParentId: targetImage.id } : {}),
+        },
       });
       // syncInvalidIndices assigns a valid fractional index to the
       // freshly-minted element. CRITICAL: pass elements INCLUDING
@@ -204,11 +292,14 @@ export const StickerPicker = () => {
       // tracks for tombstones. Without it, dragging the sticker
       // between frames later crashes with InvalidFractionalIndexError
       // and freezes every imported element. (See MeetingLibrary.tsx.)
+      const existingElements = excalidrawAPI.getSceneElementsIncludingDeleted();
+      const elementsWithPatch = targetImagePatch
+        ? existingElements.map((el) =>
+            el.id === targetImagePatch!.id ? targetImagePatch! : el,
+          )
+        : existingElements;
       excalidrawAPI.updateScene({
-        elements: syncInvalidIndices([
-          ...excalidrawAPI.getSceneElementsIncludingDeleted(),
-          element,
-        ]),
+        elements: syncInvalidIndices([...elementsWithPatch, element]),
       });
       if (collabAPI) {
         collabAPI.publishLibraryFile({

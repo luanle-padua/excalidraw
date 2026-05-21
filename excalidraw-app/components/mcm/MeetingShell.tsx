@@ -62,6 +62,24 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     ensureMyJoinedAt();
   }, []);
 
+  // Pre-load the Google-hosted canvas fonts (Caveat as the new
+  // default, plus the Noto fallbacks for VN / KR). The browser
+  // fetches the woff2 lazily — without touching them up front the
+  // FIRST piece of text the user types renders with a missing-glyph
+  // "tofu" or a wrong-metric substitute until the network round-trip
+  // completes. `document.fonts.load(...)` resolves when each font
+  // is ready AND triggers Excalidraw's own `fonts.onloadingdone`
+  // listener, which busts the canvas shape cache so existing scenes
+  // re-render with the correct font.
+  useEffect(() => {
+    if (typeof document === "undefined" || !document.fonts) {
+      return;
+    }
+    document.fonts.load("16px 'Caveat'").catch(() => undefined);
+    document.fonts.load("16px 'Noto Sans'").catch(() => undefined);
+    document.fonts.load("16px 'Noto Sans KR'").catch(() => undefined);
+  }, []);
+
   // Hydrate the meeting-library atom AS SOON AS the shell mounts (or
   // the user joins / changes room). The library tile used to do this
   // inside its own mount effect, but that meant a fresh reload with

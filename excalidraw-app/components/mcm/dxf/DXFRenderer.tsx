@@ -81,6 +81,55 @@ type Status = "loading" | "ready" | "error" | "capacity-exceeded";
 // Cached dxf-viewer module reference. Loaded lazily on first mount;
 // subsequent mounts reuse the cached module.
 let cachedModule: typeof import("dxf-viewer") | null = null;
+// Static list of TTF URLs we WANT to feed dxf-viewer for text +
+// dimension rendering. Each candidate is HEAD-probed before the
+// viewer load so that a missing / 404 file (Vite serves the SPA
+// index.html for unmatched routes — `<!DOCTYPE…` bytes that crash
+// opentype.js parsing with "Unsupported OpenType signature") drops
+// gracefully out of the list instead of taking the whole DXF load
+// down with it. Drop the actual `.ttf` files into
+// `public/fonts/dxf/` to enable text rendering.
+const DXF_FONT_CANDIDATES = [
+  "/fonts/dxf/Roboto-Regular.ttf",
+  "/fonts/dxf/NotoSansKR-Regular.ttf",
+] as const;
+
+const probeFontUrl = async (url: string): Promise<boolean> => {
+  try {
+    const res = await fetch(url, { method: "HEAD" });
+    if (!res.ok) {
+      return false;
+    }
+    const ct = res.headers.get("content-type") ?? "";
+    // Vite's SPA fallback returns `text/html` for any route that
+    // doesn't map to a real file. opentype.js can't parse HTML, so
+    // we drop any URL whose content-type contains "html" or "text/"
+    // (covers text/html, text/plain) — what we want is a binary
+    // font mime such as font/ttf, font/otf, application/octet-stream,
+    // application/font-sfnt, etc.
+    if (ct.includes("html") || ct.startsWith("text/")) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const resolveDxfFonts = async (): Promise<string[] | null> => {
+  const results = await Promise.all(DXF_FONT_CANDIDATES.map(probeFontUrl));
+  const available = DXF_FONT_CANDIDATES.filter((_, i) => results[i]);
+  if (available.length === 0) {
+    console.warn(
+      "[DXFRenderer] no TTF fonts at /fonts/dxf/ — rendering DXF " +
+        "without text / dimension labels. Drop Roboto-Regular.ttf + " +
+        "NotoSansKR-Regular.ttf into public/fonts/dxf/ to enable.",
+    );
+    return null;
+  }
+  return [...available];
+};
+
 const loadDxfViewerModule = async (): Promise<typeof import("dxf-viewer")> => {
   if (cachedModule) {
     return cachedModule;
@@ -220,7 +269,22 @@ export const DXFRenderer = ({
         const blob = await res.blob();
         blobUrl = URL.createObjectURL(blob);
 
-        await viewer.Load({ url: blobUrl, fonts: null });
+        // Font URLs for text + dimension rendering. dxf-viewer uses
+        // opentype.js under the hood, which accepts TTF/OTF/woff but
+        // NOT woff2 — so we ship our own TTFs at /public/fonts/dxf/
+        // rather than reusing the Google Fonts woff2 we load for
+        // canvas text.
+        //
+        // CRITICAL: we probe each URL with a HEAD request BEFORE
+        // handing the list to dxf-viewer. Without the probe, a 404
+        // (Vite serves its SPA index.html for unmatched routes) lands
+        // a `<!DOCTYPE…` HTML body in opentype.js, which throws
+        // "Unsupported OpenType signature <!DO" and aborts the entire
+        // DXF load. `resolveDxfFonts()` filters out missing files so
+        // the DXF still renders (minus text) when the TTFs aren't
+        // dropped in yet.
+        const fonts = await resolveDxfFonts();
+        await viewer.Load({ url: blobUrl, fonts });
         if (cancelled) {
           return;
         }

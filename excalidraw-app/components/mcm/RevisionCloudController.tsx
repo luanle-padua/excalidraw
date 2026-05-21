@@ -109,9 +109,22 @@ export const RevisionCloudController = () => {
             noteY,
           );
 
+          // Match the regular Text tool exactly: pull the user's
+          // CURRENT font + size off appState instead of hardcoding
+          // defaults. Without this, the note element gets baked with
+          // whatever DEFAULT_FONT_FAMILY was at module-load time —
+          // which on older boots was Excalifont (no Vietnamese
+          // glyphs), so "Ghi chú" + any typed Vietnamese rendered
+          // as missing-glyph tofu boxes. Mirroring appState makes
+          // the note behave identically to any other text the user
+          // creates via `T`.
+          const noteFontFamily =
+            excalidrawAPI.getAppState().currentItemFontFamily;
           const note = newTextElement({
             text: DEFAULT_NOTE_TEXT,
+            originalText: DEFAULT_NOTE_TEXT,
             fontSize: NOTE_FONT_SIZE,
+            fontFamily: noteFontFamily,
             textAlign: "left",
             verticalAlign: "top",
             x: noteX,

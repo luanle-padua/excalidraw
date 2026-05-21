@@ -34,7 +34,11 @@ import {
 } from "../../audio/audioState";
 import { MeetingRecorder } from "../../audio/MeetingRecorder";
 import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
-import { roomRecordingAtom } from "../../data/roomRecording";
+import {
+  resetRoomRecording,
+  roomRecordingAtom,
+  setRoomRecording,
+} from "../../data/roomRecording";
 import {
   hostSocketIdAtom,
   mySocketIdAtom,
@@ -223,8 +227,22 @@ const useRecording = (): RecordingApi => {
       rec.addStream(socketId, stream);
       inputCount += 1;
     }
+    if (inputCount === 0) {
+      // No mic, no peers — recording would produce a 0-byte file.
+      // Bail before MediaRecorder runs so the user gets a clear error.
+      setErrorMessage(
+        "Không có nguồn âm thanh nào — vào audio call rồi thử lại",
+      );
+      return;
+    }
     try {
-      rec.start();
+      // `await` is important: MeetingRecorder.start() now resumes the
+      // AudioContext first (it may be in `suspended` state after tab
+      // focus changes / autoplay policy). Without the resume, the
+      // destination stream produces no data and every `ondataavailable`
+      // event from MediaRecorder fires with `size: 0`, leaving us with
+      // an empty .webm on stop.
+      await rec.start();
     } catch (err) {
       const msg = (err as Error)?.message ?? "Không thể bắt đầu ghi";
       setErrorMessage(msg);
@@ -238,22 +256,53 @@ const useRecording = (): RecordingApi => {
       lastResult: null,
       errorMessage: null,
     });
+    // Set the host's OWN room-recording atom too. Without this, the
+    // host's UI reads `roomRecording.startedAt` (null on the host
+    // because their own broadcast doesn't echo back through the
+    // socket), so the inline timer pill stays at 0:00 forever while
+    // peers see the seconds tick. Setting both sides of the broadcast
+    // locally keeps the host + peer views in sync.
+    setRoomRecording({
+      recording: true,
+      hostSocketId: mySocketId ?? null,
+      hostName: myProfile?.username ?? null,
+      startedAt: ts,
+    });
     collabAPI.publishRecordingState({ recording: true, startedAt: ts });
-  }, [audioRoom, collabAPI, ensureRecorder, setRecordingState]);
+  }, [
+    audioRoom,
+    collabAPI,
+    ensureRecorder,
+    mySocketId,
+    myProfile?.username,
+    setRecordingState,
+  ]);
 
   const stop = useCallback(async () => {
     if (!collabAPI || !recorder) {
       return;
     }
+    // Snapshot startedAt BEFORE we clear the room atom — it drives the
+    // download filename and the lastResultStartedAt slot used by
+    // re-download. Reading after resetRoomRecording() would land us
+    // on Date.now() instead of the actual recording start.
+    const finalStartedAt = roomRecording.startedAt ?? Date.now();
     setRecordingState((prev) => ({ ...prev, status: "finalizing" }));
     try {
       const result = await recorder.stop();
       recorder.close();
       setRecorderInstance(null);
       setLastResult(result);
-      const finalStartedAt = roomRecording.startedAt ?? Date.now();
       setLastResultStartedAt(finalStartedAt);
-      triggerDownload(result, finalStartedAt);
+      if (result.blob.size > 0) {
+        triggerDownload(result, finalStartedAt);
+      } else {
+        // Sanity check — should be unreachable now that start() rejects
+        // a no-input recording up front, but keeps users from getting
+        // a useless 0-byte file with no explanation if some browser /
+        // device combination still produces one.
+        setErrorMessage("File ghi âm trống — kiểm tra mic và thử lại");
+      }
       setRecordingState({
         status: "idle",
         inputCount: 0,
@@ -269,6 +318,7 @@ const useRecording = (): RecordingApi => {
         errorMessage: msg,
       }));
     } finally {
+      resetRoomRecording();
       collabAPI.publishRecordingState({ recording: false, startedAt: null });
     }
   }, [

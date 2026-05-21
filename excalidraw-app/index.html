@@ -74,6 +74,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
+    <!--
+      Vietnamese + Korean canvas font support, plus Caveat — the new
+      default handwritten font for MCM. Caveat ships native Vietnamese
+      glyphs from Google so demos don't fall through to a substitute
+      font for accented characters. Noto Sans + Noto Sans KR remain
+      as tail fallbacks so any character missing from the user's
+      currently-picked font (e.g. someone switches to Helvetica, then
+      types Korean) still renders without "tofu" boxes.
+
+      `display=swap` keeps Excalidraw's bundled font rendering during
+      the brief Google fetch instead of blocking the first paint.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap"
+    />
+
     <!------------------------------------------------------------------------->
     <% if (typeof PROD != 'undefined' && PROD == true) { %>
     <script>

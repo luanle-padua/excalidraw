@@ -118,6 +118,13 @@ export const FONT_SIZES = {
 
 export const CJK_HAND_DRAWN_FALLBACK_FONT = "Xiaolai";
 export const WINDOWS_EMOJI_FALLBACK_FONT = "Segoe UI Emoji";
+// Google Fonts loaded via the index.html <link> — used as TAIL
+// fallbacks on every primary font so Vietnamese tone marks and Hangul
+// keep rendering even when the user's chosen font (Excalifont, etc.)
+// has no glyphs for them. Names must match the family names the
+// Google Fonts CSS declares so the browser picks up the loaded files.
+export const VIETNAMESE_FALLBACK_FONT = "Noto Sans";
+export const KOREAN_FALLBACK_FONT = "Noto Sans KR";
 
 /**
  * // TODO: shouldn't be really `const`, likely neither have integers as values, due to value for the custom fonts, which should likely be some hash.
@@ -138,6 +145,12 @@ export const FONT_FAMILY = {
   "Comic Shanns": 8,
   "Liberation Sans": 9,
   Assistant: 10,
+  // Caveat — Google Fonts handwritten font with native Vietnamese
+  // support (Latin Extended Additional ships in the font itself,
+  // no fallback needed). Replaces Excalifont as the default so MCM
+  // demos type Vietnamese without falling back to a sans-serif
+  // mid-sentence. Loaded via the Google Fonts <link> in index.html.
+  Caveat: 11,
 };
 
 // Segoe UI Emoji fails to properly fallback for some glyphs: ∞, ∫, ≠
@@ -153,6 +166,8 @@ export const FONT_FAMILY_GENERIC_FALLBACKS = {
 export const FONT_FAMILY_FALLBACKS = {
   [CJK_HAND_DRAWN_FALLBACK_FONT]: 100,
   ...FONT_FAMILY_GENERIC_FALLBACKS,
+  [VIETNAMESE_FALLBACK_FONT]: 1001,
+  [KOREAN_FALLBACK_FONT]: 1002,
   [WINDOWS_EMOJI_FALLBACK_FONT]: 1000,
 };
 
@@ -174,15 +189,43 @@ export const getFontFamilyFallbacks = (
 ): Array<keyof typeof FONT_FAMILY_FALLBACKS> => {
   const genericFallbackFont = getGenericFontFamilyFallback(fontFamily);
 
+  // Order matters: the browser walks the chain left → right and
+  // picks the FIRST font that has a glyph for each code point. We
+  // insert Noto Sans and Noto Sans KR BEFORE the generic
+  // sans-serif/monospace so the user's installed system font
+  // (which may not include Vietnamese tone marks or Hangul) is the
+  // last resort, not the first. Excalifont keeps its CJK_HAND_DRAWN
+  // fallback (Xiaolai) for hand-drawn-style CJK; Noto picks up the
+  // leftovers (and is the ONLY thing covering Vietnamese for the
+  // monospace fonts whose generic fallback won't typically have it).
   switch (fontFamily) {
     case FONT_FAMILY.Excalifont:
       return [
         CJK_HAND_DRAWN_FALLBACK_FONT,
+        VIETNAMESE_FALLBACK_FONT,
+        KOREAN_FALLBACK_FONT,
+        genericFallbackFont,
+        WINDOWS_EMOJI_FALLBACK_FONT,
+      ];
+    case FONT_FAMILY.Caveat:
+      // Caveat covers Latin + Vietnamese natively, so we skip the
+      // Latin/VN-specific fallbacks and only chain into Noto Sans KR
+      // for Korean (which Caveat doesn't include) and the CJK
+      // hand-drawn font so Chinese / Japanese stay stylistically
+      // close to the handwriting feel.
+      return [
+        CJK_HAND_DRAWN_FALLBACK_FONT,
+        KOREAN_FALLBACK_FONT,
         genericFallbackFont,
         WINDOWS_EMOJI_FALLBACK_FONT,
       ];
     default:
-      return [genericFallbackFont, WINDOWS_EMOJI_FALLBACK_FONT];
+      return [
+        VIETNAMESE_FALLBACK_FONT,
+        KOREAN_FALLBACK_FONT,
+        genericFallbackFont,
+        WINDOWS_EMOJI_FALLBACK_FONT,
+      ];
   }
 };
 
@@ -211,7 +254,7 @@ export const FRAME_STYLE = {
 
 export const MIN_FONT_SIZE = 1;
 export const DEFAULT_FONT_SIZE = 20;
-export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Excalifont;
+export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Caveat;
 export const DEFAULT_TEXT_ALIGN = "left";
 export const DEFAULT_VERTICAL_ALIGN = "top";
 export const DEFAULT_VERSION = "{version}";

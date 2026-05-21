@@ -105,9 +105,26 @@ export class MeetingRecorder {
     this.removeStream(LOCAL_KEY);
   }
 
-  start(): void {
+  async start(): Promise<void> {
     if (this.recorder) {
       return;
+    }
+    // Browsers commonly start an AudioContext in `suspended` state
+    // (autoplay policy, or focus-loss auto-suspend) even when the
+    // context was constructed during a user gesture. If we hand a
+    // suspended context's destination stream to MediaRecorder, the
+    // recorder runs but every `ondataavailable` event fires with
+    // `size: 0` — leaving us with a 0-byte .webm on stop. Resuming
+    // first guarantees the audio graph is actually clocking samples
+    // before recording begins. The resume() promise reliably
+    // resolves inside a user gesture (the only place start() is
+    // called from), so this is safe to await.
+    if (this.ctx.state === "suspended") {
+      try {
+        await this.ctx.resume();
+      } catch (err) {
+        console.warn("[recorder] failed to resume AudioContext", err);
+      }
     }
     const mimeType = pickMimeType();
     try {

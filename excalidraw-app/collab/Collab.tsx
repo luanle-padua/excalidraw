@@ -1351,6 +1351,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     appJotaiStore.set(chatMessagesAtom, [...current, msg]);
   };
 
+  /** Wipe THIS tab's local chat + transcript logs. Not broadcast —
+   *  each peer owns its own log (chat history isn't re-snapshotted to
+   *  joiners). Used by the demo-recording workflow to clear stale
+   *  history before a take. Call from a DevTools console after fiber-
+   *  walking to the Collab instance: `collab.clearLogs()`. */
+  clearLogs = () => {
+    appJotaiStore.set(chatMessagesAtom, []);
+    appJotaiStore.set(transcriptionLogAtom, []);
+    appJotaiStore.set(liveTranscriptsAtom, {});
+  };
+
   /** Mutate an existing message in place (by id). Used to attach
    *  translations to our own local echo once /translate-batch returns,
    *  so the sender sees the translation row without an extra fetch. */

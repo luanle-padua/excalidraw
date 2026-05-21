@@ -392,6 +392,15 @@ export class Fonts {
     init("Lilita One", ...LilitaFontFaces);
     init("Nunito", ...NunitoFontFaces);
     init("Virgil", ...VirgilFontFaces);
+    // Caveat — registered WITHOUT local font face descriptors because
+    // the woff2 is fetched at runtime via the Google Fonts <link> in
+    // excalidraw-app/index.html. Excalidraw's font picker, scene
+    // serializer, and canvas renderer all key off the registered
+    // family name; the only thing the descriptor list normally
+    // provides is the bytes for the @font-face declaration, and the
+    // browser already has those from the Google CDN. Same trick
+    // would work for any other Google Font we add later.
+    init("Caveat");
 
     // fallback font faces
     init(CJK_HAND_DRAWN_FALLBACK_FONT, ...XiaolaiFontFaces);

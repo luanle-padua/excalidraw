@@ -73,6 +73,9 @@ const getFontFamilyIcon = (fontFamily: FontFamilyValues): JSX.Element => {
   switch (fontFamily) {
     case FONT_FAMILY.Excalifont:
     case FONT_FAMILY.Virgil:
+    case FONT_FAMILY.Caveat:
+      // Caveat is a handwritten font, same picker icon as the other
+      // hand-drawn ones so users instantly recognise the category.
       return FreedrawIcon;
     case FONT_FAMILY.Nunito:
     case FONT_FAMILY.Helvetica:
