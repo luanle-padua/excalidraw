@@ -25,9 +25,10 @@ import {
   IFCRELDEFINESBYTYPE,
   IFCSPACE,
 } from "web-ifc";
-import type { IfcAPI } from "web-ifc";
 
 import { getIfcApi } from "./ifcApiSingleton";
+
+import type { IfcAPI } from "web-ifc";
 
 import type {
   IfcBakeRequest,
@@ -158,7 +159,7 @@ const getIfcTypeName = (
     }
   }
 
-  const objectType = ifcString(line["ObjectType"]);
+  const objectType = ifcString(line.ObjectType);
   if (objectType) {
     return objectType;
   }
@@ -202,7 +203,7 @@ const getLineString = (line: IfcLine | null, key: string): string | null =>
 // a Record<string, string> keyed by the property's display Name.
 
 const getPropertySingleValue = (propertyLine: IfcLine): string | null => {
-  const nominalValue = propertyLine["NominalValue"];
+  const nominalValue = propertyLine.NominalValue;
   const direct = ifcStringOrPrimitive(nominalValue);
   if (direct) {
     return direct;
@@ -224,13 +225,13 @@ const extractPropertySetValues = (
   if (!psetLine) {
     return out;
   }
-  const propertyRefs = ifcRefArray(psetLine["HasProperties"]);
+  const propertyRefs = ifcRefArray(psetLine.HasProperties);
   for (const propExpressId of propertyRefs) {
     const propLine = getLineSafe(api, modelId, propExpressId);
     if (!propLine) {
       continue;
     }
-    const name = normalizeText(ifcString(propLine["Name"]));
+    const name = normalizeText(ifcString(propLine.Name));
     const value = getPropertySingleValue(propLine);
     if (!name || !value) {
       continue;
@@ -256,7 +257,7 @@ const buildElementPropertyMap = (
     if (!rel) {
       continue;
     }
-    const psetExpressId = ifcRef(rel["RelatingPropertyDefinition"]);
+    const psetExpressId = ifcRef(rel.RelatingPropertyDefinition);
     if (psetExpressId === null) {
       continue;
     }
@@ -264,10 +265,9 @@ const buildElementPropertyMap = (
     if (values.size === 0) {
       continue;
     }
-    const relatedRefs = ifcRefArray(rel["RelatedObjects"]);
+    const relatedRefs = ifcRefArray(rel.RelatedObjects);
     for (const relatedExpressId of relatedRefs) {
-      const target =
-        map.get(relatedExpressId) ?? new Map<string, string>();
+      const target = map.get(relatedExpressId) ?? new Map<string, string>();
       values.forEach((v, k) => {
         if (!target.has(k)) {
           target.set(k, v);
@@ -292,11 +292,11 @@ const buildElementTypeAssignmentMap = (
     if (!rel) {
       continue;
     }
-    const typeExpressId = ifcRef(rel["RelatingType"]);
+    const typeExpressId = ifcRef(rel.RelatingType);
     if (typeExpressId === null) {
       continue;
     }
-    const relatedRefs = ifcRefArray(rel["RelatedObjects"]);
+    const relatedRefs = ifcRefArray(rel.RelatedObjects);
     for (const relatedExpressId of relatedRefs) {
       map.set(relatedExpressId, typeExpressId);
     }
@@ -332,7 +332,11 @@ const resolveClassification = (
   longName: string | null,
   typeLine: IfcLine | null,
   props: Map<string, string> | undefined,
-): { category: string | null; family: string | null; typeName: string | null } => {
+): {
+  category: string | null;
+  family: string | null;
+  typeName: string | null;
+} => {
   const familyAndType = pickProp(props, ["family and type"]);
   const split = splitFamilyAndType(familyAndType);
 
@@ -375,10 +379,7 @@ const resolveClassification = (
 
 // ── metadata extraction (storeys + spatial structure + elements) ──────
 
-const extractMetadata = (
-  api: IfcAPI,
-  modelId: number,
-): IfcMetadataPayload => {
+const extractMetadata = (api: IfcAPI, modelId: number): IfcMetadataPayload => {
   const storeyExpressToGlobalId = new Map<number, string>();
   const storeys: IfcStorey[] = [];
 
@@ -389,9 +390,9 @@ const extractMetadata = (
     if (!line) {
       continue;
     }
-    const globalId = ifcString(line["GlobalId"]) ?? `storey-${expressId}`;
-    const name = ifcString(line["Name"]) ?? `Storey ${storeys.length + 1}`;
-    const elevation = ifcNumber(line["Elevation"]) ?? 0;
+    const globalId = ifcString(line.GlobalId) ?? `storey-${expressId}`;
+    const name = ifcString(line.Name) ?? `Storey ${storeys.length + 1}`;
+    const elevation = ifcNumber(line.Elevation) ?? 0;
     storeyExpressToGlobalId.set(expressId, globalId);
     storeys.push({ id: globalId, name, elevation });
   }
@@ -417,14 +418,14 @@ const extractMetadata = (
     if (!rel) {
       continue;
     }
-    const relatingStructure = ifcRef(rel["RelatingStructure"]);
+    const relatingStructure = ifcRef(rel.RelatingStructure);
     if (relatingStructure === null) {
       continue;
     }
     if (!storeyExpressToGlobalId.has(relatingStructure)) {
       continue;
     }
-    const related = ifcRefArray(rel["RelatedElements"]);
+    const related = ifcRefArray(rel.RelatedElements);
     for (const relatedExpressId of related) {
       if (allSpaceExpressIds.has(relatedExpressId)) {
         spaceToStoreyExpress.set(relatedExpressId, relatingStructure);
@@ -441,11 +442,14 @@ const extractMetadata = (
     if (!rel) {
       continue;
     }
-    const relatingObject = ifcRef(rel["RelatingObject"]);
-    if (relatingObject === null || !storeyExpressToGlobalId.has(relatingObject)) {
+    const relatingObject = ifcRef(rel.RelatingObject);
+    if (
+      relatingObject === null ||
+      !storeyExpressToGlobalId.has(relatingObject)
+    ) {
       continue;
     }
-    const relatedObjects = ifcRefArray(rel["RelatedObjects"]);
+    const relatedObjects = ifcRefArray(rel.RelatedObjects);
     for (const relatedExpressId of relatedObjects) {
       if (allSpaceExpressIds.has(relatedExpressId)) {
         spaceToStoreyExpress.set(relatedExpressId, relatingObject);
@@ -459,7 +463,7 @@ const extractMetadata = (
     if (!rel) {
       continue;
     }
-    const relatingStructure = ifcRef(rel["RelatingStructure"]);
+    const relatingStructure = ifcRef(rel.RelatingStructure);
     if (relatingStructure === null) {
       continue;
     }
@@ -467,7 +471,7 @@ const extractMetadata = (
     if (storeyExpress === undefined) {
       continue;
     }
-    const related = ifcRefArray(rel["RelatedElements"]);
+    const related = ifcRefArray(rel.RelatedElements);
     for (const relatedExpressId of related) {
       elementToStoreyExpress.set(relatedExpressId, storeyExpress);
     }
@@ -491,14 +495,14 @@ const extractMetadata = (
     if (!line) {
       return;
     }
-    const globalId = ifcString(line["GlobalId"]);
+    const globalId = ifcString(line.GlobalId);
     if (!globalId) {
       return;
     }
 
     const type = getIfcTypeName(api, modelId, expressId, line);
-    const name = ifcString(line["Name"]) ?? globalId;
-    const longName = ifcString(line["LongName"]);
+    const name = ifcString(line.Name) ?? globalId;
+    const longName = ifcString(line.LongName);
 
     const typeExpressId = typeAssignments.get(expressId) ?? null;
     const typeLine =
@@ -559,7 +563,7 @@ const extractGeometry = (api: IfcAPI, modelId: number): MeshData[] => {
     // GlobalId per element (geometry without a line entry falls back).
     let globalId = `e${expressId}`;
     const line = getLineSafe(api, modelId, expressId);
-    const gid = line ? ifcString(line["GlobalId"]) : null;
+    const gid = line ? ifcString(line.GlobalId) : null;
     if (gid) {
       globalId = gid;
     }
@@ -848,8 +852,7 @@ const writeGlb = (meshes: MeshData[]): ArrayBuffer => {
   }
 
   // header(12) + JSON chunk header(8) + JSON + BIN chunk header(8) + BIN
-  const totalLength =
-    12 + 8 + paddedJson.byteLength + 8 + bin.byteLength;
+  const totalLength = 12 + 8 + paddedJson.byteLength + 8 + bin.byteLength;
 
   const out = new ArrayBuffer(totalLength);
   const view = new DataView(out);

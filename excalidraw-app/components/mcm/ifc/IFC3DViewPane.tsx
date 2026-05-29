@@ -34,11 +34,7 @@ import { IFCRenderer } from "./IFCRenderer";
 import "./ifc-pane.scss";
 
 import type { IFCRendererControls } from "./IFCRenderer";
-import type {
-  IfcElementMeta,
-  IfcMetadataPayload,
-  IfcStorey,
-} from "./ifcTypes";
+import type { IfcElementMeta, IfcMetadataPayload, IfcStorey } from "./ifcTypes";
 
 // A single section axis is active at a time (or none). Clicking the active
 // axis again clears it; the engine shows a draggable plane while active.
@@ -133,15 +129,10 @@ const buildTree = (metadata: IfcMetadataPayload): TreeStorey[] => {
       .map(([catLabel, leaves]) => ({
         key: `${key}::${catLabel}`,
         label: catLabel,
-        leaves: leaves
-          .slice()
-          .sort((a, b) => a.label.localeCompare(b.label)),
+        leaves: leaves.slice().sort((a, b) => a.label.localeCompare(b.label)),
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
-    const elementCount = categories.reduce(
-      (n, c) => n + c.leaves.length,
-      0,
-    );
+    const elementCount = categories.reduce((n, c) => n + c.leaves.length, 0);
     return { key, storeyId, label, elementCount, categories };
   };
 
@@ -170,8 +161,7 @@ export const IFC3DViewPane = () => {
   // resolves to a real IFC model in the current meeting's library; the
   // effect below prunes stale ids from the persisted state once.
   const knownIfcIds = useMemo(
-    () =>
-      new Set(files.filter((f) => isIfcModelFile(f)).map((f) => f.id)),
+    () => new Set(files.filter((f) => isIfcModelFile(f)).map((f) => f.id)),
     [files],
   );
   const visibleFileIds = useMemo(
@@ -193,7 +183,7 @@ export const IFC3DViewPane = () => {
   }, [files.length, state.openFileIds, knownIfcIds]);
 
   const fileMap = useMemo(() => {
-    const map = new Map<string, (typeof files)[number]>();
+    const map = new Map<string, typeof files[number]>();
     for (const f of files) {
       if (visibleFileIds.includes(f.id)) {
         map.set(f.id, f);
@@ -545,10 +535,7 @@ export const IFC3DViewPane = () => {
   // Object-browser tree, rebuilt only when the active model changes. Keyed
   // by fileId so a tab switch produces a fresh tree (cheap; lazy-rendered).
   const tree = useMemo(
-    () =>
-      activeFile?.ifcMeta
-        ? buildTree(activeFile.ifcMeta.metadata)
-        : [],
+    () => (activeFile?.ifcMeta ? buildTree(activeFile.ifcMeta.metadata) : []),
     [activeFile?.ifcMeta],
   );
 
@@ -858,10 +845,7 @@ export const IFC3DViewPane = () => {
                   storey.storeyId !== null &&
                   activeStoreyId === storey.storeyId;
                 return (
-                  <div
-                    key={storey.key}
-                    className="mcm-ifc-view__tree-storey"
-                  >
+                  <div key={storey.key} className="mcm-ifc-view__tree-storey">
                     <div className="mcm-ifc-view__tree-row mcm-ifc-view__tree-row--storey">
                       <button
                         type="button"
@@ -890,14 +874,10 @@ export const IFC3DViewPane = () => {
                               : ""
                           }`}
                           onClick={() =>
-                            isolateStorey(
-                              isIsolated ? null : storey.storeyId,
-                            )
+                            isolateStorey(isIsolated ? null : storey.storeyId)
                           }
                           title={
-                            isIsolated
-                              ? "Bỏ cô lập tầng"
-                              : "Cô lập tầng này"
+                            isIsolated ? "Bỏ cô lập tầng" : "Cô lập tầng này"
                           }
                         >
                           Cô lập
@@ -908,10 +888,7 @@ export const IFC3DViewPane = () => {
                       storey.categories.map((cat) => {
                         const catExpanded = expandedCats.has(cat.key);
                         return (
-                          <div
-                            key={cat.key}
-                            className="mcm-ifc-view__tree-cat"
-                          >
+                          <div key={cat.key} className="mcm-ifc-view__tree-cat">
                             <div className="mcm-ifc-view__tree-row mcm-ifc-view__tree-row--cat">
                               <button
                                 type="button"

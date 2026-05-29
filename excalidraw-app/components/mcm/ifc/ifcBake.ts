@@ -4,7 +4,11 @@
 // startup cost is irrelevant and a fresh worker avoids leaking the
 // web-ifc WASM heap between (potentially large) models.
 
-import type { IfcBakeRequest, IfcBakeResponse, IfcMetadataPayload } from "./ifcTypes";
+import type {
+  IfcBakeRequest,
+  IfcBakeResponse,
+  IfcMetadataPayload,
+} from "./ifcTypes";
 
 let bakeCounter = 0;
 
@@ -18,10 +22,9 @@ export const bakeIfc = (
   const id = `ifc-bake-${Date.now()}-${bakeCounter++}`;
 
   return new Promise((resolve, reject) => {
-    const worker = new Worker(
-      new URL("./ifcBakeWorker.ts", import.meta.url),
-      { type: "module" },
-    );
+    const worker = new Worker(new URL("./ifcBakeWorker.ts", import.meta.url), {
+      type: "module",
+    });
 
     const cleanup = () => {
       worker.onmessage = null;

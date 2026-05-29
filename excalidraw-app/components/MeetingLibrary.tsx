@@ -28,6 +28,7 @@ import {
 import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
 import { IFC_ANCHOR_KIND } from "./mcm/ifc/ifcAnchor";
 import { bakeIfc } from "./mcm/ifc/ifcBake";
+import { bakeIfcThumbnail } from "./mcm/ifc/ifcThumbnail";
 import { PDF_ANCHOR_KIND } from "./mcm/pdf/PDFCanvasOverlay";
 import { probePdf } from "./mcm/pdf/pdfRendering";
 
@@ -347,6 +348,9 @@ export const MeetingLibrary = () => {
             const buf = await readAsArrayBuffer(file);
             const { glb, metadata, elementCount } = await bakeIfc(buf);
             const glbDataURL = await blobToDataURL(glb, "model/gltf-binary");
+            // Bake a static preview now so a placed IFC shows its model
+            // immediately. Failure is non-fatal — fall back to no thumbnail.
+            const thumbnail = await bakeIfcThumbnail(glb).catch(() => null);
             const id = newFileId();
             collabAPI.publishLibraryFile(
               {
@@ -356,7 +360,7 @@ export const MeetingLibrary = () => {
                 author: username,
                 mimeType: "model/gltf-binary",
                 dataURL: glbDataURL,
-                ifcMeta: { metadata, elementCount },
+                ifcMeta: { metadata, elementCount, thumbnail: thumbnail ?? undefined },
               },
               { allowContentDup: true },
             );
@@ -524,36 +528,87 @@ export const MeetingLibrary = () => {
   const IFC_DEFAULT_W = 480;
   const IFC_DEFAULT_H = 360;
   const insertIfcAt = useCallback(
-    (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
+    async (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
       if (!excalidrawAPI) {
         return;
       }
-      // Same INCLUDING-DELETED rationale as insertDxfAt — see the
-      // comment there.
+      // Build the anchor as an Excalidraw IMAGE element (mirrors
+      // insertPdfAt, NOT insertDxfAt). The image renders the baked 3D
+      // snapshot natively on the canvas so pen strokes / shapes / text
+      // the user adds AFTER the model sit on top of it via the regular
+      // element-order / "Bring to Front" semantics — the old transparent
+      // rectangle + HTML overlay version always painted above every
+      // canvas drawing, blocking that flow.
+      //
+      // The image carries its OWN file id (`ifc-snap-<elementId>`)
+      // pointing at a snapshot PNG kept in Excalidraw's file map;
+      // IFCCanvasOverlay rewrites that file on focus exit (exportPng of
+      // the live view) so the canvas image reflects the user's last
+      // orbit. We derive the snapshot fileId from the element id so that
+      // when Excalidraw clones the element (Ctrl+D, paste) and assigns
+      // the clone a new element id, the duplicate-snapshotFileId
+      // migration in IFCCanvasOverlay can deterministically re-key it to
+      // `ifc-snap-{newElementId}` on EVERY peer with the same result —
+      // no race, no out-of-sync ids.
+      const anchorElementId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const snapshotFileId = `ifc-snap-${anchorElementId}` as FileId;
+      // Seed the image with a REAL 3D thumbnail so the model shows
+      // immediately on drop — never a blank rectangle. Prefer the
+      // upload-baked ifcMeta.thumbnail; if the file predates that feature
+      // (no thumbnail), bake one now from the GLB. bakeIfcThumbnail reuses
+      // the same engine the 3D pane uses, so a drop-time bake is as
+      // reliable as the live viewer. The 1×1 transparent PNG is only a
+      // last resort if a bake genuinely fails.
+      let seed: string | null = file.ifcMeta?.thumbnail ?? null;
+      if (!seed) {
+        try {
+          const res = await fetch(file.dataURL);
+          const glb = await res.arrayBuffer();
+          seed = await bakeIfcThumbnail(glb);
+        } catch {
+          seed = null;
+        }
+      }
+      const seedUrl =
+        seed ??
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+      // Re-read the scene AFTER the await so a concurrent edit isn't lost.
       const elements = excalidrawAPI.getSceneElementsIncludingDeleted();
-      // Plain transparent rectangle anchor (mirrors insertDxfAt). The
-      // <IFCCanvasOverlay /> picks these up by customData.mcmType and
-      // paints the 3D viewer on top — passive anchors show a baked
-      // snapshot, the focused one mounts the live interactive renderer.
-      const anchor = newElement({
-        type: "rectangle",
+      excalidrawAPI.addFiles([
+        {
+          id: snapshotFileId,
+          dataURL: seedUrl as unknown as BinaryFileData["dataURL"],
+          mimeType: "image/png" as BinaryFileData["mimeType"],
+          created: Date.now(),
+        },
+      ]);
+      // newImageElement's typed opts intentionally omit `id` (the
+      // factory mints a random one), so we override after the fact.
+      // Pinning the element id to the value we used to derive
+      // snapshotFileId keeps `snapshotFileId === ifc-snap-{element.id}`
+      // true on insertion — the invariant the duplicate-detection
+      // migration in IFCCanvasOverlay relies on.
+      const baseAnchor = newImageElement({
+        type: "image",
         x: at.sceneX - IFC_DEFAULT_W / 2,
         y: at.sceneY - IFC_DEFAULT_H / 2,
         width: IFC_DEFAULT_W,
         height: IFC_DEFAULT_H,
-        strokeColor: "transparent",
-        backgroundColor: "transparent",
-        fillStyle: "solid",
-        strokeWidth: 1,
-        strokeStyle: "solid",
-        roughness: 0,
-        opacity: 100,
-        roundness: null,
+        fileId: snapshotFileId,
+        status: "saved",
         customData: {
           mcmType: IFC_ANCHOR_KIND,
           ifcFileId: file.id,
+          // Snapshot file id carried explicitly so peers + reload can
+          // find the per-anchor file in Excalidraw's map without having
+          // to inspect `el.fileId`.
+          ifcSnapshotFileId: snapshotFileId,
         },
       });
+      const anchor = { ...baseAnchor, id: anchorElementId };
       // syncInvalidIndices fills in valid fractional indices — see the
       // explanation in insertDxfAt.
       excalidrawAPI.updateScene({
@@ -756,7 +811,7 @@ export const MeetingLibrary = () => {
     if (isDxf) {
       insertDxfAt(file, at);
     } else if (isIfc) {
-      insertIfcAt(file, at);
+      void insertIfcAt(file, at);
     } else if (isPdf) {
       insertPdfAt(file, at);
     } else {
@@ -864,7 +919,7 @@ export const MeetingLibrary = () => {
       if (isDxf) {
         insertDxfAt(file, at);
       } else if (isIfc) {
-        insertIfcAt(file, at);
+        void insertIfcAt(file, at);
       } else if (isPdf) {
         insertPdfAt(file, at);
       } else {

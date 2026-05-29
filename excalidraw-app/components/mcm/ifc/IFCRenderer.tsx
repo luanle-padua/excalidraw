@@ -31,11 +31,7 @@ import {
 
 import type { MergedRendererContext } from "./mergedRenderer";
 import type { IfcMergedModel } from "./ifcGltfMergedLoader";
-import type {
-  IfcElementMeta,
-  IfcMetadataPayload,
-  IfcStorey,
-} from "./ifcTypes";
+import type { IfcElementMeta, IfcMetadataPayload, IfcStorey } from "./ifcTypes";
 
 /** Serialisable camera state — enough to round-trip a view across
  *  remount (focus → exit → re-enter) or to key a thumbnail snapshot. */
@@ -241,9 +237,6 @@ export const IFCRenderer = ({
     let sectionTC: any = null; // TransformControls (loose type — dyn import)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let TransformControlsClass: any = null;
-
-    // ── View style ────────────────────────────────────────────────
-    let viewStyle: "shaded" | "clay" | "wireframe" = "shaded";
 
     // ── Measure state ─────────────────────────────────────────────
     let measureOn = false;
@@ -536,7 +529,6 @@ export const IFCRenderer = ({
 
     // ── View style ────────────────────────────────────────────────
     const setViewStyleImpl = (style: "shaded" | "clay" | "wireframe") => {
-      viewStyle = style;
       if (!model) {
         return;
       }
@@ -778,11 +770,7 @@ export const IFCRenderer = ({
             }
             return {
               pos: [camera.position.x, camera.position.y, camera.position.z],
-              target: [
-                controls.target.x,
-                controls.target.y,
-                controls.target.z,
-              ],
+              target: [controls.target.x, controls.target.y, controls.target.z],
             };
           },
           setView: (view) => {
@@ -790,11 +778,7 @@ export const IFCRenderer = ({
               return;
             }
             camera.position.set(view.pos[0], view.pos[1], view.pos[2]);
-            controls.target.set(
-              view.target[0],
-              view.target[1],
-              view.target[2],
-            );
+            controls.target.set(view.target[0], view.target[1], view.target[2]);
             controls.update();
             setNeedsRender();
           },

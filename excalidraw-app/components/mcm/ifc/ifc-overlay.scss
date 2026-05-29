@@ -88,7 +88,11 @@
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     font-size: 12px;
     font-style: italic;
-    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 80%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--mcm-surface-2, #f0f0f3) 80%,
+      transparent
+    );
   }
 
   // Placeholder card — shown for a passive anchor with NO cached
@@ -104,7 +108,11 @@
     gap: 4px;
     padding: 12px;
     text-align: center;
-    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 85%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--mcm-surface-2, #f0f0f3) 85%,
+      transparent
+    );
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     -webkit-user-select: none;
     user-select: none;
@@ -392,7 +400,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 16%,
+        transparent
+      );
       color: var(--mcm-accent, #6965db);
       font-weight: 700;
     }

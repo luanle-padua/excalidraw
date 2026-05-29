@@ -1791,10 +1791,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // updateScene leaves peers stuck on the old version.
     //
     // Matches plain image elements (el.fileId === fileId), DXF anchor
-    // rectangles (customData.dxfFileId === fileId), and PDF anchor
-    // rectangles (customData.pdfFileId === fileId). All three share a
-    // single library-file id space, so deleting the file deletes every
-    // canvas representation of it regardless of element type.
+    // rectangles (customData.dxfFileId === fileId), PDF anchors
+    // (customData.pdfFileId === fileId), and IFC anchors
+    // (customData.ifcFileId === fileId). They all share a single
+    // library-file id space, so deleting the file deletes every canvas
+    // representation of it regardless of element type.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
     const next = all.map((el) => {
@@ -1804,16 +1805,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       const data = (el as any).customData as
         | Record<string, unknown>
         | undefined;
-      // PDF / DXF anchors can be EITHER rectangles (legacy) OR images
+      // PDF / DXF / IFC anchors can be rectangles (legacy) OR images
       // (post-refactor for native z-order). Match on customData so
       // both element types are covered. The plain-image branch
       // (el.fileId === fileId) still covers direct image-insert
-      // cases — it skips PDF/DXF anchors because their customData
+      // cases — it skips these anchors because their customData
       // carries an mcmType, so the el.fileId there is the per-anchor
       // snapshot id, not the library id.
       const matches =
         (data?.mcmType === "dxf-anchor" && data?.dxfFileId === fileId) ||
         (data?.mcmType === "pdf-anchor" && data?.pdfFileId === fileId) ||
+        (data?.mcmType === "ifc-anchor" && data?.ifcFileId === fileId) ||
         (el.type === "image" &&
           !data?.mcmType &&
           (el as any).fileId === fileId);
@@ -1846,9 +1848,9 @@ class Collab extends PureComponent<CollabProps, CollabState> {
    *  Broadcast through the normal sync pipeline so peers see it too. */
   private setCanvasImagesLockedByFileId = (fileId: string, locked: boolean) => {
     // Mirrors `removeCanvasImagesByFileId`'s element-kind matching:
-    // image elements, DXF anchors, and PDF anchors all back library
-    // files and all need their `locked` flag flipped when the file is
-    // (un)locked.
+    // image elements, DXF anchors, PDF anchors, and IFC anchors all back
+    // library files and all need their `locked` flag flipped when the
+    // file is (un)locked.
     const all = this.excalidrawAPI.getSceneElementsIncludingDeleted();
     let changed = false;
     const next = all.map((el) => {
@@ -1858,16 +1860,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       const data = (el as any).customData as
         | Record<string, unknown>
         | undefined;
-      // PDF / DXF anchors can be EITHER rectangles (legacy) OR images
+      // PDF / DXF / IFC anchors can be rectangles (legacy) OR images
       // (post-refactor for native z-order). Match on customData so
       // both element types are covered. The plain-image branch
       // (el.fileId === fileId) still covers direct image-insert
-      // cases — it skips PDF/DXF anchors because their customData
+      // cases — it skips these anchors because their customData
       // carries an mcmType, so the el.fileId there is the per-anchor
       // snapshot id, not the library id.
       const matches =
         (data?.mcmType === "dxf-anchor" && data?.dxfFileId === fileId) ||
         (data?.mcmType === "pdf-anchor" && data?.pdfFileId === fileId) ||
+        (data?.mcmType === "ifc-anchor" && data?.ifcFileId === fileId) ||
         (el.type === "image" &&
           !data?.mcmType &&
           (el as any).fileId === fileId);

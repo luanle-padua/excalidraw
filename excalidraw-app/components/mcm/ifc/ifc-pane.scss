@@ -99,7 +99,11 @@
     transition: background-color 140ms, color 140ms;
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 14%,
+        transparent
+      );
       color: var(--mcm-danger, #dc2626);
     }
   }
@@ -117,7 +121,11 @@
     flex-shrink: 0;
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 12%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 12%,
+        transparent
+      );
       color: var(--mcm-danger, #dc2626);
     }
   }
@@ -160,7 +168,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
     }
@@ -254,7 +266,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 16%,
+        transparent
+      );
       color: var(--mcm-accent, #6965db);
     }
   }
@@ -351,7 +367,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 12%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 12%,
+        transparent
+      );
       color: var(--mcm-accent, #6965db);
       font-weight: 700;
     }
@@ -454,7 +474,11 @@
     }
 
     &--selected {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
 
       &:hover {
         background: color-mix(
@@ -520,7 +544,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
     }
@@ -852,7 +880,11 @@
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 8%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 8%,
+        transparent
+      );
     }
   }
 

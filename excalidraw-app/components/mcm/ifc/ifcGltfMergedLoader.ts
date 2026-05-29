@@ -49,13 +49,17 @@ export type IfcMergedModel = {
 const isMesh = (o: THREE.Object3D): o is THREE.Mesh =>
   (o as THREE.Mesh).isMesh === true;
 
-const materialIsTransparent = (mat: THREE.Material | THREE.Material[]): boolean => {
+const materialIsTransparent = (
+  mat: THREE.Material | THREE.Material[],
+): boolean => {
   const m = Array.isArray(mat) ? mat[0] : mat;
   if (!m) {
     return false;
   }
   const std = m as THREE.MeshStandardMaterial;
-  return std.transparent === true || (std.opacity !== undefined && std.opacity < 1);
+  return (
+    std.transparent === true || (std.opacity !== undefined && std.opacity < 1)
+  );
 };
 
 /** Parse a GLB ArrayBuffer into the merged model form. */
@@ -131,7 +135,10 @@ export const loadIfcMergedFromGlb = async (
 
     const vertexCount = geom.getAttribute("position").count;
     const elemIndices = new Uint32Array(vertexCount).fill(elementIdx);
-    geom.setAttribute("elementIndex", new THREE.BufferAttribute(elemIndices, 1));
+    geom.setAttribute(
+      "elementIndex",
+      new THREE.BufferAttribute(elemIndices, 1),
+    );
 
     // Expand per-element + whole-model AABB, and defend against NaN
     // positions. The bake worker drops degenerate (NaN) sub-geometries,

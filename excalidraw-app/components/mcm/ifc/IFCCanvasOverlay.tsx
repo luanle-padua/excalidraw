@@ -1,25 +1,31 @@
 // HTML overlay that drives every IFC (3D BIM) anchor on the canvas.
-// Mirrors DXFCanvasOverlay: each anchor is an invisible Excalidraw
-// RECTANGLE element with `customData.mcmType === "ifc-anchor"` —
-// Excalidraw owns its position / size / lock / collab-sync. We paint
-// the 3D viewer (or a cached snapshot) on top with pointer-events: none
-// so click/drag still selects the underlying rectangle.
+// Mirrors PDFCanvasOverlay: each anchor is an Excalidraw IMAGE element
+// with `customData.mcmType === "ifc-anchor"` — Excalidraw owns its
+// position / size / lock / collab-sync AND paints the baked 3D snapshot
+// (kept in its binary-file map under `ifcSnapshotFileId`) natively on
+// the canvas, so pen strokes / shapes / text the user adds AFTER the
+// model stack on top of it via regular element-order semantics.
 //
-// PASSIVE anchors show a cached snapshot PNG (keyed by fileId + viewKey
-// in the shared ifcSnapshotCache) via an <img>, or a placeholder card
-// when no snapshot has been baked yet. 3D is HEAVY (the renderer slot
-// cap is 2), so passive anchors NEVER mount a live renderer — only the
-// FOCUSED anchor mounts a live <IFCRenderer interactive/>. On focus
-// exit it bakes the live view (exportPng → ifcSnapshotCache) and
-// persists the camera view back to customData so the snapshot survives
-// the swap from live renderer back to <img>.
+// PASSIVE anchors render NOTHING in this overlay — the Excalidraw image
+// element shows the seeded thumbnail / last-baked snapshot directly.
+// 3D is HEAVY (the renderer slot cap is 2), so passive anchors NEVER
+// mount a live renderer. Only the FOCUSED anchor mounts a live
+// <IFCRenderer interactive/> on top (for orbit / zoom / storeys /
+// section / measure …). On focus exit it bakes the live view
+// (exportPng → the anchor's snapshot file in Excalidraw's file map) and
+// persists the camera view back to customData, then bumps the image
+// element so the canvas repaints with the fresh snapshot.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { newElementWith } from "@excalidraw/element";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
-import type { ExcalidrawElement } from "@excalidraw/element/types";
+import type {
+  AppState,
+  BinaryFileData,
+  BinaryFiles,
+} from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../../../app-jotai";
 import { meetingFilesAtom, isIfcModelFile } from "../../../data/meetingLibrary";
@@ -27,30 +33,11 @@ import { openFileInIfcView } from "../../../data/ifcViewState";
 
 import { IFCRenderer } from "./IFCRenderer";
 import { isIfcAnchorElement } from "./ifcAnchor";
-import {
-  ifcSnapshotKey,
-  ifcSnapshotVersionAtom,
-  getIfcSnapshot,
-  setIfcSnapshot,
-} from "./ifcSnapshotCache";
 
 import "./ifc-overlay.scss";
 
 import type { IFCRendererControls, IFCViewState } from "./IFCRenderer";
 import type { IfcElementMeta, IfcStorey } from "./ifcTypes";
-
-/** A stable string fingerprint for a persisted view — used as the
- *  second component of the snapshot cache key. We round each coordinate
- *  so subpixel drift in the camera math doesn't produce a different key
- *  for what is visually the same view. "fit" for the default view so
- *  multiple copies of the same model share one snapshot. */
-const viewKeyOf = (view: IFCViewState | null): string => {
-  if (!view) {
-    return "fit";
-  }
-  const r = (n: number) => n.toFixed(2);
-  return `${view.pos.map(r).join(",")}|${view.target.map(r).join(",")}`;
-};
 
 /** Parse the `ifcView` field on an anchor's customData into a typed view
  *  state, defensively rejecting partial payloads from older versions or
@@ -76,11 +63,12 @@ type AnchorPosition = {
   width: number;
   height: number;
   /** Persisted camera view from customData.ifcView (null = default fit).
-   *  The viewKey is the snapshot-cache fingerprint derived from view —
-   *  "fit" or a serialised camera string — so anchors with the same
-   *  view share a cached PNG. */
+   *  Restored onto the live renderer when the anchor is focused. */
   view: IFCViewState | null;
-  viewKey: string;
+  /** Snapshot file id (in Excalidraw's binary-file map) this anchor's
+   *  image displays. Mirrors customData.ifcSnapshotFileId. Null only on
+   *  malformed anchors missing the field. */
+  snapshotFileId: string | null;
 };
 
 type ContextMenuState = {
@@ -91,8 +79,8 @@ type ContextMenuState = {
   clientY: number;
 };
 
-/** Convert a Blob to a data URL — used to persist IFC snapshots in the
- *  shared in-memory cache as strings. */
+/** Convert a Blob to a data URL — used to turn exportPng's PNG blob into
+ *  a dataURL we can store in Excalidraw's binary-file map. */
 const blobToDataUrl = (blob: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -100,6 +88,38 @@ const blobToDataUrl = (blob: Blob): Promise<string> =>
     r.onerror = () => reject(r.error ?? new Error("FileReader failed"));
     r.readAsDataURL(blob);
   });
+
+/** Bypass Excalidraw's `addMissingFiles` "skip if id present" guard so
+ *  the supplied snapshot REPLACES (not coexists with) whatever bytes
+ *  currently live under `fileId`. `getFiles()` hands back the internal
+ *  `this.files` reference, so deleting on it actually evicts the entry,
+ *  and the next `addFiles` treats the id as fresh, clears the image-shape
+ *  cache, and forces the canvas to repaint. Mirrors PDFCanvasOverlay's
+ *  writePdfSnapshotToFileMap. */
+const writeIfcSnapshotToFileMap = (
+  excalidrawAPI: ReturnType<typeof useExcalidrawAPI>,
+  snapshotFileId: string,
+  dataUrl: string,
+): void => {
+  if (!excalidrawAPI) {
+    return;
+  }
+  const filesMap = excalidrawAPI.getFiles() as Record<
+    string,
+    BinaryFileData | undefined
+  >;
+  if (filesMap[snapshotFileId]) {
+    delete filesMap[snapshotFileId];
+  }
+  excalidrawAPI.addFiles([
+    {
+      id: snapshotFileId as FileId,
+      dataURL: dataUrl as unknown as BinaryFileData["dataURL"],
+      mimeType: "image/png" as BinaryFileData["mimeType"],
+      created: Date.now(),
+    },
+  ]);
+};
 
 /** Section axis labels for the focus-toolbar button + popover. */
 const SECTION_LABEL: Record<"x" | "y" | "z", string> = {
@@ -132,10 +152,6 @@ const VIEW_STYLES: Array<{ id: ViewStyle; label: string; title: string }> = [
 export const IFCCanvasOverlay = () => {
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
-  // Subscribe to the snapshot cache version so freshly-baked snapshots
-  // trigger a re-render — passive anchors waiting on a cache miss flip
-  // from the placeholder card to <img> the moment the cache populates.
-  useAtomValue(ifcSnapshotVersionAtom);
 
   const [anchors, setAnchors] = useState<AnchorPosition[]>([]);
   // anchorsRef mirrors state for synchronous access inside the global
@@ -191,7 +207,7 @@ export const IFCCanvasOverlay = () => {
   const [selected, setSelected] = useState<IfcElementMeta | null>(null);
 
   const fileById = useMemo(() => {
-    const m = new Map<string, (typeof files)[number]>();
+    const m = new Map<string, typeof files[number]>();
     for (const f of files) {
       m.set(f.id, f);
     }
@@ -211,61 +227,66 @@ export const IFCCanvasOverlay = () => {
     return s;
   }, [files]);
 
-  /** Write a camera view back onto the anchor's customData.ifcView via
-   *  updateScene — Excalidraw's onChange listener then broadcasts it to
-   *  peers and it round-trips across reload. Used on focus exit so the
-   *  anchor's <img> fallback shows the user's last orbit instead of
-   *  resetting to fit-to-model. */
-  const persistAnchorView = (elementId: string, view: IFCViewState) => {
+  /** Bake the live 3D view into the anchor's snapshot file (so the
+   *  Excalidraw image element repaints with it) AND persist the camera
+   *  view to customData. Run on focus exit so the passive anchor's image
+   *  shows the user's last orbit.
+   *
+   *  Ordering mirrors PDFCanvasOverlay: exportPng + getView are captured
+   *  BEFORE any updateScene, because updateScene triggers a re-render
+   *  that drops focus → the live renderer unmounts (and a later exportPng
+   *  would read a blank framebuffer). We then (a) write the fresh PNG
+   *  into the file map under the anchor's snapshotFileId — deleting the
+   *  existing entry first so addFiles doesn't skip it as already-present
+   *  — and (b) bump the image element via newElementWith (so Excalidraw
+   *  drops its cached shape for the now-replaced file and repaints)
+   *  together with the persisted ifcView, in a single updateScene that
+   *  Excalidraw's onChange broadcasts to peers + round-trips on reload. */
+  const captureAndPersistView = async (anchor: AnchorPosition) => {
     if (!excalidrawAPI) {
       return;
     }
-    const all = excalidrawAPI.getSceneElementsIncludingDeleted();
-    const next = all.map((el) => {
-      if (el.id !== elementId || !isIfcAnchorElement(el)) {
-        return el;
-      }
-      return newElementWith(el, {
-        customData: {
-          ...el.customData,
-          ifcView: { pos: view.pos, target: view.target },
-        },
-      });
-    });
-    excalidrawAPI.updateScene({ elements: next });
-  };
-
-  /** Bake the live 3D view into the shared snapshot cache + persist the
-   *  camera view to customData. Run on focus exit so the passive anchor
-   *  swaps from the live renderer back to a cached <img> showing the
-   *  user's last orbit.
-   *
-   *  Ordering mirrors DXFCanvasOverlay: exportPng is captured BEFORE the
-   *  persist call so the live renderer is guaranteed to still be mounted
-   *  when exportPng's toBlob reads the framebuffer (persisting customData
-   *  triggers a re-render that drops focus → the live renderer unmounts,
-   *  and a later exportPng would read a blank framebuffer). We key the
-   *  cache by the NEW view so the snapshot matches what the passive
-   *  anchor will look up after the swap. */
-  const captureAndPersistView = async (anchor: AnchorPosition) => {
     const controls = controlsRef.current.get(anchor.elementId);
     if (!controls) {
       return;
     }
     const view = controls.getView();
-    const newKey = viewKeyOf(view);
+    let dataUrl: string | null = null;
     try {
       const blob = await controls.exportPng();
       if (blob) {
-        const dataUrl = await blobToDataUrl(blob);
-        setIfcSnapshot(ifcSnapshotKey(anchor.fileId, newKey), dataUrl);
+        dataUrl = await blobToDataUrl(blob);
       }
     } catch (err) {
       console.warn("[IFCCanvasOverlay] view snapshot failed", err);
     }
-    if (view) {
-      persistAnchorView(anchor.elementId, view);
+    // Replace the snapshot bytes BEFORE the version bump so the repaint
+    // reads the fresh PNG.
+    if (dataUrl && anchor.snapshotFileId) {
+      writeIfcSnapshotToFileMap(excalidrawAPI, anchor.snapshotFileId, dataUrl);
     }
+    // Single updateScene carrying both the element version bump (so the
+    // canvas image drops its cached shape + repaints with the now-
+    // replaced file bytes) and the persisted camera view. We always pass
+    // a fresh `customData` object so newElementWith is guaranteed to bump
+    // the version even when only the snapshot changed (view unchanged).
+    const bakedSnapshot = dataUrl !== null;
+    if (!bakedSnapshot && !view) {
+      return;
+    }
+    const all = excalidrawAPI.getSceneElementsIncludingDeleted();
+    const next = all.map((el) => {
+      if (el.id !== anchor.elementId || !isIfcAnchorElement(el)) {
+        return el;
+      }
+      return newElementWith(el, {
+        customData: {
+          ...el.customData,
+          ...(view ? { ifcView: { pos: view.pos, target: view.target } } : {}),
+        },
+      });
+    });
+    excalidrawAPI.updateScene({ elements: next });
   };
 
   // exitFocus must be reachable from synchronous handlers that close
@@ -328,7 +349,10 @@ export const IFCCanvasOverlay = () => {
           width: el.width * zoom,
           height: el.height * zoom,
           view,
-          viewKey: viewKeyOf(view),
+          snapshotFileId:
+            typeof el.customData.ifcSnapshotFileId === "string"
+              ? el.customData.ifcSnapshotFileId
+              : null,
         });
       }
       setAnchors((prev) => {
@@ -341,7 +365,7 @@ export const IFCCanvasOverlay = () => {
               p.top === next[i].top &&
               p.width === next[i].width &&
               p.height === next[i].height &&
-              p.viewKey === next[i].viewKey,
+              p.snapshotFileId === next[i].snapshotFileId,
           );
           if (same) {
             return prev;
@@ -360,10 +384,127 @@ export const IFCCanvasOverlay = () => {
     return unsub;
   }, [excalidrawAPI]);
 
-  // Block Excalidraw's default double-click-to-edit-text on the
-  // rectangle anchor — typing a text label inside the 3D frame is never
-  // what the user wants. Capture-phase listener runs BEFORE Excalidraw's
-  // React handlers; if the dblclick lands over an anchor we swallow it.
+  // For any anchor whose snapshot file is missing in Excalidraw's file
+  // map, seed it from the library-baked 3D thumbnail (or a 1×1
+  // transparent PNG when the model didn't bake one). This is what makes
+  // PASSIVE anchors show the model immediately — the Excalidraw image
+  // element needs a file under its fileId BEFORE focus has ever baked a
+  // snapshot — and it prevents the missing-image placeholder for peers
+  // receiving a fresh anchor before its snapshot lands. Mirrors
+  // PDFCanvasOverlay's seed effect. NB: this is a passive SEED only —
+  // there is no on-canvas auto-bake / hidden renderer.
+  useEffect(() => {
+    if (!excalidrawAPI) {
+      return;
+    }
+    const existingFiles = excalidrawAPI.getFiles();
+    const additions: BinaryFileData[] = [];
+    for (const a of anchors) {
+      if (!a.snapshotFileId) {
+        continue;
+      }
+      if (existingFiles[a.snapshotFileId]) {
+        continue;
+      }
+      const libFile = files.find((f) => f.id === a.fileId);
+      const seed =
+        libFile?.ifcMeta?.thumbnail ??
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+      additions.push({
+        id: a.snapshotFileId as FileId,
+        dataURL: seed as unknown as BinaryFileData["dataURL"],
+        mimeType: "image/png" as BinaryFileData["mimeType"],
+        created: Date.now(),
+      });
+    }
+    if (additions.length > 0) {
+      excalidrawAPI.addFiles(additions);
+    }
+  }, [anchors, files, excalidrawAPI]);
+
+  // When the user copies an anchor (Ctrl+D / clone-paste / paste from
+  // another scene), Excalidraw deep-clones the element but shallow-clones
+  // customData, so the duplicate inherits the ORIGINAL's
+  // ifcSnapshotFileId. Both anchors then point at the same file map
+  // entry and a bake on one rewrites the snapshot for both.
+  //
+  // We fix it deterministically: every anchor's snapshotFileId should
+  // equal `ifc-snap-{element.id}` (insertion enforces this). Any anchor
+  // where the invariant is broken is, by definition, a copy whose
+  // customData drifted away from its new element id, so we re-key it. The
+  // rule is purely a function of the element id, which means every peer
+  // running this effect produces the same migration → no concurrent-
+  // write races. Mirrors PDFCanvasOverlay's duplicate re-key effect.
+  useEffect(() => {
+    if (!excalidrawAPI) {
+      return;
+    }
+    const migrations: Array<{
+      elementId: string;
+      newSnapshotFileId: string;
+      oldSnapshotFileId: string;
+    }> = [];
+    for (const a of anchors) {
+      if (!a.snapshotFileId) {
+        continue;
+      }
+      const expected = `ifc-snap-${a.elementId}`;
+      if (a.snapshotFileId === expected) {
+        continue;
+      }
+      migrations.push({
+        elementId: a.elementId,
+        newSnapshotFileId: expected,
+        oldSnapshotFileId: a.snapshotFileId,
+      });
+    }
+    if (migrations.length === 0) {
+      return;
+    }
+    // Seed the new fileIds from the originals so the copy doesn't flash a
+    // missing-image placeholder during the re-key.
+    const filesMap = excalidrawAPI.getFiles() as Record<
+      string,
+      BinaryFileData | undefined
+    >;
+    const additions: BinaryFileData[] = [];
+    for (const m of migrations) {
+      const oldFile = filesMap[m.oldSnapshotFileId];
+      if (oldFile) {
+        additions.push({
+          ...oldFile,
+          id: m.newSnapshotFileId as FileId,
+          created: Date.now(),
+        });
+      }
+    }
+    if (additions.length > 0) {
+      excalidrawAPI.addFiles(additions);
+    }
+    const all = excalidrawAPI.getSceneElementsIncludingDeleted();
+    const next = all.map((el) => {
+      const m = migrations.find((mig) => mig.elementId === el.id);
+      if (!m || !isIfcAnchorElement(el) || el.type !== "image") {
+        return el;
+      }
+      return newElementWith(el, {
+        // Image element's own fileId mirrors customData so Excalidraw
+        // renders the right file.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fileId: m.newSnapshotFileId as any,
+        customData: {
+          ...el.customData,
+          ifcSnapshotFileId: m.newSnapshotFileId,
+        },
+      });
+    });
+    excalidrawAPI.updateScene({ elements: next });
+  }, [anchors, excalidrawAPI]);
+
+  // Block Excalidraw's default double-click-to-edit-text on the image
+  // anchor — typing a text label inside the 3D frame is never what the
+  // user wants. Capture-phase listener runs BEFORE Excalidraw's React
+  // handlers; if the dblclick lands over an anchor we swallow it.
   // Hit-testing is in canvas-wrap-local coords (anchor positions are
   // stored that way; e.clientX/Y are viewport → subtract the wrap rect).
   useEffect(() => {
@@ -486,6 +627,13 @@ export const IFCCanvasOverlay = () => {
     return null;
   }
 
+  // Opaque background for the FOCUSED frame so the live 3D renderer fully
+  // hides the static thumbnail (the Excalidraw image element) sitting
+  // behind it while the user orbits. Matching the canvas background makes
+  // the renderer's transparent areas blend seamlessly with the canvas.
+  const viewBg =
+    excalidrawAPI?.getAppState().viewBackgroundColor ?? "#ffffff";
+
   return (
     <div className="mcm-ifc-layer">
       {anchors.map((a) => {
@@ -493,17 +641,21 @@ export const IFCCanvasOverlay = () => {
         const known = knownIfcFileIds.has(a.fileId);
         const focused = focusedAnchorId === a.elementId;
 
-        // PASSIVE anchors (not focused) NEVER mount a live renderer — 3D
-        // is heavy and the renderer slot cap is 2. They show a cached
-        // snapshot PNG (keyed by fileId + viewKey) via <img> when one has
-        // been baked, else a lightweight placeholder card. Only the
-        // FOCUSED anchor mounts the live interactive <IFCRenderer>.
+        // PASSIVE anchors: the Excalidraw IMAGE element already paints
+        // the baked 3D snapshot natively on the canvas (so pen strokes /
+        // shapes the user draws AFTER the model stack on top of it via
+        // normal element z-order). We render ONLY a non-interactive frame
+        // + label here so the anchor's bounds + name are visible on the
+        // canvas — NO live renderer (3D is heavy; the slot cap is 2, and a
+        // renderer would paint over every drawing). The frame is
+        // pointer-events:none so clicks / drawing pass straight through to
+        // the canvas image underneath. Only the FOCUSED anchor mounts the
+        // live interactive <IFCRenderer> below.
         if (!focused) {
-          const snapshot = getIfcSnapshot(ifcSnapshotKey(a.fileId, a.viewKey));
           return (
             <div
               key={a.elementId}
-              className="mcm-ifc-layer__anchor"
+              className="mcm-ifc-layer__anchor mcm-ifc-layer__anchor--passive"
               // eslint-disable-next-line react/forbid-dom-props
               style={{
                 left: a.left,
@@ -518,46 +670,7 @@ export const IFCCanvasOverlay = () => {
                 <span aria-hidden="true">🧊</span>
                 <span>{file?.name ?? "IFC"}</span>
               </div>
-              <div className="mcm-ifc-layer__frame">
-                {!known ? (
-                  <div className="mcm-ifc-layer__waiting">
-                    Đang chờ file IFC từ peer…
-                  </div>
-                ) : snapshot ? (
-                  // Cache-hit fast path: just show the baked PNG. No
-                  // WebGL context, no parse cost. `object-fit: contain`
-                  // mirrors the letterboxed framing exportPng produces.
-                  <img
-                    className="mcm-ifc-layer__snapshot"
-                    src={snapshot}
-                    alt=""
-                    draggable={false}
-                  />
-                ) : (
-                  // No baked snapshot yet — show a placeholder card with
-                  // the file name, element count, and a hint to enter
-                  // edit mode (which bakes a snapshot on exit).
-                  <div className="mcm-ifc-layer__placeholder">
-                    <span
-                      className="mcm-ifc-layer__placeholder-glyph"
-                      aria-hidden="true"
-                    >
-                      🧊
-                    </span>
-                    <span className="mcm-ifc-layer__placeholder-name">
-                      {file?.name ?? "IFC"}
-                    </span>
-                    {file?.ifcMeta && (
-                      <span className="mcm-ifc-layer__placeholder-count">
-                        {file.ifcMeta.elementCount} cấu kiện
-                      </span>
-                    )}
-                    <span className="mcm-ifc-layer__placeholder-hint">
-                      Bấm chuột phải → Chỉnh 3D
-                    </span>
-                  </div>
-                )}
-              </div>
+              <div className="mcm-ifc-layer__frame mcm-ifc-layer__frame--passive" />
             </div>
           );
         }
@@ -586,7 +699,13 @@ export const IFCCanvasOverlay = () => {
                 anchor's bounds. The focused frame attaches a listener
                 for the renderer's `mcm-ifc-measure` CustomEvent (it
                 bubbles, so React's synthetic system won't catch it). */}
-            <div className="mcm-ifc-layer__frame" ref={measureFrameRef}>
+            <div
+              className="mcm-ifc-layer__frame"
+              ref={measureFrameRef}
+              // Opaque bg hides the static thumbnail behind the live orbit.
+              // eslint-disable-next-line react/forbid-dom-props
+              style={{ background: viewBg }}
+            >
               {!known ? (
                 <div className="mcm-ifc-layer__waiting">
                   Đang chờ file IFC từ peer…
@@ -607,10 +726,7 @@ export const IFCCanvasOverlay = () => {
                     try {
                       setStoreys(controls.getStoreys());
                     } catch (err) {
-                      console.warn(
-                        "[IFCCanvasOverlay] getStoreys failed",
-                        err,
-                      );
+                      console.warn("[IFCCanvasOverlay] getStoreys failed", err);
                     }
                     // Restore the user's saved orbit so the renderer
                     // mounts at the view they left it at (across focus
@@ -620,10 +736,7 @@ export const IFCCanvasOverlay = () => {
                       try {
                         controls.setView(a.view);
                       } catch (err) {
-                        console.warn(
-                          "[IFCCanvasOverlay] setView failed",
-                          err,
-                        );
+                        console.warn("[IFCCanvasOverlay] setView failed", err);
                       }
                     }
                   }}
@@ -668,9 +781,7 @@ export const IFCCanvasOverlay = () => {
                         setIsolatedStoreyId(null);
                       }}
                     >
-                      <span className="mcm-ifc-layer__storey-name">
-                        Tất cả
-                      </span>
+                      <span className="mcm-ifc-layer__storey-name">Tất cả</span>
                     </button>
                     {storeys.map((s) => (
                       <button
@@ -740,9 +851,7 @@ export const IFCCanvasOverlay = () => {
                     )}
                     {selected.typeName && (
                       <div className="mcm-ifc-layer__props-row">
-                        <span className="mcm-ifc-layer__props-label">
-                          Loại
-                        </span>
+                        <span className="mcm-ifc-layer__props-label">Loại</span>
                         <span className="mcm-ifc-layer__props-value">
                           {selected.typeName}
                         </span>
@@ -750,10 +859,7 @@ export const IFCCanvasOverlay = () => {
                     )}
                     {Object.entries(selected.props).map(([k, v]) => (
                       <div key={k} className="mcm-ifc-layer__props-row">
-                        <span
-                          className="mcm-ifc-layer__props-label"
-                          title={k}
-                        >
+                        <span className="mcm-ifc-layer__props-label" title={k}>
                           {k}
                         </span>
                         <span className="mcm-ifc-layer__props-value">{v}</span>
@@ -849,9 +955,7 @@ export const IFCCanvasOverlay = () => {
                           className="mcm-ifc-layer__menu-action"
                           onClick={(e) => {
                             e.stopPropagation();
-                            controlsRef.current
-                              .get(a.elementId)
-                              ?.flipSection();
+                            controlsRef.current.get(a.elementId)?.flipSection();
                           }}
                           disabled={sectionAxis === null}
                           title="Lật — đổi nửa không gian được giữ lại"
@@ -899,9 +1003,7 @@ export const IFCCanvasOverlay = () => {
                   <button
                     type="button"
                     className={`mcm-ifc-layer__tool${
-                      viewStylePanelOpen
-                        ? " mcm-ifc-layer__tool--active"
-                        : ""
+                      viewStylePanelOpen ? " mcm-ifc-layer__tool--active" : ""
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1027,9 +1129,7 @@ export const IFCCanvasOverlay = () => {
                 role="menuitem"
                 className="mcm-ifc-context-menu__item"
                 onClick={() => {
-                  controlsRef.current
-                    .get(contextMenu.elementId)
-                    ?.fitToModel();
+                  controlsRef.current.get(contextMenu.elementId)?.fitToModel();
                   setContextMenu(null);
                 }}
               >
