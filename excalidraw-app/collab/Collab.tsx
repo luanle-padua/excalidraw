@@ -104,6 +104,7 @@ import {
 } from "../data/transcription";
 
 import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache";
+import { clearIfcSnapshotsForFile } from "../components/mcm/ifc/ifcSnapshotCache";
 import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
 
 import {
@@ -1739,6 +1740,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.removeCanvasImagesByFileId(fileId);
     clearDxfSnapshotsForFile(fileId);
     clearPdfSnapshotsForFile(fileId);
+    clearIfcSnapshotsForFile(fileId);
     if (removeMeetingFile(roomId, fileId)) {
       this.portal.broadcastLibraryFileDelete(fileId);
     }
@@ -1778,6 +1780,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.removeCanvasImagesByFileId(fileId);
     clearDxfSnapshotsForFile(fileId);
     clearPdfSnapshotsForFile(fileId);
+    clearIfcSnapshotsForFile(fileId);
     removeMeetingFile(this.portal.roomId, fileId);
   };
 

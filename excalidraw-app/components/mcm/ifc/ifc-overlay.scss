@@ -1,0 +1,660 @@
+// IFC (3D BIM) canvas overlay styles. Mirrors the `.mcm-dxf-layer*`
+// rules from MeetingShell.scss using `.mcm-ifc-layer*` names: the
+// absolutely-positioned anchor, its clipping frame, the floating label,
+// the focus toolbar, the storey popover + properties panel, the
+// waiting / placeholder states, the context menu, and the
+// `.mcm-ifc-renderer` pointer-events gating (none → auto via the
+// `--interactive` modifier the renderer sets from its `interactive`
+// prop). Imported by IFCCanvasOverlay.tsx.
+
+// =========================================================================
+// IFC anchor overlay — sibling of mcm-dxf-layer, same pattern: pointer
+// events pass through to the underlying Excalidraw rectangle (so it
+// still selects/drags/resizes); the FOCUSED anchor opts back into
+// pointer handling for orbit/zoom + the focus toolbar.
+// =========================================================================
+.mcm-ifc-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+
+  &__anchor {
+    position: absolute;
+    // Dashed border so the user can SEE the anchor bounds while moving
+    // / resizing the underlying rectangle. Accent token = theme-aware.
+    border: 1px dashed
+      color-mix(in srgb, var(--mcm-accent, #6965db) 55%, transparent);
+    border-radius: 4px;
+    box-sizing: border-box;
+    // pointer-events stays none so Excalidraw owns selection / drag of
+    // the underlying rectangle element.
+  }
+
+  &__label {
+    position: absolute;
+    top: -22px;
+    left: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mcm-text, #1b1b1f);
+    letter-spacing: -0.005em;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  // Inner frame clips the renderer so 3D content can never paint
+  // outside the anchor's bounds.
+  &__frame {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 3px;
+    background: transparent;
+  }
+
+  // Cached snapshot (or library thumbnail) — used in place of a live
+  // IFCRenderer for passive anchors. `object-fit: contain` mirrors the
+  // letterboxed framing exportPng produces, so live ↔ snapshot swaps
+  // look identical to the user.
+  &__snapshot {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  &__waiting {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    font-size: 12px;
+    font-style: italic;
+    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 80%, transparent);
+  }
+
+  // Placeholder card — shown for a passive anchor with NO cached
+  // snapshot and NO library thumbnail. Cube glyph + file name +
+  // element count + a hint to enter edit mode.
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px;
+    text-align: center;
+    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 85%, transparent);
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  &__placeholder-glyph {
+    font-size: 34px;
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+
+  &__placeholder-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--mcm-text, #1b1b1f);
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__placeholder-count {
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  &__placeholder-hint {
+    font-size: 10.5px;
+    font-style: italic;
+    opacity: 0.85;
+  }
+
+  // Focused state — the user picked "Chỉnh 3D" from the context menu.
+  // Solid accent border so it's clear which model the user is driving
+  // (vs the passive snapshot anchors sitting elsewhere on the canvas).
+  &__anchor--focused {
+    border-style: solid;
+    border-color: var(--mcm-accent, #6965db);
+    border-width: 2px;
+    box-shadow: 0 0 0 4px
+      color-mix(in srgb, var(--mcm-accent, #6965db) 22%, transparent);
+  }
+
+  // Focus toolbar — Fit / Tầng / Mặt cắt / Đo / Ghost / Thoát grouped
+  // into a single pill row below the anchor's right edge.
+  &__focus-toolbar {
+    position: absolute;
+    bottom: -28px;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    pointer-events: auto;
+  }
+
+  // Generic tool pill. White-on-surface secondary weight so the
+  // accent-coloured Exit button stays the primary CTA.
+  &__tool {
+    padding: 2px 10px;
+    background: var(--mcm-surface, #fff);
+    color: var(--mcm-text, #1b1b1f);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: background-color 140ms, transform 140ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  // Active state for tool pills — used on a toggled tool (storeys
+  // popover open, section on, measure on, ghost on, view-style open).
+  &__tool--active {
+    background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+    border-color: var(--mcm-accent, #6965db);
+    color: var(--mcm-accent, #6965db);
+  }
+
+  // Relative wrapper for a tool pill that owns a popover (Mặt cắt,
+  // Kiểu hiển thị) — anchors the floating menu above the pill.
+  &__tool-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  // Compact floating menu that pops ABOVE its tool pill (the toolbar
+  // sits below the anchor, so popovers open upward to stay on-screen).
+  // Mirrors the storey popover surface styling at a smaller footprint.
+  &__menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    z-index: 7;
+    pointer-events: auto;
+    white-space: nowrap;
+  }
+
+  &__menu-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  // Segmented option button inside a menu (section axis X/Y/Z, view
+  // style Tô bóng / Đất sét / Khung dây).
+  &__seg {
+    flex: 1;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--mcm-text, #1b1b1f);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 7px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 100ms, border-color 100ms, color 100ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &--active {
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 16%,
+        transparent
+      );
+      border-color: var(--mcm-accent, #6965db);
+      color: var(--mcm-accent, #6965db);
+      font-weight: 700;
+    }
+  }
+
+  // Secondary action button inside a menu (Lật / Tắt mặt cắt).
+  &__menu-action {
+    flex: 1;
+    padding: 4px 10px;
+    background: transparent;
+    color: var(--mcm-text, #1b1b1f);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 7px;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 100ms;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+  }
+
+  // Exit affordance in focus mode — primary action, accent-coloured.
+  &__exit {
+    padding: 2px 10px;
+    background: var(--mcm-accent, #6965db);
+    color: #fff;
+    border: 0;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: filter 140ms, transform 140ms;
+
+    &:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  }
+
+  // Live distance readout for the measure tool — small pill pinned to
+  // the bottom-left of the focused frame.
+  &__measure-readout {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 3px 10px;
+    background: var(--mcm-accent, #6965db);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    z-index: 6;
+  }
+
+  // Storey popover — overlays the top-left of the focused anchor (mirror
+  // of the DXF layer panel). `pointer-events: auto` since the parent
+  // lets clicks through to the underlying canvas.
+  &__storey-panel {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 220px;
+    max-height: calc(100% - 16px);
+    display: flex;
+    flex-direction: column;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    z-index: 5;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+
+  &__storey-panel-header {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+    flex-shrink: 0;
+  }
+
+  &__storey-panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mcm-text, #1b1b1f);
+  }
+
+  &__storey-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline, rgba(0, 0, 0, 0.2)) transparent;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--mcm-hairline, rgba(0, 0, 0, 0.2));
+      border-radius: 3px;
+    }
+  }
+
+  &__storey-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--mcm-text, #1b1b1f);
+    transition: background-color 100ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+
+    &--active {
+      background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+      color: var(--mcm-accent, #6965db);
+      font-weight: 700;
+    }
+  }
+
+  &__storey-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__storey-elev {
+    flex-shrink: 0;
+    font-size: 10.5px;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+  }
+
+  // Properties panel — overlays the top-right of the focused anchor and
+  // shows the selected element's identity + flattened Pset rows.
+  &__props {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 240px;
+    max-height: calc(100% - 16px);
+    display: flex;
+    flex-direction: column;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    z-index: 5;
+    overflow: hidden;
+    pointer-events: auto;
+  }
+
+  &__props-header {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  &__props-name {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--mcm-text, #1b1b1f);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__props-type {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mcm-accent, #6965db);
+  }
+
+  &__props-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 8px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline, rgba(0, 0, 0, 0.2)) transparent;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--mcm-hairline, rgba(0, 0, 0, 0.2));
+      border-radius: 3px;
+    }
+  }
+
+  &__props-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.05));
+    font-size: 11px;
+
+    &:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  &__props-label {
+    flex-shrink: 0;
+    min-width: 84px;
+    max-width: 96px;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__props-value {
+    flex: 1;
+    color: var(--mcm-text, #1b1b1f);
+    word-break: break-word;
+  }
+}
+
+// Right-click context menu — positioned at viewport coords via inline
+// style, sits above everything via z-index.
+//
+// pointer-events: auto is CRITICAL — the menu is a child of
+// .mcm-ifc-layer which has `pointer-events: none` so clicks pass
+// through to the canvas; without an explicit override the menu items
+// would inherit `none`, the mousedown would land on the canvas, and the
+// outside-click handler would dismiss the menu before the user's click
+// on a menu item could fire.
+.mcm-ifc-context-menu {
+  position: fixed;
+  z-index: 1050;
+  pointer-events: auto;
+  min-width: 200px;
+  padding: 4px;
+  background: var(--mcm-surface, #ffffff);
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 13px;
+  color: var(--mcm-text, #1b1b1f);
+  animation: mcm-ifc-menu-in 120ms ease-out both;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: 0;
+    border-radius: 7px;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    transition: background-color 100ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+  }
+}
+
+@keyframes mcm-ifc-menu-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// =========================================================================
+// IFCRenderer states — pointer-events gating + loading / error /
+// capacity ceiling. The renderer leaf (IFCRenderer.tsx) emits these
+// class names; nothing else styles them, so we own them here.
+// =========================================================================
+.mcm-ifc-renderer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+
+  // pointer-events: none by default — interaction goes through the
+  // underlying Excalidraw rectangle (Option A passive). The renderer
+  // adds `--interactive` from its `interactive` prop on focus, flipping
+  // to `auto` so its OrbitControls (orbit + scroll-zoom + picking) can
+  // drive the camera.
+  pointer-events: none;
+
+  &--interactive {
+    pointer-events: auto;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  > canvas {
+    display: block;
+  }
+
+  &--loading,
+  &--error,
+  &--capacity-exceeded,
+  &--capacity {
+    pointer-events: auto;
+  }
+
+  &__loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--mcm-surface-2, rgba(240, 240, 243, 0.7));
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+    font-size: 12px;
+  }
+
+  &__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid
+      color-mix(in srgb, var(--mcm-accent, #6965db) 35%, transparent);
+    border-top-color: var(--mcm-accent, #6965db);
+    border-radius: 50%;
+    animation: mcm-ifc-spin 0.8s linear infinite;
+  }
+
+  &__error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    color: var(--mcm-danger, #dc2626);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  &--capacity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 12px;
+    background: var(--mcm-surface-2, #f0f0f3);
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+    font-size: 12px;
+    border: 1px dashed var(--mcm-hairline, rgba(0, 0, 0, 0.18));
+    border-radius: 4px;
+  }
+
+  &__capacity-icon {
+    font-size: 22px;
+    margin-bottom: 6px;
+  }
+
+  &__capacity-text {
+    line-height: 1.35;
+  }
+}
+
+@keyframes mcm-ifc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

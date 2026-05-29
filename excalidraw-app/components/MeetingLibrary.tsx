@@ -17,6 +17,8 @@ import {
   canUnlockFile,
   isDxfFile,
   isFileSeen,
+  isIfcFile,
+  isIfcModelFile,
   isPdfFile,
   markFileSeen,
   meetingFilesAtom,
@@ -24,6 +26,8 @@ import {
 } from "../data/meetingLibrary";
 
 import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
+import { IFC_ANCHOR_KIND } from "./mcm/ifc/ifcAnchor";
+import { bakeIfc } from "./mcm/ifc/ifcBake";
 import { PDF_ANCHOR_KIND } from "./mcm/pdf/PDFCanvasOverlay";
 import { probePdf } from "./mcm/pdf/pdfRendering";
 
@@ -55,6 +59,25 @@ const readAsDataURL = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+const readAsArrayBuffer = (file: File) =>
+  new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(file);
+  });
+
+// Wrap an ArrayBuffer in a Blob of the given mime and read it back as a
+// data: URL — used to stash the baked GLB into the library file's
+// `dataURL` so peers/reload can reconstruct the model without re-baking.
+const blobToDataURL = (buf: ArrayBuffer, mime: string) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(new Blob([buf], { type: mime }));
+  });
+
 const extractRoomId = (link: string | null | undefined): string | null => {
   if (!link) {
     return null;
@@ -66,9 +89,15 @@ const extractRoomId = (link: string | null | undefined): string | null => {
 // File-type classification — drives the type chip, filter chips, and
 // (later) section grouping. We treat the "other" bucket as a catch-all
 // so future formats (docx, xlsx…) still render without code changes.
-type FileType = "image" | "dxf" | "pdf" | "other";
+type FileType = "image" | "dxf" | "pdf" | "ifc" | "other";
 
 const fileTypeOf = (file: MeetingFile): FileType => {
+  // IFC must be checked FIRST: a baked IFC's mime is "model/gltf-binary",
+  // which would otherwise fall through to "other". `ifcMeta` presence is
+  // the authoritative marker.
+  if (isIfcModelFile(file)) {
+    return "ifc";
+  }
   if (isDxfFile(file)) {
     return "dxf";
   }
@@ -86,6 +115,7 @@ const TYPE_LABEL: Record<FileType, string> = {
   image: "IMG",
   dxf: "DXF",
   pdf: "PDF",
+  ifc: "IFC",
   other: "FILE",
 };
 
@@ -145,6 +175,7 @@ type ViewMode = "grid" | "list";
  *  the user-facing section title. */
 const TYPE_SECTION_ORDER: { type: FileType; title: string }[] = [
   { type: "dxf", title: "CAD drawings" },
+  { type: "ifc", title: "IFC models" },
   { type: "pdf", title: "PDF documents" },
   { type: "image", title: "Images" },
   { type: "other", title: "Other files" },
@@ -181,6 +212,7 @@ export const MeetingLibrary = () => {
       image: 0,
       dxf: 0,
       pdf: 0,
+      ifc: 0,
       other: 0,
     };
     for (const f of items) {
@@ -297,10 +329,41 @@ export const MeetingLibrary = () => {
         const isImage = file.type.startsWith("image/");
         const isDxf = isDxfFile(file);
         const isPdf = isPdfFile(file);
-        if (!isImage && !isDxf && !isPdf) {
+        const isIfc = isIfcFile(file);
+        if (!isImage && !isDxf && !isPdf && !isIfc) {
           window.alert(
-            `Tạm thời chỉ hỗ trợ ảnh, DXF và PDF. Bỏ qua: ${file.name}`,
+            `Tạm thời chỉ hỗ trợ ảnh, DXF, PDF và IFC. Bỏ qua: ${file.name}`,
           );
+          continue;
+        }
+        if (isIfc) {
+          // IFC files are baked into a compact GLB + metadata in a web
+          // worker (web-ifc WASM). This can take many seconds for large
+          // models — that's expected; we just await it. The baked GLB
+          // becomes the library file's `dataURL` (mime "model/gltf-binary")
+          // and `ifcMeta` marks the entry as an IFC model. On any bake
+          // failure we surface a message naming the file and skip it.
+          try {
+            const buf = await readAsArrayBuffer(file);
+            const { glb, metadata, elementCount } = await bakeIfc(buf);
+            const glbDataURL = await blobToDataURL(glb, "model/gltf-binary");
+            const id = newFileId();
+            collabAPI.publishLibraryFile(
+              {
+                id,
+                name: file.name,
+                ts: Date.now(),
+                author: username,
+                mimeType: "model/gltf-binary",
+                dataURL: glbDataURL,
+                ifcMeta: { metadata, elementCount },
+              },
+              { allowContentDup: true },
+            );
+          } catch (error: any) {
+            console.error("[meetingLibrary] failed to bake IFC", error);
+            window.alert(`Không thể xử lý file IFC: ${file.name}`);
+          }
           continue;
         }
         try {
@@ -442,6 +505,57 @@ export const MeetingLibrary = () => {
       // this, Excalidraw's later index-reorder pass (triggered when the
       // user moves the element between frames) sees `null` and throws
       // InvalidFractionalIndexError, freezing the whole scene.
+      excalidrawAPI.updateScene({
+        elements: syncInvalidIndices([...elements, anchor]),
+      });
+    },
+    [excalidrawAPI],
+  );
+
+  // IFC anchors mirror PDF anchors structurally (NOT DXF) — an
+  // Excalidraw IMAGE element that renders a baked 3D snapshot directly
+  // on the canvas, so pen strokes / shapes / stickers the user adds
+  // AFTER the model sit on top of it via the regular "Bring to Front" /
+  // element-order semantics. The old transparent-rectangle + HTML
+  // overlay version always painted above every canvas drawing, blocking
+  // that flow. Landscape default 480×360 since 3D models are wider than
+  // tall (unlike PDF's portrait page shape); the user resizes via
+  // Excalidraw's selection handles.
+  const IFC_DEFAULT_W = 480;
+  const IFC_DEFAULT_H = 360;
+  const insertIfcAt = useCallback(
+    (file: MeetingFile, at: { sceneX: number; sceneY: number }) => {
+      if (!excalidrawAPI) {
+        return;
+      }
+      // Same INCLUDING-DELETED rationale as insertDxfAt — see the
+      // comment there.
+      const elements = excalidrawAPI.getSceneElementsIncludingDeleted();
+      // Plain transparent rectangle anchor (mirrors insertDxfAt). The
+      // <IFCCanvasOverlay /> picks these up by customData.mcmType and
+      // paints the 3D viewer on top — passive anchors show a baked
+      // snapshot, the focused one mounts the live interactive renderer.
+      const anchor = newElement({
+        type: "rectangle",
+        x: at.sceneX - IFC_DEFAULT_W / 2,
+        y: at.sceneY - IFC_DEFAULT_H / 2,
+        width: IFC_DEFAULT_W,
+        height: IFC_DEFAULT_H,
+        strokeColor: "transparent",
+        backgroundColor: "transparent",
+        fillStyle: "solid",
+        strokeWidth: 1,
+        strokeStyle: "solid",
+        roughness: 0,
+        opacity: 100,
+        roundness: null,
+        customData: {
+          mcmType: IFC_ANCHOR_KIND,
+          ifcFileId: file.id,
+        },
+      });
+      // syncInvalidIndices fills in valid fractional indices — see the
+      // explanation in insertDxfAt.
       excalidrawAPI.updateScene({
         elements: syncInvalidIndices([...elements, anchor]),
       });
@@ -594,11 +708,12 @@ export const MeetingLibrary = () => {
     const elements = excalidrawAPI.getSceneElements();
     const isDxf = isDxfFile(file);
     const isPdf = isPdfFile(file);
+    const isIfc = isIfcModelFile(file);
 
     // If this file already lives on the canvas, scroll to it instead
     // of dropping a duplicate. For DXF we look for the matching anchor
-    // rectangle (via customData.dxfFileId), for PDF via pdfFileId, and
-    // for images via the image element's fileId.
+    // rectangle (via customData.dxfFileId), for IFC via ifcFileId, for
+    // PDF via pdfFileId, and for images via the image element's fileId.
     const existing = elements.find((el) => {
       const data = el.customData as Record<string, unknown> | undefined;
       if (isDxf) {
@@ -606,6 +721,13 @@ export const MeetingLibrary = () => {
           el.type === "rectangle" &&
           data?.mcmType === DXF_ANCHOR_KIND &&
           data?.dxfFileId === file.id
+        );
+      }
+      if (isIfc) {
+        return (
+          el.type === "rectangle" &&
+          data?.mcmType === IFC_ANCHOR_KIND &&
+          data?.ifcFileId === file.id
         );
       }
       if (isPdf) {
@@ -633,6 +755,8 @@ export const MeetingLibrary = () => {
     };
     if (isDxf) {
       insertDxfAt(file, at);
+    } else if (isIfc) {
+      insertIfcAt(file, at);
     } else if (isPdf) {
       insertPdfAt(file, at);
     } else {
@@ -694,6 +818,7 @@ export const MeetingLibrary = () => {
       }
       const isDxf = isDxfFile(file);
       const isPdf = isPdfFile(file);
+      const isIfc = isIfcModelFile(file);
       // Jump to existing canvas instance instead of duplicating.
       const elements = excalidrawAPI.getSceneElements();
       const existing = elements.find((el) => {
@@ -703,6 +828,13 @@ export const MeetingLibrary = () => {
             el.type === "rectangle" &&
             data?.mcmType === DXF_ANCHOR_KIND &&
             data?.dxfFileId === file.id
+          );
+        }
+        if (isIfc) {
+          return (
+            el.type === "rectangle" &&
+            data?.mcmType === IFC_ANCHOR_KIND &&
+            data?.ifcFileId === file.id
           );
         }
         if (isPdf) {
@@ -731,6 +863,8 @@ export const MeetingLibrary = () => {
       };
       if (isDxf) {
         insertDxfAt(file, at);
+      } else if (isIfc) {
+        insertIfcAt(file, at);
       } else if (isPdf) {
         insertPdfAt(file, at);
       } else {
@@ -744,7 +878,14 @@ export const MeetingLibrary = () => {
       container.removeEventListener("dragover", onDragOver, true);
       container.removeEventListener("drop", onDrop, true);
     };
-  }, [excalidrawAPI, items, insertImageAt, insertDxfAt, insertPdfAt]);
+  }, [
+    excalidrawAPI,
+    items,
+    insertImageAt,
+    insertDxfAt,
+    insertIfcAt,
+    insertPdfAt,
+  ]);
 
   const me = collabAPI?.getUsername() || "Local";
 
@@ -826,6 +967,29 @@ export const MeetingLibrary = () => {
             <path d="M7 12h10M7 15h6M7 18h8" />
           </svg>
           <span className="MeetingLibrary__item-fallback-label">DXF</span>
+        </span>
+      );
+    }
+    if (type === "ifc" && file.ifcMeta?.thumbnail) {
+      return (
+        <img
+          src={file.ifcMeta.thumbnail}
+          alt={file.name}
+          loading="lazy"
+          draggable={false}
+        />
+      );
+    }
+    if (type === "ifc") {
+      // No baked thumbnail yet — show a cube glyph so IFC model tiles
+      // still read as 3D models at a glance.
+      return (
+        <span
+          className="MeetingLibrary__item-fallback MeetingLibrary__item-fallback--ifc"
+          aria-hidden="true"
+        >
+          <span className="MeetingLibrary__item-fallback-glyph">🧊</span>
+          <span className="MeetingLibrary__item-fallback-label">IFC</span>
         </span>
       );
     }
@@ -1023,6 +1187,7 @@ export const MeetingLibrary = () => {
   const renderGrouped = () => {
     const byType: Record<FileType, MeetingFile[]> = {
       dxf: [],
+      ifc: [],
       pdf: [],
       image: [],
       other: [],
@@ -1065,6 +1230,7 @@ export const MeetingLibrary = () => {
       [
         { key: "all", label: "All", count: items.length },
         { key: "dxf", label: "DXF", count: typeCounts.dxf },
+        { key: "ifc", label: "IFC", count: typeCounts.ifc },
         { key: "pdf", label: "PDF", count: typeCounts.pdf },
         { key: "image", label: "Image", count: typeCounts.image },
         { key: "other", label: "Other", count: typeCounts.other },

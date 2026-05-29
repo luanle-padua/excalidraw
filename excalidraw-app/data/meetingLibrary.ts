@@ -2,6 +2,8 @@ import { get as idbGet, set as idbSet } from "idb-keyval";
 
 import { atom, appJotaiStore } from "../app-jotai";
 
+import type { IfcMetadataPayload } from "../components/mcm/ifc/ifcTypes";
+
 export type MeetingFile = {
   /** matches Excalidraw FileId so we can reuse the canvas's file map */
   id: string;
@@ -39,6 +41,16 @@ export type MeetingFile = {
     pageCount: number;
     thumbnail?: string;
   };
+  /** IFC-specific metadata. On upload the raw .ifc is baked into a GLB
+   *  (stored as this file's `dataURL`, with `mimeType`
+   *  "model/gltf-binary") and the extracted storey/element metadata,
+   *  element count, and a baked thumbnail are kept here. Presence of
+   *  `ifcMeta` is what marks a library entry as an IFC model. */
+  ifcMeta?: {
+    metadata: IfcMetadataPayload;
+    elementCount: number;
+    thumbnail?: string;
+  };
 };
 
 /** Quick predicate for DXF detection that doesn't rely on browser mime
@@ -73,6 +85,22 @@ export const isPdfFile = (input: {
   const name = input.name ?? "";
   return name.toLowerCase().endsWith(".pdf");
 };
+
+/** Detect a raw .ifc upload by extension — browsers rarely set a useful
+ *  mime for IFC. Used on ingest to route the file through the IFC -> GLB
+ *  bake before it enters the library. */
+export const isIfcFile = (input: {
+  name?: string;
+  type?: string;
+  mimeType?: string;
+}): boolean => {
+  const name = input.name ?? "";
+  return name.toLowerCase().endsWith(".ifc");
+};
+
+/** A library entry that has been baked into an IFC model — it carries
+ *  the GLB in `dataURL` and the extracted metadata in `ifcMeta`. */
+export const isIfcModelFile = (file: MeetingFile): boolean => !!file.ifcMeta;
 
 const STORAGE_PREFIX = "meeting-canvas:files:";
 const DELETED_PREFIX = "meeting-canvas:deleted:";

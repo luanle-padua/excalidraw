@@ -9,6 +9,9 @@ import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
 import { CanvasNavWidget } from "./CanvasNavWidget";
 import { DXFCanvasOverlay } from "./dxf/DXFCanvasOverlay";
+import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
+import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
+import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
 import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingHeader } from "./MeetingHeader";
@@ -124,9 +127,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           {children}
           <DXFCanvasOverlay />
           <PDFCanvasOverlay />
+          <IFCCanvasOverlay />
           <PinnedImagesOverlay />
           <StickerPicker />
           <CADViewTriggers />
+          <IFC3DViewTriggers />
           <SpeechToTextPanel />
           <MeetingCallControls />
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
@@ -134,6 +139,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <TextTranslateOverlay />
         </div>
         <CADViewPane />
+        <IFC3DViewPane />
       </div>
       <TranscriptionController />
       {logOpen && <MeetingLogModal onClose={() => setLogOpen(false)} />}
