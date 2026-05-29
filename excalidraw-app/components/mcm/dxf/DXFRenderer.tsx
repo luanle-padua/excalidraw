@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtomValue } from "../../../app-jotai";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import {
   claimDxfSlot,
@@ -173,6 +174,7 @@ export const DXFRenderer = ({
   onReady,
   onError,
 }: Props) => {
+  const t = useT();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<DxfViewer | null>(null);
   // Hold the most recent onReady/onError so the loader effect doesn't
@@ -445,7 +447,7 @@ export const DXFRenderer = ({
   if (!file) {
     return (
       <div className="mcm-dxf-renderer mcm-dxf-renderer--missing">
-        File DXF không tìm thấy
+        {t("cad.status.missing")}
       </div>
     );
   }
@@ -457,7 +459,7 @@ export const DXFRenderer = ({
           ⚠️
         </div>
         <div className="mcm-dxf-renderer__capacity-text">
-          Đã mở tối đa DXF cùng lúc. Đóng bớt 1 file khác để xem file này.
+          {t("cad.status.capacity")}
         </div>
       </div>
     );
@@ -477,12 +479,12 @@ export const DXFRenderer = ({
       {status === "loading" && (
         <div className="mcm-dxf-renderer__loading">
           <span className="mcm-dxf-renderer__spinner" />
-          <span>Đang tải DXF…</span>
+          <span>{t("cad.status.loading")}</span>
         </div>
       )}
       {status === "error" && (
         <div className="mcm-dxf-renderer__error">
-          Không đọc được DXF: {errorMsg}
+          {t("cad.status.loadError", { message: errorMsg ?? "" })}
         </div>
       )}
     </div>

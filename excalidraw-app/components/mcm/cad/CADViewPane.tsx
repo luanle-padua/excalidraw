@@ -27,6 +27,7 @@ import {
   setCadViewWidth,
 } from "../../../data/cadViewState";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { DXFRenderer } from "../dxf/DXFRenderer";
 
@@ -35,6 +36,7 @@ import type { DXFRendererControls } from "../dxf/DXFRenderer";
 type LayerInfo = { name: string; displayName: string; color: number };
 
 export const CADViewPane = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const state = useAtomValue(cadViewStateAtom);
   const files = useAtomValue(meetingFilesAtom);
@@ -295,7 +297,7 @@ export const CADViewPane = () => {
   return (
     <aside
       className={`mcm-cad-view${isResizing ? " mcm-cad-view--resizing" : ""}`}
-      aria-label="CAD view"
+      aria-label={t("cad.pane.viewAria")}
       // width is data-driven (user-resizable).
       // eslint-disable-next-line react/forbid-dom-props
       style={{ width: effectiveWidth }}
@@ -310,7 +312,7 @@ export const CADViewPane = () => {
         onPointerCancel={handleResizePointerUp}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize CAD view"
+        aria-label={t("cad.pane.resizeAria")}
       />
       <div className="mcm-cad-view__header">
         <div className="mcm-cad-view__tabs">
@@ -339,8 +341,8 @@ export const CADViewPane = () => {
                     e.stopPropagation();
                     closeCadFileTab(fid);
                   }}
-                  aria-label={`Đóng tab ${name}`}
-                  title="Đóng tab"
+                  aria-label={t("cad.tab.closeAria", { name })}
+                  title={t("cad.tab.closeTitle")}
                 >
                   ×
                 </button>
@@ -352,8 +354,8 @@ export const CADViewPane = () => {
           type="button"
           className="mcm-cad-view__close"
           onClick={() => closeCadViewPane()}
-          aria-label="Đóng CAD view"
-          title="Đóng"
+          aria-label={t("cad.pane.closeAria")}
+          title={t("cad.pane.closeTitle")}
         >
           ×
         </button>
@@ -370,12 +372,12 @@ export const CADViewPane = () => {
           disabled={layers.length === 0}
           title={
             layers.length === 0
-              ? "Đang tải layers…"
-              : `${layers.length} layer — bấm để ẩn/hiện`
+              ? t("cad.layers.loadingTitle")
+              : t("cad.layers.countTitle", { count: layers.length })
           }
         >
           <span aria-hidden>📋</span>
-          <span>Layers</span>
+          <span>{t("cad.layers.button")}</span>
           {layers.length > 0 && (
             <span className="mcm-cad-view__tool-badge">{layers.length}</span>
           )}
@@ -385,10 +387,10 @@ export const CADViewPane = () => {
           className="mcm-cad-view__tool"
           onClick={handleFit}
           disabled={!controlsRef.current}
-          title="Fit DXF vào pane (reset view)"
+          title={t("cad.toolbar.fitPaneTitle")}
         >
           <span aria-hidden>↻</span>
-          <span>Fit</span>
+          <span>{t("cad.toolbar.fit")}</span>
         </button>
         <button
           type="button"
@@ -398,12 +400,12 @@ export const CADViewPane = () => {
           onClick={() => setViewLocked((v) => !v)}
           title={
             viewLocked
-              ? "View đang khoá — bấm để mở khoá pan/zoom"
-              : "Khoá view (chặn pan/zoom trong DXF)"
+              ? t("cad.lock.lockedTitle")
+              : t("cad.lock.unlockedTitle")
           }
         >
           <span aria-hidden>{viewLocked ? "🔒" : "🔓"}</span>
-          <span>{viewLocked ? "Locked" : "Lock"}</span>
+          <span>{viewLocked ? t("cad.lock.locked") : t("cad.lock.lock")}</span>
         </button>
       </div>
 
@@ -428,28 +430,28 @@ export const CADViewPane = () => {
           <div
             className="mcm-cad-view__layer-panel"
             role="dialog"
-            aria-label="DXF layers"
+            aria-label={t("cad.layers.panelAria")}
           >
             <div className="mcm-cad-view__layer-panel-header">
               <span className="mcm-cad-view__layer-panel-title">
-                Layers ({layers.length})
+                {t("cad.layers.title", { count: layers.length })}
               </span>
               <div className="mcm-cad-view__layer-panel-actions">
                 <button
                   type="button"
                   className="mcm-cad-view__layer-panel-action"
                   onClick={() => setAllLayersVisible(true)}
-                  title="Bật tất cả"
+                  title={t("cad.layers.allOnTitle")}
                 >
-                  Tất cả
+                  {t("cad.layers.allOn")}
                 </button>
                 <button
                   type="button"
                   className="mcm-cad-view__layer-panel-action"
                   onClick={() => setAllLayersVisible(false)}
-                  title="Tắt tất cả"
+                  title={t("cad.layers.allOffTitle")}
                 >
-                  Không cái nào
+                  {t("cad.layers.allOff")}
                 </button>
               </div>
             </div>

@@ -20,6 +20,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { useT } from "../../../i18n/mcm";
+
 import { loadIfcMergedFromGlb } from "./ifcGltfMergedLoader";
 import { pickIfcElement } from "./ifcPicker";
 import { MergedRenderer } from "./mergedRenderer";
@@ -63,6 +65,9 @@ export type IFCRendererControls = {
   /** Flip which half-space the active section keeps. No-op without an
    *  active section. */
   flipSection: () => void;
+  /** Show / hide the section plane visual + drag gizmo while the cut
+   *  stays active — lets the user view a clean section. */
+  setSectionPlaneVisible: (visible: boolean) => void;
   /** Render style: "shaded" (per-element IFC colours), "clay" (uniform
    *  shade), or "wireframe". */
   setViewStyle: (style: "shaded" | "clay" | "wireframe") => void;
@@ -136,6 +141,7 @@ export const IFCRenderer = ({
   onReady,
   onError,
 }: Props) => {
+  const t = useT();
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Latest callbacks — held in refs so the loader effect doesn't re-run
@@ -227,6 +233,9 @@ export const IFCRenderer = ({
     // ── Section plane state ───────────────────────────────────────
     let sectionPlane: import("three").Plane | null = null;
     let sectionAxis: "x" | "y" | "z" | null = null;
+    // Section plane visual + gizmo visibility — the cut stays active
+    // even when hidden, so the user can inspect a clean section.
+    let sectionPlaneVisible = true;
     // Which half-space the cut keeps; flipSection negates it.
     let sectionSign = 1;
     // Movable proxy (carries the visible quad + outline); TransformControls
@@ -503,6 +512,7 @@ export const IFCRenderer = ({
       }
       sectionGroup.add(quad);
       sectionGroup.add(edges);
+      sectionGroup.visible = sectionPlaneVisible;
       scene.add(sectionGroup);
 
       sectionTC = new TransformControlsClass(camera, renderer.domElement);
@@ -511,7 +521,8 @@ export const IFCRenderer = ({
       sectionTC.showX = axis === "x";
       sectionTC.showY = axis === "y";
       sectionTC.showZ = axis === "z";
-      sectionTC.enabled = interactiveRef.current;
+      sectionTC.visible = sectionPlaneVisible;
+      sectionTC.enabled = sectionPlaneVisible && interactiveRef.current;
       sectionTC.addEventListener(
         "dragging-changed",
         (e: { value: boolean }) => {
@@ -740,6 +751,7 @@ export const IFCRenderer = ({
             if (axis === null) {
               sectionAxis = null;
               sectionPlane = null;
+              sectionPlaneVisible = true; // reset so the next cut shows its plane
               disposeSectionVisual();
               applyClippingPlanes();
               setNeedsRender();
@@ -750,6 +762,17 @@ export const IFCRenderer = ({
           flipSection: () => {
             sectionSign *= -1;
             recomputeSectionPlane();
+          },
+          setSectionPlaneVisible: (visible) => {
+            sectionPlaneVisible = visible;
+            if (sectionGroup) {
+              sectionGroup.visible = visible;
+            }
+            if (sectionTC) {
+              sectionTC.visible = visible;
+              sectionTC.enabled = visible && interactiveRef.current;
+            }
+            setNeedsRender();
           },
           setViewStyle: (style) => setViewStyleImpl(style),
           select: (id, opts) => selectImpl(id, opts),
@@ -914,8 +937,7 @@ export const IFCRenderer = ({
           ⚠️
         </div>
         <div className="mcm-ifc-renderer__capacity-text">
-          Đã mở tối đa mô hình 3D cùng lúc. Đóng bớt 1 file khác để xem file
-          này.
+          {t("ifc.status.capacity")}
         </div>
       </div>
     );
@@ -935,12 +957,12 @@ export const IFCRenderer = ({
       {status === "loading" && (
         <div className="mcm-ifc-renderer__loading">
           <span className="mcm-ifc-renderer__spinner" />
-          <span>Đang tải mô hình 3D…</span>
+          <span>{t("ifc.status.loading")}</span>
         </div>
       )}
       {status === "error" && (
         <div className="mcm-ifc-renderer__error">
-          Không đọc được mô hình IFC: {errorMsg}
+          {t("ifc.status.loadError", { message: errorMsg ?? "" })}
         </div>
       )}
     </div>

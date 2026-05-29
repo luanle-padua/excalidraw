@@ -5,8 +5,10 @@ import { collabAPIAtom } from "../../collab/Collab";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
 import { ensureMyJoinedAt, userProfileAtom } from "../../data/userProfile";
 
+import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
 import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
+import { CanvasBotTool } from "./CanvasBotTool";
 import { CanvasNavWidget } from "./CanvasNavWidget";
 import { DXFCanvasOverlay } from "./dxf/DXFCanvasOverlay";
 import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
@@ -65,8 +67,8 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     ensureMyJoinedAt();
   }, []);
 
-  // Pre-load the Google-hosted canvas fonts (Caveat as the new
-  // default, plus the Noto fallbacks for VN / KR). The browser
+  // Pre-load the default canvas font (Nunito) + the Google-hosted Noto
+  // fallbacks for VN / KR. The browser
   // fetches the woff2 lazily — without touching them up front the
   // FIRST piece of text the user types renders with a missing-glyph
   // "tofu" or a wrong-metric substitute until the network round-trip
@@ -78,7 +80,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     if (typeof document === "undefined" || !document.fonts) {
       return;
     }
-    document.fonts.load("16px 'Caveat'").catch(() => undefined);
+    document.fonts.load("16px 'Nunito'").catch(() => undefined);
     document.fonts.load("16px 'Noto Sans'").catch(() => undefined);
     document.fonts.load("16px 'Noto Sans KR'").catch(() => undefined);
   }, []);
@@ -130,6 +132,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <IFCCanvasOverlay />
           <PinnedImagesOverlay />
           <StickerPicker />
+          <CanvasBotTool />
           <CADViewTriggers />
           <IFC3DViewTriggers />
           <SpeechToTextPanel />
@@ -137,6 +140,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
           <TextTranslateOverlay />
+          <AuthorBadgeOverlay />
         </div>
         <CADViewPane />
         <IFC3DViewPane />

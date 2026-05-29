@@ -257,6 +257,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private socketInitializationTimer?: number;
   private lastBroadcastedOrReceivedSceneVersion: number = -1;
   private collaborators = new Map<SocketId, Collaborator>();
+  private remoteElementIds = new Set<string>();
 
   constructor(props: CollabProps) {
     super(props);
@@ -1079,6 +1080,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // break the state
     remoteElements = restoreElements(remoteElements, existingElements);
 
+    // Record every incoming id so we never claim authorship of a peer's
+    // element when stamping local text in applyTextAuthorship.
+    for (const el of remoteElements) {
+      this.remoteElementIds.add(el.id);
+    }
+
     let reconciledElements = reconcileElements(
       existingElements,
       remoteElements,
@@ -1303,7 +1310,51 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
   };
 
+  // Stamp customData.mcmAuthor on TEXT elements this client created
+  // (no author yet AND not received from a peer). Persists via
+  // updateScene so the author travels with the element to peers +
+  // Firebase. Returns true if it mutated the scene.
+  private applyTextAuthorship = (
+    elements: readonly OrderedExcalidrawElement[],
+  ): boolean => {
+    const socketId = this.portal.socket?.id;
+    if (!socketId) {
+      return false;
+    }
+    const me = { id: socketId, name: this.state.username || "Guest" };
+    let changed = false;
+    const next = elements.map((el) => {
+      if (
+        el.type === "text" &&
+        !el.isDeleted &&
+        !(el.customData as any)?.mcmAuthor &&
+        !this.remoteElementIds.has(el.id)
+      ) {
+        changed = true;
+        return newElementWith(el, {
+          customData: { ...((el.customData as any) || {}), mcmAuthor: me },
+        });
+      }
+      return el;
+    });
+    if (changed) {
+      this.excalidrawAPI.updateScene({
+        elements: next,
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
+    }
+    return changed;
+  };
+
   syncElements = (elements: readonly OrderedExcalidrawElement[]) => {
+    // Stamp local text authorship BEFORE broadcasting. When stamping
+    // mutated the scene, return early — the updateScene re-enters
+    // App.onChange → syncElements, and that second pass (author now
+    // present → no mutation) does the actual broadcast. Idempotent, so
+    // there is no infinite loop.
+    if (this.applyTextAuthorship(elements)) {
+      return;
+    }
     this.broadcastElements(elements);
     this.queueSaveToFirebase();
   };

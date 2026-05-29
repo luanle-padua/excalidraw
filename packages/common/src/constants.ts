@@ -146,10 +146,11 @@ export const FONT_FAMILY = {
   "Liberation Sans": 9,
   Assistant: 10,
   // Caveat — Google Fonts handwritten font with native Vietnamese
-  // support (Latin Extended Additional ships in the font itself,
-  // no fallback needed). Replaces Excalifont as the default so MCM
-  // demos type Vietnamese without falling back to a sans-serif
-  // mid-sentence. Loaded via the Google Fonts <link> in index.html.
+  // support (Latin Extended Additional ships in the font itself). A
+  // handwriting option in the picker; NOT the default anymore —
+  // handwriting faces stack Vietnamese tone marks awkwardly, so the
+  // default is the cleaner Nunito (see DEFAULT_FONT_FAMILY). Loaded via
+  // the Google Fonts <link> in index.html.
   Caveat: 11,
 };
 
@@ -254,7 +255,12 @@ export const FRAME_STYLE = {
 
 export const MIN_FONT_SIZE = 1;
 export const DEFAULT_FONT_SIZE = 20;
-export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Caveat;
+// Nunito (clean rounded sans) is the default rather than a handwriting
+// font: handwriting faces stack Vietnamese tone marks awkwardly, so VN
+// text reads poorly. Nunito renders Vietnamese cleanly (its own glyphs +
+// the Noto Sans tail fallback in getFontFamilyFallbacks' default case).
+// Caveat / Excalifont stay available in the font picker.
+export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Nunito;
 export const DEFAULT_TEXT_ALIGN = "left";
 export const DEFAULT_VERTICAL_ALIGN = "top";
 export const DEFAULT_VERSION = "{version}";

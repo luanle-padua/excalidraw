@@ -169,17 +169,35 @@ export const TextTranslateOverlay = () => {
         return;
       }
       const el = elements.find((e) => e.id === selectedIds[0]);
-      if (!isTextEl(el) || isTranslationChild(el)) {
+      // Resolve the translatable text: either the selected text element,
+      // OR — for a container such as the framed bot answer (a rectangle
+      // with bound text) — the text bound inside it. The pill is positioned
+      // over whichever element is actually selected (`anchor`).
+      let textEl: ExcalidrawTextElement | null = isTextEl(el) ? el : null;
+      if (!textEl && el) {
+        const boundId = (el as any).boundElements?.find(
+          (b: { type: string; id: string }) => b.type === "text",
+        )?.id;
+        const bound = boundId
+          ? elements.find((e) => e.id === boundId)
+          : undefined;
+        if (isTextEl(bound)) {
+          textEl = bound;
+        }
+      }
+      if (!textEl || isTranslationChild(textEl) || !el) {
         // Hide on translation children to avoid translate-of-translate
         // loops; the user can still pick the SOURCE text and run again.
         setSelectedText(null);
         setButtonPos(null);
         return;
       }
-      setSelectedText(el);
+      setSelectedText(textEl);
       // World → viewport using the same formula as PDFCanvasOverlay /
       // DXFCanvasOverlay so the button lines up with the canvas
-      // selection rectangle Excalidraw paints.
+      // selection rectangle Excalidraw paints. Anchor on the SELECTED
+      // element (the container for a framed answer) so the pill sits on
+      // the frame's corner, not inside it.
       const zoom = appState.zoom.value;
       const viewportLeft = (el.x + appState.scrollX) * zoom;
       const viewportTop = (el.y + appState.scrollY) * zoom;
@@ -337,7 +355,20 @@ export const TextTranslateOverlay = () => {
       (c) => c.id !== existing?.id,
     ).length;
     const VERTICAL_GAP = 6;
-    const baselineY = parent.y + parent.height + VERTICAL_GAP;
+    // When the source is text bound inside a container (the framed bot
+    // answer), anchor the translation below the CONTAINER's bbox — not the
+    // bound text, which sits inside the frame. Otherwise anchor below the
+    // text itself.
+    const container = (parent as any).containerId
+      ? excalidrawAPI
+          .getSceneElements()
+          .find((e) => e.id === (parent as any).containerId)
+      : null;
+    const anchorX = container ? container.x : parent.x;
+    const anchorBottom = container
+      ? container.y + container.height
+      : parent.y + parent.height;
+    const baselineY = anchorBottom + VERTICAL_GAP;
     const customData: TranslationCustomData = {
       mcmType: TRANSLATION_KIND,
       mcmTranslationOf: parent.id,
@@ -386,7 +417,7 @@ export const TextTranslateOverlay = () => {
         fontSize: Math.max(12, Math.round(parent.fontSize * 0.85)),
         textAlign: parent.textAlign,
         verticalAlign: parent.verticalAlign,
-        x: parent.x,
+        x: anchorX,
         y: baselineY + siblingCount * (parent.fontSize + VERTICAL_GAP),
         strokeColor: "#6b7280", // a muted grey so the translation
         // reads as secondary

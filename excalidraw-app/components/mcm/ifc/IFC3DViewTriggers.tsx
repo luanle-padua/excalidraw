@@ -23,6 +23,7 @@ import {
   openFileInIfcView,
 } from "../../../data/ifcViewState";
 import { isIfcModelFile, meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { findOrCreateToolbarExtras } from "../toolbarExtras";
 
@@ -53,6 +54,7 @@ const IFCIcon = () => (
 // Toolbar trigger — portal into Excalidraw's App-toolbar
 // ---------------------------------------------------------------------
 const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
+  const t = useT();
   const viewState = useAtomValue(ifcViewStateAtom);
   const files = useAtomValue(meetingFilesAtom);
   const [open, setOpen] = useState(false);
@@ -116,8 +118,8 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
           className={`ToolIcon ToolIcon_type_button ToolIcon_size_medium ToolIcon--plain mcm-ifc-trigger${
             open ? " mcm-ifc-trigger--open" : ""
           }${viewState.open ? " mcm-ifc-trigger--active" : ""}`}
-          aria-label="3D view"
-          title="3D view — mở mô hình IFC trong pane"
+          aria-label={t("ifc.trigger.aria")}
+          title={t("ifc.trigger.title")}
           onClick={() => setOpen((v) => !v)}
         >
           <div className="ToolIcon__icon">
@@ -134,22 +136,24 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
             ref={popoverRef}
             className="mcm-ifc-popover"
             role="dialog"
-            aria-label="Chọn mô hình IFC để mở"
+            aria-label={t("ifc.popover.aria")}
             // eslint-disable-next-line react/forbid-dom-props
             style={{ left: popoverPos.left, top: popoverPos.top }}
           >
             <div className="mcm-ifc-popover__header">
-              <span className="mcm-ifc-popover__title">IFC trên library</span>
+              <span className="mcm-ifc-popover__title">
+                {t("ifc.popover.title")}
+              </span>
               <span className="mcm-ifc-popover__hint">
-                Chọn để mở trong 3D view
+                {t("ifc.popover.hint")}
               </span>
             </div>
             <div className="mcm-ifc-popover__list">
               {ifcFiles.length === 0 ? (
                 <div className="mcm-ifc-popover__empty">
-                  Chưa có mô hình IFC nào trong library.
+                  {t("ifc.popover.emptyTitle")}
                   <br />
-                  Upload .ifc qua thanh library bên phải.
+                  {t("ifc.popover.emptyHint")}
                 </div>
               ) : (
                 ifcFiles.map((f) => {
@@ -174,7 +178,7 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
                       </span>
                       {isOpenTab && (
                         <span className="mcm-ifc-popover__item-tag">
-                          đang mở
+                          {t("ifc.popover.openTag")}
                         </span>
                       )}
                     </button>
@@ -200,6 +204,7 @@ type IFCContextMenuState = {
 };
 
 const RightClickTrigger = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
   const [menu, setMenu] = useState<IFCContextMenuState | null>(null);
@@ -317,7 +322,7 @@ const RightClickTrigger = () => {
         }}
       >
         <span aria-hidden>🗔</span>
-        <span>Mở trong 3D view</span>
+        <span>{t("ifc.menu.openInPane")}</span>
       </button>
       <button
         type="button"
@@ -326,7 +331,7 @@ const RightClickTrigger = () => {
         onClick={() => setMenu(null)}
       >
         <span aria-hidden>↩️</span>
-        <span>Huỷ</span>
+        <span>{t("ifc.menu.cancel")}</span>
       </button>
     </div>,
     document.body,

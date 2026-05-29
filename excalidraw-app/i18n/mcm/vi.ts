@@ -201,4 +201,200 @@ export const vi = {
     permissionDenied:
       "Chỉ {locker} (người ghim) hoặc {author} (người tải lên) có thể bỏ ghim.",
   },
+
+  // ---------------- IFC 3D viewer ----------------------------------
+  ifc: {
+    viewStyle: {
+      shaded: "Tô bóng",
+      shadedTitle: "Tô bóng — hiển thị màu gốc của từng cấu kiện",
+      clay: "Đất sét",
+      clayTitle: "Đất sét — phủ một màu xám đồng nhất",
+      wireframe: "Khung dây",
+      wireframeTitle: "Khung dây — chỉ hiển thị đường nét cạnh",
+      groupAria: "Kiểu hiển thị",
+      segmentTitle: "Kiểu hiển thị: {label}",
+    },
+    toolbar: {
+      fit: "Fit",
+      fitTitle: "Fit mô hình vào pane (đặt lại góc nhìn)",
+      fitInline: "Vừa khung",
+      fitInlineTitle: "Đặt lại góc nhìn — căn mô hình vừa khung",
+      storeys: "Tầng",
+      storeysNoneTitle: "Không có tầng nào",
+      storeysCountTitle: "{count} tầng — bấm để cô lập",
+      objects: "Đối tượng",
+      objectsNoneTitle: "Không có đối tượng nào",
+      objectsTitle: "Cây đối tượng — duyệt, chọn, ẩn/hiện",
+      measure: "Đo",
+      measureTitle: "Đo khoảng cách — bấm 2 điểm trên mô hình",
+      style: "Kiểu",
+      styleTitle: "Kiểu hiển thị — Tô bóng / Đất sét / Khung dây",
+      ghost: "Mờ nền",
+      ghostTitle: "Mờ nền — làm mờ mọi thứ trừ cấu kiện đang chọn",
+      exit: "Thoát",
+      exitTitle: "Thoát chế độ chỉnh 3D (ESC)",
+    },
+    section: {
+      button: "Mặt cắt",
+      buttonTitle: "Mặt cắt — chọn trục cắt và kéo mặt phẳng để cắt mô hình",
+      popoverAria: "Mặt cắt",
+      axisCutTitle: "Cắt theo trục {axis}",
+      axisToggleTitle:
+        "Mặt cắt trục {axis} — kéo mặt phẳng trong khung 3D để di chuyển",
+      flip: "Lật",
+      flipTitle: "Lật — đổi nửa không gian được giữ lại",
+      off: "Tắt",
+      offTitle: "Tắt mặt cắt",
+      plane: "Mặt phẳng",
+      planeHideTitle: "Ẩn mặt phẳng cắt (vẫn giữ lát cắt)",
+      planeShowTitle: "Hiện lại mặt phẳng cắt",
+      dragHint: "Kéo mặt phẳng cắt trong khung 3D để di chuyển.",
+    },
+    storey: {
+      panelAria: "Danh sách tầng",
+      title: "Tầng ({count})",
+      all: "Tất cả",
+      allTitle: "Hiện tất cả tầng",
+    },
+    browser: {
+      panelAria: "Cây đối tượng IFC",
+      showAllStoreys: "Hiện tất cả tầng",
+      showAllStoreysTitle: "Hiện tất cả tầng (bỏ cô lập)",
+      collapse: "Thu gọn",
+      expand: "Mở rộng",
+      isolate: "Cô lập",
+      isolateThisTitle: "Cô lập tầng này",
+      unisolateTitle: "Bỏ cô lập tầng",
+      showObject: "Hiện đối tượng",
+      hideObject: "Ẩn đối tượng",
+      noStorey: "(Không thuộc tầng)",
+      uncategorised: "(Không phân loại)",
+    },
+    props: {
+      panelAria: "Thuộc tính cấu kiện",
+      category: "Hạng mục",
+      family: "Họ",
+      type: "Loại",
+      typeName: "Kiểu",
+      name: "Tên",
+      overview: "Tổng quan",
+      properties: "Thuộc tính",
+      deselect: "Bỏ chọn",
+    },
+    status: {
+      waitingPeer: "Đang chờ file IFC từ peer…",
+      loading: "Đang tải mô hình 3D…",
+      loadError: "Không đọc được mô hình IFC: {message}",
+      capacity:
+        "Đã mở tối đa mô hình 3D cùng lúc. Đóng bớt 1 file khác để xem file này.",
+    },
+    pane: {
+      viewAria: "IFC 3D view",
+      resizeAria: "Đổi cỡ IFC 3D view",
+      closeAria: "Đóng IFC 3D view",
+      closeTitle: "Đóng",
+    },
+    tab: {
+      closeAria: "Đóng tab {name}",
+      closeTitle: "Đóng tab",
+    },
+    trigger: {
+      aria: "3D view",
+      title: "3D view — mở mô hình IFC trong pane",
+    },
+    popover: {
+      aria: "Chọn mô hình IFC để mở",
+      title: "IFC trên library",
+      hint: "Chọn để mở trong 3D view",
+      emptyTitle: "Chưa có mô hình IFC nào trong library.",
+      emptyHint: "Upload .ifc qua thanh library bên phải.",
+      openTag: "đang mở",
+    },
+    menu: {
+      edit3d: "Chỉnh 3D (xoay / zoom)",
+      openInPane: "Mở trong khung xem 3D",
+      resetView: "Đặt lại góc nhìn",
+      cancel: "Huỷ",
+    },
+  },
+
+  // ---------------- DXF / CAD viewer -------------------------------
+  cad: {
+    layers: {
+      button: "Layers",
+      loadingTitle: "Đang tải layers…",
+      countTitle: "{count} layer — bấm để ẩn/hiện",
+      title: "Layers ({count})",
+      panelAria: "DXF layers",
+      allOn: "Tất cả",
+      allOnTitle: "Bật tất cả",
+      allOff: "Không cái nào",
+      allOffTitle: "Tắt tất cả",
+    },
+    toolbar: {
+      fit: "Fit",
+      fitInlineTitle: "Đặt lại góc nhìn — căn DXF lại vào khung",
+      fitPaneTitle: "Fit DXF vào pane (đặt lại góc nhìn)",
+      exit: "Thoát",
+      exitTitle: "Thoát chế độ chỉnh DXF (ESC)",
+    },
+    lock: {
+      locked: "Đã khoá",
+      lock: "Khoá",
+      lockedTitle: "View đang khoá — bấm để mở khoá pan/zoom",
+      unlockedTitle: "Khoá view (chặn pan/zoom trong DXF)",
+    },
+    status: {
+      waitingPeer: "Đang chờ file DXF từ peer…",
+      loading: "Đang tải DXF…",
+      loadError: "Không đọc được DXF: {message}",
+      missing: "Không tìm thấy file DXF",
+      capacity:
+        "Đã mở tối đa DXF cùng lúc. Đóng bớt 1 file khác để xem file này.",
+    },
+    pane: {
+      viewAria: "CAD view",
+      resizeAria: "Đổi cỡ CAD view",
+      closeAria: "Đóng CAD view",
+      closeTitle: "Đóng",
+    },
+    tab: {
+      closeAria: "Đóng tab {name}",
+      closeTitle: "Đóng tab",
+    },
+    trigger: {
+      aria: "CAD view",
+      title: "CAD view — mở DXF trong pane",
+    },
+    popover: {
+      aria: "Chọn DXF để mở",
+      title: "DXF trên library",
+      hint: "Chọn để mở trong CAD view",
+      emptyTitle: "Chưa có file DXF nào trong library.",
+      emptyHint: "Upload .dxf qua thanh library bên phải.",
+      openTag: "đang mở",
+    },
+    menu: {
+      editDxf: "Chỉnh DXF (pan / zoom)",
+      resetFit: "Reset fit (về full view)",
+      openInView: "Mở trong CAD view",
+      cancel: "Huỷ",
+    },
+  },
+
+  // ---------------- Canvas bot tool --------------------------------
+  canvasBot: {
+    toolLabel: "Hỏi MCM Bot",
+    promptPlaceholder:
+      "Nhập yêu cầu cho bot… (vd: tóm tắt cuộc họp, liệt kê quyết định)",
+    send: "Gửi",
+    loading: "🤖 Đang xử lý…",
+    error: "Bot gặp lỗi, thử lại sau.",
+  },
+
+  // ---------------- Canvas authorship badges -----------------------
+  authors: {
+    toggleShow: "Hiện tác giả",
+    toggleHide: "Ẩn tác giả",
+  },
 } as const;

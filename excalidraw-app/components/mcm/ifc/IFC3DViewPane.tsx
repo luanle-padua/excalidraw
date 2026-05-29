@@ -28,6 +28,7 @@ import {
   setIfcViewWidth,
 } from "../../../data/ifcViewState";
 import { isIfcModelFile, meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { IFCRenderer } from "./IFCRenderer";
 
@@ -41,13 +42,14 @@ import type { IfcElementMeta, IfcMetadataPayload, IfcStorey } from "./ifcTypes";
 type SectionAxis = "x" | "y" | "z";
 
 // Render styles offered by the segmented control. Ghost is orthogonal and
-// kept as a separate toggle.
+// kept as a separate toggle. Labels are i18n key suffixes resolved through
+// `t()` at render time (`as const` keeps each key as its literal type).
 type ViewStyle = "shaded" | "clay" | "wireframe";
-const VIEW_STYLES: { id: ViewStyle; label: string }[] = [
-  { id: "shaded", label: "Tô bóng" },
-  { id: "clay", label: "Đất sét" },
-  { id: "wireframe", label: "Khung dây" },
-];
+const VIEW_STYLES = [
+  { id: "shaded", labelKey: "ifc.viewStyle.shaded" },
+  { id: "clay", labelKey: "ifc.viewStyle.clay" },
+  { id: "wireframe", labelKey: "ifc.viewStyle.wireframe" },
+] as const satisfies ReadonlyArray<{ id: ViewStyle; labelKey: string }>;
 
 const SECTION_AXES: SectionAxis[] = ["x", "y", "z"];
 const SECTION_LABEL: Record<SectionAxis, string> = {
@@ -57,8 +59,6 @@ const SECTION_LABEL: Record<SectionAxis, string> = {
 };
 
 const NO_STOREY_KEY = "__no_storey__";
-const NO_STOREY_LABEL = "(Không thuộc tầng)";
-const UNCATEGORISED_LABEL = "(Không phân loại)";
 
 // ----- Object-browser tree model ----------------------------------
 // Built once per active model from the metadata. Grouped storey →
@@ -84,7 +84,11 @@ type TreeStorey = {
 const leafLabel = (el: IfcElementMeta): string =>
   el.name || el.type || el.globalId;
 
-const buildTree = (metadata: IfcMetadataPayload): TreeStorey[] => {
+const buildTree = (
+  metadata: IfcMetadataPayload,
+  noStoreyLabel: string,
+  uncategorisedLabel: string,
+): TreeStorey[] => {
   const storeyOrder = [...metadata.storeys].sort(
     (a, b) => a.elevation - b.elevation,
   );
@@ -106,7 +110,7 @@ const buildTree = (metadata: IfcMetadataPayload): TreeStorey[] => {
 
   for (const el of Object.values(metadata.elements)) {
     const storeyKey = el.storeyId ?? NO_STOREY_KEY;
-    const catLabel = el.category || el.type || UNCATEGORISED_LABEL;
+    const catLabel = el.category || el.type || uncategorisedLabel;
     const cats = ensureStorey(storeyKey);
     let leaves = cats.get(catLabel);
     if (!leaves) {
@@ -143,7 +147,7 @@ const buildTree = (metadata: IfcMetadataPayload): TreeStorey[] => {
       result.push(node);
     }
   }
-  const noStorey = toStorey(NO_STOREY_KEY, null, NO_STOREY_LABEL);
+  const noStorey = toStorey(NO_STOREY_KEY, null, noStoreyLabel);
   if (noStorey) {
     result.push(noStorey);
   }
@@ -151,6 +155,7 @@ const buildTree = (metadata: IfcMetadataPayload): TreeStorey[] => {
 };
 
 export const IFC3DViewPane = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const state = useAtomValue(ifcViewStateAtom);
   const files = useAtomValue(meetingFilesAtom);
@@ -289,6 +294,8 @@ export const IFC3DViewPane = () => {
   const [storeyPanelOpen, setStoreyPanelOpen] = useState(false);
   const [activeStoreyId, setActiveStoreyId] = useState<string | null>(null);
   const [sectionAxis, setSectionAxis] = useState<SectionAxis | null>(null);
+  // Section plane visibility — hide the plane + gizmo but keep the cut.
+  const [sectionPlaneShown, setSectionPlaneShown] = useState(true);
   const [viewStyle, setViewStyle] = useState<ViewStyle>("shaded");
   const [measureOn, setMeasureOn] = useState(false);
   const [measureDist, setMeasureDist] = useState<number | null>(null);
@@ -406,10 +413,18 @@ export const IFC3DViewPane = () => {
       setSectionAxis(axis);
       controlsRef.current?.setSection(axis);
     }
+    // A fresh / cleared section always starts with its plane shown.
+    setSectionPlaneShown(true);
   };
 
   const flipSection = () => {
     controlsRef.current?.flipSection();
+  };
+
+  const toggleSectionPlane = () => {
+    const next = !sectionPlaneShown;
+    setSectionPlaneShown(next);
+    controlsRef.current?.setSectionPlaneVisible(next);
   };
 
   const toggleMeasure = () => {
@@ -436,6 +451,7 @@ export const IFC3DViewPane = () => {
     setStoreyPanelOpen(false);
     setActiveStoreyId(null);
     setSectionAxis(null);
+    setSectionPlaneShown(true);
     setViewStyle("shaded");
     setMeasureOn(false);
     setMeasureDist(null);
@@ -534,9 +550,20 @@ export const IFC3DViewPane = () => {
 
   // Object-browser tree, rebuilt only when the active model changes. Keyed
   // by fileId so a tab switch produces a fresh tree (cheap; lazy-rendered).
+  // Resolved once per render (stable per language) so the memo only
+  // rebuilds the tree when the model OR the language changes.
+  const noStoreyLabel = t("ifc.browser.noStorey");
+  const uncategorisedLabel = t("ifc.browser.uncategorised");
   const tree = useMemo(
-    () => (activeFile?.ifcMeta ? buildTree(activeFile.ifcMeta.metadata) : []),
-    [activeFile?.ifcMeta],
+    () =>
+      activeFile?.ifcMeta
+        ? buildTree(
+            activeFile.ifcMeta.metadata,
+            noStoreyLabel,
+            uncategorisedLabel,
+          )
+        : [],
+    [activeFile?.ifcMeta, noStoreyLabel, uncategorisedLabel],
   );
 
   if (!excalidrawAPI || !state.open || visibleFileIds.length === 0) {
@@ -548,7 +575,7 @@ export const IFC3DViewPane = () => {
   return (
     <aside
       className={`mcm-ifc-view${isResizing ? " mcm-ifc-view--resizing" : ""}`}
-      aria-label="IFC 3D view"
+      aria-label={t("ifc.pane.viewAria")}
       // width is data-driven (user-resizable).
       // eslint-disable-next-line react/forbid-dom-props
       style={{ width: effectiveWidth }}
@@ -563,7 +590,7 @@ export const IFC3DViewPane = () => {
         onPointerCancel={handleResizePointerUp}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize IFC 3D view"
+        aria-label={t("ifc.pane.resizeAria")}
       />
       <div className="mcm-ifc-view__header">
         <div className="mcm-ifc-view__tabs">
@@ -592,8 +619,8 @@ export const IFC3DViewPane = () => {
                     e.stopPropagation();
                     closeIfcFileTab(fid);
                   }}
-                  aria-label={`Đóng tab ${name}`}
-                  title="Đóng tab"
+                  aria-label={t("ifc.tab.closeAria", { name })}
+                  title={t("ifc.tab.closeTitle")}
                 >
                   ×
                 </button>
@@ -605,8 +632,8 @@ export const IFC3DViewPane = () => {
           type="button"
           className="mcm-ifc-view__close"
           onClick={() => closeIfcViewPane()}
-          aria-label="Đóng IFC 3D view"
-          title="Đóng"
+          aria-label={t("ifc.pane.closeAria")}
+          title={t("ifc.pane.closeTitle")}
         >
           ×
         </button>
@@ -619,10 +646,10 @@ export const IFC3DViewPane = () => {
           className="mcm-ifc-view__tool"
           onClick={handleFit}
           disabled={!ready}
-          title="Fit mô hình vào pane (reset view)"
+          title={t("ifc.toolbar.fitTitle")}
         >
           <span aria-hidden>↻</span>
-          <span>Fit</span>
+          <span>{t("ifc.toolbar.fit")}</span>
         </button>
         <button
           type="button"
@@ -633,12 +660,12 @@ export const IFC3DViewPane = () => {
           disabled={!ready || storeys.length === 0}
           title={
             storeys.length === 0
-              ? "Không có tầng nào"
-              : `${storeys.length} tầng — bấm để cô lập`
+              ? t("ifc.toolbar.storeysNoneTitle")
+              : t("ifc.toolbar.storeysCountTitle", { count: storeys.length })
           }
         >
           <span aria-hidden>🏢</span>
-          <span>Tầng</span>
+          <span>{t("ifc.toolbar.storeys")}</span>
           {storeys.length > 0 && (
             <span className="mcm-ifc-view__tool-badge">{storeys.length}</span>
           )}
@@ -652,18 +679,18 @@ export const IFC3DViewPane = () => {
           disabled={!ready || tree.length === 0}
           title={
             tree.length === 0
-              ? "Không có đối tượng nào"
-              : "Cây đối tượng — duyệt, chọn, ẩn/hiện"
+              ? t("ifc.toolbar.objectsNoneTitle")
+              : t("ifc.toolbar.objectsTitle")
           }
         >
           <span aria-hidden>🗂</span>
-          <span>Đối tượng</span>
+          <span>{t("ifc.toolbar.objects")}</span>
         </button>
         {/* View-style segmented control — orthogonal to the Ghost toggle. */}
         <div
           className="mcm-ifc-view__segmented"
           role="group"
-          aria-label="Kiểu hiển thị"
+          aria-label={t("ifc.viewStyle.groupAria")}
         >
           {VIEW_STYLES.map((vs) => (
             <button
@@ -675,9 +702,11 @@ export const IFC3DViewPane = () => {
               onClick={() => selectViewStyle(vs.id)}
               disabled={!ready}
               aria-pressed={viewStyle === vs.id}
-              title={`Kiểu hiển thị: ${vs.label}`}
+              title={t("ifc.viewStyle.segmentTitle", {
+                label: t(vs.labelKey),
+              })}
             >
-              {vs.label}
+              {t(vs.labelKey)}
             </button>
           ))}
         </div>
@@ -686,7 +715,7 @@ export const IFC3DViewPane = () => {
         <div
           className="mcm-ifc-view__section-group"
           role="group"
-          aria-label="Mặt cắt"
+          aria-label={t("ifc.section.popoverAria")}
         >
           <span className="mcm-ifc-view__section-label" aria-hidden>
             ✂️
@@ -701,7 +730,9 @@ export const IFC3DViewPane = () => {
               onClick={() => toggleSection(axis)}
               disabled={!ready}
               aria-pressed={sectionAxis === axis}
-              title={`Mặt cắt trục ${SECTION_LABEL[axis]} — kéo mặt phẳng trong khung 3D để di chuyển`}
+              title={t("ifc.section.axisToggleTitle", {
+                axis: SECTION_LABEL[axis],
+              })}
             >
               {SECTION_LABEL[axis]}
             </button>
@@ -711,10 +742,26 @@ export const IFC3DViewPane = () => {
             className="mcm-ifc-view__tool mcm-ifc-view__tool--flip"
             onClick={flipSection}
             disabled={!ready || sectionAxis === null}
-            title="Lật mặt cắt — đổi nửa không gian giữ lại"
+            title={t("ifc.section.flipTitle")}
           >
             <span aria-hidden>🔁</span>
-            <span>Lật</span>
+            <span>{t("ifc.section.flip")}</span>
+          </button>
+          <button
+            type="button"
+            className={`mcm-ifc-view__tool${
+              !sectionPlaneShown ? " mcm-ifc-view__tool--active" : ""
+            }`}
+            onClick={toggleSectionPlane}
+            disabled={!ready || sectionAxis === null}
+            title={
+              sectionPlaneShown
+                ? t("ifc.section.planeHideTitle")
+                : t("ifc.section.planeShowTitle")
+            }
+          >
+            <span aria-hidden>{sectionPlaneShown ? "👁" : "🚫"}</span>
+            <span>{t("ifc.section.plane")}</span>
           </button>
         </div>
         <button
@@ -724,10 +771,10 @@ export const IFC3DViewPane = () => {
           }`}
           onClick={toggleMeasure}
           disabled={!ready}
-          title="Đo khoảng cách — bấm 2 điểm trên mô hình"
+          title={t("ifc.toolbar.measureTitle")}
         >
           <span aria-hidden>📏</span>
-          <span>Đo</span>
+          <span>{t("ifc.toolbar.measure")}</span>
         </button>
         <button
           type="button"
@@ -736,10 +783,10 @@ export const IFC3DViewPane = () => {
           }`}
           onClick={toggleGhost}
           disabled={!ready}
-          title="Ghost — làm mờ mọi thứ trừ phần đang chọn"
+          title={t("ifc.toolbar.ghostTitle")}
         >
           <span aria-hidden>👻</span>
-          <span>Ghost</span>
+          <span>{t("ifc.toolbar.ghost")}</span>
         </button>
         {measureOn && measureDist !== null && (
           <span className="mcm-ifc-view__measure-readout" aria-live="polite">
@@ -748,7 +795,7 @@ export const IFC3DViewPane = () => {
         )}
         {sectionAxis !== null && (
           <span className="mcm-ifc-view__section-hint" aria-live="polite">
-            Kéo mặt phẳng cắt trong khung 3D để di chuyển.
+            {t("ifc.section.dragHint")}
           </span>
         )}
       </div>
@@ -776,11 +823,11 @@ export const IFC3DViewPane = () => {
           <div
             className="mcm-ifc-view__storey-panel"
             role="dialog"
-            aria-label="Tầng IFC"
+            aria-label={t("ifc.storey.panelAria")}
           >
             <div className="mcm-ifc-view__storey-panel-header">
               <span className="mcm-ifc-view__storey-panel-title">
-                Tầng ({storeys.length})
+                {t("ifc.storey.title", { count: storeys.length })}
               </span>
             </div>
             <div className="mcm-ifc-view__storey-list">
@@ -792,9 +839,11 @@ export const IFC3DViewPane = () => {
                     : ""
                 }`}
                 onClick={() => isolateStorey(null)}
-                title="Hiện tất cả tầng"
+                title={t("ifc.storey.allTitle")}
               >
-                <span className="mcm-ifc-view__storey-name">Tất cả</span>
+                <span className="mcm-ifc-view__storey-name">
+                  {t("ifc.storey.all")}
+                </span>
               </button>
               {storeys.map((s) => {
                 const isActive = activeStoreyId === s.id;
@@ -825,17 +874,19 @@ export const IFC3DViewPane = () => {
           <div
             className="mcm-ifc-view__browser-panel"
             role="dialog"
-            aria-label="Cây đối tượng IFC"
+            aria-label={t("ifc.browser.panelAria")}
           >
             <div className="mcm-ifc-view__browser-header">
-              <span className="mcm-ifc-view__browser-title">Đối tượng</span>
+              <span className="mcm-ifc-view__browser-title">
+                {t("ifc.toolbar.objects")}
+              </span>
               <button
                 type="button"
                 className="mcm-ifc-view__props-close"
                 onClick={() => isolateStorey(null)}
-                title="Hiện tất cả tầng (bỏ cô lập)"
+                title={t("ifc.browser.showAllStoreysTitle")}
               >
-                Hiện tất cả tầng
+                {t("ifc.browser.showAllStoreys")}
               </button>
             </div>
             <div className="mcm-ifc-view__browser-tree">
@@ -852,7 +903,11 @@ export const IFC3DViewPane = () => {
                         className="mcm-ifc-view__tree-twisty"
                         onClick={() => toggleStoreyExpanded(storey.key)}
                         aria-expanded={storeyExpanded}
-                        title={storeyExpanded ? "Thu gọn" : "Mở rộng"}
+                        title={
+                          storeyExpanded
+                            ? t("ifc.browser.collapse")
+                            : t("ifc.browser.expand")
+                        }
                       >
                         {storeyExpanded ? "▾" : "▸"}
                       </button>
@@ -877,10 +932,12 @@ export const IFC3DViewPane = () => {
                             isolateStorey(isIsolated ? null : storey.storeyId)
                           }
                           title={
-                            isIsolated ? "Bỏ cô lập tầng" : "Cô lập tầng này"
+                            isIsolated
+                              ? t("ifc.browser.unisolateTitle")
+                              : t("ifc.browser.isolateThisTitle")
                           }
                         >
-                          Cô lập
+                          {t("ifc.browser.isolate")}
                         </button>
                       )}
                     </div>
@@ -895,7 +952,11 @@ export const IFC3DViewPane = () => {
                                 className="mcm-ifc-view__tree-twisty"
                                 onClick={() => toggleCatExpanded(cat.key)}
                                 aria-expanded={catExpanded}
-                                title={catExpanded ? "Thu gọn" : "Mở rộng"}
+                                title={
+                                  catExpanded
+                                    ? t("ifc.browser.collapse")
+                                    : t("ifc.browser.expand")
+                                }
                               >
                                 {catExpanded ? "▾" : "▸"}
                               </button>
@@ -941,8 +1002,8 @@ export const IFC3DViewPane = () => {
                                       aria-pressed={isHidden}
                                       title={
                                         isHidden
-                                          ? "Hiện đối tượng"
-                                          : "Ẩn đối tượng"
+                                          ? t("ifc.browser.showObject")
+                                          : t("ifc.browser.hideObject")
                                       }
                                     >
                                       {isHidden ? "🚫" : "👁"}
@@ -964,7 +1025,7 @@ export const IFC3DViewPane = () => {
           <div
             className="mcm-ifc-view__props-panel"
             role="dialog"
-            aria-label="Thuộc tính phần tử"
+            aria-label={t("ifc.props.panelAria")}
           >
             <div className="mcm-ifc-view__props-header">
               <span
@@ -981,38 +1042,50 @@ export const IFC3DViewPane = () => {
                   setSelected(null);
                   setSelectedId(null);
                 }}
-                aria-label="Bỏ chọn"
-                title="Bỏ chọn"
+                aria-label={t("ifc.props.deselect")}
+                title={t("ifc.props.deselect")}
               >
                 ×
               </button>
             </div>
             <div className="mcm-ifc-view__props-body">
-              <div className="mcm-ifc-view__props-section-label">Tổng quan</div>
+              <div className="mcm-ifc-view__props-section-label">
+                {t("ifc.props.overview")}
+              </div>
               <div className="mcm-ifc-view__props-row">
-                <span className="mcm-ifc-view__props-key">Tên</span>
+                <span className="mcm-ifc-view__props-key">
+                  {t("ifc.props.name")}
+                </span>
                 <span className="mcm-ifc-view__props-val">
                   {selected.name || "—"}
                 </span>
               </div>
               <div className="mcm-ifc-view__props-row">
-                <span className="mcm-ifc-view__props-key">Loại</span>
+                <span className="mcm-ifc-view__props-key">
+                  {t("ifc.props.type")}
+                </span>
                 <span className="mcm-ifc-view__props-val">{selected.type}</span>
               </div>
               <div className="mcm-ifc-view__props-row">
-                <span className="mcm-ifc-view__props-key">Danh mục</span>
+                <span className="mcm-ifc-view__props-key">
+                  {t("ifc.props.category")}
+                </span>
                 <span className="mcm-ifc-view__props-val">
                   {selected.category || "—"}
                 </span>
               </div>
               <div className="mcm-ifc-view__props-row">
-                <span className="mcm-ifc-view__props-key">Họ</span>
+                <span className="mcm-ifc-view__props-key">
+                  {t("ifc.props.family")}
+                </span>
                 <span className="mcm-ifc-view__props-val">
                   {selected.family || "—"}
                 </span>
               </div>
               <div className="mcm-ifc-view__props-row">
-                <span className="mcm-ifc-view__props-key">Kiểu</span>
+                <span className="mcm-ifc-view__props-key">
+                  {t("ifc.props.typeName")}
+                </span>
                 <span className="mcm-ifc-view__props-val">
                   {selected.typeName || "—"}
                 </span>
@@ -1021,7 +1094,7 @@ export const IFC3DViewPane = () => {
               {Object.keys(selected.props).length > 0 && (
                 <>
                   <div className="mcm-ifc-view__props-section-label">
-                    Thuộc tính
+                    {t("ifc.props.properties")}
                   </div>
                   {Object.entries(selected.props).map(([k, v]) => (
                     <div key={k} className="mcm-ifc-view__props-row">

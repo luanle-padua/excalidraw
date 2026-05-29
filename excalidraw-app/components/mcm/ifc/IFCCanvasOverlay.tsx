@@ -30,6 +30,7 @@ import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 import { useAtomValue } from "../../../app-jotai";
 import { meetingFilesAtom, isIfcModelFile } from "../../../data/meetingLibrary";
 import { openFileInIfcView } from "../../../data/ifcViewState";
+import { useT } from "../../../i18n/mcm";
 
 import { IFCRenderer } from "./IFCRenderer";
 import { isIfcAnchorElement } from "./ifcAnchor";
@@ -128,28 +129,35 @@ const SECTION_LABEL: Record<"x" | "y" | "z", string> = {
   z: "Z",
 };
 
-/** Render styles offered by the engine, with their Vietnamese labels.
- *  Order = the segmented-control order in the view-style popover. */
+/** Render styles offered by the engine, with i18n key suffixes for their
+ *  label + tooltip. Order = the segmented-control order in the view-style
+ *  popover. Resolved through `t()` at render time. `as const` keeps each
+ *  key as its string-literal type so it satisfies `t()`'s key param. */
 type ViewStyle = "shaded" | "clay" | "wireframe";
-const VIEW_STYLES: Array<{ id: ViewStyle; label: string; title: string }> = [
+const VIEW_STYLES = [
   {
     id: "shaded",
-    label: "Tô bóng",
-    title: "Tô bóng — hiển thị màu gốc của từng cấu kiện",
+    labelKey: "ifc.viewStyle.shaded",
+    titleKey: "ifc.viewStyle.shadedTitle",
   },
   {
     id: "clay",
-    label: "Đất sét",
-    title: "Đất sét — phủ một màu xám đồng nhất",
+    labelKey: "ifc.viewStyle.clay",
+    titleKey: "ifc.viewStyle.clayTitle",
   },
   {
     id: "wireframe",
-    label: "Khung dây",
-    title: "Khung dây — chỉ hiển thị đường nét cạnh",
+    labelKey: "ifc.viewStyle.wireframe",
+    titleKey: "ifc.viewStyle.wireframeTitle",
   },
-];
+] as const satisfies ReadonlyArray<{
+  id: ViewStyle;
+  labelKey: string;
+  titleKey: string;
+}>;
 
 export const IFCCanvasOverlay = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
 
@@ -712,7 +720,7 @@ export const IFCCanvasOverlay = () => {
             >
               {!known ? (
                 <div className="mcm-ifc-layer__waiting">
-                  Đang chờ file IFC từ peer…
+                  {t("ifc.status.waitingPeer")}
                 </div>
               ) : file && file.ifcMeta ? (
                 <IFCRenderer
@@ -762,12 +770,12 @@ export const IFCCanvasOverlay = () => {
                 <div
                   className="mcm-ifc-layer__storey-panel"
                   role="dialog"
-                  aria-label="Danh sách tầng"
+                  aria-label={t("ifc.storey.panelAria")}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="mcm-ifc-layer__storey-panel-header">
                     <span className="mcm-ifc-layer__storey-panel-title">
-                      Tầng ({storeys.length})
+                      {t("ifc.storey.title", { count: storeys.length })}
                     </span>
                   </div>
                   <div className="mcm-ifc-layer__storey-list">
@@ -785,7 +793,9 @@ export const IFCCanvasOverlay = () => {
                         setIsolatedStoreyId(null);
                       }}
                     >
-                      <span className="mcm-ifc-layer__storey-name">Tất cả</span>
+                      <span className="mcm-ifc-layer__storey-name">
+                        {t("ifc.storey.all")}
+                      </span>
                     </button>
                     {storeys.map((s) => (
                       <button
@@ -821,7 +831,7 @@ export const IFCCanvasOverlay = () => {
                 <div
                   className="mcm-ifc-layer__props"
                   role="dialog"
-                  aria-label="Thuộc tính cấu kiện"
+                  aria-label={t("ifc.props.panelAria")}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="mcm-ifc-layer__props-header">
@@ -836,7 +846,7 @@ export const IFCCanvasOverlay = () => {
                     {selected.category && (
                       <div className="mcm-ifc-layer__props-row">
                         <span className="mcm-ifc-layer__props-label">
-                          Hạng mục
+                          {t("ifc.props.category")}
                         </span>
                         <span className="mcm-ifc-layer__props-value">
                           {selected.category}
@@ -846,7 +856,7 @@ export const IFCCanvasOverlay = () => {
                     {selected.family && (
                       <div className="mcm-ifc-layer__props-row">
                         <span className="mcm-ifc-layer__props-label">
-                          Họ cấu kiện
+                          {t("ifc.props.family")}
                         </span>
                         <span className="mcm-ifc-layer__props-value">
                           {selected.family}
@@ -855,7 +865,9 @@ export const IFCCanvasOverlay = () => {
                     )}
                     {selected.typeName && (
                       <div className="mcm-ifc-layer__props-row">
-                        <span className="mcm-ifc-layer__props-label">Loại</span>
+                        <span className="mcm-ifc-layer__props-label">
+                          {t("ifc.props.type")}
+                        </span>
                         <span className="mcm-ifc-layer__props-value">
                           {selected.typeName}
                         </span>
@@ -883,9 +895,9 @@ export const IFCCanvasOverlay = () => {
                     e.stopPropagation();
                     controlsRef.current.get(a.elementId)?.fitToModel();
                   }}
-                  title="Đặt lại góc nhìn — căn mô hình vừa khung"
+                  title={t("ifc.toolbar.fitInlineTitle")}
                 >
-                  ↻ Vừa khung
+                  ↻ {t("ifc.toolbar.fitInline")}
                 </button>
                 <button
                   type="button"
@@ -899,11 +911,13 @@ export const IFCCanvasOverlay = () => {
                   disabled={storeys.length === 0}
                   title={
                     storeys.length === 0
-                      ? "Không có tầng"
-                      : `${storeys.length} tầng — chọn để cô lập`
+                      ? t("ifc.toolbar.storeysNoneTitle")
+                      : t("ifc.toolbar.storeysCountTitle", {
+                          count: storeys.length,
+                        })
                   }
                 >
-                  🏢 Tầng
+                  🏢 {t("ifc.toolbar.storeys")}
                 </button>
                 <div className="mcm-ifc-layer__tool-wrap">
                   <button
@@ -918,16 +932,16 @@ export const IFCCanvasOverlay = () => {
                       setViewStylePanelOpen(false);
                       setSectionPanelOpen((p) => !p);
                     }}
-                    title="Mặt cắt — chọn trục cắt và kéo mặt phẳng để cắt mô hình"
+                    title={t("ifc.section.buttonTitle")}
                   >
-                    ✂️ Mặt cắt
+                    ✂️ {t("ifc.section.button")}
                     {sectionAxis ? ` ${SECTION_LABEL[sectionAxis]}` : ""}
                   </button>
                   {sectionPanelOpen && (
                     <div
                       className="mcm-ifc-layer__menu mcm-ifc-layer__menu--section"
                       role="dialog"
-                      aria-label="Mặt cắt"
+                      aria-label={t("ifc.section.popoverAria")}
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       <div className="mcm-ifc-layer__menu-row">
@@ -947,7 +961,9 @@ export const IFCCanvasOverlay = () => {
                                 ?.setSection(axis);
                               setSectionAxis(axis);
                             }}
-                            title={`Cắt theo trục ${SECTION_LABEL[axis]}`}
+                            title={t("ifc.section.axisCutTitle", {
+                              axis: SECTION_LABEL[axis],
+                            })}
                           >
                             {SECTION_LABEL[axis]}
                           </button>
@@ -962,9 +978,9 @@ export const IFCCanvasOverlay = () => {
                             controlsRef.current.get(a.elementId)?.flipSection();
                           }}
                           disabled={sectionAxis === null}
-                          title="Lật — đổi nửa không gian được giữ lại"
+                          title={t("ifc.section.flipTitle")}
                         >
-                          ⇄ Lật
+                          ⇄ {t("ifc.section.flip")}
                         </button>
                         <button
                           type="button"
@@ -977,9 +993,9 @@ export const IFCCanvasOverlay = () => {
                             setSectionAxis(null);
                           }}
                           disabled={sectionAxis === null}
-                          title="Tắt mặt cắt"
+                          title={t("ifc.section.offTitle")}
                         >
-                          Tắt
+                          {t("ifc.section.off")}
                         </button>
                       </div>
                     </div>
@@ -999,9 +1015,9 @@ export const IFCCanvasOverlay = () => {
                       setMeasureDist(null);
                     }
                   }}
-                  title="Đo khoảng cách — bấm 2 điểm trên mô hình"
+                  title={t("ifc.toolbar.measureTitle")}
                 >
-                  📏 Đo
+                  📏 {t("ifc.toolbar.measure")}
                 </button>
                 <div className="mcm-ifc-layer__tool-wrap">
                   <button
@@ -1014,15 +1030,15 @@ export const IFCCanvasOverlay = () => {
                       setSectionPanelOpen(false);
                       setViewStylePanelOpen((p) => !p);
                     }}
-                    title="Kiểu hiển thị — Tô bóng / Đất sét / Khung dây"
+                    title={t("ifc.toolbar.styleTitle")}
                   >
-                    🎨 Kiểu
+                    🎨 {t("ifc.toolbar.style")}
                   </button>
                   {viewStylePanelOpen && (
                     <div
                       className="mcm-ifc-layer__menu mcm-ifc-layer__menu--style"
                       role="dialog"
-                      aria-label="Kiểu hiển thị"
+                      aria-label={t("ifc.viewStyle.groupAria")}
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       <div className="mcm-ifc-layer__menu-row">
@@ -1042,9 +1058,9 @@ export const IFCCanvasOverlay = () => {
                                 ?.setViewStyle(s.id);
                               setViewStyle(s.id);
                             }}
-                            title={s.title}
+                            title={t(s.titleKey)}
                           >
-                            {s.label}
+                            {t(s.labelKey)}
                           </button>
                         ))}
                       </div>
@@ -1062,9 +1078,9 @@ export const IFCCanvasOverlay = () => {
                     controlsRef.current.get(a.elementId)?.setGhost(next);
                     setGhostOn(next);
                   }}
-                  title="Mờ nền — làm mờ mọi thứ trừ cấu kiện đang chọn"
+                  title={t("ifc.toolbar.ghostTitle")}
                 >
-                  👻 Mờ nền
+                  👻 {t("ifc.toolbar.ghost")}
                 </button>
                 <button
                   type="button"
@@ -1073,9 +1089,9 @@ export const IFCCanvasOverlay = () => {
                     e.stopPropagation();
                     void exitFocusRef.current?.(null);
                   }}
-                  title="Thoát chế độ chỉnh 3D (ESC)"
+                  title={t("ifc.toolbar.exitTitle")}
                 >
-                  × Thoát
+                  × {t("ifc.toolbar.exit")}
                 </button>
               </div>
             )}
@@ -1114,7 +1130,7 @@ export const IFCCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">🧊</span>
-                <span>Chỉnh 3D (xoay / zoom)</span>
+                <span>{t("ifc.menu.edit3d")}</span>
               </button>
               <button
                 type="button"
@@ -1126,7 +1142,7 @@ export const IFCCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">🗔</span>
-                <span>Mở trong khung xem 3D</span>
+                <span>{t("ifc.menu.openInPane")}</span>
               </button>
               <button
                 type="button"
@@ -1138,7 +1154,7 @@ export const IFCCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">↻</span>
-                <span>Đặt lại góc nhìn</span>
+                <span>{t("ifc.menu.resetView")}</span>
               </button>
               <button
                 type="button"
@@ -1147,7 +1163,7 @@ export const IFCCanvasOverlay = () => {
                 onClick={() => setContextMenu(null)}
               >
                 <span aria-hidden="true">↩️</span>
-                <span>Huỷ</span>
+                <span>{t("ifc.menu.cancel")}</span>
               </button>
             </div>
           );

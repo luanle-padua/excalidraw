@@ -43,8 +43,17 @@ const KINDS: ReadonlyArray<{
   kind: Kind;
   label: string;
   assets: readonly string[];
+  /** Optional toolbar-button icon; defaults to assets[0]. */
+  icon?: string;
 }> = [
-  { kind: "sticker", label: "Stickers", assets: STICKER_ASSETS },
+  {
+    kind: "sticker",
+    label: "Stickers",
+    assets: STICKER_ASSETS,
+    // Use a colourful MAP character instead of the plain hand-drawn 01.png
+    // so the toolbar button reads clearly as "stickers".
+    icon: "/decorations/stickers/02.png",
+  },
   { kind: "stamp", label: "Stamps", assets: STAMP_ASSETS },
 ];
 
@@ -457,8 +466,8 @@ export const StickerPicker = () => {
             via a portal, so they sit next to the shape buttons. */}
       {createPortal(
         <>
-          {KINDS.map(({ kind, label, assets }) => {
-            const previewSrc = assets[0]; // first asset acts as the icon
+          {KINDS.map(({ kind, label, assets, icon }) => {
+            const previewSrc = icon ?? assets[0]; // per-kind icon override
             const isOpen = openKind === kind;
             return (
               <button

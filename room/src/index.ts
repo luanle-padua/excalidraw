@@ -48,7 +48,7 @@ const port =
 app.use(express.static("public"));
 // Chat translation accepts JSON bodies — the rest of the server uses
 // socket.io binary frames so this is opt-in to that one endpoint.
-app.use(express.json({ limit: "32kb" }));
+app.use(express.json({ limit: "2mb" }));
 
 app.get("/", (req, res) => {
   res.send("Excalidraw collaboration server is up :)");
@@ -476,6 +476,8 @@ type ChatbotRequestBody = {
   question?: unknown;
   language?: unknown;
   recent?: unknown;
+  transcript?: unknown;
+  canvasText?: unknown;
 };
 
 const ASSISTANT_LANGUAGE_NAMES: Record<string, string> = {
@@ -487,9 +489,17 @@ const ASSISTANT_LANGUAGE_NAMES: Record<string, string> = {
 const CHATBOT_SYSTEM_PROMPT = `You are MCM Bot, an AI assistant embedded in a live architecture/construction design review meeting.
 
 Context the participants share:
-- A canvas (floor plans, renders, annotations, revision clouds)
-- A chat panel where this conversation happens
+- A canvas (floor plans, renders, annotations). You receive the TEXT on it
+  (labels, dimensions, drawing/file names) — you do NOT see the images, so
+  never claim to "see" a drawing; reason from the text and from what was said.
+- A voice transcript of what is being said out loud in the meeting.
+- A chat panel where this conversation happens.
 - Mixed Vietnamese / Korean / English team
+
+Attribution — who said what:
+- Chat lines, voice transcript lines, AND canvas notes are labeled "Name: text". When asked WHO said / asked / proposed / suggested / objected to something, ATTRIBUTE it to that labeled name. The answer is usually right there in a labeled line — do NOT reflexively reply "I don't have that info". In particular, people frequently discuss by writing notes directly ON the canvas, so a labeled canvas note like "luan: cần thêm kính không?" means LUAN asked that.
+- Treat a question someone asked as that person RAISING the topic. E.g. if "Ivan: does this facade need more glass?" appears, then Ivan is the one who brought up adding glass; "không cần đâu vì nắng" from Ivan means Ivan argued against more glass.
+- Only say "Mình chưa có thông tin đó" when NO labeled line in the chat or transcript covers it — never as a default.
 
 Style:
 - Reply in {USER_LANGUAGE}. Match the register (formal vs casual) of the question.
@@ -497,6 +507,7 @@ Style:
 - Use proper industry terminology (load-bearing wall → vách chịu lực / 내력벽, NOT "wall").
 - If the user's question lacks context to answer well, say so briefly and ask ONE clarifying question.
 - Never invent facts about the specific project. If unsure, say "Mình chưa có thông tin đó" / "I don't have that info" / "그 정보가 없습니다".
+- If a question needs visual detail you can't get from text (e.g. "is this window placement ok?"), say you can't see the drawing itself and ask ONE clarifying question.
 - Don't preface with "Bot:" or your name — just answer.
 - Don't use markdown headings. Bold sparingly.
 
@@ -516,6 +527,27 @@ app.post("/chatbot", async (req, res) => {
   const recent = Array.isArray(body?.recent)
     ? (body!.recent as ChatbotContextMessage[]).slice(-10)
     : [];
+  const transcript = Array.isArray(body?.transcript)
+    ? (body!.transcript as Array<{
+        speaker?: string;
+        text?: string;
+        lang?: string;
+      }>)
+    : [];
+  // Soft safety cap — keep the latest segments if a very long meeting
+  // would otherwise produce a pathological payload. Mirrors /summarize.
+  const MAX_TRANSCRIPT = 3000;
+  const transcriptCapped =
+    transcript.length > MAX_TRANSCRIPT
+      ? transcript.slice(-MAX_TRANSCRIPT)
+      : transcript;
+  const canvasText = Array.isArray(body?.canvasText)
+    ? (body!.canvasText as unknown[])
+        .filter(
+          (t): t is string => typeof t === "string" && t.trim().length > 0,
+        )
+        .slice(0, 40)
+    : [];
 
   if (!question) {
     res.status(400).json({ error: "Missing question" });
@@ -532,13 +564,40 @@ app.post("/chatbot", async (req, res) => {
     targetLangName,
   );
 
-  const transcriptLines = recent
+  const chatLines = recent
     .filter((m) => typeof m?.text === "string" && m.text!.trim())
     .map((m) => `${m.username || "Guest"}: ${m.text}`)
     .join("\n");
 
-  const userPrompt = transcriptLines
-    ? `Recent chat (for context only — do NOT summarise it back unless asked):\n${transcriptLines}\n\nNew question:\n${question}`
+  const voiceLines = transcriptCapped
+    .filter((s) => typeof s?.text === "string" && s.text!.trim())
+    .map(
+      (s) =>
+        `${s.speaker || "Speaker"}${s.lang ? ` (${s.lang})` : ""}: ${s.text}`,
+    )
+    .join("\n");
+
+  const canvasLines = canvasText.join("\n");
+
+  const contextBlocks: string[] = [];
+  if (canvasLines) {
+    contextBlocks.push(
+      `Notes/text on the canvas. Participant notes are labeled "Name: text" (people often discuss by writing on the canvas, not just in chat) — attribute them to that name. Unlabeled lines are plain labels/dimensions/drawing or file names:\n${canvasLines}`,
+    );
+  }
+  if (voiceLines) {
+    contextBlocks.push(
+      `Voice transcript of the meeting so far (oldest first):\n${voiceLines}`,
+    );
+  }
+  if (chatLines) {
+    contextBlocks.push(`Recent chat messages:\n${chatLines}`);
+  }
+
+  const userPrompt = contextBlocks.length
+    ? `${contextBlocks.join(
+        "\n\n",
+      )}\n\n(The above is context only — do NOT summarise it back unless asked.)\n\nNew question:\n${question}`
     : `New question:\n${question}`;
 
   const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
@@ -596,6 +655,8 @@ const SUMMARY_SYSTEM_PROMPT = `You are a meeting recap assistant for a multiling
 
 Given the full transcript (a list of {speaker, text, lang, ts} segments — speakers may have spoken in different languages), produce a STRUCTURED recap.
 
+Besides the transcript, the input MAY also include chat messages and text taken from the meeting canvas (labels, dimensions, drawing/file names); treat all of it as source material for the same structured recap.
+
 OUTPUT (JSON, no markdown):
 {
   "summary":   "3-6 sentence overview of what was discussed. Plain prose, in the requested OUTPUT LANGUAGE.",
@@ -630,6 +691,8 @@ app.post("/summarize", async (req, res) => {
           lang?: string;
           ts?: number;
         }>;
+        chat?: Array<{ username?: string; text?: string }>;
+        canvasText?: unknown;
         language?: string;
       }
     | undefined;
@@ -650,8 +713,32 @@ app.post("/summarize", async (req, res) => {
       ts: typeof s.ts === "number" ? s.ts : undefined,
     }));
 
-  if (cleanSegments.length === 0) {
-    res.status(400).json({ error: "No transcript segments to summarise" });
+  const chat = Array.isArray(body?.chat)
+    ? body!.chat
+        .filter(
+          (m): m is { username?: string; text: string } =>
+            !!m && typeof m.text === "string" && m.text.trim().length > 0,
+        )
+        .map((m) => ({
+          username: (m.username || "Guest").slice(0, 60),
+          text: m.text.slice(0, 2000),
+        }))
+    : [];
+  const canvasText = Array.isArray(body?.canvasText)
+    ? (body!.canvasText as unknown[])
+        .filter(
+          (x): x is string => typeof x === "string" && x.trim().length > 0,
+        )
+        .slice(0, 40)
+        .map((s) => s.slice(0, 200))
+    : [];
+
+  if (
+    cleanSegments.length === 0 &&
+    chat.length === 0 &&
+    canvasText.length === 0
+  ) {
+    res.status(400).json({ error: "No content to summarise" });
     return;
   }
 
@@ -670,15 +757,26 @@ app.post("/summarize", async (req, res) => {
       ? cleanSegments.slice(cleanSegments.length - MAX_SEGMENTS)
       : cleanSegments;
 
-  const userPrompt = `OUTPUT LANGUAGE: ${languageName}
+  const transcriptBlock = trimmed.length
+    ? `\n\nTRANSCRIPT (${trimmed.length} segments):\n${trimmed
+        .map(
+          (s, i) =>
+            `${i + 1}. [${s.speaker}${s.lang ? `, ${s.lang}` : ""}] ${s.text}`,
+        )
+        .join("\n")}`
+    : "";
+  const chatBlock = chat.length
+    ? `\n\nCHAT MESSAGES:\n${chat.map((m) => `${m.username}: ${m.text}`).join("\n")}`
+    : "";
+  const canvasBlock = canvasText.length
+    ? `\n\nNOTES/TEXT ON CANVAS (participant notes labeled "Name: text" — attribute to that person; unlabeled lines are plain labels/dimensions/file names):\n${canvasText.join("\n")}`
+    : "";
 
-TRANSCRIPT (${trimmed.length} segments):
-${trimmed
-  .map(
-    (s, i) =>
-      `${i + 1}. [${s.speaker}${s.lang ? `, ${s.lang}` : ""}] ${s.text}`,
-  )
-  .join("\n")}`;
+  const userPrompt =
+    `OUTPUT LANGUAGE: ${languageName}` +
+    transcriptBlock +
+    chatBlock +
+    canvasBlock;
 
   const model = process.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
 

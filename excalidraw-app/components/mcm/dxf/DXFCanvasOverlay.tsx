@@ -21,6 +21,7 @@ import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../../../app-jotai";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { DXFRenderer } from "./DXFRenderer";
 import {
@@ -158,6 +159,7 @@ const captureDxfSnapshot = (
 };
 
 export const DXFCanvasOverlay = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
   // Subscribe to snapshot cache version so freshly-baked snapshots
@@ -699,7 +701,7 @@ export const DXFCanvasOverlay = () => {
                 )
               ) : (
                 <div className="mcm-dxf-layer__waiting">
-                  Đang chờ file DXF từ peer…
+                  {t("cad.status.waitingPeer")}
                 </div>
               )}
             </div>
@@ -723,13 +725,13 @@ export const DXFCanvasOverlay = () => {
                   }
                   title={
                     (layersByElement.get(a.elementId)?.length ?? 0) === 0
-                      ? "Đang tải layers…"
-                      : `${
-                          layersByElement.get(a.elementId)?.length ?? 0
-                        } layer — bấm để ẩn/hiện`
+                      ? t("cad.layers.loadingTitle")
+                      : t("cad.layers.countTitle", {
+                          count: layersByElement.get(a.elementId)?.length ?? 0,
+                        })
                   }
                 >
-                  📋 Layers
+                  📋 {t("cad.layers.button")}
                 </button>
                 <button
                   type="button"
@@ -738,9 +740,9 @@ export const DXFCanvasOverlay = () => {
                     e.stopPropagation();
                     refitAnchor(a.elementId);
                   }}
-                  title="Reset view — fit DXF lại vào khung"
+                  title={t("cad.toolbar.fitInlineTitle")}
                 >
-                  ↻ Fit
+                  ↻ {t("cad.toolbar.fit")}
                 </button>
                 <button
                   type="button"
@@ -749,9 +751,9 @@ export const DXFCanvasOverlay = () => {
                     e.stopPropagation();
                     void exitFocusRef.current?.(null);
                   }}
-                  title="Thoát chế độ chỉnh DXF (ESC)"
+                  title={t("cad.toolbar.exitTitle")}
                 >
-                  × Thoát
+                  × {t("cad.toolbar.exit")}
                 </button>
               </div>
             )}
@@ -761,29 +763,31 @@ export const DXFCanvasOverlay = () => {
                 <div
                   className="mcm-dxf-layer__layer-panel"
                   role="dialog"
-                  aria-label="DXF layers"
+                  aria-label={t("cad.layers.panelAria")}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div className="mcm-dxf-layer__layer-panel-header">
                     <span className="mcm-dxf-layer__layer-panel-title">
-                      Layers ({layersByElement.get(a.elementId)?.length ?? 0})
+                      {t("cad.layers.title", {
+                        count: layersByElement.get(a.elementId)?.length ?? 0,
+                      })}
                     </span>
                     <div className="mcm-dxf-layer__layer-panel-actions">
                       <button
                         type="button"
                         className="mcm-dxf-layer__layer-panel-action"
                         onClick={() => setAllAnchorLayersVisible(a, true)}
-                        title="Bật tất cả"
+                        title={t("cad.layers.allOnTitle")}
                       >
-                        Tất cả
+                        {t("cad.layers.allOn")}
                       </button>
                       <button
                         type="button"
                         className="mcm-dxf-layer__layer-panel-action"
                         onClick={() => setAllAnchorLayersVisible(a, false)}
-                        title="Tắt tất cả"
+                        title={t("cad.layers.allOffTitle")}
                       >
-                        Không cái nào
+                        {t("cad.layers.allOff")}
                       </button>
                     </div>
                   </div>
@@ -863,7 +867,7 @@ export const DXFCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">✏️</span>
-                <span>Chỉnh DXF (pan / zoom)</span>
+                <span>{t("cad.menu.editDxf")}</span>
               </button>
               <button
                 type="button"
@@ -875,7 +879,7 @@ export const DXFCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">↻</span>
-                <span>Reset fit (về full view)</span>
+                <span>{t("cad.menu.resetFit")}</span>
               </button>
               <button
                 type="button"
@@ -884,7 +888,7 @@ export const DXFCanvasOverlay = () => {
                 onClick={() => setContextMenu(null)}
               >
                 <span aria-hidden="true">↩️</span>
-                <span>Huỷ</span>
+                <span>{t("cad.menu.cancel")}</span>
               </button>
             </div>
           );

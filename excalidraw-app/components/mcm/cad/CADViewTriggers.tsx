@@ -22,6 +22,7 @@ import {
   openFileInCadView,
 } from "../../../data/cadViewState";
 import { isDxfFile, meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { isDxfAnchorElement } from "../dxf/DXFCanvasOverlay";
 import { findOrCreateToolbarExtras } from "../toolbarExtras";
@@ -51,6 +52,7 @@ const CADIcon = () => (
 // Toolbar trigger — portal into Excalidraw's App-toolbar
 // ---------------------------------------------------------------------
 const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
+  const t = useT();
   const viewState = useAtomValue(cadViewStateAtom);
   const files = useAtomValue(meetingFilesAtom);
   const [open, setOpen] = useState(false);
@@ -114,8 +116,8 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
           className={`ToolIcon ToolIcon_type_button ToolIcon_size_medium ToolIcon--plain mcm-cad-trigger${
             open ? " mcm-cad-trigger--open" : ""
           }${viewState.open ? " mcm-cad-trigger--active" : ""}`}
-          aria-label="CAD view"
-          title="CAD view — mở DXF trong pane"
+          aria-label={t("cad.trigger.aria")}
+          title={t("cad.trigger.title")}
           onClick={() => setOpen((v) => !v)}
         >
           <div className="ToolIcon__icon">
@@ -132,22 +134,24 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
             ref={popoverRef}
             className="mcm-cad-popover"
             role="dialog"
-            aria-label="Chọn DXF để mở"
+            aria-label={t("cad.popover.aria")}
             // eslint-disable-next-line react/forbid-dom-props
             style={{ left: popoverPos.left, top: popoverPos.top }}
           >
             <div className="mcm-cad-popover__header">
-              <span className="mcm-cad-popover__title">DXF trên library</span>
+              <span className="mcm-cad-popover__title">
+                {t("cad.popover.title")}
+              </span>
               <span className="mcm-cad-popover__hint">
-                Chọn để mở trong CAD view
+                {t("cad.popover.hint")}
               </span>
             </div>
             <div className="mcm-cad-popover__list">
               {dxfFiles.length === 0 ? (
                 <div className="mcm-cad-popover__empty">
-                  Chưa có file DXF nào trong library.
+                  {t("cad.popover.emptyTitle")}
                   <br />
-                  Upload .dxf qua thanh library bên phải.
+                  {t("cad.popover.emptyHint")}
                 </div>
               ) : (
                 dxfFiles.map((f) => {
@@ -172,7 +176,7 @@ const ToolbarTrigger = ({ toolbarEl }: { toolbarEl: HTMLElement }) => {
                       </span>
                       {isOpenTab && (
                         <span className="mcm-cad-popover__item-tag">
-                          đang mở
+                          {t("cad.popover.openTag")}
                         </span>
                       )}
                     </button>
@@ -198,6 +202,7 @@ type DXFContextMenuState = {
 };
 
 const RightClickTrigger = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
   const [menu, setMenu] = useState<DXFContextMenuState | null>(null);
@@ -318,7 +323,7 @@ const RightClickTrigger = () => {
         }}
       >
         <span aria-hidden>📐</span>
-        <span>Mở trong CAD view</span>
+        <span>{t("cad.menu.openInView")}</span>
       </button>
       <button
         type="button"
@@ -327,7 +332,7 @@ const RightClickTrigger = () => {
         onClick={() => setMenu(null)}
       >
         <span aria-hidden>↩️</span>
-        <span>Huỷ</span>
+        <span>{t("cad.menu.cancel")}</span>
       </button>
     </div>,
     document.body,

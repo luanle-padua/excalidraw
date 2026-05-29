@@ -18,12 +18,14 @@ import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 
 import { useAtom, useAtomValue } from "../app-jotai";
 import {
+  BOT_SOCKET_ID,
   BOT_USERNAME,
   chatMessagesAtom,
   collabAPIAtom,
   isBotMessage,
 } from "../collab/Collab";
 import { meetingFilesAtom } from "../data/meetingLibrary";
+import { transcriptionLogAtom } from "../data/transcription";
 import { findActiveMention, parseMessage } from "../data/mentions";
 import {
   preferredLanguageAtom,
@@ -578,6 +580,7 @@ export const ChatView = () => {
   const messages = useAtomValue(chatMessagesAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const files = useAtomValue(meetingFilesAtom);
+  const transcriptLog = useAtomValue(transcriptionLogAtom);
   const excalidrawAPI = useExcalidrawAPI();
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const [translationEnabled, setTransEnabledAtom] = useAtom(
@@ -783,6 +786,38 @@ export const ChatView = () => {
     }
   };
 
+  // Pull semantic text off the canvas: text-element contents + library
+  // file names. Deduped and capped so the chatbot payload stays small.
+  // SKIP the bot's own Q&A blocks (authored by BOT_SOCKET_ID) — feeding
+  // the bot its previous answers back as "canvas text" creates a feedback
+  // loop where it parrots its own "no info" replies.
+  const collectCanvasText = (): string[] => {
+    const texts: string[] = [];
+    if (excalidrawAPI) {
+      for (const el of excalidrawAPI.getSceneElements()) {
+        if (
+          el.type === "text" &&
+          !el.isDeleted &&
+          (el as any).text?.trim() &&
+          (el as any).customData?.mcmAuthor?.id !== BOT_SOCKET_ID
+        ) {
+          // Prefix the author so the bot can attribute canvas notes —
+          // discussions often happen as text written ON the canvas, not
+          // just in chat. Without the name the bot sees them as anonymous.
+          const author = (el as any).customData?.mcmAuthor?.name?.trim();
+          const body = (el as any).text.trim();
+          texts.push(author ? `${author}: ${body}` : body);
+        }
+      }
+    }
+    for (const f of files) {
+      texts.push(f.name);
+    }
+    return Array.from(new Set(texts))
+      .slice(0, 40)
+      .map((s) => s.slice(0, 200));
+  };
+
   // ---------------------------------------------------------------
   // @bot detection + AI reply flow.
   // ---------------------------------------------------------------
@@ -809,6 +844,13 @@ export const ChatView = () => {
         username: m.username,
         text: m.text,
       }));
+      // FULL voice transcript from the start of the meeting (user choice).
+      const transcript = transcriptLog.map((s) => ({
+        speaker: s.username,
+        text: s.text,
+        lang: s.lang,
+      }));
+      const canvasText = collectCanvasText();
       const res = await fetch("/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -816,6 +858,8 @@ export const ChatView = () => {
           question: rawQuestion,
           language: preferredLang,
           recent: recentContext,
+          transcript,
+          canvasText,
         }),
       });
       if (!res.ok) {
