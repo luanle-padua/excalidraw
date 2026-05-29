@@ -612,8 +612,10 @@ export const DXFCanvasOverlay = () => {
             {/* Label sits OUTSIDE the renderer (top-left, above the
                   frame) so it never obscures the DXF content. */}
             <div className="mcm-dxf-layer__label">
-              <span aria-hidden="true">📐</span>
-              <span>{files.find((f) => f.id === a.fileId)?.name ?? "DXF"}</span>
+              <span className="mcm-dxf-layer__label-type">DXF</span>
+              <span className="mcm-dxf-layer__label-name">
+                {files.find((f) => f.id === a.fileId)?.name ?? "DXF"}
+              </span>
             </div>
             {/* The renderer itself sits inside a clipping frame so
                   the DXF can never paint outside the anchor's bounds. */}

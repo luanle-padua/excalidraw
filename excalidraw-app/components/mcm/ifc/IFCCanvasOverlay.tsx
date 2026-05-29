@@ -667,8 +667,10 @@ export const IFCCanvasOverlay = () => {
               data-file-id={a.fileId}
             >
               <div className="mcm-ifc-layer__label">
-                <span aria-hidden="true">🧊</span>
-                <span>{file?.name ?? "IFC"}</span>
+                <span className="mcm-ifc-layer__label-type">IFC</span>
+                <span className="mcm-ifc-layer__label-name">
+                  {file?.name ?? "IFC"}
+                </span>
               </div>
               <div className="mcm-ifc-layer__frame mcm-ifc-layer__frame--passive" />
             </div>
@@ -692,8 +694,10 @@ export const IFCCanvasOverlay = () => {
             {/* Label sits OUTSIDE the renderer (above the frame) so it
                 never obscures the 3D content. */}
             <div className="mcm-ifc-layer__label">
-              <span aria-hidden="true">🧊</span>
-              <span>{file?.name ?? "IFC"}</span>
+              <span className="mcm-ifc-layer__label-type">IFC</span>
+              <span className="mcm-ifc-layer__label-name">
+                {file?.name ?? "IFC"}
+              </span>
             </div>
             {/* Clipping frame so 3D content can never paint outside the
                 anchor's bounds. The focused frame attaches a listener

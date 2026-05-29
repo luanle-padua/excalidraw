@@ -3013,41 +3013,81 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   overflow: hidden;
   z-index: 2;
 
+  // IBM Carbon "technical registration" frame (shared design with the
+  // IFC anchor). Sharp corners, faint containment hairline, four IBM-blue
+  // corner brackets via background gradients (no pseudo-elements → stays
+  // pointer-events:none so clicks/draws pass through).
   &__anchor {
+    --ibm-blue: #0f62fe;
     position: absolute;
-    // Dashed border so the user can SEE the anchor bounds when
-    // they're moving / resizing the underlying rectangle. The
-    // colour is theme-aware via the accent token.
-    border: 1px dashed
-      color-mix(in srgb, var(--mcm-accent, #6965db) 55%, transparent);
-    border-radius: 4px;
     box-sizing: border-box;
-    // pointer-events stays none so Excalidraw owns selection /
-    // drag of the underlying rectangle element.
+    border-radius: 0;
+    border: 1px solid rgba(15, 98, 254, 0.22);
+    background-repeat: no-repeat;
+    background-image: linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
+      linear-gradient(var(--ibm-blue), var(--ibm-blue));
+    background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px,
+      2px 15px, 15px 2px, 2px 15px;
+    background-position: top left, top left, top right, top right,
+      bottom left, bottom left, bottom right, bottom right;
+    // pointer-events stays none so Excalidraw owns selection / drag.
   }
 
+  &__anchor--focused {
+    background-image: none;
+    border: 1px solid var(--ibm-blue, #0f62fe);
+    box-shadow: 0 0 0 1px rgba(15, 98, 254, 0.35),
+      0 10px 34px rgba(0, 0, 0, 0.5);
+  }
+
+  // Two-part Carbon tag: solid blue [TYPE] chip + dark name block,
+  // monospace + uppercase for the precise technical IBM feel.
   &__label {
     position: absolute;
-    top: -22px;
-    left: 0;
+    top: 0;
+    left: -1px;
+    transform: translateY(-100%);
     display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 8px;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 999px;
-    font-size: 11px;
+    align-items: stretch;
+    max-width: calc(100% + 2px);
+    font-family: ui-monospace, "Cascadia Code", "IBM Plex Mono",
+      "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 10px;
     font-weight: 600;
-    color: var(--mcm-text, #1b1b1f);
-    letter-spacing: -0.005em;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-    max-width: 100%;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
     -webkit-user-select: none;
     user-select: none;
+
+    &-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 7px;
+      background: #0f62fe;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    &-name {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 9px;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #161616;
+      color: #f4f4f4;
+    }
   }
 
   // Inner frame clips the DXF renderer so DXF content can never
@@ -3056,7 +3096,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    border-radius: 3px;
+    border-radius: 0; // IBM Carbon — sharp corners
     background: transparent;
   }
 
