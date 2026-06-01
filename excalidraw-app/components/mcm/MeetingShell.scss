@@ -5097,3 +5097,172 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     }
   }
 }
+
+// ---------------- Lobby (Zoom-style front door) ----------------------
+// Full-screen overlay shown when the user isn't in a meeting yet. Sits
+// inside `.mcm-shell` so it inherits the `--mcm-*` theme tokens (light
+// + dark) defined there. One solid card, brand-purple primary action —
+// same design language as the rest of the shell.
+.mcm-lobby {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--mcm-bg);
+
+  &__card {
+    width: 100%;
+    max-width: 380px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    padding: 32px 28px;
+    background: var(--mcm-surface);
+    border: 1px solid var(--mcm-hairline-2);
+    border-radius: 16px;
+    box-shadow: var(--mcm-elev);
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  &__logo {
+    font-size: 24px;
+    line-height: 1;
+    color: var(--mcm-accent);
+  }
+
+  &__title {
+    font-size: 19px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--mcm-text);
+  }
+
+  &__tagline {
+    margin: -4px 0 8px;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--mcm-text-soft);
+  }
+
+  &__primary {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    padding: 13px 16px;
+    border-radius: 10px;
+    background: var(--mcm-accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    transition: filter 200ms ease, transform 200ms ease;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+    &:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+    &:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+  }
+
+  &__divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--mcm-text-faint);
+    font-size: 12px;
+
+    &::before,
+    &::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--mcm-hairline);
+    }
+  }
+
+  &__join {
+    display: flex;
+    gap: 8px;
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 200ms ease;
+
+    &::placeholder {
+      color: var(--mcm-text-faint);
+    }
+    &:focus {
+      border-color: var(--mcm-accent);
+    }
+    &--error {
+      border-color: var(--mcm-danger);
+    }
+  }
+
+  &__secondary {
+    appearance: none;
+    cursor: pointer;
+    padding: 11px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 200ms ease;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2);
+    }
+    &:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+  }
+
+  &__error {
+    margin: -8px 0 0;
+    font-size: 12.5px;
+    color: var(--mcm-danger);
+  }
+
+  &__solo {
+    appearance: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    margin-top: 4px;
+    padding: 6px;
+    color: var(--mcm-text-soft);
+    font-size: 13px;
+    transition: color 200ms ease;
+
+    &:hover {
+      color: var(--mcm-text);
+    }
+  }
+}

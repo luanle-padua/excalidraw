@@ -29,6 +29,17 @@ export const vi = {
     more: "Thêm",
   },
 
+  // ---------------- Lobby (Zoom-style front door) ------------------
+  lobby: {
+    tagline: "Bảng vẽ họp realtime cho nhóm",
+    newMeeting: "Cuộc họp mới",
+    or: "hoặc",
+    joinPlaceholder: "Dán link hoặc mã phòng để tham gia",
+    join: "Tham gia",
+    joinError: "Link hoặc mã phòng không hợp lệ.",
+    solo: "Dùng bảng vẽ một mình",
+  },
+
   // ---------------- Participants bar -------------------------------
   participants: {
     label: "Người tham dự",

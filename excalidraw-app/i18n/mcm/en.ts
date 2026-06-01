@@ -22,6 +22,16 @@ export const en: Widened<typeof vi> = {
     more: "More",
   },
 
+  lobby: {
+    tagline: "A realtime meeting whiteboard for teams",
+    newMeeting: "New meeting",
+    or: "or",
+    joinPlaceholder: "Paste a link or room code to join",
+    join: "Join",
+    joinError: "That link or room code isn't valid.",
+    solo: "Use the canvas solo",
+  },
+
   participants: {
     label: "Participants",
     countInRoom: "{count} in room",

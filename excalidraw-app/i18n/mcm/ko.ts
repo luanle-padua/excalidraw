@@ -30,6 +30,16 @@ export const ko: Widened<typeof vi> = {
     more: "더보기",
   },
 
+  lobby: {
+    tagline: "팀을 위한 실시간 회의 화이트보드",
+    newMeeting: "새 회의",
+    or: "또는",
+    joinPlaceholder: "참여하려면 링크나 방 코드를 붙여넣으세요",
+    join: "참여",
+    joinError: "유효하지 않은 링크 또는 방 코드입니다.",
+    solo: "혼자 캔버스 사용",
+  },
+
   participants: {
     label: "참여자",
     countInRoom: "방에 {count}명",

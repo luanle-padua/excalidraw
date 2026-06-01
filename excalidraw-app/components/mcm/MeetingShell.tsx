@@ -17,6 +17,7 @@ import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
 import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingHeader } from "./MeetingHeader";
+import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
@@ -152,6 +153,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         onClose={() => setProfileOpen(false)}
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
+      <MeetingLobby />
     </div>
   );
 };
