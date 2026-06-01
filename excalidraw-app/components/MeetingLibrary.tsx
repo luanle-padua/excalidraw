@@ -111,6 +111,34 @@ const fileTypeOf = (file: MeetingFile): FileType => {
   return "other";
 };
 
+// MCM-internal canvas files that must NEVER be auto-published to the
+// library: decoration assets (stickers/stamps, `mcm-deco-…`) and the
+// baked snapshot images that back IFC / PDF / DXF anchors
+// (`ifc-snap-…`, `pdf-snap-…`, `dxf-snap-…`). They're app-generated
+// bookkeeping, not user content — auto-publishing them clutters the
+// library with duplicate "canvas-ifc-snap" / stamp tiles. Real uploads
+// arrive through `ingestFiles` (the explicit picker/drop path), not the
+// canvas auto-detect, so they stay unaffected.
+const INTERNAL_FILE_ID_PREFIXES = [
+  "ifc-snap-",
+  "pdf-snap-",
+  "dxf-snap-",
+  "mcm-deco-",
+];
+const isInternalCanvasFile = (
+  fileId: string,
+  owningElement: { customData?: Record<string, unknown> | null } | undefined,
+): boolean => {
+  if (INTERNAL_FILE_ID_PREFIXES.some((p) => fileId.startsWith(p))) {
+    return true;
+  }
+  // Fallback for decoration/anchor elements that already carry an MCM
+  // marker (any non-empty `mcmType` means it's app-managed, not user
+  // content). The prefix check above is the timing-safe primary guard.
+  const mcmType = owningElement?.customData?.mcmType;
+  return typeof mcmType === "string" && mcmType.length > 0;
+};
+
 /** Human label for the type chip rendered on each library tile. */
 const TYPE_LABEL: Record<FileType, string> = {
   image: "IMG",
@@ -226,7 +254,12 @@ export const MeetingLibrary = () => {
    *  re-typing the search query doesn't rerun on every unrelated atom
    *  change. */
   const displayedFiles = useMemo(() => {
-    let list = items;
+    // Hide MCM-internal files (decoration assets + IFC/PDF/DXF anchor
+    // snapshots). The auto-publish guard stops new ones, and this also
+    // hides any junk already synced into a room's library from before
+    // the guard existed — without the destructive tile-delete (which
+    // would also remove the live model/stamp from the canvas).
+    let list = items.filter((f) => !isInternalCanvasFile(f.id, undefined));
     if (filterType !== "all") {
       list = list.filter((f) => fileTypeOf(f) === filterType);
     }
@@ -286,8 +319,22 @@ export const MeetingLibrary = () => {
       _appState: any,
       files: Record<string, BinaryFileData>,
     ) => {
+      // Map each fileId → its owning element so we can tell user content
+      // apart from MCM-internal files (decorations + anchor snapshots).
+      const elementByFileId = new Map<string, any>();
+      for (const el of (_elements as any[]) || []) {
+        if (el && !el.isDeleted && el.fileId) {
+          elementByFileId.set(el.fileId, el);
+        }
+      }
       for (const [fileId, file] of Object.entries(files || {})) {
         if (isFileSeen(fileId)) {
+          continue;
+        }
+        // Skip stickers/stamps + IFC/PDF/DXF anchor snapshots — they're
+        // app-generated, not user uploads, and would clutter the library.
+        if (isInternalCanvasFile(fileId, elementByFileId.get(fileId))) {
+          markFileSeen(fileId);
           continue;
         }
         markFileSeen(fileId);
@@ -360,7 +407,11 @@ export const MeetingLibrary = () => {
                 author: username,
                 mimeType: "model/gltf-binary",
                 dataURL: glbDataURL,
-                ifcMeta: { metadata, elementCount, thumbnail: thumbnail ?? undefined },
+                ifcMeta: {
+                  metadata,
+                  elementCount,
+                  thumbnail: thumbnail ?? undefined,
+                },
               },
               { allowContentDup: true },
             );
@@ -1317,14 +1368,14 @@ export const MeetingLibrary = () => {
         >
           {dragOver
             ? "Thả file để tải lên"
-            : "+ Tải ảnh / DXF / PDF lên · hoặc kéo thả"}
+            : "+ Tải ảnh / DXF / PDF / IFC lên · hoặc kéo thả"}
         </button>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.dxf,application/dxf,image/vnd.dxf,.pdf,application/pdf"
+          accept="image/*,.dxf,application/dxf,image/vnd.dxf,.pdf,application/pdf,.ifc"
           multiple
-          aria-label="Chọn ảnh, DXF hoặc PDF để tải lên thư viện phòng"
+          aria-label="Chọn ảnh, DXF, PDF hoặc IFC để tải lên thư viện phòng"
           className="MeetingLibrary__file-input"
           onChange={handleFileInputChange}
         />

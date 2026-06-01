@@ -105,6 +105,10 @@ export const StickerPicker = () => {
     null,
   );
   const [ghostIsPen, setGhostIsPen] = useState(false);
+  // Multiplier applied to the asset's base on-canvas size while placing.
+  // The mouse wheel drives it (up = bigger, down = smaller) so the user
+  // picks the size before clicking; the ghost previews the exact result.
+  const [placingScale, setPlacingScale] = useState(1);
 
   const buttonRefs = useRef<Record<Kind, HTMLButtonElement | null>>({
     sticker: null,
@@ -207,8 +211,15 @@ export const StickerPicker = () => {
       const zoom = appState.zoom.value;
       const sceneX = -appState.scrollX + (clientX - rect.left) / zoom;
       const sceneY = -appState.scrollY + (clientY - rect.top) / zoom;
-      const { w, h } = scaleDown(placing.width, placing.height, MAX_INSERT);
-      const id = newFileId();
+      const base = scaleDown(placing.width, placing.height, MAX_INSERT);
+      // Apply the wheel-chosen scale — this is the size the ghost showed.
+      const w = base.w * placingScale;
+      const h = base.h * placingScale;
+      // `mcm-deco-` prefix marks this as an MCM decoration file so the
+      // library's canvas auto-detect skips it (no junk sticker/stamp
+      // tiles). Prefix is timing-safe — caught even before the element
+      // with `customData.mcmType` is added to the scene.
+      const id = `mcm-deco-${newFileId()}`;
       excalidrawAPI.addFiles([
         {
           id: id as FileId,
@@ -324,7 +335,7 @@ export const StickerPicker = () => {
       }
       setPlacing(null);
     },
-    [excalidrawAPI, placing, collabAPI],
+    [excalidrawAPI, placing, placingScale, collabAPI],
   );
 
   // Pointer plumbing during placing mode. We listen at the window
@@ -398,17 +409,36 @@ export const StickerPicker = () => {
         setPlacing(null);
       }
     };
+    // While placing, the wheel resizes the decoration instead of zooming
+    // the canvas. deltaY < 0 (scroll up / away) = bigger, > 0 = smaller.
+    // Needs passive:false so we can preventDefault the canvas zoom.
+    const onWheel = (e: WheelEvent) => {
+      const container = document.querySelector(".excalidraw-container");
+      if (
+        !container ||
+        !(e.target instanceof Node) ||
+        !container.contains(e.target)
+      ) {
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+      setPlacingScale((s) => Math.min(6, Math.max(0.12, s * factor)));
+    };
     window.addEventListener("pointermove", onMove, true);
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("pointerup", onUp, true);
     window.addEventListener("click", onClick, true);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("wheel", onWheel, { capture: true, passive: false });
     return () => {
       window.removeEventListener("pointermove", onMove, true);
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("pointerup", onUp, true);
       window.removeEventListener("click", onClick, true);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wheel", onWheel, true);
     };
   }, [placing, placeAt]);
 
@@ -418,6 +448,7 @@ export const StickerPicker = () => {
       const dataURL = await pathToDataURL(path);
       const dims = await probeDims(dataURL);
       setOpenKind(null);
+      setPlacingScale(1); // fresh size each time the user picks an asset
       setPlacing({
         kind,
         path,
@@ -459,6 +490,16 @@ export const StickerPicker = () => {
   }
 
   const activeKind = openKind ? KINDS.find((k) => k.kind === openKind) : null;
+
+  // WYSIWYG ghost sizing: the on-canvas scene size (base × wheel scale)
+  // rendered at the current zoom, so the floating preview is exactly the
+  // size that will land on the canvas when the user clicks.
+  const ghostBase = placing
+    ? scaleDown(placing.width, placing.height, MAX_INSERT)
+    : null;
+  const ghostSceneW = ghostBase ? ghostBase.w * placingScale : 0;
+  const ghostSceneH = ghostBase ? ghostBase.h * placingScale : 0;
+  const ghostZoom = excalidrawAPI?.getAppState().zoom.value ?? 1;
 
   return (
     <>
@@ -520,7 +561,7 @@ export const StickerPicker = () => {
                 {activeKind.label}
               </span>
               <span className="mcm-sticker-popover__hint">
-                Chọn rồi click vào canvas để dán
+                Chọn → lăn chuột chỉnh cỡ → click để dán
               </span>
             </div>
             <div className="mcm-sticker-popover__grid">
@@ -561,7 +602,23 @@ export const StickerPicker = () => {
             style={{ left: ghostPos.x, top: ghostPos.y }}
             aria-hidden="true"
           >
-            <img src={placing.path} alt="" draggable={false} />
+            <img
+              src={placing.path}
+              alt=""
+              draggable={false}
+              // WYSIWYG: match the on-canvas size. Override the CSS max so
+              // large sizes aren't clamped to the 140px preview cap.
+              // eslint-disable-next-line react/forbid-dom-props
+              style={{
+                width: ghostSceneW * ghostZoom,
+                height: ghostSceneH * ghostZoom,
+                maxWidth: "none",
+                maxHeight: "none",
+              }}
+            />
+            <span className="mcm-placing-ghost__size">
+              {Math.round(ghostSceneW)} × {Math.round(ghostSceneH)}
+            </span>
           </div>,
           document.body,
         )}

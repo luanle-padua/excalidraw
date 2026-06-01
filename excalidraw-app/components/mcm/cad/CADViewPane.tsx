@@ -399,9 +399,7 @@ export const CADViewPane = () => {
           }`}
           onClick={() => setViewLocked((v) => !v)}
           title={
-            viewLocked
-              ? t("cad.lock.lockedTitle")
-              : t("cad.lock.unlockedTitle")
+            viewLocked ? t("cad.lock.lockedTitle") : t("cad.lock.unlockedTitle")
           }
         >
           <span aria-hidden>{viewLocked ? "🔒" : "🔓"}</span>

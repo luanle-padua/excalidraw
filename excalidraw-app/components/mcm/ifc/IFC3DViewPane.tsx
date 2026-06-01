@@ -49,7 +49,7 @@ const VIEW_STYLES = [
   { id: "shaded", labelKey: "ifc.viewStyle.shaded" },
   { id: "clay", labelKey: "ifc.viewStyle.clay" },
   { id: "wireframe", labelKey: "ifc.viewStyle.wireframe" },
-] as const satisfies ReadonlyArray<{ id: ViewStyle; labelKey: string }>;
+] as const;
 
 const SECTION_AXES: SectionAxis[] = ["x", "y", "z"];
 const SECTION_LABEL: Record<SectionAxis, string> = {

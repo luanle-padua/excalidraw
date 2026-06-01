@@ -150,11 +150,7 @@ const VIEW_STYLES = [
     labelKey: "ifc.viewStyle.wireframe",
     titleKey: "ifc.viewStyle.wireframeTitle",
   },
-] as const satisfies ReadonlyArray<{
-  id: ViewStyle;
-  labelKey: string;
-  titleKey: string;
-}>;
+] as const;
 
 export const IFCCanvasOverlay = () => {
   const t = useT();
@@ -639,8 +635,7 @@ export const IFCCanvasOverlay = () => {
   // hides the static thumbnail (the Excalidraw image element) sitting
   // behind it while the user orbits. Matching the canvas background makes
   // the renderer's transparent areas blend seamlessly with the canvas.
-  const viewBg =
-    excalidrawAPI?.getAppState().viewBackgroundColor ?? "#ffffff";
+  const viewBg = excalidrawAPI?.getAppState().viewBackgroundColor ?? "#ffffff";
 
   return (
     <div className="mcm-ifc-layer">

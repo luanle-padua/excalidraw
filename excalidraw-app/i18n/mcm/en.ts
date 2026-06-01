@@ -231,7 +231,8 @@ export const en: Widened<typeof vi> = {
     },
     section: {
       button: "Section",
-      buttonTitle: "Section — pick a cut axis and drag the plane to slice the model",
+      buttonTitle:
+        "Section — pick a cut axis and drag the plane to slice the model",
       popoverAria: "Section",
       axisCutTitle: "Cut along the {axis} axis",
       axisToggleTitle:

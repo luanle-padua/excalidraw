@@ -2842,6 +2842,24 @@
     pointer-events: none;
   }
 
+  // Live size readout under the ghost — shows the on-canvas dimensions
+  // (in scene px) that the wheel-driven scale will produce on click.
+  &__size {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translate(-50%, 6px);
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: rgba(17, 17, 20, 0.82);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
   &--pen {
     // Pull the ghost up-and-right so the pen tip stays the precise
     // drop anchor (point under the tip = scene coord we'll insert at).
