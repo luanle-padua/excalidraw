@@ -13,6 +13,7 @@
 //     rectangle (interaction model Option A — passive DXF).
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Maximize, Pencil, X } from "lucide-react";
 import { newElementWith } from "@excalidraw/element";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -866,7 +867,7 @@ export const DXFCanvasOverlay = () => {
                   setContextMenu(null);
                 }}
               >
-                <span aria-hidden="true">✏️</span>
+                <Pencil size={15} />
                 <span>{t("cad.menu.editDxf")}</span>
               </button>
               <button
@@ -878,7 +879,7 @@ export const DXFCanvasOverlay = () => {
                   setContextMenu(null);
                 }}
               >
-                <span aria-hidden="true">↻</span>
+                <Maximize size={15} />
                 <span>{t("cad.menu.resetFit")}</span>
               </button>
               <button
@@ -887,7 +888,7 @@ export const DXFCanvasOverlay = () => {
                 className="mcm-dxf-context-menu__item"
                 onClick={() => setContextMenu(null)}
               >
-                <span aria-hidden="true">↩️</span>
+                <X size={15} />
                 <span>{t("cad.menu.cancel")}</span>
               </button>
             </div>

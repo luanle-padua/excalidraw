@@ -33,6 +33,9 @@
   --mcm-success: #16a34a;
   --mcm-success-soft: #ecfdf5;
   --mcm-danger: #dc2626;
+  --mcm-danger-soft: #fef2f2;
+  --mcm-warning: var(--mcm-warning);
+  --mcm-warning-soft: #fffbeb;
   // Width Excalidraw reserves for its docked right sidebar. We pin the
   // people bar to stop exactly at the sidebar's left edge — no visible
   // dark strip in between. Falls back to 302px (Excalidraw's default
@@ -57,6 +60,9 @@
     --mcm-accent-soft: rgba(168, 165, 255, 0.18);
     --mcm-success: #22c55e;
     --mcm-success-soft: rgba(34, 197, 94, 0.12);
+    --mcm-danger-soft: rgba(248, 113, 113, 0.13);
+    --mcm-warning: #fbbf24;
+    --mcm-warning-soft: rgba(251, 191, 36, 0.13);
   }
 
   display: flex;
@@ -465,11 +471,11 @@
 }
 
 .mcm-call-controls__btn--test {
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  background: color-mix(in srgb, var(--mcm-warning) 14%, transparent);
   color: #b45309;
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, #f59e0b 22%, transparent);
+    background: color-mix(in srgb, var(--mcm-warning) 22%, transparent);
   }
 }
 
@@ -519,9 +525,9 @@
 .mcm-call-controls__btn--raise {
   // sticky toggle, gets the accent tint when the user's hand is up
   &.mcm-call-controls__btn--raised {
-    background: color-mix(in srgb, #f59e0b 18%, var(--mcm-surface));
+    background: color-mix(in srgb, var(--mcm-warning) 18%, var(--mcm-surface));
     color: #b45309;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #f59e0b 45%, transparent),
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mcm-warning) 45%, transparent),
       0 0 0 0 transparent;
 
     .mcm-call-controls__raise-emoji {
@@ -1003,8 +1009,8 @@
   }
 
   &--raised &__avatar {
-    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px #f59e0b,
-      0 0 0 4px color-mix(in srgb, #f59e0b 24%, transparent),
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px var(--mcm-warning),
+      0 0 0 4px color-mix(in srgb, var(--mcm-warning) 24%, transparent),
       0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
@@ -3082,8 +3088,6 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 14px;
   box-shadow: var(--mcm-elev, 0 12px 28px rgba(0, 0, 0, 0.18));
-  backdrop-filter: saturate(1.4) blur(8px);
-  -webkit-backdrop-filter: saturate(1.4) blur(8px);
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
     sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -4582,8 +4586,6 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 10px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
   }
 
   &__btn {
@@ -4755,11 +4757,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     &--stale {
       border-radius: 8px;
       border-right: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      background: color-mix(in srgb, #f59e0b 18%, var(--mcm-surface, #fff));
+      background: color-mix(in srgb, var(--mcm-warning) 18%, var(--mcm-surface, #fff));
       color: #b45309;
 
       &:hover:not(:disabled) {
-        background: color-mix(in srgb, #f59e0b 28%, var(--mcm-surface, #fff));
+        background: color-mix(in srgb, var(--mcm-warning) 28%, var(--mcm-surface, #fff));
       }
     }
   }
@@ -5282,5 +5284,1312 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     &:hover {
       color: var(--mcm-text);
     }
+  }
+}
+
+// "My projects" entry on the lobby — a quiet full-width secondary button.
+.mcm-lobby__projects {
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--mcm-hairline);
+  background: var(--mcm-surface);
+  color: var(--mcm-text);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 200ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+  }
+}
+
+// ---------------- Project folder browser -----------------------------
+// Full-screen modal: projects on the left, the selected project's
+// meetings on the right. Inherits the --mcm-* theme tokens.
+.mcm-folder {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+
+  &__panel {
+    width: 100%;
+    max-width: 880px;
+    height: min(620px, 86vh);
+    display: flex;
+    flex-direction: column;
+    background: var(--mcm-surface);
+    border: 1px solid var(--mcm-hairline-2);
+    border-radius: 16px;
+    box-shadow: var(--mcm-elev);
+    overflow: hidden;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mcm-hairline);
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 650;
+    color: var(--mcm-text);
+  }
+
+  &__close {
+    appearance: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--mcm-text-soft);
+    padding: 4px 8px;
+    border-radius: 8px;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  &__projects {
+    width: 240px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--mcm-hairline);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  &__project-list {
+    flex: 1;
+    list-style: none;
+    margin: 0;
+    padding: 8px;
+    overflow-y: auto;
+  }
+
+  &__project {
+    appearance: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: 9px 10px;
+    border-radius: 8px;
+    color: var(--mcm-text);
+    font-size: 14px;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+    &--active {
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+      font-weight: 600;
+    }
+  }
+
+  &__empty,
+  &__hint {
+    padding: 16px;
+    color: var(--mcm-text-faint);
+    font-size: 13px;
+  }
+
+  &__new-project {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid var(--mcm-hairline);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+    font-size: 13px;
+    outline: none;
+
+    &:focus {
+      border-color: var(--mcm-accent);
+    }
+  }
+
+  &__create {
+    appearance: none;
+    cursor: pointer;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: none;
+    background: var(--mcm-accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
+  &__meetings {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  &__meetings-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mcm-hairline);
+  }
+
+  &__meetings-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__new-meeting {
+    appearance: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--mcm-accent);
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+    font-size: 13px;
+    font-weight: 600;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
+  &__meeting-grid {
+    flex: 1;
+    list-style: none;
+    margin: 0;
+    padding: 16px;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px;
+    align-content: start;
+  }
+
+  &__card {
+    list-style: none;
+  }
+
+  &__card-btn {
+    appearance: none;
+    cursor: pointer;
+    width: 100%;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface);
+    border-radius: 12px;
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+    transition: border-color 200ms ease, transform 150ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: var(--mcm-accent);
+      transform: translateY(-1px);
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  &__thumb {
+    height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--mcm-surface-2);
+    border-bottom: 1px solid var(--mcm-hairline);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__thumb-glyph {
+    font-size: 32px;
+    color: var(--mcm-text-faint);
+  }
+
+  &__card-meta {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__card-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__card-date {
+    font-size: 11.5px;
+    color: var(--mcm-text-faint);
+  }
+}
+
+// ---------------- Project-first lobby home ---------------------------
+// Wider panel hosting <ProjectBrowser> (reuses the .mcm-folder__* body
+// styles). Join-by-link + solo are side options in the top/footer bars.
+.mcm-lobby__home {
+  width: 100%;
+  max-width: 880px;
+  height: min(640px, 88vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline-2);
+  border-radius: 16px;
+  box-shadow: var(--mcm-elev);
+  overflow: hidden;
+}
+
+.mcm-lobby__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--mcm-hairline);
+}
+
+.mcm-lobby__join-toggle {
+  appearance: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--mcm-hairline);
+  background: var(--mcm-surface);
+  color: var(--mcm-text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 200ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+  }
+}
+
+.mcm-lobby__home .mcm-lobby__join {
+  padding: 10px 18px 0;
+}
+
+.mcm-lobby__join-btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 11px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--mcm-accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.mcm-lobby__home .mcm-lobby__error {
+  padding: 4px 18px 0;
+}
+
+.mcm-lobby__fallback {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+}
+
+.mcm-lobby__foot {
+  padding: 10px 18px 12px;
+  border-top: 1px solid var(--mcm-hairline);
+  display: flex;
+  justify-content: center;
+}
+
+// ---------------- Project/meeting metadata + edit affordances --------
+.mcm-folder__project {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mcm-folder__project-stage {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+  white-space: nowrap;
+}
+
+.mcm-folder__headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mcm-folder__stage {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+}
+
+.mcm-folder__edit {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--mcm-text-soft);
+  transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+    color: var(--mcm-accent);
+  }
+}
+
+.mcm-folder__project-desc {
+  margin: 0;
+  padding: 0 18px 4px;
+  font-size: 12.5px;
+  color: var(--mcm-text-soft);
+}
+
+.mcm-folder__card {
+  position: relative;
+}
+
+.mcm-folder__card-edit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  opacity: 0;
+}
+
+.mcm-folder__card:hover .mcm-folder__card-edit,
+.mcm-folder__card-edit:focus-visible {
+  opacity: 1;
+}
+
+.mcm-folder__card-topic {
+  font-size: 12px;
+  color: var(--mcm-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcm-folder__card-stats {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--mcm-text-soft);
+}
+
+// ---------------- Metadata editor modal ------------------------------
+.mcm-meditor {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.5);
+
+  &__panel {
+    width: 100%;
+    max-width: 440px;
+    background: var(--mcm-surface);
+    border: 1px solid var(--mcm-hairline-2);
+    border-radius: 16px;
+    box-shadow: var(--mcm-elev);
+    overflow: hidden;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mcm-hairline);
+  }
+
+  &__title {
+    font-size: 15px;
+    font-weight: 650;
+    color: var(--mcm-text);
+  }
+
+  &__close {
+    appearance: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: var(--mcm-text-soft);
+    padding: 4px 8px;
+    border-radius: 8px;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__body {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mcm-text-soft);
+  }
+
+  &__input,
+  &__textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 200ms ease;
+
+    &::placeholder {
+      color: var(--mcm-text-faint);
+    }
+    &:focus {
+      border-color: var(--mcm-accent);
+    }
+  }
+
+  &__textarea {
+    resize: vertical;
+    min-height: 64px;
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--mcm-hairline);
+  }
+
+  &__cancel {
+    appearance: none;
+    cursor: pointer;
+    padding: 9px 16px;
+    border-radius: 9px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+    font-size: 14px;
+    font-weight: 600;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+  }
+
+  &__save {
+    appearance: none;
+    cursor: pointer;
+    padding: 9px 18px;
+    border-radius: 9px;
+    border: none;
+    background: var(--mcm-accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+}
+
+// Header meeting title: project name (dim) stacked over the meeting name.
+.mcm-header__title-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+.mcm-header__project {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mcm-text-faint);
+  max-width: 240px;
+}
+.mcm-header__meeting-name {
+  font-size: 15px;
+  font-weight: 600;
+  max-width: 340px;
+}
+
+// ---------------- Language + theme switcher --------------------------
+.mcm-langtheme {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mcm-langtheme__langs {
+  display: flex;
+  background: var(--mcm-surface-2);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mcm-langtheme__lang {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mcm-text-soft);
+
+  &.is-active {
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+  }
+}
+.mcm-langtheme__theme {
+  appearance: none;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 8px;
+  background: var(--mcm-surface);
+  color: var(--mcm-text);
+
+  &:hover {
+    background: var(--mcm-surface-2);
+  }
+}
+
+// Lobby top bar right-side cluster (switcher + join + sign out).
+.mcm-lobby__top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// Metadata editor <select> — mirror the text input.
+.mcm-meditor__select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--mcm-hairline);
+  background: var(--mcm-surface-2);
+  color: var(--mcm-text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: var(--mcm-accent);
+  }
+}
+.mcm-meditor__input--error {
+  border-color: var(--mcm-danger);
+}
+
+// Meeting-card type/status chips.
+.mcm-folder__card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 1px 0 1px;
+}
+.mcm-folder__card-type {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mcm-surface-2);
+  color: var(--mcm-text-soft);
+}
+.mcm-folder__card-status {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mcm-surface-2);
+  color: var(--mcm-text-soft);
+
+  &--scheduled {
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+  }
+  &--in-progress {
+    background: var(--mcm-success-soft);
+    color: var(--mcm-success);
+  }
+  &--completed {
+    background: var(--mcm-success-soft);
+    color: var(--mcm-success);
+  }
+  &--cancelled {
+    color: var(--mcm-danger);
+  }
+}
+
+// ==================== Login (two-panel, Apple-style) =================
+// Left: sign-in form (theme-aware via --mcm-* tokens). Right: green brand
+// hero. Matches the MAP reference; refined-minimal, not flashy.
+.mcm-login {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: radial-gradient(
+      900px 520px at 16% 8%,
+      rgba(21, 128, 61, 0.12),
+      transparent 60%
+    ),
+    var(--mcm-bg);
+
+  &__card {
+    width: min(960px, 94vw);
+    min-height: min(600px, 88vh);
+    display: flex;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid var(--mcm-hairline-2);
+    box-shadow: var(--mcm-elev);
+    animation: mcm-login-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  // ----- left: form -----
+  &__form-pane {
+    position: relative;
+    flex: 1 1 50%;
+    min-width: 0;
+    background: var(--mcm-surface);
+    padding: 46px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  &__topbar {
+    position: absolute;
+    top: 18px;
+    right: 20px;
+  }
+
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  &__logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(145deg, #19a24a, #0c7a39);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    box-shadow: 0 6px 16px rgba(16, 122, 57, 0.35);
+  }
+
+  &__brand-name {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--mcm-text);
+  }
+
+  &__dev {
+    margin: 0 0 26px;
+    font-size: 12px;
+    font-style: italic;
+    color: var(--mcm-text-faint);
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    color: var(--mcm-text);
+  }
+
+  &__subtitle {
+    margin: 5px 0 24px;
+    font-size: 14px;
+    color: var(--mcm-text-soft);
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  &__field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  &__label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--mcm-text-soft);
+  }
+
+  &__input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 13px 15px;
+    border-radius: 11px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+    font-size: 14.5px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+
+    &::placeholder {
+      color: var(--mcm-text-faint);
+    }
+    &:focus {
+      border-color: var(--mcm-accent);
+      box-shadow: 0 0 0 3px var(--mcm-accent-soft);
+    }
+    &--error {
+      border-color: var(--mcm-danger);
+    }
+  }
+
+  &__error {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--mcm-danger);
+  }
+
+  &__submit {
+    margin-top: 6px;
+    appearance: none;
+    cursor: pointer;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 650;
+    color: #fff;
+    background: linear-gradient(180deg, #3b82f6, #2563eb);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
+    transition: filter 180ms ease, transform 160ms ease, box-shadow 180ms ease;
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+    &:active:not(:disabled) {
+      transform: translateY(1px);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+      box-shadow: none;
+    }
+  }
+
+  &__help {
+    margin: 20px 0 0;
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--mcm-text-faint);
+  }
+
+  // ----- right: hero -----
+  &__hero {
+    position: relative;
+    overflow: hidden;
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    padding: 48px 44px;
+    color: #fff;
+    background: linear-gradient(158deg, #0a3a2a 0%, #11623f 46%, #16863f 100%);
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        620px 360px at 78% 12%,
+        rgba(255, 255, 255, 0.16),
+        transparent 65%
+      );
+      pointer-events: none;
+    }
+  }
+
+  &__hero-watermark {
+    position: absolute;
+    right: -18px;
+    bottom: -56px;
+    font-size: 210px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: rgba(255, 255, 255, 0.055);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  &__hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 380px;
+  }
+
+  &__hero-title {
+    margin: 0 0 14px;
+    font-size: 29px;
+    font-weight: 750;
+    line-height: 1.16;
+    letter-spacing: -0.02em;
+  }
+
+  &__hero-sub {
+    margin: 0 0 30px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  &__features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  &__feature {
+    display: flex;
+    gap: 13px;
+    align-items: flex-start;
+  }
+
+  &__feature-icon {
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  &__feature-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: 14px;
+      font-weight: 650;
+    }
+    span {
+      font-size: 12.5px;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.74);
+    }
+  }
+}
+
+@keyframes mcm-login-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .mcm-login__hero {
+    display: none;
+  }
+  .mcm-login__card {
+    width: min(440px, 94vw);
+  }
+}
+
+// ============ Metadata editor — wide 2-column redesign ===============
+.mcm-meditor__panel {
+  max-width: 640px;
+  animation: mcm-login-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.mcm-meditor__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+  max-height: min(64vh, 580px);
+  overflow-y: auto;
+}
+.mcm-meditor__field--full {
+  grid-column: 1 / -1;
+}
+
+// Cover-image field (upload / preview).
+.mcm-meditor__image {
+  width: 100%;
+}
+.mcm-meditor__image-drop {
+  appearance: none;
+  width: 100%;
+  height: 150px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--mcm-hairline);
+  background: var(--mcm-surface-2);
+  color: var(--mcm-text-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
+
+  &:hover {
+    border-color: var(--mcm-accent);
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+  }
+}
+.mcm-meditor__image-plus {
+  font-size: 26px;
+  line-height: 1;
+}
+.mcm-meditor__image-preview {
+  position: relative;
+  width: 100%;
+  height: 172px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--mcm-hairline);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+.mcm-meditor__image-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+
+  button {
+    appearance: none;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(17, 17, 20, 0.72);
+    backdrop-filter: blur(6px);
+
+    &:hover {
+      background: rgba(17, 17, 20, 0.9);
+    }
+  }
+}
+
+@media (max-width: 560px) {
+  .mcm-meditor__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Project cover banner in the browser.
+.mcm-folder__cover {
+  flex-shrink: 0;
+  height: 132px;
+  border-bottom: 1px solid var(--mcm-hairline);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+// Lucide icons across MCM: thin uniform outline to match the refined-Apple
+// aesthetic (lighter than lucide's default 2px, sits beside Excalidraw's
+// Tabler icons). currentColor inherits the control's --mcm-* text colour.
+.mcm-shell .lucide,
+.mcm-login .lucide,
+.mcm-meditor .lucide,
+.mcm-folder .lucide {
+  stroke-width: 1.75;
+}
+
+// Icon + text inline alignment for migrated lucide spots.
+.mcm-folder__card-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.mcm-header__stat-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+// Login demo quick-pick (the Architectural AI R&D Center team).
+.mcm-login__demo {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mcm-login__demo-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mcm-text-faint);
+}
+.mcm-login__demo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mcm-login__demo-user {
+  appearance: none;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  transition: background 160ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+  }
+}
+.mcm-login__demo-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.mcm-login__demo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.mcm-login__demo-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--mcm-text);
+}
+.mcm-login__demo-host {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+}
+.mcm-login__demo-meta {
+  font-size: 11.5px;
+  color: var(--mcm-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// "Resume meeting" banner on the project home.
+.mcm-lobby__resume {
+  appearance: none;
+  cursor: pointer;
+  margin: 12px 18px 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--mcm-accent);
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+  text-align: left;
+  transition: filter 180ms ease, transform 160ms ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.04);
+  }
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+.mcm-lobby__resume-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+
+  strong {
+    font-size: 14px;
+    font-weight: 650;
+  }
+  span {
+    font-size: 12.5px;
+    color: var(--mcm-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }

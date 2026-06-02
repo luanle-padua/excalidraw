@@ -1,27 +1,31 @@
-import { useMemo, useState } from "react";
+import { PlayCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom, isCollaboratingAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
+import {
+  clearLastMeeting,
+  getLastMeeting,
+  type LastMeeting,
+} from "../../data/lastMeeting";
+import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
+import { clearSession, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { LangThemeSwitcher } from "./LangThemeSwitcher";
+import { LoginScreen } from "./LoginScreen";
+import { ProjectBrowser } from "./ProjectBrowser";
+
 /**
- * Zoom-style front door for MAP CanvasMeet.
+ * Project-first home for MAP CanvasMeet.
  *
- * Shown as a full-screen overlay whenever the user is NOT in a meeting
- * (no `#room=` in the URL and `startCollaboration` hasn't run). Two
- * actions, mirroring Zoom's home screen:
- *
- *   • "Cuộc họp mới"  → `startCollaboration(null)` mints a fresh
- *     roomId+roomKey, pushes `#room=…` into the URL, and drops the user
- *     straight into a new room (the invite link is then copyable from
- *     the header). The lobby auto-hides once `isCollaborating` flips.
- *   • "Tham gia"      → parse a pasted link / ID+key and join it.
- *
- * Auth is intentionally link-only for the test phase (anyone with the
- * link joins — exactly Zoom's default). The name is collected by the
- * existing UserProfileModal that auto-opens on entering a room, so the
- * lobby itself stays minimal.
+ * Shown as a full-screen overlay whenever the user is NOT in a meeting.
+ * The center of gravity is PROJECTS: pick (or create) a project, then
+ * reopen a past meeting or start a new one inside it — every meeting is
+ * project-based. "Join via link" and "use the canvas solo" are side
+ * options. (When storage isn't configured, falls back to a plain
+ * ad-hoc "New meeting" button so the app still works offline.)
  */
 
 /** Pull `{ roomId, roomKey }` out of whatever the user pasted: a full
@@ -43,30 +47,79 @@ export const MeetingLobby = () => {
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
   const isCollaborating = useAtomValue(isCollaboratingAtom);
+  const session = useAtomValue(sessionAtom);
 
   const [dismissed, setDismissed] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const [joinValue, setJoinValue] = useState("");
   const [joinError, setJoinError] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resume, setResume] = useState<{
+    room: LastMeeting;
+    title: string;
+  } | null>(null);
 
-  // Don't even flash the lobby when the page was opened via an invite
-  // link — App's initial flow will call startCollaboration for us.
-  const hasRoomInUrl = useMemo(
-    () => /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash),
-    [],
-  );
+  // Offer "Resume" if the user left a meeting open (saved in localStorage)
+  // and reopened the app on a clean URL. Drops the offer if that meeting
+  // no longer exists in the registry.
+  useEffect(() => {
+    const last = getLastMeeting();
+    if (!session || !last) {
+      setResume(null);
+      return;
+    }
+    let cancelled = false;
+    void getMeeting(last.roomId).then((m) => {
+      if (cancelled) {
+        return;
+      }
+      if (!m) {
+        clearLastMeeting();
+        setResume(null);
+      } else {
+        setResume({ room: last, title: m.title ?? "" });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
+  // Live check (NOT memoized) so leaving a meeting — which clears the
+  // #room hash — re-shows the project home. On initial load via an invite
+  // link this still suppresses the home flash until App auto-joins.
+  const hasRoomInUrl = /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash);
 
   if (isCollaborating || hasRoomInUrl || dismissed || !collabAPI) {
     return null;
   }
 
-  const startNew = async () => {
+  // Demo flow: app → LOGIN → project home. Invite-link joins bypass this
+  // (handled by the hasRoomInUrl guard above).
+  if (!session) {
+    return <LoginScreen />;
+  }
+
+  const startAdHoc = async () => {
     if (busy) {
       return;
     }
     setBusy(true);
     try {
       await collabAPI.startCollaboration(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResume = async () => {
+    if (!resume || busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      window.history.pushState({}, "", getCollaborationLink(resume.room));
+      await collabAPI.startCollaboration(resume.room);
     } finally {
       setBusy(false);
     }
@@ -93,65 +146,104 @@ export const MeetingLobby = () => {
 
   return (
     <div className="mcm-lobby" role="dialog" aria-modal="true">
-      <div className="mcm-lobby__card">
-        <div className="mcm-lobby__brand">
-          <span className="mcm-lobby__logo">◳</span>
-          <span className="mcm-lobby__title">MAP CanvasMeet</span>
-        </div>
+      <div className="mcm-lobby__home">
+        <header className="mcm-lobby__top">
+          <div className="mcm-lobby__brand">
+            <span className="mcm-lobby__logo">◳</span>
+            <span className="mcm-lobby__title">MAP CanvasMeet</span>
+          </div>
+          <div className="mcm-lobby__top-actions">
+            <LangThemeSwitcher />
+            <button
+              type="button"
+              className="mcm-lobby__join-toggle"
+              onClick={() => setJoinOpen((v) => !v)}
+            >
+              {t("lobby.joinByLink")}
+            </button>
+            <button
+              type="button"
+              className="mcm-lobby__join-toggle"
+              onClick={() => clearSession()}
+              title={`${session.name} · ${session.email}`}
+            >
+              {t("login.signOut")}
+            </button>
+          </div>
+        </header>
 
-        <p className="mcm-lobby__tagline">{t("lobby.tagline")}</p>
-
-        <button
-          type="button"
-          className="mcm-lobby__primary"
-          onClick={startNew}
-          disabled={busy}
-        >
-          {t("lobby.newMeeting")}
-        </button>
-
-        <div className="mcm-lobby__divider">
-          <span>{t("lobby.or")}</span>
-        </div>
-
-        <div className="mcm-lobby__join">
-          <input
-            type="text"
-            className={`mcm-lobby__input${
-              joinError ? " mcm-lobby__input--error" : ""
-            }`}
-            placeholder={t("lobby.joinPlaceholder")}
-            value={joinValue}
-            onChange={(e) => {
-              setJoinValue(e.target.value);
-              setJoinError(false);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                void join();
-              }
-            }}
-          />
+        {resume && (
           <button
             type="button"
-            className="mcm-lobby__secondary"
-            onClick={join}
-            disabled={busy || !joinValue.trim()}
+            className="mcm-lobby__resume"
+            onClick={handleResume}
+            disabled={busy}
           >
-            {t("lobby.join")}
+            <PlayCircle size={19} />
+            <span className="mcm-lobby__resume-text">
+              <strong>{t("lobby.resume")}</strong>
+              <span>{resume.title || t("folder.meetingFallbackTitle")}</span>
+            </span>
           </button>
-        </div>
-        {joinError && (
-          <p className="mcm-lobby__error">{t("lobby.joinError")}</p>
         )}
 
-        <button
-          type="button"
-          className="mcm-lobby__solo"
-          onClick={() => setDismissed(true)}
-        >
-          {t("lobby.solo")}
-        </button>
+        {joinOpen && (
+          <div className="mcm-lobby__join">
+            <input
+              type="text"
+              className={`mcm-lobby__input${
+                joinError ? " mcm-lobby__input--error" : ""
+              }`}
+              placeholder={t("lobby.joinPlaceholder")}
+              value={joinValue}
+              autoFocus
+              onChange={(e) => {
+                setJoinValue(e.target.value);
+                setJoinError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void join();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="mcm-lobby__join-btn"
+              onClick={join}
+              disabled={busy || !joinValue.trim()}
+            >
+              {t("lobby.join")}
+            </button>
+          </div>
+        )}
+        {joinError && <p className="mcm-lobby__error">{t("lobby.joinError")}</p>}
+
+        {IS_PROJECTS_CONFIGURED ? (
+          <ProjectBrowser />
+        ) : (
+          <div className="mcm-lobby__fallback">
+            <p className="mcm-lobby__tagline">{t("lobby.tagline")}</p>
+            <button
+              type="button"
+              className="mcm-lobby__primary"
+              onClick={startAdHoc}
+              disabled={busy}
+            >
+              {t("lobby.newMeeting")}
+            </button>
+          </div>
+        )}
+
+        <footer className="mcm-lobby__foot">
+          <button
+            type="button"
+            className="mcm-lobby__solo"
+            onClick={() => setDismissed(true)}
+          >
+            {t("lobby.solo")}
+          </button>
+        </footer>
       </div>
     </div>
   );

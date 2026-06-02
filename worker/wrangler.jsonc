@@ -1,0 +1,41 @@
+{
+  // MAP CanvasMeet storage API — Cloudflare Worker.
+  // First piece of the Cloudflare backend: durable meeting storage
+  // (R2 blobs + D1 metadata). The Durable Object realtime + AI routes
+  // will be added to THIS same Worker later — it's the seed of the
+  // whole serverless backend, not a throwaway.
+  //
+  // Setup (run once, needs `wrangler login`):
+  //   npm install
+  //   npx wrangler r2 bucket create mcm-storage
+  //   npx wrangler d1 create mcm-db        # paste the printed database_id below
+  //   npx wrangler d1 execute mcm-db --remote --file=./schema/0001_init.sql
+  //   npx wrangler deploy
+  // Local dev:
+  //   npx wrangler dev          # uses local R2/D1 emulation
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mcm-storage",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "mcm-storage"
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mcm-db",
+      // LOCAL DEV: any placeholder works — `wrangler dev` / `--local`
+      // keys the local SQLite by binding name and ignores this id.
+      // When going remote: run `wrangler d1 create mcm-db` and paste
+      // the printed UUID here.
+      "database_id": "local-dev-placeholder"
+    }
+  ]
+}

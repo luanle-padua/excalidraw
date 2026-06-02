@@ -4767,8 +4767,8 @@ class App extends React.Component<AppProps, AppState> {
               ? // CapsLock inverts capitalization based on ShiftKey, so invert
                 // it back
                 event.shiftKey
-                ? ev.key.toUpperCase()
-                : ev.key.toLowerCase()
+                ? ev.key?.toUpperCase()
+                : ev.key?.toLowerCase()
               : value;
           },
         });
@@ -4963,7 +4963,7 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
-      if (event[KEYS.CTRL_OR_CMD] && event.key.toLowerCase() === KEYS.V) {
+      if (event[KEYS.CTRL_OR_CMD] && event.key?.toLowerCase() === KEYS.V) {
         IS_PLAIN_PASTE = event.shiftKey;
         clearTimeout(IS_PLAIN_PASTE_TIMER);
         // reset (100ms to be safe that we it runs after the ensuing
@@ -5000,7 +5000,7 @@ class App extends React.Component<AppProps, AppState> {
         });
         return;
       } else if (
-        event.key.toLowerCase() === KEYS.E &&
+        event.key?.toLowerCase() === KEYS.E &&
         event.shiftKey &&
         event[KEYS.CTRL_OR_CMD]
       ) {
@@ -5285,7 +5285,7 @@ class App extends React.Component<AppProps, AppState> {
       if (
         !event[KEYS.CTRL_OR_CMD] &&
         event.shiftKey &&
-        event.key.toLowerCase() === KEYS.F
+        event.key?.toLowerCase() === KEYS.F
       ) {
         const selectedElements = this.scene.getSelectedElements(this.state);
 

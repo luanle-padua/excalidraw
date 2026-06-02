@@ -26,6 +26,7 @@
 // and persistence behave like for any other element.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Languages, RefreshCw } from "lucide-react";
 import { newElementWith, newTextElement } from "@excalidraw/element";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -702,7 +703,7 @@ export const TextTranslateOverlay = () => {
             disabled={busyLang !== null}
             title="Bản dịch đã cũ — bấm để cập nhật"
           >
-            <span aria-hidden>🔁</span>
+            <RefreshCw size={14} />
             <span>Cập nhật bản dịch</span>
           </button>
         ) : (
@@ -717,7 +718,7 @@ export const TextTranslateOverlay = () => {
                 preferred
               }`}
             >
-              <span aria-hidden>🌐</span>
+              <Languages size={14} />
               <span>{busyLang === preferred ? "Đang dịch…" : "Dịch"}</span>
             </button>
             <button

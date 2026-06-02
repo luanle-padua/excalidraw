@@ -87,6 +87,12 @@ export class ActionManager {
   }
 
   handleKeyDown(event: React.KeyboardEvent | KeyboardEvent) {
+    // Some synthetic keydowns (e.g. browser/password-manager autofill on
+    // inputs) arrive with no `key` — guard so actions' keyTest (which call
+    // `event.key.toLowerCase()`) don't crash. No shortcut can match anyway.
+    if (event.key === undefined) {
+      return false;
+    }
     const canvasActions = this.app.props.UIOptions.canvasActions;
     const data = Object.values(this.actions)
       .sort((a, b) => (b.keyPriority || 0) - (a.keyPriority || 0))

@@ -1,0 +1,21 @@
+{
+  "name": "mcm-storage-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MAP CanvasMeet storage API (Cloudflare Worker: R2 blobs + D1 metadata)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute mcm-db --local --file=./schema/0001_init.sql",
+    "db:init:remote": "wrangler d1 execute mcm-db --remote --file=./schema/0001_init.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260501.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.80.0"
+  }
+}

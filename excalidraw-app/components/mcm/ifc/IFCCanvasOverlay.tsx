@@ -17,6 +17,7 @@
 // element so the canvas repaints with the fresh snapshot.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Box, Maximize2, RotateCcw, X } from "lucide-react";
 import { newElementWith } from "@excalidraw/element";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -1124,7 +1125,7 @@ export const IFCCanvasOverlay = () => {
                   setContextMenu(null);
                 }}
               >
-                <span aria-hidden="true">🧊</span>
+                <Box size={15} />
                 <span>{t("ifc.menu.edit3d")}</span>
               </button>
               <button
@@ -1136,7 +1137,7 @@ export const IFCCanvasOverlay = () => {
                   setContextMenu(null);
                 }}
               >
-                <span aria-hidden="true">🗔</span>
+                <Maximize2 size={15} />
                 <span>{t("ifc.menu.openInPane")}</span>
               </button>
               <button
@@ -1148,7 +1149,7 @@ export const IFCCanvasOverlay = () => {
                   setContextMenu(null);
                 }}
               >
-                <span aria-hidden="true">↻</span>
+                <RotateCcw size={15} />
                 <span>{t("ifc.menu.resetView")}</span>
               </button>
               <button
@@ -1157,7 +1158,7 @@ export const IFCCanvasOverlay = () => {
                 className="mcm-ifc-context-menu__item"
                 onClick={() => setContextMenu(null)}
               >
-                <span aria-hidden="true">↩️</span>
+                <X size={15} />
                 <span>{t("ifc.menu.cancel")}</span>
               </button>
             </div>

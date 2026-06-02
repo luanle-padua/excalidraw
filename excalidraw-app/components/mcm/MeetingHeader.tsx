@@ -1,39 +1,38 @@
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { useEffect, useState } from "react";
+import {
+  ChevronDown,
+  FileText,
+  FolderOpen,
+  LayoutGrid,
+  LogOut,
+  Mic,
+  MoreHorizontal,
+  Presentation,
+  Settings,
+  Share2,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
 
 import { useAtomValue } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
+import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { useT } from "../../i18n/mcm";
 
-import { MOCK_MEETING_TITLE, MOCK_MEETING_DURATION_S } from "./meetingMock";
+import { LangThemeSwitcher } from "./LangThemeSwitcher";
+import { MetadataEditor } from "./MetadataEditor";
+import { buildMeetingFields } from "./metadataFields";
+import { MOCK_MEETING_DURATION_S } from "./meetingMock";
 
 const fmt = (s: number) =>
   [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
-
-const Icon = ({
-  d,
-  ...rest
-}: { d: string } & React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    width="18"
-    height="18"
-    {...rest}
-  >
-    <path d={d} />
-  </svg>
-);
 
 export const MeetingHeader = ({
   participantCount: participantCountProp,
@@ -41,6 +40,7 @@ export const MeetingHeader = ({
   onLeave,
   onOpenLog,
   onOpenProfile,
+  onOpenFolder,
 }: {
   /** Fallback head-count when there's no live collab room (preview /
    *  storybook). Real call counts come from the collab atom + Excalidraw
@@ -49,6 +49,10 @@ export const MeetingHeader = ({
   onInvite?: () => void;
   onLeave?: () => void;
   onOpenLog?: () => void;
+  /** Opens the project folder (switch project / reopen / new meeting).
+   *  Host-only: MeetingShell passes it only when the local user is the
+   *  meeting host, so the button is absent for everyone else. */
+  onOpenFolder?: () => void;
   /** Opens the user-profile modal (name + company + avatar editor).
    *  Wired into the gear icon — same affordance as Zoom / Meet's
    *  account-settings entry point. */
@@ -61,6 +65,79 @@ export const MeetingHeader = ({
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioState = useAtomValue(audioStateAtom);
   const excalidrawAPI = useExcalidrawAPI();
+
+  // Real meeting title + project name (from the storage registry) — NOT
+  // a mock. Re-fetched whenever the active room changes or we edit it.
+  const [meetingInfo, setMeetingInfo] = useState<{
+    title: string | null;
+    topic: string | null;
+    description: string | null;
+    type: string | null;
+    status: string | null;
+    discipline: string | null;
+    priority: string | null;
+    confidentiality: string | null;
+    scheduled_at: string | null;
+    projectName: string | null;
+  } | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  const roomId =
+    activeRoomLink?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
+  const roomKey =
+    activeRoomLink?.match(/#room=[^,]+,([a-zA-Z0-9_-]+)/)?.[1] ?? undefined;
+
+  const refetchMeeting = useCallback(async () => {
+    if (!roomId) {
+      setMeetingInfo(null);
+      return;
+    }
+    const m = await getMeeting(roomId);
+    setMeetingInfo(
+      m
+        ? {
+            title: m.title,
+            topic: m.topic,
+            description: m.description,
+            type: m.type,
+            status: m.status,
+            discipline: m.discipline,
+            priority: m.priority,
+            confidentiality: m.confidentiality,
+            scheduled_at: m.scheduled_at,
+            projectName: m.project_name,
+          }
+        : null,
+    );
+  }, [roomId]);
+
+  useEffect(() => {
+    void refetchMeeting();
+  }, [refetchMeeting]);
+
+  const saveMeeting = async (values: Record<string, string>) => {
+    if (!roomId) {
+      return;
+    }
+    // Register the meeting first if it isn't in the registry yet (e.g. an
+    // ad-hoc room edited before its first scene auto-save).
+    if (!meetingInfo) {
+      await registerMeeting({ roomId, roomKey, title: values.title });
+    }
+    await updateMeeting(roomId, {
+      title: values.title,
+      topic: values.topic,
+      description: values.description,
+      type: values.type,
+      status: values.status,
+      discipline: values.discipline,
+      priority: values.priority,
+      confidentiality: values.confidentiality,
+      scheduled_at: values.scheduled_at,
+    });
+    setEditing(false);
+    await refetchMeeting();
+  };
 
   // Mirror the participant tracking pattern from ParticipantsBar:
   // subscribe to Excalidraw's onChange so we re-render when peers
@@ -114,10 +191,21 @@ export const MeetingHeader = ({
       <button
         type="button"
         className="mcm-header__title"
+        onClick={() => setEditing(true)}
         aria-label={t("header.meetingMenu")}
+        title={t("header.editMeetingTitle")}
       >
-        <span>{MOCK_MEETING_TITLE}</span>
-        <Icon d="M6 9l6 6 6-6" />
+        <span className="mcm-header__title-stack">
+          {meetingInfo?.projectName && (
+            <span className="mcm-header__project">
+              {meetingInfo.projectName}
+            </span>
+          )}
+          <span className="mcm-header__meeting-name">
+            {meetingInfo?.title || t("header.untitledMeeting")}
+          </span>
+        </span>
+        <ChevronDown size={18} />
       </button>
 
       <div className="mcm-header__stat" title="Recording">
@@ -138,25 +226,39 @@ export const MeetingHeader = ({
             : t("header.previewNotInRoom")
         }
       >
-        <Icon d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M9 11a4 4 0 100-8 4 4 0 000 8 M23 21v-2a4 4 0 00-3-3.87 M16 3.13a4 4 0 010 7.75" />
+        <Users size={18} />
         <span>
           {realCount === 1
             ? t("header.participantSingular", { count: realCount })
             : t("header.participantCount", { count: realCount })}
           {inCallCount > 0 && (
-            <span className="mcm-header__stat-sub"> · 🎙 {inCallCount}</span>
+            <span className="mcm-header__stat-sub">
+              {" · "}
+              <Mic size={12} /> {inCallCount}
+            </span>
           )}
         </span>
       </div>
 
       <div className="mcm-header__actions">
+        {onOpenFolder && (
+          <button
+            type="button"
+            className="mcm-header__btn mcm-header__btn--ghost"
+            onClick={onOpenFolder}
+            title={t("header.projects")}
+          >
+            <FolderOpen size={18} />
+            {t("header.projects")}
+          </button>
+        )}
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--ghost"
           onClick={onOpenLog}
           title={t("header.transcript")}
         >
-          <Icon d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8" />
+          <FileText size={18} />
           {t("header.transcript")}
           {log.length > 0 && (
             <span className="mcm-header__btn-count">{log.length}</span>
@@ -167,7 +269,7 @@ export const MeetingHeader = ({
           className="mcm-header__btn mcm-header__btn--ghost"
           title={t("header.share")}
         >
-          <Icon d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8 M16 6l-4-4-4 4 M12 2v13" />
+          <Share2 size={18} />
           {t("header.share")}
         </button>
         <button
@@ -175,15 +277,16 @@ export const MeetingHeader = ({
           className="mcm-header__icon-btn"
           title={t("header.layout")}
         >
-          <Icon d="M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z" />
+          <LayoutGrid size={18} />
         </button>
         <button
           type="button"
           className="mcm-header__icon-btn"
           title={t("header.present")}
         >
-          <Icon d="M2 3h20v14H2z M8 21h8 M12 17v4" />
+          <Presentation size={18} />
         </button>
+        <LangThemeSwitcher />
         <button
           type="button"
           className="mcm-header__icon-btn"
@@ -191,21 +294,21 @@ export const MeetingHeader = ({
           onClick={onOpenProfile}
           aria-label={t("profile.openSettings")}
         >
-          <Icon d="M12 15a3 3 0 100-6 3 3 0 000 6z M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+          <Settings size={18} />
         </button>
         <button
           type="button"
           className="mcm-header__icon-btn"
           title={t("header.more")}
         >
-          <Icon d="M5 12h.01 M12 12h.01 M19 12h.01" />
+          <MoreHorizontal size={18} />
         </button>
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--primary"
           onClick={onInvite}
         >
-          <Icon d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2 M8.5 11a4 4 0 100-8 4 4 0 000 8 M20 8v6 M23 11h-6" />
+          <UserPlus size={18} />
           {t("header.invite")}
         </button>
         <button
@@ -213,10 +316,19 @@ export const MeetingHeader = ({
           className="mcm-header__btn mcm-header__btn--ghost"
           onClick={onLeave}
         >
-          <Icon d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4 M16 17l5-5-5-5 M21 12H9" />
+          <LogOut size={18} />
           {t("header.leave")}
         </button>
       </div>
+
+      {editing && roomId && (
+        <MetadataEditor
+          title={t("folder.editMeeting")}
+          fields={buildMeetingFields(meetingInfo ?? {})}
+          onSave={saveMeeting}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </header>
   );
 };

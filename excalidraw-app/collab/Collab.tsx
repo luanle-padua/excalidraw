@@ -258,6 +258,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private lastBroadcastedOrReceivedSceneVersion: number = -1;
   private collaborators = new Map<SocketId, Collaborator>();
   private remoteElementIds = new Set<string>();
+  // Set once the eager storage prefetch (kicked off in startCollaboration,
+  // in parallel with the socket connect) has rendered the saved scene, so
+  // the slower socket paths (`first-in-room`, the 5s fallback) skip the
+  // redundant re-fetch + resetScene flicker. A live peer's INIT still
+  // reconciles on top because the eager path does NOT mark the socket
+  // initialized.
+  private eagerSceneLoaded = false;
 
   constructor(props: CollabProps) {
     super(props);
@@ -579,6 +586,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   private destroySocketClient = (opts?: { isUnload: boolean }) => {
     this.lastBroadcastedOrReceivedSceneVersion = -1;
+    this.eagerSceneLoaded = false;
     this.portal.close();
     this.fileManager.reset();
     if (!opts?.isUnload) {
@@ -743,6 +751,42 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     if (existingRoomLinkData) {
       // when joining existing room, don't merge it with current scene data
       this.excalidrawAPI.resetScene();
+
+      // EAGER PARALLEL PREFETCH — load the saved scene from storage (R2)
+      // RIGHT NOW, in parallel with the socket connect, instead of waiting
+      // for the "first-in-room" event or the 5s INITIAL_SCENE_UPDATE_TIMEOUT
+      // fallback. On reopen a lingering ghost socket on the room server
+      // suppresses "first-in-room", and with no live peer to answer, the
+      // scene would otherwise only render after the full 5s timeout even
+      // though it was already saved — the user staring at a blank canvas.
+      // The socket path still runs afterwards and reconciles any newer peer
+      // state on top (reconcileElements merges), since we do NOT mark the
+      // socket initialized here.
+      void (async () => {
+        try {
+          const elements = await loadFromFirebase(
+            existingRoomLinkData.roomId,
+            existingRoomLinkData.roomKey,
+            this.portal.socket,
+          );
+          if (!elements || this.portal.socketInitialized) {
+            return;
+          }
+          this.eagerSceneLoaded = true;
+          this.setLastBroadcastedOrReceivedSceneVersion(
+            getSceneVersion(elements),
+          );
+          this.handleRemoteSceneUpdate(
+            this._reconcileElements(
+              toBrandedType<readonly RemoteExcalidrawElement[]>(elements),
+            ),
+          );
+          scenePromise.resolve({ elements, scrollToContent: true });
+        } catch (error: any) {
+          // Non-fatal: the socket paths remain as the fallback.
+          console.error(error);
+        }
+      })();
     } else {
       const elements = this.excalidrawAPI.getSceneElements().map((element) => {
         if (isImageElement(element) && element.status === "saved") {
@@ -1038,6 +1082,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       );
     }
     if (fetchScene && roomLinkData && this.portal.socket) {
+      // The eager prefetch in startCollaboration already loaded + rendered
+      // this scene. Don't resetScene + re-fetch (a visible flicker + wasted
+      // round-trip) — just mark the socket initialized so live updates flow.
+      if (this.eagerSceneLoaded) {
+        this.portal.socketInitialized = true;
+        return null;
+      }
+
       this.excalidrawAPI.resetScene();
 
       try {

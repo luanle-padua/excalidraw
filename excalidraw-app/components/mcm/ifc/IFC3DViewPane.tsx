@@ -15,6 +15,17 @@
 //     overlays inside the body — keeps the 3D area maximised when closed.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import {
+  Boxes,
+  Building2,
+  Eye,
+  EyeOff,
+  FlipHorizontal2,
+  Ghost,
+  Maximize,
+  Ruler,
+  Scissors,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtomValue } from "../../../app-jotai";
@@ -648,7 +659,7 @@ export const IFC3DViewPane = () => {
           disabled={!ready}
           title={t("ifc.toolbar.fitTitle")}
         >
-          <span aria-hidden>↻</span>
+          <Maximize size={15} />
           <span>{t("ifc.toolbar.fit")}</span>
         </button>
         <button
@@ -664,7 +675,7 @@ export const IFC3DViewPane = () => {
               : t("ifc.toolbar.storeysCountTitle", { count: storeys.length })
           }
         >
-          <span aria-hidden>🏢</span>
+          <Building2 size={15} />
           <span>{t("ifc.toolbar.storeys")}</span>
           {storeys.length > 0 && (
             <span className="mcm-ifc-view__tool-badge">{storeys.length}</span>
@@ -683,7 +694,7 @@ export const IFC3DViewPane = () => {
               : t("ifc.toolbar.objectsTitle")
           }
         >
-          <span aria-hidden>🗂</span>
+          <Boxes size={15} />
           <span>{t("ifc.toolbar.objects")}</span>
         </button>
         {/* View-style segmented control — orthogonal to the Ghost toggle. */}
@@ -718,7 +729,7 @@ export const IFC3DViewPane = () => {
           aria-label={t("ifc.section.popoverAria")}
         >
           <span className="mcm-ifc-view__section-label" aria-hidden>
-            ✂️
+            <Scissors size={14} />
           </span>
           {SECTION_AXES.map((axis) => (
             <button
@@ -744,7 +755,7 @@ export const IFC3DViewPane = () => {
             disabled={!ready || sectionAxis === null}
             title={t("ifc.section.flipTitle")}
           >
-            <span aria-hidden>🔁</span>
+            <FlipHorizontal2 size={15} />
             <span>{t("ifc.section.flip")}</span>
           </button>
           <button
@@ -760,7 +771,7 @@ export const IFC3DViewPane = () => {
                 : t("ifc.section.planeShowTitle")
             }
           >
-            <span aria-hidden>{sectionPlaneShown ? "👁" : "🚫"}</span>
+            {sectionPlaneShown ? <Eye size={15} /> : <EyeOff size={15} />}
             <span>{t("ifc.section.plane")}</span>
           </button>
         </div>
@@ -773,7 +784,7 @@ export const IFC3DViewPane = () => {
           disabled={!ready}
           title={t("ifc.toolbar.measureTitle")}
         >
-          <span aria-hidden>📏</span>
+          <Ruler size={15} />
           <span>{t("ifc.toolbar.measure")}</span>
         </button>
         <button
@@ -785,7 +796,7 @@ export const IFC3DViewPane = () => {
           disabled={!ready}
           title={t("ifc.toolbar.ghostTitle")}
         >
-          <span aria-hidden>👻</span>
+          <Ghost size={15} />
           <span>{t("ifc.toolbar.ghost")}</span>
         </button>
         {measureOn && measureDist !== null && (

@@ -420,7 +420,7 @@ export const actionSaveFileToDisk = register({
     }
   },
   keyTest: (event) =>
-    event.key.toLowerCase() === KEYS.S &&
+    event.key?.toLowerCase() === KEYS.S &&
     event.shiftKey &&
     event[KEYS.CTRL_OR_CMD],
   PanelComponent: ({ updateData }) => (

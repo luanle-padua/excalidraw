@@ -14,6 +14,7 @@
 // open model just switches to its tab.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Maximize2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -321,7 +322,7 @@ const RightClickTrigger = () => {
           setMenu(null);
         }}
       >
-        <span aria-hidden>🗔</span>
+        <Maximize2 size={15} />
         <span>{t("ifc.menu.openInPane")}</span>
       </button>
       <button
@@ -330,7 +331,7 @@ const RightClickTrigger = () => {
         className="mcm-ifc-context-menu__item"
         onClick={() => setMenu(null)}
       >
-        <span aria-hidden>↩️</span>
+        <X size={15} />
         <span>{t("ifc.menu.cancel")}</span>
       </button>
     </div>,

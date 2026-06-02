@@ -29,13 +29,14 @@ $repoRoot  = $PSScriptRoot
 $toolsDir  = Join-Path $repoRoot "tools"
 $roomDir   = Join-Path $repoRoot "room"
 $appDir    = Join-Path $repoRoot "excalidraw-app"
+$workerDir = Join-Path $repoRoot "worker"
 $cf        = Join-Path $toolsDir "cloudflared.exe"
 $tunnelLog = Join-Path $env:TEMP "mcm-cloudflared.log"
 
 # --- helpers ------------------------------------------------------------
 
 function Stop-AllServices {
-    Get-NetTCPConnection -LocalPort 3001, 3002 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-NetTCPConnection -LocalPort 3001, 3002, 8787 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
         try {
             Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
             Write-Host "killed PID=$($_.OwningProcess) on :$($_.LocalPort)" -ForegroundColor DarkGray
@@ -100,6 +101,16 @@ Start-Process powershell -ArgumentList @(
     "`$Host.UI.RawUI.WindowTitle = 'vite :3001'; Set-Location '$appDir'; yarn start"
 ) | Out-Null
 
+# --- 4b. start storage worker (port 8787) ------------------------------
+# Cloudflare Worker (R2 + D1) simulated locally via Miniflare — durable
+# meeting save/reopen + project folders. No login needed for local dev.
+Write-Host "starting storage worker (port 8787)..." -ForegroundColor Cyan
+Start-Process powershell -ArgumentList @(
+    "-NoExit",
+    "-Command",
+    "`$Host.UI.RawUI.WindowTitle = 'worker :8787'; Set-Location '$workerDir'; npx wrangler dev --port 8787"
+) | Out-Null
+
 # --- 5. wait for both to listen ----------------------------------------
 
 Write-Host "waiting for room :3002..." -NoNewline
@@ -116,6 +127,15 @@ if (Wait-Port 3001 120) {
 } else {
     Write-Host " TIMEOUT" -ForegroundColor Red
     return
+}
+
+# Storage worker is non-fatal: if it's down the meeting still runs, just
+# without durable save/reopen. Warn instead of aborting the whole stack.
+Write-Host "waiting for worker :8787 (first run downloads workerd)..." -NoNewline
+if (Wait-Port 8787 120) {
+    Write-Host " ready" -ForegroundColor Green
+} else {
+    Write-Host " TIMEOUT (storage offline — meeting still works, no persistence)" -ForegroundColor Yellow
 }
 
 # --- 6. cloudflared quick tunnel ---------------------------------------
@@ -195,6 +215,7 @@ Write-Host "  MAP CanvasMeet is up" -ForegroundColor Yellow
 Write-Host "=========================================================" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "  This machine : http://localhost:3001" -ForegroundColor White
+Write-Host "  Storage API  : http://localhost:8787  (R2+D1 local via Miniflare)" -ForegroundColor White
 
 if ($lanIP) {
     Write-Host "  Same Wi-Fi   : http://${lanIP}:3001  (collab broken — no HTTPS)" -ForegroundColor DarkGray

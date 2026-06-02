@@ -14,6 +14,7 @@
 //     CAD area maximised when the panel is closed.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Layers, Lock, Maximize, Unlock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtomValue } from "../../../app-jotai";
@@ -376,7 +377,7 @@ export const CADViewPane = () => {
               : t("cad.layers.countTitle", { count: layers.length })
           }
         >
-          <span aria-hidden>📋</span>
+          <Layers size={15} />
           <span>{t("cad.layers.button")}</span>
           {layers.length > 0 && (
             <span className="mcm-cad-view__tool-badge">{layers.length}</span>
@@ -389,7 +390,7 @@ export const CADViewPane = () => {
           disabled={!controlsRef.current}
           title={t("cad.toolbar.fitPaneTitle")}
         >
-          <span aria-hidden>↻</span>
+          <Maximize size={15} />
           <span>{t("cad.toolbar.fit")}</span>
         </button>
         <button
@@ -402,7 +403,7 @@ export const CADViewPane = () => {
             viewLocked ? t("cad.lock.lockedTitle") : t("cad.lock.unlockedTitle")
           }
         >
-          <span aria-hidden>{viewLocked ? "🔒" : "🔓"}</span>
+          {viewLocked ? <Lock size={15} /> : <Unlock size={15} />}
           <span>{viewLocked ? t("cad.lock.locked") : t("cad.lock.lock")}</span>
         </button>
       </div>

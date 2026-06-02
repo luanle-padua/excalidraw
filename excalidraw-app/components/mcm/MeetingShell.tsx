@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
 
-import { useAtomValue } from "../../app-jotai";
-import { collabAPIAtom } from "../../collab/Collab";
+import { useAtomValue, useSetAtom } from "../../app-jotai";
+import {
+  activeRoomLinkAtom,
+  collabAPIAtom,
+  isCollaboratingAtom,
+} from "../../collab/Collab";
+import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
-import { ensureMyJoinedAt, userProfileAtom } from "../../data/userProfile";
+import { sessionAtom } from "../../data/session";
+import {
+  ensureMyJoinedAt,
+  hostSocketIdAtom,
+  mySocketIdAtom,
+  saveUserProfile,
+  userProfileAtom,
+} from "../../data/userProfile";
 
 import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
 import { CADViewPane } from "./cad/CADViewPane";
@@ -19,6 +31,7 @@ import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
+import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
@@ -57,6 +70,34 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const [profileOpen, setProfileOpen] = useState(false);
   const collabAPI = useAtomValue(collabAPIAtom);
   const userProfile = useAtomValue(userProfileAtom);
+  const session = useAtomValue(sessionAtom);
+  const isCollaborating = useAtomValue(isCollaboratingAtom);
+  const hostSocketId = useAtomValue(hostSocketIdAtom);
+  const mySocketId = useAtomValue(mySocketIdAtom);
+  const activeRoomLink = useAtomValue(activeRoomLinkAtom);
+  const setFolderOpen = useSetAtom(projectFolderOpenAtom);
+
+  // The project browser (switch project / reopen / pull) is a host-only
+  // affordance for now — the host owns the project folder.
+  const isHost = !!mySocketId && hostSocketId === mySocketId;
+
+  // Remember the active meeting so the project home can offer "Resume"
+  // after a clean-URL reopen. Cleared explicitly on Leave (below).
+  useEffect(() => {
+    const m = activeRoomLink?.match(/#room=([a-zA-Z0-9_-]+),([a-zA-Z0-9_-]+)/);
+    if (m) {
+      setLastMeeting({ roomId: m[1], roomKey: m[2] });
+    }
+  }, [activeRoomLink]);
+
+  // Leave the meeting → stop the socket (saves the scene first), then
+  // clear the room from the URL so the project home reappears and we
+  // don't auto-rejoin on reload.
+  const handleLeave = () => {
+    clearLastMeeting();
+    collabAPI?.stopCollaboration(false);
+    window.history.pushState({}, "", window.location.pathname);
+  };
 
   // Capture the user's session start timestamp as early as possible —
   // before any collab broadcast fires. Host election ranks participants
@@ -98,21 +139,24 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     void hydrateMeetingFiles(roomId);
   }, [roomId]);
 
-  // Auto-open the profile modal the first time a user lands in a
-  // meeting with no saved profile so they can introduce themselves
-  // before peers see a generic "Friendly Otter" placeholder. Only
-  // fires once per session (the next mount with a stored profile
-  // skips it). After saving, Collab's atom subscription broadcasts
-  // the new info to everyone in the room.
+  // Logged-in users get their identity from the account (session) — never
+  // prompt them with the fake-name profile modal. Seed the per-meeting
+  // profile from the session so peers see the real name. Only anonymous
+  // (link-join, NO session) users still get the name prompt when they
+  // actually enter a meeting. Reads userProfile WITHOUT depending on it so
+  // a peer's profile broadcast doesn't re-trigger this.
   useEffect(() => {
-    if (!userProfile) {
+    if (session) {
+      if (!userProfile) {
+        saveUserProfile({ username: session.name, company: session.company });
+      }
+      return;
+    }
+    if (isCollaborating && !userProfile) {
       setProfileOpen(true);
     }
-    // intentionally only react to MOUNT — re-running on userProfile
-    // changes would re-open the modal every time a peer broadcasts
-    // their own profile (because the atom's identity changes).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isCollaborating, session]);
 
   return (
     <div className="mcm-shell">
@@ -120,6 +164,8 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         participantCount={MOCK_PARTICIPANTS.length}
         onOpenLog={() => setLogOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
+        onLeave={handleLeave}
+        onOpenFolder={isHost ? () => setFolderOpen(true) : undefined}
       />
       <div className="mcm-shell__canvas-wrap">
         {/* Canvas area takes the remaining height once FrameViewPane
@@ -154,6 +200,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
       <MeetingLobby />
+      <ProjectFolder />
     </div>
   );
 };

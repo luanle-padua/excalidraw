@@ -13,6 +13,7 @@
 // each time was disruptive (request from user).
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { Ruler, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -322,7 +323,7 @@ const RightClickTrigger = () => {
           setMenu(null);
         }}
       >
-        <span aria-hidden>📐</span>
+        <Ruler size={15} />
         <span>{t("cad.menu.openInView")}</span>
       </button>
       <button
@@ -331,7 +332,7 @@ const RightClickTrigger = () => {
         className="mcm-cad-context-menu__item"
         onClick={() => setMenu(null)}
       >
-        <span aria-hidden>↩️</span>
+        <X size={15} />
         <span>{t("cad.menu.cancel")}</span>
       </button>
     </div>,
