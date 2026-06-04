@@ -62,6 +62,18 @@ export default defineConfig(({ mode }) => {
           target: "http://localhost:3002",
           changeOrigin: true,
         },
+        // Storage worker (Cloudflare Worker: R2 blobs + D1 metadata) so
+        // durable scene/file save+load is reachable SAME-ORIGIN through the
+        // tunnel — mirrors the /socket.io room-server proxy. Without this,
+        // the browser fetches http://localhost:8787 directly, which is
+        // cross-origin from the tunnel (and on a remote visitor's machine
+        // points at a worker that isn't running) → CORS/503 and no shared
+        // storage between users. The worker serves everything under /v1, so
+        // keep the prefix (no rewrite). Plain HTTP — no `ws: true`.
+        "/v1": {
+          target: "http://localhost:8787",
+          changeOrigin: true,
+        },
       },
     },
     // We need to specify the envDir since now there are no

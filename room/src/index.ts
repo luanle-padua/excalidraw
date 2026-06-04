@@ -894,17 +894,13 @@ try {
       credentials: true,
     },
     allowEIO3: true,
-    // Reap dead/ghost sockets fast. With the socket.io defaults (pingInterval
-    // 25s + pingTimeout 20s ≈ 45s) a tab that reloaded or left uncleanly
-    // lingers in its room for up to ~45s. When the SAME user reopens the
-    // meeting within that window, `fetchSockets()` below still counts the
-    // ghost, so `sockets.length <= 1` is false and `first-in-room` is NOT
-    // emitted — the rejoiner is mistaken for a peer-joiner and (with no live
-    // peer to answer) stalls on the client's 5s scene fallback. Tightening
-    // the heartbeat drops ghosts within ~12s so reopen behaves like a fresh
-    // first-in-room far more often.
-    pingInterval: 10000,
-    pingTimeout: 5000,
+    // NOTE: keep socket.io's DEFAULT heartbeat (pingInterval 25s /
+    // pingTimeout 20s). A short pingTimeout (e.g. 5s) force-disconnects
+    // clients whose main thread is briefly blocked by heavy IFC/DXF decode,
+    // triggering reconnect churn that drops chat broadcasts and file syncs.
+    // The reopen-speed problem this was meant to help is already solved by
+    // the client's eager R2 scene prefetch (loads regardless of
+    // first-in-room), so the fast heartbeat is unnecessary and harmful.
     // raise the per-message limit so we can ship file binaries (images,
     // small docs) inline through the encrypted broadcast channel for the
     // Meeting Library sync feature. Sized for files up to 30MB +

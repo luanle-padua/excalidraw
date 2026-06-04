@@ -405,6 +405,18 @@ const ExcalidrawWrapper = () => {
   // Finished meeting opened for review → lock the canvas read-only.
   const meetingViewOnly = useAtomValue(meetingViewOnlyAtom);
 
+  // Force view mode imperatively whenever the review flag flips. The
+  // controlled `viewModeEnabled` prop alone proved unreliable here — the
+  // editor's componentDidUpdate can miss the prop change when it coincides
+  // with the meeting's scene load / reset on open — so we ALSO push it
+  // through the public updateScene API, which setStates viewModeEnabled
+  // directly. Keeping the prop too preserves it across editor actions.
+  useEffect(() => {
+    excalidrawAPI?.updateScene({
+      appState: { viewModeEnabled: meetingViewOnly },
+    });
+  }, [excalidrawAPI, meetingViewOnly]);
+
   useHandleLibrary({
     excalidrawAPI,
     adapter: LibraryIndexedDBAdapter,

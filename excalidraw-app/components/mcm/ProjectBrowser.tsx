@@ -106,6 +106,15 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     // immutable, extract-only). Creating a new meeting = editable.
     viewOnly = false,
   ) => {
+    // If the folder was opened from INSIDE a live meeting, tear that down
+    // first. Otherwise startCollaboration early-returns (`if portal.socket
+    // return null`) and the room never actually switches — leaving the
+    // review/edit state set for a room we never entered (the sticky /
+    // inverted view-mode bug). stopCollaboration saves the old scene, then
+    // resets the canvas + review state before we join the new room.
+    if (collabAPI.isCollaborating()) {
+      collabAPI.stopCollaboration(false);
+    }
     window.history.pushState({}, "", getCollaborationLink({ roomId, roomKey }));
     await collabAPI.startCollaboration({ roomId, roomKey }, { viewOnly });
     onEntered?.();
@@ -157,7 +166,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     try {
       const meeting = await getMeeting(m.id);
       if (meeting?.room_key) {
-        await enterRoom(m.id, meeting.room_key, true);
+        // Review (read-only) ONLY for FINISHED meetings. An in-progress /
+        // scheduled meeting reopened from the folder is still editable —
+        // you're rejoining live work, not reviewing a closed record.
+        const finished =
+          meeting.status === "Completed" || meeting.status === "Cancelled";
+        await enterRoom(m.id, meeting.room_key, finished);
       }
     } finally {
       setBusy(false);

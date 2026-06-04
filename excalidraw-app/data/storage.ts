@@ -43,11 +43,19 @@ import type { SyncableExcalidrawElement } from ".";
 import type Portal from "../collab/Portal";
 import type { Socket } from "socket.io-client";
 
-const STORAGE_URL = (import.meta.env.VITE_APP_STORAGE_URL || "").replace(
-  /\/$/,
-  "",
-);
-export const IS_STORAGE_CONFIGURED = Boolean(STORAGE_URL);
+// In tunnel mode the worker isn't reachable cross-origin at its localhost
+// URL, so we hit it SAME-ORIGIN via the Vite `/v1` proxy (base = ""), the
+// same trick Collab uses for socket.io (wsServerUrl = ""). All fetches
+// below already prefix `/v1/...`, so "" + "/v1/..." = a relative
+// same-origin request. Outside tunnel mode, use the absolute worker URL.
+const STORAGE_URL =
+  import.meta.env.VITE_DEV_TUNNEL === "true"
+    ? ""
+    : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
+// "" is a valid (same-origin) base in tunnel mode — don't let Boolean("")
+// disable storage.
+export const IS_STORAGE_CONFIGURED =
+  import.meta.env.VITE_DEV_TUNNEL === "true" || Boolean(STORAGE_URL);
 
 // Copy any Uint8Array (possibly a view with an offset / shared buffer)
 // into a fresh standalone ArrayBuffer — a clean `BodyInit` for fetch,
@@ -201,7 +209,11 @@ export const saveToStorage = async (
   }
 
   const { ciphertext, iv } = await encryptElements(roomKey, toStore);
-  const blob = packScene(getSceneVersion(toStore), iv, new Uint8Array(ciphertext));
+  const blob = packScene(
+    getSceneVersion(toStore),
+    iv,
+    new Uint8Array(ciphertext),
+  );
   const res = await fetch(
     `${STORAGE_URL}/v1/scenes/${encodeURIComponent(roomId)}`,
     {

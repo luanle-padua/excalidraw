@@ -8,11 +8,14 @@
 // (`meeting.room_key`) — the SSE/managed-key trade-off documented in the
 // storage layer.
 
-const STORAGE_URL = (import.meta.env.VITE_APP_STORAGE_URL || "").replace(
-  /\/$/,
-  "",
-);
-export const IS_PROJECTS_CONFIGURED = Boolean(STORAGE_URL);
+// Tunnel mode → same-origin via the Vite `/v1` proxy (base = ""); local
+// dev → absolute worker URL. Mirrors storage.ts / Collab's socket handling.
+const STORAGE_URL =
+  import.meta.env.VITE_DEV_TUNNEL === "true"
+    ? ""
+    : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
+export const IS_PROJECTS_CONFIGURED =
+  import.meta.env.VITE_DEV_TUNNEL === "true" || Boolean(STORAGE_URL);
 
 export type Project = {
   id: string;

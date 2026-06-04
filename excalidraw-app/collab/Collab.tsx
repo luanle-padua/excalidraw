@@ -509,6 +509,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     syncableElements: readonly SyncableExcalidrawElement[],
   ) => {
     syncableElements = cloneJSON(syncableElements);
+    // Capture which room this save belongs to. If the user switches rooms
+    // while this async save is in flight, the success tail below must NOT
+    // re-inject the OLD room's reconciled elements onto the NEW room's
+    // canvas (cross-meeting contamination). The PUT itself already targets
+    // the captured roomId; this guards the local re-render.
+    const savingRoomId = this.portal.roomId;
     try {
       const storedElements = await saveToFirebase(
         this.portal,
@@ -518,7 +524,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
       this.resetErrorIndicator();
 
-      if (this.isCollaborating() && storedElements) {
+      if (
+        this.isCollaborating() &&
+        storedElements &&
+        this.portal.roomId === savingRoomId
+      ) {
         this.handleRemoteSceneUpdate(this._reconcileElements(storedElements));
       }
     } catch (error: any) {
@@ -609,6 +619,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       this.excalidrawAPI.updateScene({
         collaborators: this.collaborators,
       });
+      // CRITICAL: clear the canvas on leave. The portal is now closed
+      // (roomId nulled above), but the LEFT meeting's elements are still
+      // resident in the scene. If we don't drop them, opening the NEXT
+      // meeting sets portal.roomId = B and any save that fires before B's
+      // scene loads would persist meeting A's elements under roomId B —
+      // exactly the cross-meeting contamination we hit. resetScene now =
+      // no stale content can ever leak into the next room.
+      this.excalidrawAPI.resetScene();
       LocalData.resumeSave("collaboration");
     }
     // Reset the host-detection scaffolding so a re-joined room
@@ -684,8 +702,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const reviewRoomId = existingRoomLinkData?.roomId ?? null;
     const viewOnly = opts?.viewOnly ?? isReviewRoom(reviewRoomId);
     appJotaiStore.set(meetingViewOnlyAtom, viewOnly);
+    // Mark/clear unconditionally so an EDITABLE join (new meeting / resume)
+    // in the same tab wipes any stale review mark — otherwise a leftover
+    // mark from an earlier review would make the next reload read-only.
     if (viewOnly && reviewRoomId) {
       markReviewRoom(reviewRoomId);
+    } else {
+      clearReviewRoom();
     }
 
     if (!this.state.username) {
