@@ -38,6 +38,11 @@ export const en: Widened<typeof vi> = {
     solo: "Use the canvas solo",
   },
 
+  // ---------------- Review (finished meeting) ----------------------
+  review: {
+    banner: "Reviewing (read-only) · meeting finished — extract only",
+  },
+
   switcher: {
     label: "Language & theme",
     toggleTheme: "Toggle light / dark",

@@ -46,6 +46,11 @@ export const vi = {
     solo: "Dùng bảng vẽ một mình",
   },
 
+  // ---------------- Review (finished meeting) ----------------------
+  review: {
+    banner: "Xem lại (chỉ đọc) · cuộc họp đã xong — chỉ trích xuất",
+  },
+
   // ---------------- Language / theme switcher ----------------------
   switcher: {
     label: "Ngôn ngữ & giao diện",

@@ -1,3 +1,4 @@
+import { Eye } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
@@ -5,7 +6,9 @@ import {
   activeRoomLinkAtom,
   collabAPIAtom,
   isCollaboratingAtom,
+  meetingViewOnlyAtom,
 } from "../../collab/Collab";
+import { useT } from "../../i18n/mcm";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
 import { sessionAtom } from "../../data/session";
@@ -68,10 +71,14 @@ const extractRoomId = (link: string | null | undefined): string | null => {
 export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const [logOpen, setLogOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
   const userProfile = useAtomValue(userProfileAtom);
   const session = useAtomValue(sessionAtom);
   const isCollaborating = useAtomValue(isCollaboratingAtom);
+  // Finished meeting opened for review: canvas is locked read-only, and we
+  // hide the content-creating tools (sticker, bot). Extract-only.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const hostSocketId = useAtomValue(hostSocketIdAtom);
   const mySocketId = useAtomValue(mySocketIdAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
@@ -174,12 +181,20 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
             area, NOT the FrameViewPane. */}
         <div className="mcm-shell__canvas-area">
           {children}
+          {viewOnly && (
+            <div className="mcm-review-banner" role="status">
+              <Eye size={15} strokeWidth={1.75} />
+              <span>{t("review.banner")}</span>
+            </div>
+          )}
           <DXFCanvasOverlay />
           <PDFCanvasOverlay />
           <IFCCanvasOverlay />
           <PinnedImagesOverlay />
-          <StickerPicker />
-          <CanvasBotTool />
+          {/* Content-creating tools are hidden while reviewing a finished
+              meeting — it's immutable, extract-only. */}
+          {!viewOnly && <StickerPicker />}
+          {!viewOnly && <CanvasBotTool />}
           <CADViewTriggers />
           <IFC3DViewTriggers />
           <SpeechToTextPanel />

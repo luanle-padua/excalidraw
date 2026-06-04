@@ -3,7 +3,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
-import { generateCollaborationLinkData, getCollaborationLink } from "../../data";
+import {
+  generateCollaborationLinkData,
+  getCollaborationLink,
+} from "../../data";
 import {
   createProject,
   getMeeting,
@@ -29,7 +32,9 @@ const fmtDate = (ms: number | null) =>
 
 const fmtDuration = (s: number): string => {
   const m = Math.round(s / 60);
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+  return m < 60
+    ? `${m}m`
+    : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
 };
 
 /**
@@ -94,9 +99,15 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const createdBy = session?.name || collabAPI.getUsername() || undefined;
   const selectedProject = projects.find((p) => p.id === selectedId) ?? null;
 
-  const enterRoom = async (roomId: string, roomKey: string) => {
+  const enterRoom = async (
+    roomId: string,
+    roomKey: string,
+    // Reopening a past meeting from the folder = REVIEW (read-only,
+    // immutable, extract-only). Creating a new meeting = editable.
+    viewOnly = false,
+  ) => {
     window.history.pushState({}, "", getCollaborationLink({ roomId, roomKey }));
-    await collabAPI.startCollaboration({ roomId, roomKey });
+    await collabAPI.startCollaboration({ roomId, roomKey }, { viewOnly });
     onEntered?.();
   };
 
@@ -146,7 +157,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     try {
       const meeting = await getMeeting(m.id);
       if (meeting?.room_key) {
-        await enterRoom(m.id, meeting.room_key);
+        await enterRoom(m.id, meeting.room_key, true);
       }
     } finally {
       setBusy(false);

@@ -88,6 +88,7 @@ import Collab, {
   collabAPIAtom,
   isCollaboratingAtom,
   isOfflineAtom,
+  meetingViewOnlyAtom,
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { CanvasMention } from "./components/CanvasMention";
@@ -401,6 +402,8 @@ const ExcalidrawWrapper = () => {
     return isCollaborationLink(window.location.href);
   });
   const collabError = useAtomValue(collabErrorIndicatorAtom);
+  // Finished meeting opened for review → lock the canvas read-only.
+  const meetingViewOnly = useAtomValue(meetingViewOnlyAtom);
 
   useHandleLibrary({
     excalidrawAPI,
@@ -866,6 +869,7 @@ const ExcalidrawWrapper = () => {
           onExport={onExport}
           initialData={initialStatePromiseRef.current.promise}
           isCollaborating={isCollaborating}
+          viewModeEnabled={meetingViewOnly}
           onPointerUpdate={(payload) => {
             collabAPI?.onPointerUpdate?.(payload);
             emitScenePointer(payload.pointer.x, payload.pointer.y);

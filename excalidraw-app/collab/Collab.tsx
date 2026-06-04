@@ -68,6 +68,11 @@ import {
   getSyncableElements,
 } from "../data";
 import {
+  clearReviewRoom,
+  isReviewRoom,
+  markReviewRoom,
+} from "../data/reviewMode";
+import {
   encodeFilesForUpload,
   FileManager,
   updateStaleImageStatuses,
@@ -140,6 +145,12 @@ import type {
 export const collabAPIAtom = atom<CollabAPI | null>(null);
 export const isCollaboratingAtom = atom(false);
 export const isOfflineAtom = atom(false);
+
+/** True while REVIEWING a finished meeting (opened from the project
+ *  folder). A finished meeting is immutable: the canvas is strictly
+ *  read-only (drives `viewModeEnabled`), no editing — extract-only. Set by
+ *  `startCollaboration(_, { viewOnly: true })`, cleared on teardown. */
+export const meetingViewOnlyAtom = atom(false);
 
 /** Map of socketId → true for participants currently signaling "hand
  *  raised". Sticky until that peer broadcasts a lower (or leaves). */
@@ -591,6 +602,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.fileManager.reset();
     if (!opts?.isUnload) {
       this.setIsCollaborating(false);
+      appJotaiStore.set(meetingViewOnlyAtom, false);
+      clearReviewRoom();
       this.setActiveRoomLink(null);
       this.collaborators = new Map();
       this.excalidrawAPI.updateScene({
@@ -660,7 +673,21 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   startCollaboration = async (
     existingRoomLinkData: null | { roomId: string; roomKey: string },
+    opts?: { viewOnly?: boolean },
   ) => {
+    // REVIEW MODE: opening a finished meeting from the project folder. The
+    // canvas is locked read-only (viewModeEnabled, driven by this atom) —
+    // a finished meeting is immutable, extract-only. Set before any scene
+    // load so the very first render is already read-only. Fall back to the
+    // per-tab persisted mark so a page RELOAD (which auto-rejoins from the
+    // #room URL without opts) stays read-only instead of becoming editable.
+    const reviewRoomId = existingRoomLinkData?.roomId ?? null;
+    const viewOnly = opts?.viewOnly ?? isReviewRoom(reviewRoomId);
+    appJotaiStore.set(meetingViewOnlyAtom, viewOnly);
+    if (viewOnly && reviewRoomId) {
+      markReviewRoom(reviewRoomId);
+    }
+
     if (!this.state.username) {
       import("@excalidraw/random-username").then(({ getRandomUsername }) => {
         const username = getRandomUsername();

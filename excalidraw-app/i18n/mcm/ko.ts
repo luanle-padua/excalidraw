@@ -46,6 +46,11 @@ export const ko: Widened<typeof vi> = {
     solo: "혼자 캔버스 사용",
   },
 
+  // ---------------- Review (finished meeting) ----------------------
+  review: {
+    banner: "다시 보기 (읽기 전용) · 종료된 회의 — 추출만 가능",
+  },
+
   switcher: {
     label: "언어 및 테마",
     toggleTheme: "라이트 / 다크 전환",
