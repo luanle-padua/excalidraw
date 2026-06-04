@@ -16,6 +16,7 @@ import { audioRoomInstanceAtom, audioStateAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
+  meetingViewOnlyAtom,
   raisedHandsAtom,
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
@@ -90,6 +91,9 @@ export const MeetingCallControls = () => {
   const audioRoom = useAtomValue(audioRoomInstanceAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const setAudioState = useSetAtom(audioStateAtom);
+  // Finished meeting opened for review = read-only, extract-only. There is
+  // no live call to join, so the entire mic/join/leave control bar is hidden.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
 
   // Raise-hand + reactions plumbing. Raised state is sourced from the
   // shared atom so it stays in sync with what peers also see (and is
@@ -187,8 +191,8 @@ export const MeetingCallControls = () => {
   }, [audioRoom, setAudioState]);
 
   // Don't render at all if the user hasn't joined a collab room yet —
-  // there's nobody to call.
-  if (!activeRoomLink) {
+  // there's nobody to call — or when reviewing a finished meeting (read-only).
+  if (!activeRoomLink || viewOnly) {
     return null;
   }
 

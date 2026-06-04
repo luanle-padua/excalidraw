@@ -226,22 +226,46 @@ export const removePeerJoinedAt = (socketId: string): void => {
   appJotaiStore.set(peerJoinedAtAtom, next);
 };
 
-/** Socket id of the current MCM "host" — the participant with the
- *  smallest joinedAt across the local user + every peer. Tied
- *  joinedAts (rare — would require ms-identical broadcasts) break by
- *  lexicographic socketId so every peer agrees deterministically.
+/** The meeting's CREATOR (its `created_by` display name from the registry),
+ *  set on join. Host is the creator, so this is the primary input to the
+ *  host election. Null for ad-hoc rooms with no registry entry. */
+export const meetingCreatorAtom = atom<string | null>(null);
+
+/** Socket id of the current MCM "host". The host is the meeting CREATOR:
+ *  the participant whose display name matches `meetingCreatorAtom`. Because
+ *  every client sees the same set of participant names and the same creator,
+ *  this resolves to the SAME socketId for everyone — fixing the bug where the
+ *  old smallest-`joinedAt` election made each user elect THEMSELVES (both got
+ *  the "first-in-room" sentinel, or peer joinedAts hadn't synced yet).
  *
- *  This is the SINGLE source of truth used by recording, future
- *  host-only controls, and the recording indicator banner. Consumers
- *  compare against their own socket id to decide whether to render
- *  the host-only UI.
+ *  Falls back to the smallest-joinedAt election when the creator isn't known
+ *  or isn't currently present, so the meeting is never hostless (host-only
+ *  controls — recording, etc. — still have an owner). Lexicographic socketId
+ *  breaks ties deterministically.
  *
- *  Returns null when there's no active room (no peers + no joinedAt
- *  captured yet) so callers can render the inert "Join a room to
- *  enable recording" state. */
+ *  Returns null when there's no active room (no peers + no joinedAt captured
+ *  yet) so callers can render the inert "Join a room to enable recording"
+ *  state. */
 export const hostSocketIdAtom = atom<string | null>((get) => {
-  const peers = get(peerJoinedAtAtom);
   const mySocketId = get(mySocketIdAtom);
+
+  // Primary: host = the participant whose name matches the meeting creator.
+  const creator = get(meetingCreatorAtom);
+  if (creator) {
+    const myProfile = get(userProfileAtom);
+    if (mySocketId && myProfile?.username === creator) {
+      return mySocketId;
+    }
+    for (const [socketId, profile] of get(peerProfilesAtom)) {
+      if (profile.username === creator) {
+        return socketId;
+      }
+    }
+    // Creator not present → fall through to the join-order election.
+  }
+
+  // Fallback: smallest joinedAt across self + peers (link-sharer heuristic).
+  const peers = get(peerJoinedAtAtom);
   const myJoinedAt = MY_JOINED_AT;
   type Candidate = { socketId: string; joinedAt: number };
   const candidates: Candidate[] = [];

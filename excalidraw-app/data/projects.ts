@@ -200,6 +200,7 @@ export const getMeeting = async (
   priority: string | null;
   confidentiality: string | null;
   scheduled_at: string | null;
+  created_by: string | null;
   project_id: string | null;
   project_name: string | null;
   project_stage: string | null;

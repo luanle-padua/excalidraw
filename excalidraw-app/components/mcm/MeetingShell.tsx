@@ -11,10 +11,12 @@ import {
 import { useT } from "../../i18n/mcm";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
+import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import {
   ensureMyJoinedAt,
   hostSocketIdAtom,
+  meetingCreatorAtom,
   mySocketIdAtom,
   saveUserProfile,
   userProfileAtom,
@@ -146,16 +148,49 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     void hydrateMeetingFiles(roomId);
   }, [roomId]);
 
-  // Logged-in users get their identity from the account (session) — never
-  // prompt them with the fake-name profile modal. Seed the per-meeting
-  // profile from the session so peers see the real name. Only anonymous
-  // (link-join, NO session) users still get the name prompt when they
-  // actually enter a meeting. Reads userProfile WITHOUT depending on it so
-  // a peer's profile broadcast doesn't re-trigger this.
+  // Resolve the meeting's creator → drives host election (host = creator,
+  // consistent for everyone). Cleared when leaving / between rooms.
+  const setMeetingCreator = useSetAtom(meetingCreatorAtom);
+  useEffect(() => {
+    if (!roomId) {
+      setMeetingCreator(null);
+      return;
+    }
+    let cancelled = false;
+    void getMeeting(roomId).then((m) => {
+      if (!cancelled) {
+        setMeetingCreator(m?.created_by ?? null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, setMeetingCreator]);
+
+  // Logged-in users get their identity from the account (session). The
+  // display name everywhere — participant tile, chat sender, on-canvas cursor
+  // — must ALWAYS reflect the login, overwriting any stale profile/username
+  // a PREVIOUS user left in this browser's localStorage (the "name doesn't
+  // match who logged in" bug, incl. two logged-in users showing each other's
+  // / wrong names). We keep the user's chosen avatar but force username (and
+  // company) from the session, and keep the collab username — which drives
+  // the Excalidraw collaborator name + chat sender — in lockstep. Only
+  // anonymous (link-join, NO session) users still get the fake-name prompt.
   useEffect(() => {
     if (session) {
-      if (!userProfile) {
-        saveUserProfile({ username: session.name, company: session.company });
+      const needsProfileSync =
+        !userProfile ||
+        userProfile.username !== session.name ||
+        (!!session.company && userProfile.company !== session.company);
+      if (needsProfileSync) {
+        saveUserProfile({
+          ...userProfile,
+          username: session.name,
+          company: session.company ?? userProfile?.company,
+        });
+      }
+      if (collabAPI && collabAPI.getUsername() !== session.name) {
+        collabAPI.setUsername(session.name);
       }
       return;
     }
@@ -163,7 +198,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       setProfileOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCollaborating, session]);
+  }, [isCollaborating, session, userProfile, collabAPI]);
 
   return (
     <div className="mcm-shell">

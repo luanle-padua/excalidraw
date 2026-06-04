@@ -178,6 +178,13 @@ const renderLinkIcon = (
       element.angle,
       appState,
     );
+    // Zoomed out far enough that the icon's backing canvas would round to
+    // 0×0 px — creating it (and the later drawImage from it) throws
+    // InvalidStateError. The icon is sub-pixel here anyway, so skip it.
+    const iconPxRatio = window.devicePixelRatio * appState.zoom.value;
+    if (width * iconPxRatio < 1 || height * iconPxRatio < 1) {
+      return;
+    }
     const centerX = x + width / 2;
     const centerY = y + height / 2;
     context.save();

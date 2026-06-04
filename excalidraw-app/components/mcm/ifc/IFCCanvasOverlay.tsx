@@ -29,6 +29,7 @@ import type {
 import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../../../app-jotai";
+import { collabAPIAtom } from "../../../collab/Collab";
 import { meetingFilesAtom, isIfcModelFile } from "../../../data/meetingLibrary";
 import { openFileInIfcView } from "../../../data/ifcViewState";
 import { useT } from "../../../i18n/mcm";
@@ -91,38 +92,6 @@ const blobToDataUrl = (blob: Blob): Promise<string> =>
     r.readAsDataURL(blob);
   });
 
-/** Bypass Excalidraw's `addMissingFiles` "skip if id present" guard so
- *  the supplied snapshot REPLACES (not coexists with) whatever bytes
- *  currently live under `fileId`. `getFiles()` hands back the internal
- *  `this.files` reference, so deleting on it actually evicts the entry,
- *  and the next `addFiles` treats the id as fresh, clears the image-shape
- *  cache, and forces the canvas to repaint. Mirrors PDFCanvasOverlay's
- *  writePdfSnapshotToFileMap. */
-const writeIfcSnapshotToFileMap = (
-  excalidrawAPI: ReturnType<typeof useExcalidrawAPI>,
-  snapshotFileId: string,
-  dataUrl: string,
-): void => {
-  if (!excalidrawAPI) {
-    return;
-  }
-  const filesMap = excalidrawAPI.getFiles() as Record<
-    string,
-    BinaryFileData | undefined
-  >;
-  if (filesMap[snapshotFileId]) {
-    delete filesMap[snapshotFileId];
-  }
-  excalidrawAPI.addFiles([
-    {
-      id: snapshotFileId as FileId,
-      dataURL: dataUrl as unknown as BinaryFileData["dataURL"],
-      mimeType: "image/png" as BinaryFileData["mimeType"],
-      created: Date.now(),
-    },
-  ]);
-};
-
 /** Section axis labels for the focus-toolbar button + popover. */
 const SECTION_LABEL: Record<"x" | "y" | "z", string> = {
   x: "X",
@@ -156,6 +125,7 @@ const VIEW_STYLES = [
 export const IFCCanvasOverlay = () => {
   const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
+  const collabAPI = useAtomValue(collabAPIAtom);
   const files = useAtomValue(meetingFilesAtom);
 
   const [anchors, setAnchors] = useState<AnchorPosition[]>([]);
@@ -265,28 +235,60 @@ export const IFCCanvasOverlay = () => {
     } catch (err) {
       console.warn("[IFCCanvasOverlay] view snapshot failed", err);
     }
-    // Replace the snapshot bytes BEFORE the version bump so the repaint
-    // reads the fresh PNG.
-    if (dataUrl && anchor.snapshotFileId) {
-      writeIfcSnapshotToFileMap(excalidrawAPI, anchor.snapshotFileId, dataUrl);
-    }
-    // Single updateScene carrying both the element version bump (so the
-    // canvas image drops its cached shape + repaints with the now-
-    // replaced file bytes) and the persisted camera view. We always pass
-    // a fresh `customData` object so newElementWith is guaranteed to bump
-    // the version even when only the snapshot changed (view unchanged).
     const bakedSnapshot = dataUrl !== null;
     if (!bakedSnapshot && !view) {
       return;
     }
+    // A fresh bake gets a NEW snapshot fileId. Excalidraw files are
+    // content-immutable per id: if we reused the same id, PEERS (who already
+    // hold that id) would NEVER refetch the updated bytes — so a re-orbited
+    // view never synced to other users. A new id makes the image element +
+    // its file propagate like any new image (scene sync + FileManager → R2 →
+    // peers' loadImageFiles). The re-key effect treats `ifc-snap-{elementId}-*`
+    // as belonging to this element, so it won't fight these versioned ids.
+    let newSnapshotId: string | null = null;
+    if (dataUrl) {
+      const candidateId = `ifc-snap-${anchor.elementId}-${Date.now()}`;
+      excalidrawAPI.addFiles([
+        {
+          id: candidateId as FileId,
+          dataURL: dataUrl as unknown as BinaryFileData["dataURL"],
+          mimeType: "image/png" as BinaryFileData["mimeType"],
+          created: Date.now(),
+        },
+      ]);
+      // Push the snapshot to R2 and WAIT before broadcasting the element below.
+      // Peers fetch the file the moment the element (new fileId) reaches them;
+      // if it weren't on R2 yet they'd 404 — and a 404 is marked permanently
+      // errored (no retry) → the "broken thumbnail" on other users. Only adopt
+      // the new id if the upload SUCCEEDED; otherwise keep the previous
+      // snapshot (peers see the prior view, never a broken image) and just
+      // persist the camera view for a later re-bake.
+      try {
+        const ok = await collabAPI?.uploadAnchorSnapshot(candidateId, dataUrl);
+        if (ok) {
+          newSnapshotId = candidateId;
+        }
+      } catch (err) {
+        console.warn("[IFCCanvasOverlay] snapshot upload failed", err);
+      }
+    }
+    // Single updateScene: point the image element (+ customData) at the new
+    // snapshot file and persist the camera view. newElementWith bumps the
+    // version so the change broadcasts to peers and round-trips on reload.
     const all = excalidrawAPI.getSceneElementsIncludingDeleted();
     const next = all.map((el) => {
       if (el.id !== anchor.elementId || !isIfcAnchorElement(el)) {
         return el;
       }
       return newElementWith(el, {
+        ...(newSnapshotId
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            { fileId: newSnapshotId as any }
+          : {}),
         customData: {
           ...el.customData,
+          ...(newSnapshotId ? { ifcSnapshotFileId: newSnapshotId } : {}),
           ...(view ? { ifcView: { pos: view.pos, target: view.target } } : {}),
         },
       });
@@ -389,15 +391,20 @@ export const IFCCanvasOverlay = () => {
     return unsub;
   }, [excalidrawAPI]);
 
-  // For any anchor whose snapshot file is missing in Excalidraw's file
-  // map, seed it from the library-baked 3D thumbnail (or a 1×1
-  // transparent PNG when the model didn't bake one). This is what makes
-  // PASSIVE anchors show the model immediately — the Excalidraw image
-  // element needs a file under its fileId BEFORE focus has ever baked a
-  // snapshot — and it prevents the missing-image placeholder for peers
-  // receiving a fresh anchor before its snapshot lands. Mirrors
-  // PDFCanvasOverlay's seed effect. NB: this is a passive SEED only —
-  // there is no on-canvas auto-bake / hidden renderer.
+  // For any anchor whose snapshot file is missing in Excalidraw's file map,
+  // seed it from the library-baked 3D thumbnail so the PASSIVE anchor (which
+  // relies on the Excalidraw image element painting `snapshotFileId`) shows
+  // the model — on the placer, on peers, and on fresh reopen.
+  //
+  // CRITICAL: we seed ONLY a real thumbnail, never a 1×1 transparent
+  // placeholder. The old transparent fallback permanently MASKED the real
+  // thumbnail/snapshot: when a peer received the anchor BEFORE the library
+  // file arrived, it seeded a 1×1, and because Excalidraw's addFiles skips an
+  // id that's already present, neither the library thumbnail (arriving via the
+  // library broadcast) nor the baked snapshot (arriving from R2) could ever
+  // replace it — so peers/fresh-entry saw a blank box. With no masking seed,
+  // whichever real image lands first (thumbnail via broadcast, or snapshot via
+  // R2 loadImageFiles) populates the file map and paints.
   useEffect(() => {
     if (!excalidrawAPI) {
       return;
@@ -405,19 +412,25 @@ export const IFCCanvasOverlay = () => {
     const existingFiles = excalidrawAPI.getFiles();
     const additions: BinaryFileData[] = [];
     for (const a of anchors) {
-      if (!a.snapshotFileId) {
+      if (!a.snapshotFileId || existingFiles[a.snapshotFileId]) {
         continue;
       }
-      if (existingFiles[a.snapshotFileId]) {
+      // Seed the generic thumbnail ONLY under the base id (an anchor nobody
+      // has re-orbited yet). A versioned id (`ifc-snap-{id}-{ts}`) is a baked
+      // VIEW from a specific user's orbit — seeding the generic thumbnail there
+      // would mask the real baked view (addFiles skips an existing id) and
+      // peers would never see the orbit. Those load unmasked from R2.
+      if (a.snapshotFileId !== `ifc-snap-${a.elementId}`) {
         continue;
       }
-      const libFile = files.find((f) => f.id === a.fileId);
-      const seed =
-        libFile?.ifcMeta?.thumbnail ??
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+      const thumbnail = files.find((f) => f.id === a.fileId)?.ifcMeta
+        ?.thumbnail;
+      if (!thumbnail) {
+        continue;
+      }
       additions.push({
         id: a.snapshotFileId as FileId,
-        dataURL: seed as unknown as BinaryFileData["dataURL"],
+        dataURL: thumbnail as unknown as BinaryFileData["dataURL"],
         mimeType: "image/png" as BinaryFileData["mimeType"],
         created: Date.now(),
       });
@@ -426,6 +439,25 @@ export const IFCCanvasOverlay = () => {
       excalidrawAPI.addFiles(additions);
     }
   }, [anchors, files, excalidrawAPI]);
+
+  // Recover snapshots that are missing from the canvas file map. The normal
+  // image-load path skips elements with status "error" and FileManager
+  // permanently blocks ids that errored once — so a snapshot that 404'd on a
+  // transient race (fetched before its upload finished) stays blank forever,
+  // even after it's on R2. Here we force-load any anchor's missing snapshot
+  // straight from R2; once present, Excalidraw paints it. This is what makes a
+  // peer's re-orbited IFC view actually appear instead of a broken thumbnail.
+  useEffect(() => {
+    if (!excalidrawAPI || !collabAPI) {
+      return;
+    }
+    const map = excalidrawAPI.getFiles();
+    for (const a of anchors) {
+      if (a.snapshotFileId && !map[a.snapshotFileId]) {
+        void collabAPI.ensureSnapshotLoaded(a.snapshotFileId);
+      }
+    }
+  }, [anchors, files, excalidrawAPI, collabAPI]);
 
   // When the user copies an anchor (Ctrl+D / clone-paste / paste from
   // another scene), Excalidraw deep-clones the element but shallow-clones
@@ -453,13 +485,20 @@ export const IFCCanvasOverlay = () => {
       if (!a.snapshotFileId) {
         continue;
       }
-      const expected = `ifc-snap-${a.elementId}`;
-      if (a.snapshotFileId === expected) {
+      // This element legitimately owns `ifc-snap-{id}` (initial) AND any
+      // `ifc-snap-{id}-{timestamp}` (a re-baked view, see captureAndPersistView).
+      // Only a snapshotFileId that belongs to a DIFFERENT element id (a
+      // copy/paste that inherited the original's customData) is re-keyed.
+      const base = `ifc-snap-${a.elementId}`;
+      if (
+        a.snapshotFileId === base ||
+        a.snapshotFileId.startsWith(`${base}-`)
+      ) {
         continue;
       }
       migrations.push({
         elementId: a.elementId,
-        newSnapshotFileId: expected,
+        newSnapshotFileId: base,
         oldSnapshotFileId: a.snapshotFileId,
       });
     }
@@ -714,7 +753,12 @@ export const IFCCanvasOverlay = () => {
               // eslint-disable-next-line react/forbid-dom-props
               style={{ background: viewBg }}
             >
-              {!known ? (
+              {!known || !file?.dataURL ? (
+                // No GLB bytes yet (peer focused before the heavy model
+                // hydrated from R2). Mounting the renderer with an empty
+                // glbUrl makes it fetch "" → the SPA's index.html → a GLTF
+                // JSON.parse crash. Show "waiting" until the bytes arrive (the
+                // passive snapshot/thumbnail still paints underneath).
                 <div className="mcm-ifc-layer__waiting">
                   {t("ifc.status.waitingPeer")}
                 </div>
@@ -894,6 +938,19 @@ export const IFCCanvasOverlay = () => {
                   title={t("ifc.toolbar.fitInlineTitle")}
                 >
                   ↻ {t("ifc.toolbar.fitInline")}
+                </button>
+                <button
+                  type="button"
+                  className="mcm-ifc-layer__tool"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Re-bake the current view at high resolution and re-sync
+                    // it to everyone — for when the snapshot looks low-res/stale.
+                    void captureAndPersistView(a);
+                  }}
+                  title={t("ifc.toolbar.refreshTitle")}
+                >
+                  <RotateCcw size={13} /> {t("ifc.toolbar.refresh")}
                 </button>
                 <button
                   type="button"

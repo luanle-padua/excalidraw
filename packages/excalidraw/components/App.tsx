@@ -3493,8 +3493,24 @@ class App extends React.Component<AppProps, AppState> {
       this.eraserTrail.endPath();
     }
 
-    if (prevProps.viewModeEnabled !== this.props.viewModeEnabled) {
-      this.setState({ viewModeEnabled: !!this.props.viewModeEnabled });
+    // A controlled `viewModeEnabled` prop must stay authoritative over editor
+    // state. Enforce the invariant on EVERY update where state has drifted from
+    // a *defined* prop — not only when the prop value itself changes. An
+    // internal state reset can clobber `viewModeEnabled` back to its default
+    // `false` (e.g. `resetScene()` spreads `getDefaultAppState()` when joining
+    // or switching a collab room) while the prop is still `true`; the old
+    // `prevProps !== props` guard never fired in that case, silently unlocking
+    // the canvas. (MCM: a finished meeting opened for review showed the
+    // read-only banner yet stayed editable when re-entered from another
+    // review.) When the prop is absent (uncontrolled), preserve the original
+    // behavior: only react to a prop transition (host stops controlling →
+    // reset to false).
+    if (this.props.viewModeEnabled !== undefined) {
+      if (this.state.viewModeEnabled !== this.props.viewModeEnabled) {
+        this.setState({ viewModeEnabled: !!this.props.viewModeEnabled });
+      }
+    } else if (prevProps.viewModeEnabled !== this.props.viewModeEnabled) {
+      this.setState({ viewModeEnabled: false });
     }
 
     if (prevState.viewModeEnabled !== this.state.viewModeEnabled) {

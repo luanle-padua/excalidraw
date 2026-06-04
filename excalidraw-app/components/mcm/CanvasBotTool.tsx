@@ -13,6 +13,7 @@ import {
   convertToExcalidrawElements,
   useExcalidrawAPI,
 } from "@excalidraw/excalidraw";
+import { newElementWith } from "@excalidraw/element";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -308,7 +309,13 @@ export const CanvasBotTool = () => {
     const next = replaceId
       ? all.map((e) =>
           e.id === replaceId || (e as any).containerId === replaceId
-            ? { ...e, isDeleted: true }
+            ? // newElementWith bumps version + versionNonce so the deletion
+              // actually BROADCASTS to peers. A raw `{ ...e, isDeleted: true }`
+              // keeps the old version, so Portal.broadcastScene (which only
+              // sends elements whose version increased) skips it — peers never
+              // learn the loading frame was removed and end up with BOTH the
+              // loading and answer panels (the duplicate-panel bug).
+              newElementWith(e, { isDeleted: true })
             : e,
         )
       : [...all];
@@ -364,6 +371,8 @@ export const CanvasBotTool = () => {
     } finally {
       setBusy(false);
     }
+    // writeText is a stable in-render helper; intentionally not a dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, pending, excalidrawAPI, busy, t, collectCanvasText]);
 
   const cancelPrompt = () => {

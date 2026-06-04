@@ -16,4 +16,8 @@ export {
   isSavedToStorage as isSavedToFirebase,
   saveFilesToStorage as saveFilesToFirebase,
   loadFilesFromStorage as loadFilesFromFirebase,
+  saveChatToStorage as saveChatToFirebase,
+  loadChatFromStorage as loadChatFromFirebase,
+  saveLibraryToStorage as saveLibraryToFirebase,
+  loadLibraryFromStorage as loadLibraryFromFirebase,
 } from "./storage";

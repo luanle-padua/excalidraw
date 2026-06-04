@@ -81,9 +81,13 @@ import { FileStatusStore } from "../data/fileStatusStore";
 import { LocalData } from "../data/LocalData";
 import {
   isSavedToFirebase,
+  loadChatFromFirebase,
   loadFilesFromFirebase,
   loadFromFirebase,
+  loadLibraryFromFirebase,
+  saveChatToFirebase,
   saveFilesToFirebase,
+  saveLibraryToFirebase,
   saveToFirebase,
 } from "../data/firebase";
 import {
@@ -97,6 +101,7 @@ import {
   isFileSeen,
   markFileSeen,
   removeMeetingFile,
+  setMeetingFileBytes,
   setMeetingFileLock,
   upsertMeetingFile,
 } from "../data/meetingLibrary";
@@ -205,6 +210,24 @@ export const isBotMessage = (m: ChatMessage): boolean =>
 
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
+/** dataURL length above which a library file is broadcast METADATA-ONLY and
+ *  its bytes routed through R2 instead of the socket (see
+ *  `broadcastLibraryFileSmart`). ~256k chars ≈ ~190KB of bytes — keeps small
+ *  DXFs/images inline (instant) while large IFC GLBs go via storage. */
+const LIBRARY_INLINE_MAX_BYTES = 256 * 1024;
+
+/** Upper bound for a single library file routed through R2. Much larger than
+ *  the 30MB FILE_UPLOAD_MAX_BYTES used for the socket/inline path — IFC GLBs
+ *  routinely exceed 30MB and the worker streams them to R2, so the inline cap
+ *  doesn't apply here. */
+const LIBRARY_FILE_MAX_BYTES = 512 * 1024 * 1024;
+
+/** Largest dataURL we'll ever push over the socket (inline broadcast). The
+ *  room server's maxHttpBufferSize is 50MB and a message over it DISCONNECTS
+ *  the sender, so we stay well under. Files larger than this only reach peers
+ *  via R2; if R2 also fails, peers get the thumbnail only (no 3D). */
+const LIBRARY_SOCKET_MAX_BYTES = 40 * 1024 * 1024;
+
 interface CollabState {
   errorMessage: string | null;
   /** errors related to saving */
@@ -242,6 +265,8 @@ export interface CollabAPI {
   publishLibraryFile: CollabInstance["publishLibraryFile"];
   publishLibraryFileDelete: CollabInstance["publishLibraryFileDelete"];
   publishLibraryFileLock: CollabInstance["publishLibraryFileLock"];
+  uploadAnchorSnapshot: CollabInstance["uploadAnchorSnapshot"];
+  ensureSnapshotLoaded: CollabInstance["ensureSnapshotLoaded"];
   publishRecordingState: CollabInstance["publishRecordingState"];
   /** Element-only lock toggle. Use when the file isn't tracked by the
    *  meeting library (legacy paste, direct addFiles, etc.) — these
@@ -427,6 +452,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       publishLibraryFile: this.publishLibraryFile,
       publishLibraryFileDelete: this.publishLibraryFileDelete,
       publishLibraryFileLock: this.publishLibraryFileLock,
+      uploadAnchorSnapshot: this.uploadAnchorSnapshot,
+      ensureSnapshotLoaded: this.ensureSnapshotLoaded,
       publishRecordingState: this.publishRecordingState,
       toggleCanvasImageElementLock: this.toggleCanvasImageElementLock,
       linkTextToFile: this.linkTextToFile,
@@ -610,10 +637,30 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.eagerSceneLoaded = false;
     this.portal.close();
     this.fileManager.reset();
+    if (this.chatSaveTimer) {
+      clearTimeout(this.chatSaveTimer);
+      this.chatSaveTimer = null;
+    }
+    if (this.libraryUnsub) {
+      this.libraryUnsub();
+      this.libraryUnsub = null;
+    }
+    if (this.librarySaveTimer) {
+      clearTimeout(this.librarySaveTimer);
+      this.librarySaveTimer = null;
+    }
+    // R2 paths are per-room, so don't carry these flags into the next room.
+    this.storedLibraryFileIds.clear();
+    this.hydratingLibraryFileIds.clear();
+    this.uploadingLibraryFiles.clear();
+    this.loadingLibrary = false;
     if (!opts?.isUnload) {
       this.setIsCollaborating(false);
       appJotaiStore.set(meetingViewOnlyAtom, false);
       clearReviewRoom();
+      // Drop the LEFT meeting's chat so it can't bleed into the next room;
+      // the next room loads its own persisted history on join.
+      appJotaiStore.set(chatMessagesAtom, []);
       this.setActiveRoomLink(null);
       this.collaborators = new Map();
       this.excalidrawAPI.updateScene({
@@ -798,9 +845,31 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       return null;
     }
 
+    // Persist the meeting library to R2 on any change (debounced), so all
+    // material is durable and a reopen on any browser restores it. One
+    // subscription per session; torn down in destroySocketClient.
+    if (!this.libraryUnsub) {
+      this.libraryUnsub = appJotaiStore.sub(meetingFilesAtom, () => {
+        this.persistLibrary();
+      });
+    }
+
     if (existingRoomLinkData) {
       // when joining existing room, don't merge it with current scene data
       this.excalidrawAPI.resetScene();
+
+      // Load this room's persisted chat log + library in parallel with the
+      // scene, so a reopen (and especially a finished-meeting review) shows
+      // the past conversation and the DXF/IFC/PDF material. Both merge by id,
+      // so live messages / peer files aren't lost.
+      void this.loadChatHistory(
+        existingRoomLinkData.roomId,
+        existingRoomLinkData.roomKey,
+      );
+      void this.loadLibrary(
+        existingRoomLinkData.roomId,
+        existingRoomLinkData.roomKey,
+      );
 
       // EAGER PARALLEL PREFETCH — load the saved scene from storage (R2)
       // RIGHT NOW, in parallel with the socket connect, instead of waiting
@@ -1503,6 +1572,182 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       return;
     }
     appJotaiStore.set(chatMessagesAtom, [...current, msg]);
+    this.persistChat();
+  };
+
+  // Debounced persistence of the full chat log to storage (R2, E2E with the
+  // room key) so reopening the meeting — especially a finished one in
+  // read-only review — shows the past conversation. Never writes while
+  // reviewing (the meeting is immutable) or before the room key is known.
+  private chatSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private persistChat = () => {
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return;
+    }
+    if (this.chatSaveTimer) {
+      clearTimeout(this.chatSaveTimer);
+    }
+    this.chatSaveTimer = setTimeout(() => {
+      this.chatSaveTimer = null;
+      const messages = appJotaiStore.get(chatMessagesAtom) ?? [];
+      void saveChatToFirebase(roomId, roomKey, messages).catch((error) => {
+        console.error(error);
+      });
+    }, 800);
+  };
+
+  /** Load the persisted chat log for a room and merge it into the local
+   *  atom (by id, oldest-first) so reopen / late-join sees past messages
+   *  without dropping any live message that already arrived. */
+  private loadChatHistory = async (roomId: string, roomKey: string) => {
+    try {
+      const history = await loadChatFromFirebase<ChatMessage>(roomId, roomKey);
+      if (!history?.length || this.portal.roomId !== roomId) {
+        return;
+      }
+      const byId = new Map<string, ChatMessage>();
+      for (const m of history) {
+        byId.set(m.id, m);
+      }
+      // Live messages win over stored ones (newer reactions/translations).
+      for (const m of appJotaiStore.get(chatMessagesAtom) ?? []) {
+        byId.set(m.id, m);
+      }
+      const merged = Array.from(byId.values()).sort((a, b) => a.ts - b.ts);
+      appJotaiStore.set(chatMessagesAtom, merged);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  // --- Meeting library persistence (DXF / IFC / PDF source + metadata) -----
+  // The library lives in meetingFilesAtom, persisted per-browser to IndexedDB
+  // and synced peer-to-peer. Neither survives a reopen on a fresh browser with
+  // no live peer — so CAD/PDF content went blank. We mirror it to R2 as one
+  // encrypted blob (saved on any library change, debounced) and restore it on
+  // join, so reopening on any device shows the full material.
+  private librarySaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private libraryUnsub: (() => void) | null = null;
+  private loadingLibrary = false;
+
+  private persistLibrary = () => {
+    // Don't write while restoring (we'd just re-save what we loaded), while
+    // reviewing (the meeting is immutable), or before a room key is known.
+    if (this.loadingLibrary || appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return;
+    }
+    if (this.librarySaveTimer) {
+      clearTimeout(this.librarySaveTimer);
+    }
+    this.librarySaveTimer = setTimeout(() => {
+      this.librarySaveTimer = null;
+      void (async () => {
+        const files = appJotaiStore.get(meetingFilesAtom) ?? [];
+        if (!files.length) {
+          return;
+        }
+        // Keep the blob small: large files (IFC GLB) live on R2 per-file; the
+        // blob carries only their metadata (dataURL stripped). Small files
+        // stay inline so a single fetch restores them.
+        const slim = await Promise.all(
+          files.map(async (f) => {
+            if (!this.isLargeLibraryFile(f)) {
+              return f;
+            }
+            // ALWAYS strip large bytes from the blob — a multi-MB GLB inline
+            // would balloon the blob and 503 the /v1/library PUT. Best-effort
+            // push the bytes to per-file R2; if that fails, the entry stays
+            // metadata-only (its thumbnail still paints; loadLibrary keeps it).
+            try {
+              await this.ensureLargeLibraryFileOnR2(f);
+            } catch (error) {
+              console.error(error);
+            }
+            return { ...f, dataURL: "" };
+          }),
+        );
+        void saveLibraryToFirebase(roomId, roomKey, slim).catch((error) => {
+          console.error(error);
+        });
+      })();
+    }, 1200);
+  };
+
+  /** Restore the persisted library on join: feed bytes to the canvas file map
+   *  (image/snapshot elements) AND the overlay-source atom. De-dups by id, so
+   *  it composes with IndexedDB hydrate + peer broadcasts. */
+  private loadLibrary = async (roomId: string, roomKey: string) => {
+    // Hold `loadingLibrary` for the WHOLE load (incl. the R2 fetches), not just
+    // the upsert loop — otherwise peer library broadcasts arriving mid-join
+    // would trigger persistLibrary and write a PARTIAL library blob to R2
+    // before we've merged in what's already stored.
+    this.loadingLibrary = true;
+    try {
+      const files = await loadLibraryFromFirebase<MeetingFile>(roomId, roomKey);
+      if (!files?.length || this.portal.roomId !== roomId) {
+        return;
+      }
+      // Large files are stored metadata-only in the blob (dataURL stripped);
+      // pull their bytes back from per-file R2 in parallel.
+      const hydrated = await Promise.all(
+        files.map(async (file) => {
+          if (file.dataURL) {
+            return file;
+          }
+          try {
+            const { loadedFiles } = await loadFilesFromFirebase(
+              `files/rooms/${roomId}`,
+              roomKey,
+              [file.id as FileId],
+            );
+            const dataURL = loadedFiles[0]?.dataURL;
+            if (!dataURL) {
+              // Bytes not on R2 yet — KEEP the metadata (its ifcMeta.thumbnail
+              // still paints the anchor); the GLB can be pulled later.
+              return file;
+            }
+            this.storedLibraryFileIds.add(file.id);
+            return { ...file, dataURL: dataURL as string };
+          } catch (error) {
+            console.error(error);
+            return file;
+          }
+        }),
+      );
+      const existing = this.excalidrawAPI.getFiles();
+      const additions: BinaryFileData[] = [];
+      for (const file of hydrated) {
+        if (!file) {
+          continue;
+        }
+        // Only feed real bytes to the canvas file map (skip metadata-only
+        // entries whose dataURL is still empty).
+        if (file.dataURL && !existing[file.id as FileId]) {
+          additions.push({
+            id: file.id as FileId,
+            dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+            mimeType: file.mimeType as BinaryFileData["mimeType"],
+            created: Date.now(),
+          });
+        }
+        upsertMeetingFile(roomId, file, { allowContentDup: true });
+      }
+      if (additions.length) {
+        this.excalidrawAPI.addFiles(additions);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      this.loadingLibrary = false;
+    }
   };
 
   /** Wipe THIS tab's local chat + transcript logs. Not broadcast —
@@ -1523,6 +1768,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const current = appJotaiStore.get(chatMessagesAtom) ?? [];
     const next = current.map((m) => (m.id === id ? { ...m, ...patch } : m));
     appJotaiStore.set(chatMessagesAtom, next);
+    this.persistChat();
   };
 
   /** Apply a reaction change (add / remove) coming from another peer
@@ -1554,6 +1800,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       return { ...m, reactions };
     });
     appJotaiStore.set(chatMessagesAtom, next);
+    this.persistChat();
   };
 
   private applyRaiseHand = (socketId: string, raised: boolean) => {
@@ -1882,7 +2129,184 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         created: Date.now(),
       },
     ]);
-    this.portal.broadcastLibraryFile(file);
+    void this.broadcastLibraryFileSmart(file);
+  };
+
+  /** Broadcast a library file to peers. Small files (DXF, images) go inline
+   *  over the socket — fast, no round-trip. LARGE files (IFC GLB, multi-MB)
+   *  do NOT: pushing megabytes over the encrypted socket is slow + sequential
+   *  and made IFC lag for peers ("loads but not realtime"). Instead we PUT the
+   *  bytes to R2 first, then broadcast METADATA ONLY (dataURL stripped); the
+   *  peer hydrates the bytes from R2 in parallel (`applyRemoteLibraryFile`).
+   *  R2 is the durable store anyway, so this also makes the file survive a
+   *  reopen. Falls back to an inline broadcast if the R2 PUT fails. */
+  // Library file ids we've already PUT to (or pulled from) R2 this session,
+  // so a rebroadcast (e.g. library snapshot to each new joiner) skips the
+  // redundant re-upload.
+  private storedLibraryFileIds = new Set<string>();
+  // In-flight per-file R2 uploads, so the two callers (broadcast + persist)
+  // share ONE upload instead of racing into duplicate PUTs of the same GLB.
+  private uploadingLibraryFiles = new Map<string, Promise<boolean>>();
+
+  /** Is this file "large" — its bytes should live on R2 per-file rather than
+   *  inline in socket broadcasts / the library blob? */
+  private isLargeLibraryFile = (file: MeetingFile): boolean =>
+    !!file.dataURL && file.dataURL.length > LIBRARY_INLINE_MAX_BYTES;
+
+  /** Ensure a large file's bytes are durably on R2 (per-file). Idempotent via
+   *  `storedLibraryFileIds`; concurrent calls share one in-flight upload.
+   *  Returns true once the bytes are on R2 (so the caller can safely strip the
+   *  dataURL from inline transports). Throws if the upload fails, so callers
+   *  can fall back to carrying the bytes inline. */
+  private ensureLargeLibraryFileOnR2 = (
+    file: MeetingFile,
+  ): Promise<boolean> => {
+    if (this.storedLibraryFileIds.has(file.id)) {
+      return Promise.resolve(true);
+    }
+    const inFlight = this.uploadingLibraryFiles.get(file.id);
+    if (inFlight) {
+      return inFlight;
+    }
+    const upload = this.uploadLargeLibraryFileToR2(file);
+    this.uploadingLibraryFiles.set(file.id, upload);
+    void upload.finally(() => this.uploadingLibraryFiles.delete(file.id));
+    return upload;
+  };
+
+  private uploadLargeLibraryFileToR2 = async (
+    file: MeetingFile,
+  ): Promise<boolean> => {
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return false;
+    }
+    // saveFilesToStorage does NOT throw on an HTTP error — it returns the id in
+    // `erroredFiles`. Check it explicitly and throw, so callers (broadcast /
+    // persist) treat a 503 as a real failure and fall back to inline.
+    const { savedFiles, erroredFiles } = await saveFilesToFirebase({
+      prefix: `${FIREBASE_STORAGE_PREFIXES.collabFiles}/${roomId}`,
+      files: await encodeFilesForUpload({
+        files: new Map<FileId, BinaryFileData>([
+          [
+            file.id as FileId,
+            {
+              id: file.id as FileId,
+              dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+              mimeType: file.mimeType as BinaryFileData["mimeType"],
+              created: Date.now(),
+            },
+          ],
+        ]),
+        encryptionKey: roomKey,
+        maxBytes: LIBRARY_FILE_MAX_BYTES,
+      }),
+    });
+    if (erroredFiles.length > 0 || savedFiles.length === 0) {
+      throw new Error(`R2 upload failed for library file ${file.id}`);
+    }
+    this.storedLibraryFileIds.add(file.id);
+    return true;
+  };
+
+  /** Upload a freshly-baked IFC anchor snapshot PNG to R2 (per-file) and
+   *  resolve once it's stored. The overlay AWAITS this BEFORE broadcasting the
+   *  image element that points at the new snapshot id, so peers never fetch a
+   *  not-yet-uploaded file (404 → permanently errored → broken thumbnail). */
+  uploadAnchorSnapshot = async (
+    fileId: string,
+    dataURL: string,
+  ): Promise<boolean> => {
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return false;
+    }
+    const { savedFiles, erroredFiles } = await saveFilesToFirebase({
+      prefix: `${FIREBASE_STORAGE_PREFIXES.collabFiles}/${roomId}`,
+      files: await encodeFilesForUpload({
+        files: new Map<FileId, BinaryFileData>([
+          [
+            fileId as FileId,
+            {
+              id: fileId as FileId,
+              dataURL: dataURL as unknown as BinaryFileData["dataURL"],
+              mimeType: "image/png" as BinaryFileData["mimeType"],
+              created: Date.now(),
+            },
+          ],
+        ]),
+        encryptionKey: roomKey,
+        maxBytes: FILE_UPLOAD_MAX_BYTES,
+      }),
+    });
+    return erroredFiles.length === 0 && savedFiles.length > 0;
+  };
+
+  // Snapshot ids we're currently pulling — avoids duplicate concurrent fetches
+  // when the overlay effect re-runs.
+  private loadingSnapshotIds = new Set<string>();
+
+  /** Force-load an anchor snapshot (IFC/PDF) from R2 into the canvas file map,
+   *  BYPASSING the normal loadImageFiles path. That path skips elements whose
+   *  status is "error" and FileManager permanently blocks ids that errored
+   *  once — so a snapshot that 404'd on a transient race (e.g. fetched before
+   *  its upload finished) stays blank forever, even after it's on R2. The
+   *  overlay calls this for any anchor whose snapshot is missing from the map;
+   *  once the file is present Excalidraw paints it regardless of the element's
+   *  stale "error" status. */
+  ensureSnapshotLoaded = async (fileId: string): Promise<void> => {
+    if (
+      !fileId ||
+      this.loadingSnapshotIds.has(fileId) ||
+      this.excalidrawAPI.getFiles()[fileId as FileId]
+    ) {
+      return;
+    }
+    this.loadingSnapshotIds.add(fileId);
+    try {
+      const { loadedFiles } = await this.fileManager.getFiles([
+        fileId as FileId,
+      ]);
+      const f = loadedFiles[0];
+      if (f && !this.excalidrawAPI.getFiles()[fileId as FileId]) {
+        this.excalidrawAPI.addFiles([
+          {
+            id: fileId as FileId,
+            dataURL: f.dataURL,
+            mimeType: f.mimeType,
+            created: Date.now(),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      this.loadingSnapshotIds.delete(fileId);
+    }
+  };
+
+  private broadcastLibraryFileSmart = async (file: MeetingFile) => {
+    if (!this.isLargeLibraryFile(file)) {
+      this.portal.broadcastLibraryFile(file);
+      return;
+    }
+    // Broadcast the METADATA (incl. the small ifcMeta.thumbnail) IMMEDIATELY so
+    // peers show the thumbnail at once — they don't wait for the multi-MB GLB.
+    // The heavy bytes upload to R2 in the BACKGROUND; peers pull them lazily
+    // (for focus/3D + reopen) via `hydrateRemoteLibraryFile`.
+    this.portal.broadcastLibraryFile({ ...file, dataURL: "" });
+    try {
+      await this.ensureLargeLibraryFileOnR2(file);
+    } catch (error) {
+      console.error(error);
+      // Bytes didn't reach R2. Re-send inline so peers still get the GLB for
+      // focus — but ONLY if it's small enough to not blow the socket buffer
+      // (which would disconnect us). Bigger than that → peers keep just the
+      // thumbnail.
+      if (file.dataURL.length <= LIBRARY_SOCKET_MAX_BYTES) {
+        this.portal.broadcastLibraryFile(file);
+      }
+    }
   };
 
   /** Called by MeetingLibrary when the local user deletes a file. Removes
@@ -1913,10 +2337,52 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
   };
 
+  // Library files whose bytes we're currently pulling from R2 (large-file
+  // path) — guards against a duplicate broadcast kicking off a second fetch.
+  private hydratingLibraryFileIds = new Set<string>();
+
   private applyRemoteLibraryFile = (file: MeetingFile) => {
     if (isFileSeen(file.id)) {
+      // Already applied. If this (re)broadcast carries the heavy bytes and our
+      // entry is still metadata-only (e.g. the sender's R2 upload failed, so it
+      // re-sent inline), fill the bytes in so focus/3D works.
+      if (file.dataURL) {
+        const existing = appJotaiStore
+          .get(meetingFilesAtom)
+          .find((f) => f.id === file.id);
+        if (existing && !existing.dataURL) {
+          this.excalidrawAPI.addFiles([
+            {
+              id: file.id as FileId,
+              dataURL: file.dataURL as unknown as BinaryFileData["dataURL"],
+              mimeType: file.mimeType as BinaryFileData["mimeType"],
+              created: Date.now(),
+            },
+          ]);
+          setMeetingFileBytes(this.portal.roomId, file.id, file.dataURL);
+        }
+      }
       return;
     }
+    if (this.hydratingLibraryFileIds.has(file.id)) {
+      return;
+    }
+    // Large files arrive METADATA-ONLY (dataURL stripped, bytes on R2). Apply
+    // the metadata NOW — this carries ifcMeta.thumbnail, so the IFC anchor
+    // shows its thumbnail immediately (the user's "realtime when done") — and
+    // pull the heavy bytes (GLB) from R2 in the background for focus/3D.
+    // `allowContentDup` because an empty dataURL fingerprint would otherwise
+    // collide across distinct metadata-only files.
+    if (!file.dataURL) {
+      markFileSeen(file.id);
+      upsertMeetingFile(this.portal.roomId, file, { allowContentDup: true });
+      void this.hydrateRemoteLibraryFile(file);
+      return;
+    }
+    this.applyHydratedLibraryFile(file);
+  };
+
+  private applyHydratedLibraryFile = (file: MeetingFile) => {
     markFileSeen(file.id);
     this.excalidrawAPI.addFiles([
       {
@@ -1927,6 +2393,61 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       },
     ]);
     upsertMeetingFile(this.portal.roomId, file);
+    // upsertMeetingFile mutates meetingFilesAtom → the library subscription
+    // (set up in startCollaboration) debounce-persists the whole library to
+    // R2, so a reopen on any browser restores DXF/IFC/PDF source + metadata.
+  };
+
+  /** Fetch a large library file's heavy bytes (GLB) from R2 — where the sender
+   *  is uploading them — and slot them into the already-applied metadata entry
+   *  + the canvas file map. Retries a few times because the sender broadcasts
+   *  the metadata BEFORE its background upload finishes, so the first read can
+   *  404. The thumbnail is already showing from the metadata; this only enables
+   *  focus/3D. */
+  private hydrateRemoteLibraryFile = async (file: MeetingFile) => {
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return;
+    }
+    this.hydratingLibraryFileIds.add(file.id);
+    try {
+      const backoffsMs = [0, 800, 1600, 3000];
+      for (const wait of backoffsMs) {
+        if (wait) {
+          await new Promise((r) => setTimeout(r, wait));
+        }
+        if (this.portal.roomId !== roomId) {
+          return;
+        }
+        const { loadedFiles } = await loadFilesFromFirebase(
+          `files/rooms/${roomId}`,
+          roomKey,
+          [file.id as FileId],
+        );
+        const dataURL = loadedFiles[0]?.dataURL;
+        if (dataURL) {
+          // It's on R2 (we just read it) — don't re-PUT if we rebroadcast.
+          this.storedLibraryFileIds.add(file.id);
+          this.excalidrawAPI.addFiles([
+            {
+              id: file.id as FileId,
+              dataURL: dataURL as unknown as BinaryFileData["dataURL"],
+              mimeType: file.mimeType as BinaryFileData["mimeType"],
+              created: Date.now(),
+            },
+          ]);
+          setMeetingFileBytes(roomId, file.id, dataURL as string);
+          return;
+        }
+        // Not on R2 yet — the sender's upload is still in flight; retry.
+      }
+    } catch (error) {
+      // Gave up — the metadata (thumbnail) still shows; the R2 library load on
+      // next join/reload recovers the bytes.
+      console.error(error);
+    } finally {
+      this.hydratingLibraryFileIds.delete(file.id);
+    }
   };
 
   private applyRemoteLibraryFileDelete = (fileId: string) => {
@@ -2045,7 +2566,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private broadcastLibrarySnapshot = () => {
     const files = appJotaiStore.get(meetingFilesAtom);
     for (const f of files) {
-      this.portal.broadcastLibraryFile(f);
+      void this.broadcastLibraryFileSmart(f);
     }
   };
 

@@ -7,6 +7,12 @@
 //   Library file bytes (images / PDF / DXF / IFC-GLB / thumbs):
 //     PUT  /v1/files/:roomId/:fileId   body = encrypted file bytes
 //     GET  /v1/files/:roomId/:fileId   -> encrypted bytes | 404
+//   Chat history blob (encrypted, for reopen / read-only review):
+//     PUT  /v1/chats/:roomId           body = encrypted chat-log bytes
+//     GET  /v1/chats/:roomId           -> encrypted bytes | 404
+//   Library manifest blob (encrypted DXF/IFC/PDF source + metadata):
+//     PUT  /v1/library/:roomId         body = encrypted library bytes
+//     GET  /v1/library/:roomId         -> encrypted bytes | 404
 //   Project folders + meeting registry — powers the "folder → meetings
 //   → pull content" UX:
 //     POST /v1/projects                {name, hostEmail?}            -> project
@@ -47,6 +53,8 @@ app.use(
 const now = () => Date.now();
 const sceneKey = (roomId: string) => `scenes/${roomId}/current`;
 const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
+const chatKey = (roomId: string) => `chats/${roomId}/current`;
+const libraryKey = (roomId: string) => `library/${roomId}/current`;
 
 app.get("/v1/health", (c) => c.json({ ok: true }));
 
@@ -84,6 +92,56 @@ app.put("/v1/scenes/:roomId", async (c) => {
 app.get("/v1/scenes/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
   const obj = await c.env.BUCKET.get(sceneKey(roomId));
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+  });
+});
+
+// ---- Chat history blob ---------------------------------------------------
+// Per-room encrypted chat log (E2E with the room key, like the scene). Lets
+// a reopened meeting — especially a finished one in read-only review — show
+// its past conversation. R2 only; no D1 row needed.
+
+app.put("/v1/chats/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  await c.env.BUCKET.put(chatKey(roomId), body);
+  return c.json({ ok: true });
+});
+
+app.get("/v1/chats/:roomId", async (c) => {
+  const obj = await c.env.BUCKET.get(chatKey(c.req.param("roomId")));
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+  });
+});
+
+// ---- Library manifest blob -----------------------------------------------
+// The full meeting library (DXF / IFC / PDF source bytes + metadata) as one
+// encrypted blob, so a reopen restores material the scene's native file map
+// doesn't carry. R2 only; no D1 row.
+
+app.put("/v1/library/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  await c.env.BUCKET.put(libraryKey(roomId), body);
+  return c.json({ ok: true });
+});
+
+app.get("/v1/library/:roomId", async (c) => {
+  const obj = await c.env.BUCKET.get(libraryKey(c.req.param("roomId")));
   if (!obj) {
     return c.json({ error: "not found" }, 404);
   }

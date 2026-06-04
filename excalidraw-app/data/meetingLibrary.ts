@@ -275,7 +275,12 @@ export const upsertMeetingFile = (
   // dataURL fingerprint against a DXF entry would be meaningless and,
   // worst case, cause a cross-type collision that drops a genuinely
   // new file. We compare like-with-like.
-  if (!opts?.allowContentDup) {
+  //
+  // NEVER content-dedup a metadata-only entry (empty dataURL): every such
+  // file fingerprints identically (""), so two distinct large files (e.g. two
+  // IFC GLBs synced metadata-first) would collide and the second would be
+  // silently dropped. They're disambiguated by id only.
+  if (!opts?.allowContentDup && file.dataURL) {
     const fp = fingerprintOf(file.dataURL);
     const dup = current.find(
       (f) => f.mimeType === file.mimeType && fingerprintOf(f.dataURL) === fp,
@@ -330,6 +335,33 @@ export const setMeetingFileLock = (
   }
   appJotaiStore.set(meetingFilesAtom, next);
   void persist(roomId, next);
+  return true;
+};
+
+/** Update an existing library entry's bytes in place. Used when a large file's
+ *  metadata (with its thumbnail) was applied first — so the anchor shows the
+ *  thumbnail immediately — and its heavy bytes (e.g. an IFC GLB) are hydrated
+ *  from R2 a moment later. No-op if the entry is gone or already has these
+ *  bytes. Does NOT touch the IndexedDB cache (large bytes live on R2; the
+ *  per-file + library-blob persistence already covers reopen). */
+export const setMeetingFileBytes = (
+  roomId: string | null,
+  fileId: string,
+  dataURL: string,
+): boolean => {
+  const current = appJotaiStore.get(meetingFilesAtom);
+  let changed = false;
+  const next = current.map((f) => {
+    if (f.id !== fileId || f.dataURL === dataURL) {
+      return f;
+    }
+    changed = true;
+    return { ...f, dataURL };
+  });
+  if (!changed) {
+    return false;
+  }
+  appJotaiStore.set(meetingFilesAtom, next);
   return true;
 };
 

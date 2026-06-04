@@ -809,14 +809,39 @@ export const IFCRenderer = ({
             if (!renderer) {
               return null;
             }
-            // Force a fresh render immediately before reading back:
-            // preserveDrawingBuffer is false, so the buffer can be
-            // cleared after compositing and toBlob() would read blank.
-            render();
-            const canvas = renderer.domElement;
-            return new Promise<Blob | null>((resolve) =>
-              canvas.toBlob((b) => resolve(b), "image/png"),
+            // Bake at HIGH resolution. The live view renders at the small
+            // on-screen anchor size (× a 2-capped pixel ratio), which made the
+            // baked snapshot look pixelated / "cheap" once the anchor is viewed
+            // larger or zoomed in. Temporarily bump the pixel ratio so the
+            // drawing buffer is ~1600px on the long side, read it back, then
+            // restore. Aspect is unchanged (uniform scale), so no reprojection.
+            const { width: w, height: h } = sizeRef.current;
+            const prevPR = renderer.getPixelRatio();
+            const targetPR = Math.min(
+              4,
+              Math.max(prevPR, Math.ceil(1600 / Math.max(w, h, 1))),
             );
+            const bump = targetPR > prevPR;
+            try {
+              if (bump) {
+                renderer.setPixelRatio(targetPR);
+                renderer.setSize(w, h, false);
+              }
+              // Force a fresh render immediately before reading back:
+              // preserveDrawingBuffer is false, so the buffer can be
+              // cleared after compositing and toBlob() would read blank.
+              render();
+              const canvas = renderer.domElement;
+              return await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob((b) => resolve(b), "image/png"),
+              );
+            } finally {
+              if (bump) {
+                renderer.setPixelRatio(prevPR);
+                renderer.setSize(w, h, false);
+                render();
+              }
+            }
           },
           getSelected: () =>
             selectedId ? metadata.elements[selectedId] ?? null : null,

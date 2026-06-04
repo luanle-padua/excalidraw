@@ -23,6 +23,7 @@ import {
   chatMessagesAtom,
   collabAPIAtom,
   isBotMessage,
+  meetingViewOnlyAtom,
 } from "../collab/Collab";
 import { meetingFilesAtom } from "../data/meetingLibrary";
 import { transcriptionLogAtom } from "../data/transcription";
@@ -579,6 +580,9 @@ export const ChatView = () => {
   const t = useT();
   const messages = useAtomValue(chatMessagesAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
+  // Finished meeting opened for review: chat history is visible but read-only
+  // (no composing) — the meeting is immutable, extract-only.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const files = useAtomValue(meetingFilesAtom);
   const transcriptLog = useAtomValue(transcriptionLogAtom);
   const excalidrawAPI = useExcalidrawAPI();
@@ -1210,116 +1214,122 @@ export const ChatView = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            aria-label={t("chat.attachFileAria")}
-            title={t("chat.attach")}
-            className="ChatView__file-input"
-            onChange={handleFileSelect}
-          />
-          <div
-            className={`ChatView__compose${
-              draft.trim() ? " ChatView__compose--active" : ""
-            }${replyingTo ? " ChatView__compose--replying" : ""}`}
-          >
-            {replyingTo && (
-              <div className="ChatView__compose-reply">
-                <ReplyIcon />
-                <div className="ChatView__compose-reply-body">
-                  <span className="ChatView__compose-reply-author">
-                    {replyingTo.username}
-                  </span>
-                  <span className="ChatView__compose-reply-text">
-                    {truncateForQuote(replyingTo.text)}
-                  </span>
+        {viewOnly ? (
+          <div className="ChatView__compose-readonly" role="status">
+            {t("chat.viewOnlyNotice")}
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              aria-label={t("chat.attachFileAria")}
+              title={t("chat.attach")}
+              className="ChatView__file-input"
+              onChange={handleFileSelect}
+            />
+            <div
+              className={`ChatView__compose${
+                draft.trim() ? " ChatView__compose--active" : ""
+              }${replyingTo ? " ChatView__compose--replying" : ""}`}
+            >
+              {replyingTo && (
+                <div className="ChatView__compose-reply">
+                  <ReplyIcon />
+                  <div className="ChatView__compose-reply-body">
+                    <span className="ChatView__compose-reply-author">
+                      {replyingTo.username}
+                    </span>
+                    <span className="ChatView__compose-reply-text">
+                      {truncateForQuote(replyingTo.text)}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="ChatView__compose-reply-close"
+                    onClick={cancelReply}
+                    aria-label={t("chat.replyCancelAria")}
+                    title={t("chat.replyCancelAria")}
+                  >
+                    ×
+                  </button>
                 </div>
+              )}
+              <textarea
+                ref={inputRef}
+                className="ChatView__compose-input"
+                placeholder={t("chat.composePlaceholder")}
+                value={draft}
+                onChange={handleDraftChange}
+                onClick={handleSelectionChange}
+                onKeyUp={handleSelectionChange}
+                onKeyDown={handleKeyDown}
+                rows={1}
+              />
+              <div className="ChatView__compose-actions">
                 <button
                   type="button"
-                  className="ChatView__compose-reply-close"
-                  onClick={cancelReply}
-                  aria-label={t("chat.replyCancelAria")}
-                  title={t("chat.replyCancelAria")}
+                  className={`ChatView__compose-icon-btn${
+                    emojiPickerOpen ? " ChatView__compose-icon-btn--on" : ""
+                  }`}
+                  onClick={() => setEmojiPickerOpen((v) => !v)}
+                  title={t("chat.emoji")}
+                  aria-label={t("chat.emoji")}
                 >
-                  ×
+                  <SmileIcon />
+                </button>
+                <button
+                  type="button"
+                  className="ChatView__compose-icon-btn"
+                  onClick={triggerMentionPicker}
+                  title={t("chat.mention")}
+                  aria-label={t("chat.mention")}
+                >
+                  <AtIcon />
+                </button>
+                <button
+                  type="button"
+                  className="ChatView__compose-icon-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t("chat.attach")}
+                  aria-label={t("chat.attach")}
+                >
+                  <AttachIcon />
+                </button>
+                <div className="ChatView__compose-actions-spacer" />
+                <button
+                  type="submit"
+                  className="ChatView__compose-send"
+                  disabled={!draft.trim()}
+                  aria-label={t("chat.sendLabel")}
+                  title={t("chat.sendLabel")}
+                >
+                  <SendIcon />
                 </button>
               </div>
+            </div>
+            {emojiPickerOpen && (
+              <div
+                className="ChatView__compose-emoji-popover"
+                role="toolbar"
+                aria-label="Quick emoji"
+              >
+                {COMPOSE_EMOJI_PALETTE.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    className="ChatView__compose-emoji-btn"
+                    onClick={() => insertEmoji(e)}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
             )}
-            <textarea
-              ref={inputRef}
-              className="ChatView__compose-input"
-              placeholder={t("chat.composePlaceholder")}
-              value={draft}
-              onChange={handleDraftChange}
-              onClick={handleSelectionChange}
-              onKeyUp={handleSelectionChange}
-              onKeyDown={handleKeyDown}
-              rows={1}
-            />
-            <div className="ChatView__compose-actions">
-              <button
-                type="button"
-                className={`ChatView__compose-icon-btn${
-                  emojiPickerOpen ? " ChatView__compose-icon-btn--on" : ""
-                }`}
-                onClick={() => setEmojiPickerOpen((v) => !v)}
-                title={t("chat.emoji")}
-                aria-label={t("chat.emoji")}
-              >
-                <SmileIcon />
-              </button>
-              <button
-                type="button"
-                className="ChatView__compose-icon-btn"
-                onClick={triggerMentionPicker}
-                title={t("chat.mention")}
-                aria-label={t("chat.mention")}
-              >
-                <AtIcon />
-              </button>
-              <button
-                type="button"
-                className="ChatView__compose-icon-btn"
-                onClick={() => fileInputRef.current?.click()}
-                title={t("chat.attach")}
-                aria-label={t("chat.attach")}
-              >
-                <AttachIcon />
-              </button>
-              <div className="ChatView__compose-actions-spacer" />
-              <button
-                type="submit"
-                className="ChatView__compose-send"
-                disabled={!draft.trim()}
-                aria-label={t("chat.sendLabel")}
-                title={t("chat.sendLabel")}
-              >
-                <SendIcon />
-              </button>
-            </div>
-          </div>
-          {emojiPickerOpen && (
-            <div
-              className="ChatView__compose-emoji-popover"
-              role="toolbar"
-              aria-label="Quick emoji"
-            >
-              {COMPOSE_EMOJI_PALETTE.map((e) => (
-                <button
-                  key={e}
-                  type="button"
-                  className="ChatView__compose-emoji-btn"
-                  onClick={() => insertEmoji(e)}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
-          )}
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );

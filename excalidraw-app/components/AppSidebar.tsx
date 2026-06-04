@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import {
   DefaultSidebar,
@@ -7,6 +7,9 @@ import {
 } from "@excalidraw/excalidraw";
 import { messageCircleIcon } from "@excalidraw/excalidraw/components/icons";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
+
+import { useAtomValue } from "../app-jotai";
+import { meetingViewOnlyAtom } from "../collab/Collab";
 
 import { ChatView } from "./ChatPanel";
 import { MeetingLibrary } from "./MeetingLibrary";
@@ -37,6 +40,31 @@ const meetingLibraryIcon = (
 export const AppSidebar = () => {
   const { openSidebar } = useUIAppState();
   const excalidrawAPI = useExcalidrawAPI();
+  // Finished meeting opened for review. In Excalidraw view mode the sidebar
+  // TRIGGER is hidden, so the user can't open the chat to read it. Auto-open
+  // the comments tab once on entering review so the conversation is visible
+  // (read-only). One-shot — the user can still close it to see the canvas.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
+  const didAutoOpenChat = useRef(false);
+  useEffect(() => {
+    if (!viewOnly) {
+      didAutoOpenChat.current = false;
+      return;
+    }
+    if (didAutoOpenChat.current || !excalidrawAPI) {
+      return;
+    }
+    didAutoOpenChat.current = true;
+    const t = setTimeout(() => {
+      excalidrawAPI.updateScene({
+        appState: {
+          ...excalidrawAPI.getAppState(),
+          openSidebar: { name: "default", tab: "comments" },
+        },
+      });
+    }, 100);
+    return () => clearTimeout(t);
+  }, [viewOnly, excalidrawAPI]);
 
   useEffect(() => {
     if (!ALWAYS_SHOW_SIDEBAR || !excalidrawAPI) {

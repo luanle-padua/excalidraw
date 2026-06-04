@@ -254,6 +254,97 @@ export const loadFromStorage = async (
   return elements;
 };
 
+// --- per-room encrypted JSON blobs (chat log, library manifest) -----------
+// Generic helper for the meeting-material blobs that reopen a meeting needs
+// but the scene doesn't carry: the chat log and the full library (DXF / IFC /
+// PDF source + metadata). E2E like the scene — encrypted client-side with the
+// room key; the server stores only ciphertext. Wire format:
+//   [u8 ivLength][iv bytes][ciphertext bytes]
+
+const saveJsonBlob = async (
+  kind: "chats" | "library",
+  roomId: string,
+  roomKey: string,
+  value: unknown,
+): Promise<void> => {
+  if (!IS_STORAGE_CONFIGURED || !roomId || !roomKey) {
+    return;
+  }
+  const encoded = new TextEncoder().encode(JSON.stringify(value));
+  const { encryptedBuffer, iv } = await encryptData(roomKey, encoded);
+  const ciphertext = new Uint8Array(encryptedBuffer);
+  const blob = new Uint8Array(1 + iv.length + ciphertext.length);
+  blob[0] = iv.length;
+  blob.set(iv, 1);
+  blob.set(ciphertext, 1 + iv.length);
+  const res = await fetch(
+    `${STORAGE_URL}/v1/${kind}/${encodeURIComponent(roomId)}`,
+    {
+      method: "PUT",
+      headers: { "content-type": "application/octet-stream" },
+      body: toArrayBuffer(blob),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`save ${kind} failed: ${res.status}`);
+  }
+};
+
+const loadJsonBlob = async <T = unknown>(
+  kind: "chats" | "library",
+  roomId: string,
+  roomKey: string,
+): Promise<T | null> => {
+  if (!IS_STORAGE_CONFIGURED || !roomId || !roomKey) {
+    return null;
+  }
+  const res = await fetch(
+    `${STORAGE_URL}/v1/${kind}/${encodeURIComponent(roomId)}`,
+  );
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`load ${kind} failed: ${res.status}`);
+  }
+  const buffer = await res.arrayBuffer();
+  if (!buffer.byteLength) {
+    return null;
+  }
+  const u8 = new Uint8Array(buffer);
+  const ivLen = u8[0];
+  const iv = u8.slice(1, 1 + ivLen);
+  const ciphertext = u8.slice(1 + ivLen);
+  const decrypted = await decryptData(iv, ciphertext, roomKey);
+  const decoded = new TextDecoder("utf-8").decode(new Uint8Array(decrypted));
+  return JSON.parse(decoded) as T;
+};
+
+export const saveChatToStorage = (
+  roomId: string,
+  roomKey: string,
+  messages: readonly unknown[],
+): Promise<void> => saveJsonBlob("chats", roomId, roomKey, messages);
+
+export const loadChatFromStorage = <T = unknown>(
+  roomId: string,
+  roomKey: string,
+): Promise<T[] | null> => loadJsonBlob<T[]>("chats", roomId, roomKey);
+
+// Full meeting library (source bytes + metadata for DXF / IFC / PDF / images)
+// as one blob, so a reopen on any browser — no peer, empty IndexedDB —
+// restores everything that's not in the scene's native file map.
+export const saveLibraryToStorage = (
+  roomId: string,
+  roomKey: string,
+  files: readonly unknown[],
+): Promise<void> => saveJsonBlob("library", roomId, roomKey, files);
+
+export const loadLibraryFromStorage = <T = unknown>(
+  roomId: string,
+  roomKey: string,
+): Promise<T[] | null> => loadJsonBlob<T[]>("library", roomId, roomKey);
+
 // --- library files --------------------------------------------------------
 // `buffer` is already compressed + encrypted upstream (compressData with
 // the room key); we just move opaque bytes, and decompress on the way back.
