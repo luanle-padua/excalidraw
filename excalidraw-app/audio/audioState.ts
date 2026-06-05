@@ -4,7 +4,8 @@
 
 import { atom } from "../app-jotai";
 
-import type { AudioRoom, PeerState } from "./AudioRoom";
+import type { PeerState } from "./AudioRoom";
+import type { DailyAudio } from "./DailyAudio";
 import type { MeetingRecorder, RecordingResult } from "./MeetingRecorder";
 
 export type AudioStatus = "idle" | "connecting" | "live" | "error";
@@ -30,10 +31,11 @@ export const audioStateAtom = atom<AudioState>({
   errorMessage: null,
 });
 
-/** the AudioRoom instance — stored in an atom so commands ("toggle
- *  mute", "join audio") can be issued from anywhere without prop
- *  drilling. Set to null when no room is active. */
-export const audioRoomInstanceAtom = atom<AudioRoom | null>(null);
+/** the voice-call instance (DailyAudio — Daily.co SFU) — stored in an atom
+ *  so commands ("toggle mute", "join audio") can be issued from anywhere
+ *  without prop drilling. Set to null when no room is active. Drop-in for
+ *  the old mesh AudioRoom (same method surface). */
+export const audioRoomInstanceAtom = atom<DailyAudio | null>(null);
 
 export type RecordingStatus = "idle" | "recording" | "finalizing";
 

@@ -12,10 +12,11 @@ import { useEffect, useRef } from "react";
 
 import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
+import { getDailyToken } from "../data/projects";
 import { sttEnabledAtom } from "../data/transcription";
 import { preferredLanguageAtom } from "../data/translation";
 
-import { AudioRoom } from "./AudioRoom";
+import { DailyAudio } from "./DailyAudio";
 import {
   audioRoomInstanceAtom,
   audioStateAtom,
@@ -41,9 +42,9 @@ export const AudioRoomController = () => {
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
   const sttRef = useRef<STTSession | null>(null);
-  /** keep a ref of the live AudioRoom for cleanup independent of React
-   *  render timing — we must close peer connections deterministically */
-  const roomRef = useRef<AudioRoom | null>(null);
+  /** keep a ref of the live DailyAudio for cleanup independent of React
+   *  render timing — we must tear the call down deterministically */
+  const roomRef = useRef<DailyAudio | null>(null);
   /** mirror of `recorder` for the AudioRoom event closures, which are
    *  installed once when the room is created and need to see the live
    *  recorder without recreating the room */
@@ -90,15 +91,18 @@ export const AudioRoomController = () => {
       return;
     }
 
-    const socket = collabAPI.portal.socket;
-    if (!socket) {
+    const roomId = activeRoomLink.match(/#room=([a-zA-Z0-9_-]+),/)?.[1];
+    if (!roomId) {
       return;
     }
 
-    console.info(
-      `[audio] controller provisioning AudioRoom (socket=${socket.id})`,
-    );
-    const room = new AudioRoom(socket, {
+    console.info(`[audio] controller provisioning DailyAudio (${roomId})`);
+    const room = new DailyAudio({
+      roomId,
+      userName: collabAPI.getUsername() || "Guest",
+      getSocketId: () => collabAPI.portal.socket?.id ?? null,
+      getToken: (rid, name) => getDailyToken(rid, name),
+      events: {
       onState: ({ peers, muted, canTransmit }) => {
         setAudioState((prev) => ({
           ...prev,
@@ -147,6 +151,7 @@ export const AudioRoomController = () => {
           peers: new Map(),
           errorMessage: message,
         });
+      },
       },
     });
     roomRef.current = room;

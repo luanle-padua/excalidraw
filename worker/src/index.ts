@@ -407,6 +407,10 @@ app.get("/v1/daily/token", async (c) => {
     return c.json({ error: "roomId required" }, 400);
   }
   const userName = (c.req.query("name") || "Guest").slice(0, 64);
+  // Optional stable identity (we pass the socket.id) — baked into the token as
+  // Daily's user_id, which propagates reliably to other participants so the
+  // client can map a Daily participant back to its socket.id for the UI.
+  const uid = c.req.query("uid")?.slice(0, 80);
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
@@ -456,8 +460,11 @@ app.get("/v1/daily/token", async (c) => {
       properties: {
         room_name: roomId,
         user_name: userName,
+        ...(uid ? { user_id: uid } : {}),
         exp: Math.floor(now() / 1000) + 4 * 60 * 60,
-        permissions: { canSend: ["screenVideo", "screenAudio"] },
+        // audio = voice call (room "<id>-audio"); screenVideo/screenAudio =
+        // screen share (room "<id>"). One token shape serves both.
+        permissions: { canSend: ["audio", "screenVideo", "screenAudio"] },
       },
     }),
   });

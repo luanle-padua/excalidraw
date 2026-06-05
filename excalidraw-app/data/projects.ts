@@ -227,6 +227,7 @@ export const getMeeting = async (
 export const getDailyToken = async (
   roomId: string,
   userName?: string,
+  userId?: string,
 ): Promise<{ url: string; token: string } | null> => {
   if (!IS_PROJECTS_CONFIGURED) {
     return null;
@@ -235,6 +236,9 @@ export const getDailyToken = async (
     const params = new URLSearchParams({ roomId });
     if (userName) {
       params.set("name", userName);
+    }
+    if (userId) {
+      params.set("uid", userId);
     }
     const res = await fetch(`${STORAGE_URL}/v1/daily/token?${params}`);
     if (!res.ok) {

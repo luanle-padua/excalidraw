@@ -56,6 +56,10 @@ export class DailyScreenShare {
   private remoteSharerName: string | null = null;
   private localActive = false;
   private errorMessage: string | null = null;
+  /** hidden <audio> playing a remote presenter's shared tab/system audio
+   *  (the "screenAudio" track). Daily does NOT auto-play screen audio in
+   *  call-object mode, so we play it ourselves. */
+  private screenAudioEl: HTMLAudioElement | null = null;
 
   constructor(opts: {
     roomId: string;
@@ -132,6 +136,8 @@ export class DailyScreenShare {
         videoSource: false,
         audioSource: false,
         subscribeToTracksAutomatically: true,
+        // audio call + screen share are two separate call objects on the page
+        allowMultipleCallInstances: true,
       });
       this.wire(call);
       try {
@@ -214,6 +220,7 @@ export class DailyScreenShare {
   async leave() {
     const call = this.call;
     this.call = null;
+    this.stopRemoteScreenAudio();
     this.remoteStream = null;
     this.remoteSharerName = null;
     const wasSharing = this.localActive;
@@ -251,6 +258,14 @@ export class DailyScreenShare {
   // ---- Daily event handlers ----------------------------------------------
 
   private onTrackStarted = (e: DailyEventObjectTrack) => {
+    log(
+      `track-started type=${e.type} local=${e.participant?.local} from=${e.participant?.user_name}`,
+    );
+    // Remote shared tab/system audio → play it (Daily won't auto-play it).
+    if (e.type === "screenAudio" && e.participant && !e.participant.local) {
+      this.playRemoteScreenAudio(e.track);
+      return;
+    }
     if (e.type !== "screenVideo" || !e.participant) {
       return;
     }
@@ -271,6 +286,10 @@ export class DailyScreenShare {
   };
 
   private onTrackStopped = (e: DailyEventObjectTrack) => {
+    if (e.type === "screenAudio") {
+      this.stopRemoteScreenAudio();
+      return;
+    }
     if (e.type !== "screenVideo") {
       return;
     }
@@ -307,6 +326,40 @@ export class DailyScreenShare {
       this.emit();
     }
   };
+
+  private playRemoteScreenAudio(track: MediaStreamTrack) {
+    this.stopRemoteScreenAudio();
+    const el = document.createElement("audio");
+    el.autoplay = true;
+    el.setAttribute("playsinline", "");
+    el.srcObject = new MediaStream([track]);
+    el.style.display = "none";
+    document.body.appendChild(el);
+    this.screenAudioEl = el;
+    const tryPlay = () => el.play();
+    tryPlay().catch((err) => {
+      // Autoplay policy may block until a user gesture — retry once on the
+      // next click/keydown anywhere in the page.
+      warn("screen audio autoplay blocked; will resume on next gesture", err);
+      const resume = () => {
+        tryPlay().catch(() => undefined);
+        window.removeEventListener("pointerdown", resume);
+        window.removeEventListener("keydown", resume);
+      };
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+    });
+    log("remote screen AUDIO attached");
+  }
+
+  private stopRemoteScreenAudio() {
+    if (this.screenAudioEl) {
+      this.screenAudioEl.pause();
+      this.screenAudioEl.srcObject = null;
+      this.screenAudioEl.remove();
+      this.screenAudioEl = null;
+    }
+  }
 
   private onFatalError = (e: DailyEventObjectFatalError) => {
     warn("fatal error", e.errorMsg);
