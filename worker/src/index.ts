@@ -35,6 +35,10 @@ import { cors } from "hono/cors";
 type Bindings = {
   BUCKET: R2Bucket;
   DB: D1Database;
+  // Daily.co — screen-share media (server-side secret, never sent to client).
+  // Local: worker/.dev.vars · Prod: `wrangler secret put DAILY_API_KEY`.
+  DAILY_API_KEY?: string;
+  DAILY_DOMAIN?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -381,6 +385,94 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     )
     .run();
   return c.json({ ok: true });
+});
+
+// ---- Daily.co screen-share token -----------------------------------------
+// Mints a short-lived meeting token for the Daily room that mirrors this
+// meeting's roomId. The DAILY_API_KEY stays server-side; the client only
+// ever receives { url, token } and joins via @daily-co/daily-js. The room is
+// created on first use (idempotent: GET → create on 404) as a PRIVATE room,
+// so a token is required to join. Screen video/audio only — webcam/mic stay
+// off (audio runs on the existing WebRTC mesh, not Daily).
+
+const DAILY_API = "https://api.daily.co/v1";
+
+app.get("/v1/daily/token", async (c) => {
+  const apiKey = c.env.DAILY_API_KEY;
+  if (!apiKey) {
+    return c.json({ error: "daily not configured" }, 503);
+  }
+  const roomId = c.req.query("roomId");
+  if (!roomId) {
+    return c.json({ error: "roomId required" }, 400);
+  }
+  const userName = (c.req.query("name") || "Guest").slice(0, 64);
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+
+  // 1) Ensure the Daily room exists (named after roomId).
+  let roomUrl: string | null = null;
+  const getRoom = await fetch(
+    `${DAILY_API}/rooms/${encodeURIComponent(roomId)}`,
+    { headers },
+  );
+  if (getRoom.ok) {
+    roomUrl = ((await getRoom.json()) as { url?: string }).url ?? null;
+  } else if (getRoom.status === 404) {
+    const createRoom = await fetch(`${DAILY_API}/rooms`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name: roomId,
+        privacy: "private",
+        properties: {
+          enable_screenshare: true,
+          start_video_off: true,
+          start_audio_off: true,
+        },
+      }),
+    });
+    if (!createRoom.ok) {
+      return c.json(
+        { error: "room create failed", detail: await createRoom.text() },
+        502,
+      );
+    }
+    roomUrl = ((await createRoom.json()) as { url?: string }).url ?? null;
+  } else {
+    return c.json(
+      { error: "room lookup failed", detail: await getRoom.text() },
+      502,
+    );
+  }
+
+  // 2) Mint a token scoped to this room — screen share only, 4h expiry.
+  const tokenRes = await fetch(`${DAILY_API}/meeting-tokens`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      properties: {
+        room_name: roomId,
+        user_name: userName,
+        exp: Math.floor(now() / 1000) + 4 * 60 * 60,
+        permissions: { canSend: ["screenVideo", "screenAudio"] },
+      },
+    }),
+  });
+  if (!tokenRes.ok) {
+    return c.json(
+      { error: "token failed", detail: await tokenRes.text() },
+      502,
+    );
+  }
+  const token = ((await tokenRes.json()) as { token?: string }).token ?? null;
+  if (!roomUrl || !token) {
+    return c.json({ error: "daily response missing url/token" }, 502);
+  }
+
+  return c.json({ data: { url: roomUrl, token } });
 });
 
 export default app;

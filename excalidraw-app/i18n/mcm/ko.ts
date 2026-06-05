@@ -121,6 +121,7 @@ export const ko: Widened<typeof vi> = {
     previewBadge: "미리보기",
     raiseHandAria: "손 들기",
     micOffAria: "음소거됨",
+    screenSharingAria: "화면 공유 중",
     you: "나",
     guest: "손님",
     followHint: "이 사람의 뷰 따라가기",
@@ -168,6 +169,21 @@ export const ko: Widened<typeof vi> = {
     pickEmoji: "이모지 선택",
     sendReaction: "{emoji} 보내기",
     callingNoPeers: "통화 중…",
+  },
+
+  screenShare: {
+    startShare: "화면 공유",
+    stopShare: "공유 중지",
+    presenting: "{name}님이 발표 중",
+    youArePresenting: "내가 발표 중",
+    lockedBy: "{name}님이 발표 중 — 끝날 때까지 기다려 주세요",
+    popOut: "창 분리",
+    popOutTitle: "별도 창으로 열어 다른 화면으로 끌어 놓기",
+    poppedOut: "별도 창에서 보는 중",
+    minimize: "최소화",
+    expand: "펼치기",
+    connecting: "연결 중…",
+    startError: "화면을 공유할 수 없습니다",
   },
 
   chat: {

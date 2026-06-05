@@ -355,6 +355,20 @@ class Portal {
     }
   };
 
+  broadcastScreenShare = (sharing: boolean) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["SCREEN_SHARE"] = {
+        type: WS_SUBTYPES.SCREEN_SHARE,
+        payload: {
+          socketId: this.socket.id as SocketId,
+          username: this.collab.state.username || "Guest",
+          sharing,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
   broadcastMeetingReaction = (emoji: string) => {
     if (this.socket?.id) {
       const id =

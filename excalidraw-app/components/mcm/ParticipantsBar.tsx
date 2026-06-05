@@ -24,6 +24,7 @@ import {
   collabAPIAtom,
   meetingReactionsAtom,
   raisedHandsAtom,
+  screenShareStateAtom,
 } from "../../collab/Collab";
 import {
   hostSocketIdAtom,
@@ -149,6 +150,9 @@ type Tile = {
    *  sits above the avatar so everyone in the room sees who's host
    *  without needing to interact with the recording feature. */
   isHost?: boolean;
+  /** True while this participant is sharing their screen (presence over
+   *  WS_SUBTYPES.SCREEN_SHARE). Drives the 📺 badge on their avatar. */
+  sharingScreen?: boolean;
 };
 
 // Display rules:
@@ -291,6 +295,15 @@ const Person = ({
             ✋
           </span>
         )}
+        {p.sharingScreen && (
+          <span
+            className="mcm-person__share-badge"
+            aria-label={t("participants.screenSharingAria")}
+            title={t("participants.screenSharingAria")}
+          >
+            📺
+          </span>
+        )}
         {p.isFollowed && (
           <span
             className="mcm-person__follow-badge"
@@ -351,6 +364,7 @@ export const ParticipantsBar = ({
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioState = useAtomValue(audioStateAtom);
   const raisedHands = useAtomValue(raisedHandsAtom);
+  const screenSharePresence = useAtomValue(screenShareStateAtom);
   const liveReactions = useAtomValue(meetingReactionsAtom);
   // Local + peer UserProfiles drive the company line + custom avatar
   // image on each tile. Self reads its own profile directly (no
@@ -524,6 +538,7 @@ export const ParticipantsBar = ({
     company: myProfile?.company,
     avatarUrl: resolveAvatarUrlWithDefault(myProfile?.avatar, selfSocketId),
     isHost: !!hostSocketId && hostSocketId === selfSocketId,
+    sharingScreen: screenSharePresence.has(selfSocketId),
   });
 
   // Everyone else
@@ -559,6 +574,7 @@ export const ParticipantsBar = ({
       company: peerProfile?.company,
       avatarUrl: resolveAvatarUrlWithDefault(peerProfile?.avatar, socketId),
       isHost: !!hostSocketId && hostSocketId === socketId,
+      sharingScreen: screenSharePresence.has(socketId),
     });
   }
 

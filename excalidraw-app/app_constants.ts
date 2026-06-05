@@ -36,6 +36,11 @@ export enum WS_SUBTYPES {
    *  Sticky — receivers keep the badge until the sender broadcasts a
    *  lower (raised: false). */
   RAISE_HAND = "RAISE_HAND",
+  /** Presence + single-share lock for screen sharing. The media itself
+   *  flows over Daily.co; this only signals WHO is currently sharing so
+   *  peers can show the badge, open the viewer, and block a second sharer.
+   *  Sticky — cleared when the sharer broadcasts sharing:false or leaves. */
+  SCREEN_SHARE = "SCREEN_SHARE",
   /** One-shot ephemeral emoji reaction (like Zoom's floating reactions).
    *  Receivers animate the emoji over the sender's avatar for a few
    *  seconds then drop it. */

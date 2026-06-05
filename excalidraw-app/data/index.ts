@@ -193,6 +193,14 @@ export type SocketUpdateDataSource = {
       raised: boolean;
     };
   };
+  SCREEN_SHARE: {
+    type: WS_SUBTYPES.SCREEN_SHARE;
+    payload: {
+      socketId: SocketId;
+      username: string;
+      sharing: boolean;
+    };
+  };
   MEETING_REACTION: {
     type: WS_SUBTYPES.MEETING_REACTION;
     payload: {

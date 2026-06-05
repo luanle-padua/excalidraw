@@ -113,6 +113,7 @@ export const en: Widened<typeof vi> = {
     previewBadge: "Preview",
     raiseHandAria: "Hand raised",
     micOffAria: "Muted",
+    screenSharingAria: "Sharing screen",
     you: "You",
     guest: "Guest",
     followHint: "Click to follow their view",
@@ -159,6 +160,21 @@ export const en: Widened<typeof vi> = {
     pickEmoji: "Pick emoji",
     sendReaction: "Send {emoji}",
     callingNoPeers: "Calling…",
+  },
+
+  screenShare: {
+    startShare: "Share screen",
+    stopShare: "Stop sharing",
+    presenting: "{name} is presenting",
+    youArePresenting: "You are presenting",
+    lockedBy: "{name} is presenting — wait for them to finish",
+    popOut: "Pop out",
+    popOutTitle: "Open in a separate window to drag to another screen",
+    poppedOut: "Watching in a separate window",
+    minimize: "Minimize",
+    expand: "Expand",
+    connecting: "Connecting…",
+    startError: "Couldn't share your screen",
   },
 
   chat: {

@@ -161,6 +161,13 @@ export const meetingViewOnlyAtom = atom(false);
  *  raised". Sticky until that peer broadcasts a lower (or leaves). */
 export const raisedHandsAtom = atom<ReadonlyMap<string, true>>(new Map());
 
+/** Map of socketId → true for participants currently sharing their screen
+ *  (media flows over Daily.co; this atom is just the presence signal that
+ *  drives the badge, the viewer, and the single-share lock). Sticky until
+ *  the sharer broadcasts sharing:false or leaves the room. At most one
+ *  entry in practice — the lock prevents a second concurrent sharer. */
+export const screenShareStateAtom = atom<ReadonlyMap<string, true>>(new Map());
+
 /** Short-lived list of active reactions floating over avatars. Each
  *  entry is removed after ~3.5s by the consumer that rendered it. */
 export type MeetingReactionEvent = {
@@ -257,6 +264,7 @@ export interface CollabAPI {
   toggleChatReaction: CollabInstance["toggleChatReaction"];
   toggleRaiseHand: CollabInstance["toggleRaiseHand"];
   isHandRaised: CollabInstance["isHandRaised"];
+  setScreenShare: CollabInstance["setScreenShare"];
   sendMeetingReaction: CollabInstance["sendMeetingReaction"];
   removeMeetingReaction: CollabInstance["removeMeetingReaction"];
   publishSTTSegment: CollabInstance["publishSTTSegment"];
@@ -444,6 +452,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       toggleChatReaction: this.toggleChatReaction,
       toggleRaiseHand: this.toggleRaiseHand,
       isHandRaised: this.isHandRaised,
+      setScreenShare: this.setScreenShare,
       sendMeetingReaction: this.sendMeetingReaction,
       removeMeetingReaction: this.removeMeetingReaction,
       publishSTTSegment: this.publishSTTSegment,
@@ -1091,6 +1100,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             break;
           }
 
+          case WS_SUBTYPES.SCREEN_SHARE: {
+            const { socketId, sharing } = decryptedData.payload;
+            this.applyScreenShare(socketId, sharing);
+            break;
+          }
+
           case WS_SUBTYPES.MEETING_REACTION: {
             this.applyMeetingReaction(decryptedData.payload);
             break;
@@ -1392,6 +1407,29 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       }
       if (changed) {
         appJotaiStore.set(raisedHandsAtom, next);
+      }
+    }
+
+    // Prune screen-share presence for peers who left — a sharer who drops
+    // can't broadcast sharing:false, so without this the single-share lock
+    // would stay stuck and the viewer would hang on a dead stream.
+    const currentShares = appJotaiStore.get(screenShareStateAtom);
+    if (currentShares.size > 0) {
+      const validIds = new Set<string>(sockets);
+      const me = this.portal.socket?.id;
+      if (me) {
+        validIds.add(me);
+      }
+      let changed = false;
+      const next = new Map(currentShares);
+      for (const id of next.keys()) {
+        if (!validIds.has(id)) {
+          next.delete(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        appJotaiStore.set(screenShareStateAtom, next);
       }
     }
 
@@ -1838,6 +1876,36 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       return false;
     }
     return appJotaiStore.get(raisedHandsAtom).has(me);
+  };
+
+  private applyScreenShare = (socketId: string, sharing: boolean) => {
+    const current = appJotaiStore.get(screenShareStateAtom);
+    const has = current.has(socketId);
+    if (sharing && has) {
+      return;
+    }
+    if (!sharing && !has) {
+      return;
+    }
+    const next = new Map(current);
+    if (sharing) {
+      next.set(socketId, true);
+    } else {
+      next.delete(socketId);
+    }
+    appJotaiStore.set(screenShareStateAtom, next);
+  };
+
+  /** Set our own screen-share presence and broadcast it to peers. Called by
+   *  the Daily manager once the share actually starts/stops — the media
+   *  itself is carried by Daily, not this socket. */
+  setScreenShare = (sharing: boolean) => {
+    const me = this.portal.socket?.id;
+    if (!me) {
+      return;
+    }
+    this.applyScreenShare(me, sharing);
+    this.portal.broadcastScreenShare(sharing);
   };
 
   private applyMeetingReaction = (payload: MeetingReactionEvent) => {

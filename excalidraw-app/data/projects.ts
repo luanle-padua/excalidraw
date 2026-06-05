@@ -220,3 +220,28 @@ export const getMeeting = async (
     return null;
   }
 };
+
+// Daily.co screen-share token for a meeting. The worker mints a short-lived
+// token for the Daily room named after `roomId` (creating it on first use)
+// and returns the join URL + token. The API key lives only on the worker.
+export const getDailyToken = async (
+  roomId: string,
+  userName?: string,
+): Promise<{ url: string; token: string } | null> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return null;
+  }
+  try {
+    const params = new URLSearchParams({ roomId });
+    if (userName) {
+      params.set("name", userName);
+    }
+    const res = await fetch(`${STORAGE_URL}/v1/daily/token?${params}`);
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()).data ?? null;
+  } catch {
+    return null;
+  }
+};

@@ -7,6 +7,7 @@ import {
   collabAPIAtom,
   isCollaboratingAtom,
   meetingViewOnlyAtom,
+  screenShareStateAtom,
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
@@ -45,6 +46,12 @@ import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
 import { UserProfileModal } from "./UserProfileModal";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
+import { ScreenShareController } from "../../screenshare/ScreenShareController";
+import { ScreenSharePane } from "../../screenshare/ScreenSharePane";
+import {
+  screenShareInstanceAtom,
+  screenShareMediaAtom,
+} from "../../screenshare/screenShareState";
 
 import "./MeetingShell.scss";
 
@@ -86,9 +93,33 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const setFolderOpen = useSetAtom(projectFolderOpenAtom);
 
+  // Screen share: presence map (who's sharing, over the socket) drives the
+  // single-share lock + the Present button; media holds our own live state.
+  const screenSharePresence = useAtomValue(screenShareStateAtom);
+  const screenShareMedia = useAtomValue(screenShareMediaAtom);
+  const screenShareInstance = useAtomValue(screenShareInstanceAtom);
+
   // The project browser (switch project / reopen / pull) is a host-only
   // affordance for now — the host owns the project folder.
   const isHost = !!mySocketId && hostSocketId === mySocketId;
+
+  // Present button state. We're presenting when our own Daily screen track is
+  // live; the button locks (disabled) while a *different* participant presents.
+  const iAmPresenting = screenShareMedia.localActive;
+  const someoneElseSharing = Array.from(screenSharePresence.keys()).some(
+    (id) => id !== mySocketId,
+  );
+  const handlePresent = () => {
+    const mgr = screenShareInstance;
+    if (!mgr) {
+      return;
+    }
+    if (iAmPresenting) {
+      mgr.stopSharing();
+    } else {
+      void mgr.startSharing();
+    }
+  };
 
   // Remember the active meeting so the project home can offer "Resume"
   // after a clean-URL reopen. Cleared explicitly on Leave (below).
@@ -208,6 +239,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         onOpenProfile={() => setProfileOpen(true)}
         onLeave={handleLeave}
         onOpenFolder={isHost ? () => setFolderOpen(true) : undefined}
+        onPresent={handlePresent}
+        isPresenting={iAmPresenting}
+        presentDisabled={viewOnly || someoneElseSharing}
       />
       <div className="mcm-shell__canvas-wrap">
         {/* Canvas area takes the remaining height once FrameViewPane
@@ -234,6 +268,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <IFC3DViewTriggers />
           <SpeechToTextPanel />
           <MeetingCallControls />
+          <ScreenSharePane />
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
           <TextTranslateOverlay />
@@ -243,6 +278,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         <IFC3DViewPane />
       </div>
       <TranscriptionController />
+      <ScreenShareController />
       {logOpen && <MeetingLogModal onClose={() => setLogOpen(false)} />}
       <UserProfileModal
         open={profileOpen}

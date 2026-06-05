@@ -125,6 +125,7 @@ export const vi = {
     previewBadge: "Preview",
     raiseHandAria: "Đang giơ tay",
     micOffAria: "Đã tắt mic",
+    screenSharingAria: "Đang chia sẻ màn hình",
     you: "Bạn",
     guest: "Khách",
     followHint: "Bấm để follow view",
@@ -173,6 +174,22 @@ export const vi = {
     pickEmoji: "Chọn emoji",
     sendReaction: "Gửi {emoji}",
     callingNoPeers: "Đang gọi…",
+  },
+
+  // ---------------- Screen share -----------------------------------
+  screenShare: {
+    startShare: "Chia sẻ màn hình",
+    stopShare: "Dừng chia sẻ",
+    presenting: "{name} đang trình bày",
+    youArePresenting: "Bạn đang trình bày",
+    lockedBy: "{name} đang trình bày — đợi họ kết thúc",
+    popOut: "Tách cửa sổ",
+    popOutTitle: "Mở ra cửa sổ riêng để kéo sang màn hình khác",
+    poppedOut: "Đang xem ở cửa sổ riêng",
+    minimize: "Thu nhỏ",
+    expand: "Mở rộng",
+    connecting: "Đang kết nối…",
+    startError: "Không chia sẻ được màn hình",
   },
 
   // ---------------- Chat panel -------------------------------------

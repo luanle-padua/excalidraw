@@ -41,6 +41,9 @@ export const MeetingHeader = ({
   onOpenLog,
   onOpenProfile,
   onOpenFolder,
+  onPresent,
+  isPresenting,
+  presentDisabled,
 }: {
   /** Fallback head-count when there's no live collab room (preview /
    *  storybook). Real call counts come from the collab atom + Excalidraw
@@ -57,6 +60,13 @@ export const MeetingHeader = ({
    *  Wired into the gear icon — same affordance as Zoom / Meet's
    *  account-settings entry point. */
   onOpenProfile?: () => void;
+  /** Toggle screen sharing. When someone else is presenting this is passed
+   *  with `presentDisabled` true so the button locks (single-sharer). */
+  onPresent?: () => void;
+  /** true while WE are the active presenter (button shows the active state). */
+  isPresenting?: boolean;
+  /** true in read-only review OR while another participant is presenting. */
+  presentDisabled?: boolean;
 }) => {
   const t = useT();
   const [elapsed, setElapsed] = useState(MOCK_MEETING_DURATION_S);
@@ -281,8 +291,13 @@ export const MeetingHeader = ({
         </button>
         <button
           type="button"
-          className="mcm-header__icon-btn"
+          className={`mcm-header__icon-btn${
+            isPresenting ? " mcm-header__icon-btn--active" : ""
+          }`}
           title={t("header.present")}
+          aria-label={t("header.present")}
+          onClick={onPresent}
+          disabled={presentDisabled && !isPresenting}
         >
           <Presentation size={18} />
         </button>
