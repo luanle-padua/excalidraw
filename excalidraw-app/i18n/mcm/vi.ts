@@ -175,6 +175,9 @@ export const vi = {
     pLastSeen: "Hoạt động cuối",
     noParticipants: "Chưa ghi nhận người tham gia",
     noFiles: "Không có tài liệu",
+    sortBy: "Sắp xếp:",
+    sortRank: "cấp bậc",
+    sortName: "tên",
   },
 
   // ---------------- Project folder ---------------------------------

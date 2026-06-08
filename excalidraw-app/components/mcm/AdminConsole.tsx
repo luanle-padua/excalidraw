@@ -1,5 +1,7 @@
 import {
   ArrowLeft,
+  ArrowUpDown,
+  Building2,
   DollarSign,
   Eye,
   FileText,
@@ -13,7 +15,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   createAdminUser,
@@ -54,7 +56,38 @@ type Tab =
   | "audit"
   | "recordings";
 
-const ROLES = ["admin", "host", "member"] as const;
+// Korean corporate rank order (직급), most senior first — drives the default
+// sort inside each department group. Unknown titles sort last.
+const TITLE_RANK = [
+  "회장",
+  "이사장",
+  "부회장",
+  "고문",
+  "사장",
+  "부사장",
+  "전무",
+  "상무",
+  "전문위원",
+  "이사",
+  "이사대우",
+  "실장",
+  "소장(S1)",
+  "소장(S2)",
+  "소장",
+  "부장",
+  "차장",
+  "팀장",
+  "부팀장",
+  "과장",
+  "대리",
+  "4급사원",
+  "5급사원",
+  "6급사원",
+];
+const rankOf = (title?: string): number => {
+  const i = title ? TITLE_RANK.indexOf(title) : -1;
+  return i === -1 ? 999 : i;
+};
 
 const fmtBytes = (b: number | null | undefined): string => {
   if (!b) {
@@ -117,7 +150,7 @@ export const AdminConsole = () => {
   const [nuEmail, setNuEmail] = useState("");
   const [nuPassword, setNuPassword] = useState("");
   const [nuName, setNuName] = useState("");
-  const [nuRole, setNuRole] = useState<string>("member");
+  const [usersSort, setUsersSort] = useState<"rank" | "name">("rank");
 
   const refreshUsers = useCallback(async () => {
     setLoading(true);
@@ -167,23 +200,14 @@ export const AdminConsole = () => {
       email: nuEmail.trim(),
       password: nuPassword,
       name: nuName.trim() || undefined,
-      role: nuRole,
     });
     setBusy(false);
     if (ok) {
       setNuEmail("");
       setNuPassword("");
       setNuName("");
-      setNuRole("member");
       void refreshUsers();
     }
-  };
-
-  const setRole = async (u: AdminUser, role: string) => {
-    setBusy(true);
-    await updateAdminUser(u.id, { role });
-    setBusy(false);
-    void refreshUsers();
   };
 
   const toggleDisabled = async (u: AdminUser) => {
@@ -223,6 +247,35 @@ export const AdminConsole = () => {
     setBusy(false);
     void refreshMeetings();
   };
+
+  // Users grouped by division (phòng ban), sorted within each group by rank
+  // (직급) or name. Groups themselves ordered alphabetically.
+  const groupedUsers = useMemo(() => {
+    const groups = new Map<string, AdminUser[]>();
+    for (const u of users) {
+      const key = u.user_metadata?.division || "—";
+      const arr = groups.get(key);
+      if (arr) {
+        arr.push(u);
+      } else {
+        groups.set(key, [u]);
+      }
+    }
+    const nameOf = (u: AdminUser) =>
+      u.user_metadata?.name || u.user_metadata?.display_name || u.email;
+    const byName = (a: AdminUser, b: AdminUser) =>
+      nameOf(a).localeCompare(nameOf(b));
+    const cmp =
+      usersSort === "name"
+        ? byName
+        : (a: AdminUser, b: AdminUser) =>
+            rankOf(a.user_metadata?.title) - rankOf(b.user_metadata?.title) ||
+            byName(a, b);
+    for (const arr of groups.values()) {
+      arr.sort(cmp);
+    }
+    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [users, usersSort]);
 
   return (
     <div className="mcm-admin" role="dialog" aria-modal="true">
@@ -359,17 +412,6 @@ export const AdminConsole = () => {
                 value={nuPassword}
                 onChange={(e) => setNuPassword(e.target.value)}
               />
-              <select
-                aria-label={t("admin.role")}
-                value={nuRole}
-                onChange={(e) => setNuRole(e.target.value)}
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {t(`admin.role${r[0].toUpperCase()}${r.slice(1)}` as any)}
-                  </option>
-                ))}
-              </select>
               <button
                 type="button"
                 className="mcm-admin__primary"
@@ -380,11 +422,28 @@ export const AdminConsole = () => {
               </button>
             </div>
 
+            <div className="mcm-admin__toolbar">
+              <span className="mcm-admin__count">
+                {users.length} {t("admin.tabUsers")}
+              </span>
+              <button
+                type="button"
+                className="mcm-admin__ghost"
+                onClick={() =>
+                  setUsersSort((s) => (s === "rank" ? "name" : "rank"))
+                }
+              >
+                <ArrowUpDown size={14} /> {t("admin.sortBy")}{" "}
+                {usersSort === "rank"
+                  ? t("admin.sortRank")
+                  : t("admin.sortName")}
+              </button>
+            </div>
+
             <table className="mcm-admin__table">
               <thead>
                 <tr>
                   <th>{t("admin.colUser")}</th>
-                  <th>{t("admin.colRole")}</th>
                   <th>{t("admin.colStatus")}</th>
                   <th>{t("admin.colLastLogin")}</th>
                   <th>{t("admin.colActions")}</th>
@@ -393,89 +452,92 @@ export const AdminConsole = () => {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={5}>{t("admin.loading")}</td>
+                    <td colSpan={4}>{t("admin.loading")}</td>
                   </tr>
                 )}
                 {!loading && users.length === 0 && (
                   <tr>
-                    <td colSpan={5}>{t("admin.empty")}</td>
+                    <td colSpan={4}>{t("admin.empty")}</td>
                   </tr>
                 )}
-                {users.map((u) => {
-                  const banned = !!u.banned_until && u.banned_until !== "none";
-                  return (
-                    <tr key={u.id}>
-                      <td>
-                        <strong>
-                          {u.user_metadata?.display_name ||
-                            u.user_metadata?.name ||
-                            u.email}
-                          {u.user_metadata?.title && (
-                            <span className="mcm-admin__chip">
-                              {u.user_metadata.title}
-                            </span>
-                          )}
-                        </strong>
-                        <span className="mcm-admin__sub">{u.email}</span>
-                        {(u.user_metadata?.division ||
-                          u.user_metadata?.department) && (
-                          <span className="mcm-admin__sub">
-                            {u.user_metadata?.division}
-                            {u.user_metadata?.department
-                              ? ` · ${u.user_metadata.department}`
-                              : ""}
+                {!loading &&
+                  groupedUsers.map(([division, list]) => (
+                    <Fragment key={division}>
+                      <tr className="mcm-admin__grouprow">
+                        <td colSpan={4}>
+                          <Building2 size={13} /> {division}
+                          <span className="mcm-admin__gcount">
+                            {list.length}
                           </span>
-                        )}
-                      </td>
-                      <td>
-                        <select
-                          aria-label={t("admin.role")}
-                          value={u.app_metadata?.role ?? "member"}
-                          onChange={(e) => void setRole(u, e.target.value)}
-                          disabled={busy}
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            banned
-                              ? "mcm-admin__badge --off"
-                              : "mcm-admin__badge --on"
-                          }
-                        >
-                          {banned ? t("admin.disabled") : t("admin.active")}
-                        </span>
-                      </td>
-                      <td>{fmtIso(u.last_sign_in_at)}</td>
-                      <td className="mcm-admin__row-actions">
-                        <button
-                          type="button"
-                          onClick={() => void toggleDisabled(u)}
-                        >
-                          {banned ? t("admin.enable") : t("admin.disable")}
-                        </button>
-                        <button type="button" onClick={() => void resetPw(u)}>
-                          {t("admin.reset")}
-                        </button>
-                        <button
-                          type="button"
-                          className="mcm-admin__danger"
-                          title={t("admin.delete")}
-                          aria-label={t("admin.delete")}
-                          onClick={() => void removeUser(u)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                      {list.map((u) => {
+                        const banned =
+                          !!u.banned_until && u.banned_until !== "none";
+                        return (
+                          <tr key={u.id}>
+                            <td>
+                              <strong>
+                                {u.user_metadata?.name ||
+                                  u.user_metadata?.display_name ||
+                                  u.email}
+                                {u.user_metadata?.title && (
+                                  <span className="mcm-admin__chip">
+                                    {u.user_metadata.title}
+                                  </span>
+                                )}
+                              </strong>
+                              <span className="mcm-admin__sub">{u.email}</span>
+                              {u.user_metadata?.department && (
+                                <span className="mcm-admin__sub">
+                                  {u.user_metadata.department}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <span
+                                className={
+                                  banned
+                                    ? "mcm-admin__badge --off"
+                                    : "mcm-admin__badge --on"
+                                }
+                              >
+                                {banned
+                                  ? t("admin.disabled")
+                                  : t("admin.active")}
+                              </span>
+                            </td>
+                            <td>{fmtIso(u.last_sign_in_at)}</td>
+                            <td className="mcm-admin__row-actions">
+                              <button
+                                type="button"
+                                onClick={() => void toggleDisabled(u)}
+                              >
+                                {banned
+                                  ? t("admin.enable")
+                                  : t("admin.disable")}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void resetPw(u)}
+                              >
+                                {t("admin.reset")}
+                              </button>
+                              <button
+                                type="button"
+                                className="mcm-admin__danger"
+                                title={t("admin.delete")}
+                                aria-label={t("admin.delete")}
+                                onClick={() => void removeUser(u)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
               </tbody>
             </table>
           </div>

@@ -171,6 +171,9 @@ export const ko: Widened<typeof vi> = {
     pLastSeen: "최근 활동",
     noParticipants: "기록된 참가자 없음",
     noFiles: "파일 없음",
+    sortBy: "정렬:",
+    sortRank: "직급",
+    sortName: "이름",
   },
 
   folder: {

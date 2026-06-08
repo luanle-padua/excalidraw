@@ -164,6 +164,9 @@ export const en: Widened<typeof vi> = {
     pLastSeen: "Last seen",
     noParticipants: "No participants recorded yet",
     noFiles: "No files",
+    sortBy: "Sort:",
+    sortRank: "rank",
+    sortName: "name",
   },
 
   folder: {
