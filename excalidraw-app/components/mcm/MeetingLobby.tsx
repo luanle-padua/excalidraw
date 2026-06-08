@@ -52,7 +52,6 @@ export const MeetingLobby = () => {
   const authReady = useAtomValue(authReadyAtom);
 
   const [dismissed, setDismissed] = useState(false);
-  const [adminDismissed, setAdminDismissed] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinValue, setJoinValue] = useState("");
   const [joinError, setJoinError] = useState(false);
@@ -102,10 +101,10 @@ export const MeetingLobby = () => {
     return <LoginScreen />;
   }
 
-  // Admin: the back-office console takes over the home (unless they exited it
-  // to join/create a meeting, or are already in one).
-  if (session.isAdmin && !adminDismissed && !isCollaborating) {
-    return <AdminConsole onExit={() => setAdminDismissed(true)} />;
+  // Admin = pure back-office: the admin account ONLY administers, it never
+  // joins meetings — so the console always takes over (no exit to the app).
+  if (session.isAdmin) {
+    return <AdminConsole />;
   }
 
   // Authenticated: suppress the project home while in a meeting, auto-joining

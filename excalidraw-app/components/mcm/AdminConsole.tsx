@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Trash2, UserPlus, Users, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Trash2, UserPlus, Users } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -37,7 +37,7 @@ const fmtDur = (s: number | null | undefined): string => {
   return h > 0 ? `${h}h${m}m` : `${m}m`;
 };
 
-export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
+export const AdminConsole = () => {
   const t = useT();
   const [tab, setTab] = useState<Tab>("dashboard");
 
@@ -158,18 +158,21 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
         </div>
         <nav className="mcm-admin__tabs">
           <button
+            type="button"
             className={`mcm-admin__tab${tab === "dashboard" ? " --active" : ""}`}
             onClick={() => setTab("dashboard")}
           >
             <LayoutDashboard size={16} /> {t("admin.tabDashboard")}
           </button>
           <button
+            type="button"
             className={`mcm-admin__tab${tab === "users" ? " --active" : ""}`}
             onClick={() => setTab("users")}
           >
             <Users size={16} /> {t("admin.tabUsers")}
           </button>
           <button
+            type="button"
             className={`mcm-admin__tab${tab === "meetings" ? " --active" : ""}`}
             onClick={() => setTab("meetings")}
           >
@@ -178,10 +181,11 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
         </nav>
         <div className="mcm-admin__top-actions">
           <LangThemeSwitcher />
-          <button className="mcm-admin__ghost" onClick={onExit}>
-            <X size={16} /> {t("admin.exit")}
-          </button>
-          <button className="mcm-admin__ghost" onClick={() => void signOut()}>
+          <button
+            type="button"
+            className="mcm-admin__ghost"
+            onClick={() => void signOut()}
+          >
             <LogOut size={16} /> {t("login.signOut")}
           </button>
         </div>
@@ -246,6 +250,7 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
                 onChange={(e) => setNuPassword(e.target.value)}
               />
               <select
+                aria-label={t("admin.role")}
                 value={nuRole}
                 onChange={(e) => setNuRole(e.target.value)}
               >
@@ -256,6 +261,7 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
                 ))}
               </select>
               <button
+                type="button"
                 className="mcm-admin__primary"
                 onClick={handleCreate}
                 disabled={busy || !nuEmail.trim() || !nuPassword}
@@ -299,6 +305,7 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
                       </td>
                       <td>
                         <select
+                          aria-label={t("admin.role")}
                           value={u.app_metadata?.role ?? "member"}
                           onChange={(e) => void setRole(u, e.target.value)}
                           disabled={busy}
@@ -323,14 +330,20 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
                       </td>
                       <td>{fmtIso(u.last_sign_in_at)}</td>
                       <td className="mcm-admin__row-actions">
-                        <button onClick={() => void toggleDisabled(u)}>
+                        <button
+                          type="button"
+                          onClick={() => void toggleDisabled(u)}
+                        >
                           {banned ? t("admin.enable") : t("admin.disable")}
                         </button>
-                        <button onClick={() => void resetPw(u)}>
+                        <button type="button" onClick={() => void resetPw(u)}>
                           {t("admin.reset")}
                         </button>
                         <button
+                          type="button"
                           className="mcm-admin__danger"
+                          title={t("admin.delete")}
+                          aria-label={t("admin.delete")}
                           onClick={() => void removeUser(u)}
                         >
                           <Trash2 size={14} />
@@ -382,7 +395,10 @@ export const AdminConsole = ({ onExit }: { onExit: () => void }) => {
                     <td>{fmtDate(m.created_at)}</td>
                     <td className="mcm-admin__row-actions">
                       <button
+                        type="button"
                         className="mcm-admin__danger"
+                        title={t("admin.delete")}
+                        aria-label={t("admin.delete")}
                         onClick={() => void removeMeeting(m)}
                       >
                         <Trash2 size={14} />
