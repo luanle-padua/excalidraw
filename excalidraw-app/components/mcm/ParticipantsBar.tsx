@@ -7,7 +7,7 @@
 // populated.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { MicOff, UserX } from "lucide-react";
+import { MicOff, UserX, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
@@ -387,6 +387,117 @@ const mockTile = (p: MockParticipant): Tile => ({
 
 const REACTION_TTL_MS = 3200;
 
+// Zoom-style participant management panel — a right-side drawer listing every
+// participant with clear, reliable host actions (mute / remove). This is the
+// precise surface for moderation; the avatar-bar hover buttons are just a
+// shortcut.
+const ParticipantsPanel = ({
+  tiles,
+  iAmHost,
+  onClose,
+  onMute,
+  onKick,
+}: {
+  tiles: Tile[];
+  iAmHost: boolean;
+  onClose: () => void;
+  onMute: (tile: Tile) => void;
+  onKick: (tile: Tile) => void;
+}) => {
+  const t = useT();
+  return createPortal(
+    <div
+      className="mcm-pp-overlay"
+      onClick={onClose}
+      role="presentation"
+    >
+      <aside
+        className="mcm-pp"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("participants.panelTitle")}
+      >
+        <header className="mcm-pp__head">
+          <strong>
+            {t("participants.panelTitle")} ({tiles.length})
+          </strong>
+          <button
+            type="button"
+            className="mcm-pp__close"
+            onClick={onClose}
+            aria-label={t("header.leave")}
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <ul className="mcm-pp__list">
+          {tiles.map((p) => {
+            const emoji = pickEmojiFor(p.id, p.name);
+            const fullName = p.name.replace(/\s*\(.*?\)\s*$/, "");
+            const canModerate = iAmHost && !p.isMe && !p.isHost;
+            return (
+              <li key={p.id} className="mcm-pp__row">
+                <span
+                  className="mcm-pp__avatar"
+                  // gradient per participant (data-driven)
+                  // eslint-disable-next-line react/forbid-dom-props
+                  style={{ background: p.avatarUrl ? undefined : p.avatar }}
+                >
+                  {p.avatarUrl ? (
+                    <img src={p.avatarUrl} alt="" draggable={false} />
+                  ) : (
+                    <span aria-hidden="true">{emoji}</span>
+                  )}
+                </span>
+                <div className="mcm-pp__meta">
+                  <span className="mcm-pp__name">
+                    {fullName}
+                    {p.isMe && ` (${t("participants.you")})`}
+                    {p.isHost && (
+                      <span className="mcm-pp__tag">{t("participants.host")}</span>
+                    )}
+                  </span>
+                  {p.company && (
+                    <span className="mcm-pp__company">{p.company}</span>
+                  )}
+                </div>
+                <span
+                  className={`mcm-pp__mic${
+                    p.inCall && !p.micOn ? " mcm-pp__mic--off" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  {p.inCall ? p.micOn ? <MicOnIcon /> : <MicOffIcon /> : "—"}
+                </span>
+                {canModerate && (
+                  <div className="mcm-pp__actions">
+                    <button
+                      type="button"
+                      className="mcm-pp__btn"
+                      onClick={() => onMute(p)}
+                    >
+                      <MicOff size={13} /> {t("participants.mute")}
+                    </button>
+                    <button
+                      type="button"
+                      className="mcm-pp__btn mcm-pp__btn--danger"
+                      onClick={() => onKick(p)}
+                    >
+                      <UserX size={13} /> {t("participants.kick")}
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </aside>
+    </div>,
+    document.body,
+  );
+};
+
 type ParticipantsBarProps = {
   /** Open the local user's profile editor — wired from MeetingShell
    *  so a click on your own avatar tile pops the same modal that the
@@ -428,6 +539,7 @@ export const ParticipantsBar = ({
   // the avatar currently being followed AND render the "Đang follow X
   // — Esc để thoát" banner.
   const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
     if (!excalidrawAPI) {
@@ -625,16 +737,29 @@ export const ParticipantsBar = ({
   // a second banner would be duplicate/competing UI. The avatar eye
   // badge + Esc handler give us our extra affordances; Excalidraw owns
   // the textual confirmation strip.
+  // Host moderation: only the host can mute/kick, and only OTHER participants.
+  const iAmHost = !!hostSocketId && hostSocketId === selfSocketId;
+  const doKick = (tile: Tile) =>
+    collabAPI?.portal.broadcastHostCommand({
+      action: "KICK",
+      target: tile.id as SocketId,
+    });
+  const doMute = (tile: Tile) =>
+    collabAPI?.portal.broadcastHostCommand({
+      action: "MUTE",
+      target: tile.id as SocketId,
+    });
+
   return (
     <>
       <footer className="mcm-people-bar" aria-label={t("participants.label")}>
-        <CountChip inRoom={tiles.length} inCall={inCallCount} />
+        <CountChip
+          inRoom={tiles.length}
+          inCall={inCallCount}
+          onOpen={() => setPanelOpen(true)}
+        />
         <div className="mcm-people-bar__list">
           {tiles.map((p) => {
-            // Host moderation: only the host sees mute/kick, and only on
-            // OTHER participants (never self, never another host).
-            const iAmHost =
-              !!hostSocketId && hostSocketId === selfSocketId;
             const canModerate = iAmHost && !p.isMe && !p.isHost;
             return (
               <Person
@@ -642,29 +767,22 @@ export const ParticipantsBar = ({
                 p={p}
                 onFollowToggle={handleFollowToggle}
                 onOpenProfile={onOpenProfile}
-                onKick={
-                  canModerate
-                    ? (tile) =>
-                        collabAPI?.portal.broadcastHostCommand({
-                          action: "KICK",
-                          target: tile.id as SocketId,
-                        })
-                    : undefined
-                }
-                onMute={
-                  canModerate
-                    ? (tile) =>
-                        collabAPI?.portal.broadcastHostCommand({
-                          action: "MUTE",
-                          target: tile.id as SocketId,
-                        })
-                    : undefined
-                }
+                onKick={canModerate ? doKick : undefined}
+                onMute={canModerate ? doMute : undefined}
               />
             );
           })}
         </div>
       </footer>
+      {panelOpen && (
+        <ParticipantsPanel
+          tiles={tiles}
+          iAmHost={iAmHost}
+          onClose={() => setPanelOpen(false)}
+          onMute={doMute}
+          onKick={doKick}
+        />
+      )}
       <MeetingReactionsOverlay />
     </>
   );
@@ -769,14 +887,18 @@ const CountChip = ({
   inRoom,
   inCall,
   previewMode = false,
+  onOpen,
 }: {
   inRoom: number;
   inCall: number;
   previewMode?: boolean;
+  /** When provided, the chip becomes a button that opens the participant
+   *  management panel (Zoom-style). */
+  onOpen?: () => void;
 }) => {
   const t = useT();
-  return (
-    <div className="mcm-people-bar__chip" aria-hidden="true">
+  const inner = (
+    <>
       <span className="mcm-people-bar__chip-cell">
         <PeopleIcon />
         <span className="mcm-people-bar__chip-num">{inRoom}</span>
@@ -791,6 +913,24 @@ const CountChip = ({
           {t("participants.previewBadge")}
         </span>
       )}
+    </>
+  );
+  if (onOpen) {
+    return (
+      <button
+        type="button"
+        className="mcm-people-bar__chip mcm-people-bar__chip--btn"
+        onClick={onOpen}
+        title={t("participants.panelTitle")}
+        aria-label={t("participants.panelTitle")}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div className="mcm-people-bar__chip" aria-hidden="true">
+      {inner}
     </div>
   );
 };

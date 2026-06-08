@@ -119,7 +119,6 @@ import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache
 
 import {
   ensureMyJoinedAt,
-  hostSocketIdAtom,
   importUserProfileFromLocalStorage,
   markMeAsFirstInRoom,
   peerProfilesAtom,
@@ -1154,14 +1153,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.HOST_COMMAND: {
-            const { hostSocketId, action, target } = decryptedData.payload;
-            // Only obey a command from the host we locally recognise. If our
-            // host election hasn't resolved yet (null), trust it — the host
-            // controls are host-only UI, so the sender is the host.
-            const localHost = appJotaiStore.get(hostSocketIdAtom);
-            if (localHost && hostSocketId !== localHost) {
-              break;
-            }
+            const { action, target } = decryptedData.payload;
+            // Trust the command (like RECORDING_STATE) — the host controls are
+            // host-only UI, so the sender is the host. We don't gate on the
+            // local host election here because it can momentarily disagree
+            // across clients (unsynced USER_PROFILE) and silently drop the
+            // command. Per-user actions are still scoped by `target`.
             const mySocketId = this.portal.socket?.id;
             if (action === "END_MEETING") {
               appJotaiStore.set(meetingViewOnlyAtom, true);
