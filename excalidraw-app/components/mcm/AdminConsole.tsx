@@ -1,6 +1,7 @@
 import {
   ArrowLeft,
   ArrowUpDown,
+  BarChart3,
   Briefcase,
   Building2,
   ChevronDown,
@@ -14,6 +15,8 @@ import {
   LogOut,
   Plug,
   ScrollText,
+  Settings,
+  ShieldAlert,
   Trash2,
   UserPlus,
   Users,
@@ -25,15 +28,19 @@ import {
   createAdminUser,
   deleteAdminMeeting,
   deleteAdminUser,
+  getAdminAnalytics,
   getAdminAudit,
   getAdminCost,
   getAdminIntegrations,
   getAdminMeetingDetail,
+  getAdminSettings,
   getAdminStats,
   getAdminStorage,
   listAdminMeetings,
   listAdminUsers,
+  putAdminSettings,
   updateAdminUser,
+  type AdminAnalytics,
   type AdminAuditEntry,
   type AdminCost,
   type AdminIntegration,
@@ -55,11 +62,22 @@ type Tab =
   | "users"
   | "clients"
   | "meetings"
+  | "analytics"
   | "cost"
   | "integrations"
   | "storage"
   | "audit"
+  | "settings"
+  | "security"
   | "recordings";
+
+const SETTING_DEFAULTS: Record<string, string> = {
+  org_name: "MAP CanvasMeet",
+  internal_domains: "mapgroup.co.kr",
+  default_waiting_room: "on",
+  default_recording: "off",
+  retention_days: "365",
+};
 
 const INTERNAL_DOMAIN = "@mapgroup.co.kr";
 const isInternal = (email: string): boolean =>
@@ -144,6 +162,9 @@ export const AdminConsole = () => {
   const [integrations, setIntegrations] = useState<AdminIntegration[]>([]);
   const [storage, setStorage] = useState<AdminStorage | null>(null);
   const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const [detail, setDetail] = useState<AdminMeetingDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -211,8 +232,30 @@ export const AdminConsole = () => {
       void getAdminStorage().then(setStorage);
     } else if (tab === "audit") {
       void getAdminAudit().then(setAudit);
+    } else if (tab === "analytics") {
+      void getAdminAnalytics().then(setAnalytics);
+    } else if (tab === "settings") {
+      void getAdminSettings().then((s) => {
+        setSettings(s);
+        setSettingsDirty(false);
+      });
+    } else if (tab === "security") {
+      void refreshUsers();
+      void getAdminAudit().then(setAudit);
     }
   }, [tab, refreshUsers, refreshMeetings]);
+
+  const setSetting = (key: string, value: string) => {
+    setSettings((s) => ({ ...s, [key]: value }));
+    setSettingsDirty(true);
+  };
+  const saveSettings = async () => {
+    setBusy(true);
+    await putAdminSettings(settings);
+    setBusy(false);
+    setSettingsDirty(false);
+  };
+  const settingOf = (key: string) => settings[key] ?? SETTING_DEFAULTS[key] ?? "";
 
   const handleCreate = async () => {
     if (!nuEmail.trim() || !nuPassword || busy) {
@@ -410,6 +453,13 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
+            className={`mcm-admin__tab${tab === "analytics" ? " --active" : ""}`}
+            onClick={() => setTab("analytics")}
+          >
+            <BarChart3 size={16} /> {t("admin.tabAnalytics")}
+          </button>
+          <button
+            type="button"
             className={`mcm-admin__tab${tab === "cost" ? " --active" : ""}`}
             onClick={() => setTab("cost")}
           >
@@ -435,6 +485,20 @@ export const AdminConsole = () => {
             onClick={() => setTab("audit")}
           >
             <ScrollText size={16} /> {t("admin.tabAudit")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "security" ? " --active" : ""}`}
+            onClick={() => setTab("security")}
+          >
+            <ShieldAlert size={16} /> {t("admin.tabSecurity")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "settings" ? " --active" : ""}`}
+            onClick={() => setTab("settings")}
+          >
+            <Settings size={16} /> {t("admin.tabSettings")}
           </button>
           <button
             type="button"
@@ -1084,6 +1148,218 @@ export const AdminConsole = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {tab === "analytics" && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {analytics?.counts.meetings_7d ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.meetings7d")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {analytics?.counts.meetings_30d ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.meetings30d")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {analytics?.counts.participations ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.participations")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {analytics?.counts.unique_participants ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.uniqueParticipants")}
+                </span>
+              </div>
+            </div>
+
+            <h4 className="mcm-admin__h4">{t("admin.topProjects")}</h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {(analytics?.topProjects ?? []).length === 0 && (
+                    <tr>
+                      <td>{t("admin.empty")}</td>
+                    </tr>
+                  )}
+                  {(analytics?.topProjects ?? []).map((p, i) => (
+                    <tr key={i}>
+                      <td>
+                        <strong>{p.name || "—"}</strong>
+                      </td>
+                      <td>
+                        {p.meetings} {t("admin.tabMeetings")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mcm-admin__h4">{t("admin.topParticipants")}</h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {(analytics?.topParticipants ?? []).length === 0 && (
+                    <tr>
+                      <td>{t("admin.empty")}</td>
+                    </tr>
+                  )}
+                  {(analytics?.topParticipants ?? []).map((p) => (
+                    <tr key={p.user_email}>
+                      <td>
+                        <strong>{p.name || p.user_email}</strong>
+                        <span className="mcm-admin__sub">{p.user_email}</span>
+                      </td>
+                      <td>
+                        {p.meetings} {t("admin.tabMeetings")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "settings" && (
+          <div className="mcm-admin__pad mcm-admin__settings">
+            <label className="mcm-admin__field">
+              <span>{t("admin.setOrgName")}</span>
+              <input
+                value={settingOf("org_name")}
+                onChange={(e) => setSetting("org_name", e.target.value)}
+              />
+            </label>
+            <label className="mcm-admin__field">
+              <span>{t("admin.setInternalDomains")}</span>
+              <input
+                value={settingOf("internal_domains")}
+                onChange={(e) => setSetting("internal_domains", e.target.value)}
+              />
+              <small>{t("admin.setInternalDomainsHint")}</small>
+            </label>
+            <label className="mcm-admin__field mcm-admin__field--row">
+              <input
+                type="checkbox"
+                checked={settingOf("default_waiting_room") === "on"}
+                onChange={(e) =>
+                  setSetting(
+                    "default_waiting_room",
+                    e.target.checked ? "on" : "off",
+                  )
+                }
+              />
+              <span>{t("admin.setWaitingRoom")}</span>
+            </label>
+            <label className="mcm-admin__field mcm-admin__field--row">
+              <input
+                type="checkbox"
+                checked={settingOf("default_recording") === "on"}
+                onChange={(e) =>
+                  setSetting(
+                    "default_recording",
+                    e.target.checked ? "on" : "off",
+                  )
+                }
+              />
+              <span>{t("admin.setRecording")}</span>
+            </label>
+            <label className="mcm-admin__field">
+              <span>{t("admin.setRetention")}</span>
+              <input
+                type="number"
+                value={settingOf("retention_days")}
+                onChange={(e) => setSetting("retention_days", e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="mcm-admin__primary"
+              onClick={() => void saveSettings()}
+              disabled={busy || !settingsDirty}
+            >
+              {t("admin.save")}
+            </button>
+          </div>
+        )}
+
+        {tab === "security" && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">{users.length}</span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.tabUsers")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {users.filter(isAdminUser).length}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.roleAdmin")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {
+                    users.filter(
+                      (u) => !!u.banned_until && u.banned_until !== "none",
+                    ).length
+                  }
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.disabled")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {users.filter((u) => !isInternal(u.email)).length}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.tabClients")}
+                </span>
+              </div>
+            </div>
+            <p className="mcm-admin__note">{t("admin.securityNote")}</p>
+            <h4 className="mcm-admin__h4">{t("admin.tabAudit")}</h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {audit.length === 0 && (
+                    <tr>
+                      <td>{t("admin.empty")}</td>
+                    </tr>
+                  )}
+                  {audit.slice(0, 20).map((e) => (
+                    <tr key={e.id}>
+                      <td>{fmtDate(e.ts)}</td>
+                      <td>{e.actor_email || "—"}</td>
+                      <td>
+                        <code>{e.action}</code>
+                      </td>
+                      <td className="mcm-admin__sub">{e.target || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

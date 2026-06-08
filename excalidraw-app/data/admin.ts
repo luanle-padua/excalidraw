@@ -272,3 +272,53 @@ export const getAdminMeetingDetail = async (
     return null;
   }
 };
+
+// ---- A3: settings + analytics -------------------------------------------
+
+export type AdminAnalytics = {
+  counts: {
+    meetings_7d: number;
+    meetings_30d: number;
+    participations: number;
+    unique_participants: number;
+  };
+  topProjects: { name: string | null; meetings: number }[];
+  topParticipants: {
+    name: string | null;
+    user_email: string;
+    meetings: number;
+  }[];
+};
+
+export const getAdminSettings = async (): Promise<Record<string, string>> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/settings`);
+    return res.ok ? (await res.json()).settings ?? {} : {};
+  } catch {
+    return {};
+  }
+};
+
+export const putAdminSettings = async (
+  settings: Record<string, string>,
+): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/settings`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ settings }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+export const getAdminAnalytics = async (): Promise<AdminAnalytics | null> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/analytics`);
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+};

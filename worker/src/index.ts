@@ -961,4 +961,60 @@ app.get("/v1/admin/integrations", (c) => {
   });
 });
 
+// ---- Admin: system settings ---------------------------------------------
+app.get("/v1/admin/settings", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT key, value FROM system_settings`,
+  ).all<{ key: string; value: string }>();
+  const settings: Record<string, string> = {};
+  for (const r of results) {
+    settings[r.key] = r.value;
+  }
+  return c.json({ settings });
+});
+
+app.put("/v1/admin/settings", async (c) => {
+  const body = await c.req.json<{ settings?: Record<string, string> }>();
+  const entries = Object.entries(body.settings ?? {});
+  for (const [k, v] of entries) {
+    await c.env.DB.prepare(
+      `INSERT INTO system_settings (key, value, updated_at) VALUES (?1, ?2, ?3)
+       ON CONFLICT(key) DO UPDATE SET value = ?2, updated_at = ?3`,
+    )
+      .bind(k, v, now())
+      .run();
+  }
+  await logAudit(c.env.DB, c.get("email"), "settings.update", undefined, {
+    keys: entries.map((e) => e[0]),
+  });
+  return c.json({ ok: true });
+});
+
+// ---- Admin: analytics ----------------------------------------------------
+app.get("/v1/admin/analytics", async (c) => {
+  const d7 = now() - 7 * 86400000;
+  const d30 = now() - 30 * 86400000;
+  const counts = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM meeting WHERE created_at > ?1) AS meetings_7d,
+       (SELECT COUNT(*) FROM meeting WHERE created_at > ?2) AS meetings_30d,
+       (SELECT COUNT(*) FROM meeting_participant) AS participations,
+       (SELECT COUNT(DISTINCT user_email) FROM meeting_participant)
+         AS unique_participants`,
+  )
+    .bind(d7, d30)
+    .first();
+  const { results: topProjects } = await c.env.DB.prepare(
+    `SELECT p.name AS name, COUNT(m.id) AS meetings
+     FROM meeting m JOIN project p ON p.id = m.project_id
+     GROUP BY m.project_id ORDER BY meetings DESC LIMIT 5`,
+  ).all();
+  const { results: topParticipants } = await c.env.DB.prepare(
+    `SELECT COALESCE(name, user_email) AS name, user_email, COUNT(*) AS meetings
+     FROM meeting_participant GROUP BY user_email
+     ORDER BY meetings DESC LIMIT 5`,
+  ).all();
+  return c.json({ counts, topProjects, topParticipants });
+});
+
 export default app;

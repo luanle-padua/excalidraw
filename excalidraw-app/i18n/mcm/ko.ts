@@ -177,6 +177,25 @@ export const ko: Widened<typeof vi> = {
     tabClients: "고객",
     company: "회사",
     noClients: "고객 없음",
+    tabAnalytics: "분석",
+    tabSettings: "설정",
+    tabSecurity: "보안",
+    save: "저장",
+    meetings7d: "회의 (7일)",
+    meetings30d: "회의 (30일)",
+    participations: "참여 수",
+    uniqueParticipants: "참여자 수",
+    topProjects: "회의 많은 프로젝트",
+    topParticipants: "활발한 참여자",
+    setOrgName: "조직 이름",
+    setInternalDomains: "내부 도메인 (자동 입장)",
+    setInternalDomainsHint:
+      "쉼표로 구분. 해당 도메인 이메일은 내부로 간주되어 대기실을 건너뜁니다.",
+    setWaitingRoom: "기본 대기실 켜기",
+    setRecording: "기본 녹화 켜기",
+    setRetention: "데이터 보존 (일)",
+    securityNote:
+      "로그인 실패 추적은 로그 드레인이 필요합니다(추후). 아래는 최근 관리자 작업 로그입니다.",
   },
 
   folder: {

@@ -170,6 +170,25 @@ export const en: Widened<typeof vi> = {
     tabClients: "Clients",
     company: "Company",
     noClients: "No clients yet",
+    tabAnalytics: "Analytics",
+    tabSettings: "Settings",
+    tabSecurity: "Security",
+    save: "Save",
+    meetings7d: "Meetings (7d)",
+    meetings30d: "Meetings (30d)",
+    participations: "Participations",
+    uniqueParticipants: "Unique participants",
+    topProjects: "Top projects by meetings",
+    topParticipants: "Most active participants",
+    setOrgName: "Organization name",
+    setInternalDomains: "Internal domains (auto-admit)",
+    setInternalDomainsHint:
+      "Comma-separated. Emails on these domains count as internal and skip the waiting room.",
+    setWaitingRoom: "Waiting room on by default",
+    setRecording: "Recording on by default",
+    setRetention: "Data retention (days)",
+    securityNote:
+      "Failed-login tracking needs log drains (later). Below is the recent admin action log.",
   },
 
   folder: {

@@ -181,6 +181,25 @@ export const vi = {
     tabClients: "Khách hàng",
     company: "Công ty",
     noClients: "Chưa có khách hàng nào",
+    tabAnalytics: "Thống kê",
+    tabSettings: "Cài đặt",
+    tabSecurity: "Bảo mật",
+    save: "Lưu",
+    meetings7d: "Họp (7 ngày)",
+    meetings30d: "Họp (30 ngày)",
+    participations: "Lượt tham gia",
+    uniqueParticipants: "Người tham gia",
+    topProjects: "Dự án nhiều họp nhất",
+    topParticipants: "Tham gia nhiều nhất",
+    setOrgName: "Tên tổ chức",
+    setInternalDomains: "Domain nội bộ (auto-admit)",
+    setInternalDomainsHint:
+      "Cách nhau bằng dấu phẩy. Email thuộc domain này = nội bộ, vào thẳng.",
+    setWaitingRoom: "Bật phòng chờ mặc định",
+    setRecording: "Bật ghi hình mặc định",
+    setRetention: "Giữ dữ liệu (ngày)",
+    securityNote:
+      "Theo dõi đăng nhập sai cần log-drains (làm sau). Dưới là nhật ký thao tác admin gần đây.",
   },
 
   // ---------------- Project folder ---------------------------------
