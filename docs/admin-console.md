@@ -40,9 +40,10 @@
 - *(P4)* `membership`, `waiting_room`, `meeting.status` — admin cũng đọc/ghi.
 
 ## Lộ trình build (Phase A — Admin Console)
-- **A1 (foundation + core):** admin role + Worker `/v1/admin/*` gate + trang `/admin` shell + **Dashboard** + **Users & Roles** + **Meetings**.
-- **A2 (vận hành):** **Cost & Usage** (usage-meter + provider API + link) + **API/Integrations status** + **Recordings** + **Storage** + **Audit log**.
-- **A3 (chín):** Security/session + System settings + Analytics + Compliance/GDPR + Announcements.
+- ✅ **A1 (foundation + core):** admin role + Worker `/v1/admin/*` gate + trang `/admin` shell + **Dashboard** + **Users** + **Meetings** + **chi tiết cuộc họp** (project/participant/file) + quick-login admin.
+- ✅ **A2 (vận hành):** **Cost & Usage** (estimate + provider billing links) + **API/Integrations status** + **Storage** + **Audit log** (Recordings = placeholder chờ Phase 5).
+- ✅ **A3 (chín):** **System settings** (domain nội bộ, waiting-room/recording mặc định, retention) + **Analytics** + **Security overview**. *(Compliance/GDPR + theo dõi đăng nhập sai = cần log-drains → để sau; Announcements = sau.)*
+- Polish đã làm: admin = account riêng (không phải host), không cho action lên chính admin, **gom nhóm theo phòng ban + sort theo cấp bậc 직급 + collapse/expand**, tách **Khách hàng (client)** khỏi nội bộ theo domain.
 
 ## Phụ thuộc / liên quan
 - **Cost** cần **usage-meter** (log `usage_events`) — nên cài sớm để tích luỹ số liệu.
