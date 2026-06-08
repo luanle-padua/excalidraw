@@ -6,6 +6,7 @@ import {
   activeRoomLinkAtom,
   collabAPIAtom,
   isCollaboratingAtom,
+  kickedAtom,
   meetingViewOnlyAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
@@ -138,6 +139,18 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     collabAPI?.stopCollaboration(false);
     window.history.pushState({}, "", window.location.pathname);
   };
+
+  // The host removed me (KICK over HOST_COMMAND): notify, then leave the room.
+  const kicked = useAtomValue(kickedAtom);
+  const setKicked = useSetAtom(kickedAtom);
+  useEffect(() => {
+    if (kicked) {
+      setKicked(false);
+      window.alert(t("participants.kickedMsg"));
+      handleLeave();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kicked]);
 
   // Capture the user's session start timestamp as early as possible —
   // before any collab broadcast fires. Host election ranks participants

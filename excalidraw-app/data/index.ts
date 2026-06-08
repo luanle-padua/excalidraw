@@ -273,9 +273,10 @@ export type SocketUpdateDataSource = {
     type: WS_SUBTYPES.HOST_COMMAND;
     payload: {
       hostSocketId: SocketId;
-      action: "END_MEETING";
-      /** Target participant for per-user actions (kick/mute). Unused for
-       *  END_MEETING. */
+      action: "END_MEETING" | "KICK" | "MUTE";
+      /** Target participant for per-user actions (KICK / MUTE). Unused for
+       *  END_MEETING. The targeted client acts on itself (leaves / self-mutes);
+       *  everyone else ignores a command not aimed at them. */
       target?: SocketId;
     };
   };

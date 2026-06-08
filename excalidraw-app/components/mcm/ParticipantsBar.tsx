@@ -7,6 +7,7 @@
 // populated.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { MicOff, UserX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
@@ -173,6 +174,8 @@ const Person = ({
   p,
   onFollowToggle,
   onOpenProfile,
+  onKick,
+  onMute,
 }: {
   p: Tile;
   onFollowToggle?: (tile: Tile) => void;
@@ -180,6 +183,10 @@ const Person = ({
    *  editor (avatar / name / company). For other people the click
    *  routes through `onFollowToggle` instead. */
   onOpenProfile?: () => void;
+  /** Host-only moderation, provided only when the local user is the host and
+   *  this tile is a kickable peer (not me, not the host). */
+  onKick?: (tile: Tile) => void;
+  onMute?: (tile: Tile) => void;
 }) => {
   const t = useT();
   // Full name for the tooltip — always the original so user-set
@@ -329,6 +336,38 @@ const Person = ({
         <span className="mcm-person__company" title={p.company}>
           {p.company}
         </span>
+      )}
+      {(onMute || onKick) && (
+        <div className="mcm-person__host-actions">
+          {onMute && (
+            <button
+              type="button"
+              className="mcm-person__ha-btn"
+              title={t("participants.muteHint")}
+              aria-label={t("participants.muteHint")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMute(p);
+              }}
+            >
+              <MicOff size={11} />
+            </button>
+          )}
+          {onKick && (
+            <button
+              type="button"
+              className="mcm-person__ha-btn mcm-person__ha-btn--danger"
+              title={t("participants.kickHint")}
+              aria-label={t("participants.kickHint")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onKick(p);
+              }}
+            >
+              <UserX size={11} />
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -591,14 +630,39 @@ export const ParticipantsBar = ({
       <footer className="mcm-people-bar" aria-label={t("participants.label")}>
         <CountChip inRoom={tiles.length} inCall={inCallCount} />
         <div className="mcm-people-bar__list">
-          {tiles.map((p) => (
-            <Person
-              key={p.id}
-              p={p}
-              onFollowToggle={handleFollowToggle}
-              onOpenProfile={onOpenProfile}
-            />
-          ))}
+          {tiles.map((p) => {
+            // Host moderation: only the host sees mute/kick, and only on
+            // OTHER participants (never self, never another host).
+            const iAmHost =
+              !!hostSocketId && hostSocketId === selfSocketId;
+            const canModerate = iAmHost && !p.isMe && !p.isHost;
+            return (
+              <Person
+                key={p.id}
+                p={p}
+                onFollowToggle={handleFollowToggle}
+                onOpenProfile={onOpenProfile}
+                onKick={
+                  canModerate
+                    ? (tile) =>
+                        collabAPI?.portal.broadcastHostCommand({
+                          action: "KICK",
+                          target: tile.id as SocketId,
+                        })
+                    : undefined
+                }
+                onMute={
+                  canModerate
+                    ? (tile) =>
+                        collabAPI?.portal.broadcastHostCommand({
+                          action: "MUTE",
+                          target: tile.id as SocketId,
+                        })
+                    : undefined
+                }
+              />
+            );
+          })}
         </div>
       </footer>
       <MeetingReactionsOverlay />

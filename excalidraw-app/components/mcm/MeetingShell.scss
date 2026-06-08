@@ -1176,6 +1176,48 @@
     line-height: 1.15;
     margin-top: -1px;
   }
+
+  // Host-only moderation buttons (mute / kick) — revealed on tile hover.
+  &__host-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms;
+  }
+  &:hover &__host-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  &__ha-btn {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.06));
+    color: var(--mcm-text, #1b1b1f);
+    cursor: pointer;
+    transition: background-color 120ms;
+
+    &:hover {
+      background: var(--mcm-surface-3, rgba(0, 0, 0, 0.12));
+    }
+    &--danger {
+      color: var(--mcm-danger, #dc2626);
+
+      &:hover {
+        background: color-mix(
+          in srgb,
+          var(--mcm-danger, #dc2626) 14%,
+          transparent
+        );
+      }
+    }
+  }
 }
 
 @keyframes mcm-person-name-in {

@@ -135,6 +135,7 @@ import {
   userProfileAtom,
 } from "../data/userProfile";
 import { resetRoomRecording, setRoomRecording } from "../data/roomRecording";
+import { audioRoomInstanceAtom, audioStateAtom } from "../audio/audioState";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
@@ -157,6 +158,10 @@ export const isOfflineAtom = atom(false);
  *  read-only (drives `viewModeEnabled`), no editing — extract-only. Set by
  *  `startCollaboration(_, { viewOnly: true })`, cleared on teardown. */
 export const meetingViewOnlyAtom = atom(false);
+
+/** Set true when the host KICKs the local user out of the meeting. MeetingShell
+ *  watches this, shows a notice, and leaves the room. */
+export const kickedAtom = atom(false);
 
 /** Map of socketId → true for participants currently signaling "hand
  *  raised". Sticky until that peer broadcasts a lower (or leaves). */
@@ -1149,17 +1154,28 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.HOST_COMMAND: {
-            const { hostSocketId, action } = decryptedData.payload;
+            const { hostSocketId, action, target } = decryptedData.payload;
             // Only obey a command from the host we locally recognise. If our
-            // host election hasn't resolved yet (null), trust it — the End
-            // button is host-only UI, so the sender is the host.
+            // host election hasn't resolved yet (null), trust it — the host
+            // controls are host-only UI, so the sender is the host.
             const localHost = appJotaiStore.get(hostSocketIdAtom);
             if (localHost && hostSocketId !== localHost) {
               break;
             }
+            const mySocketId = this.portal.socket?.id;
             if (action === "END_MEETING") {
               appJotaiStore.set(meetingViewOnlyAtom, true);
               markReviewRoom(this.portal.roomId ?? "");
+            } else if (action === "KICK" && target && target === mySocketId) {
+              // The host removed me — MeetingShell watches this and leaves.
+              appJotaiStore.set(kickedAtom, true);
+            } else if (action === "MUTE" && target && target === mySocketId) {
+              // The host muted me — self-mute the mic if I'm live and unmuted.
+              const audioRoom = appJotaiStore.get(audioRoomInstanceAtom);
+              const aState = appJotaiStore.get(audioStateAtom);
+              if (audioRoom && aState.status === "live" && !aState.muted) {
+                audioRoom.toggleMute();
+              }
             }
             break;
           }

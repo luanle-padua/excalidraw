@@ -468,7 +468,7 @@ class Portal {
   /** Host-only broadcast: a control command (end meeting now; later kick/mute).
    *  Peers validate `hostSocketId` against their host election before obeying. */
   broadcastHostCommand = (cmd: {
-    action: "END_MEETING";
+    action: "END_MEETING" | "KICK" | "MUTE";
     target?: SocketId;
   }) => {
     if (this.socket?.id) {
