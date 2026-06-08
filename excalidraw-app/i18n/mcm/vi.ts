@@ -256,6 +256,7 @@ export const vi = {
     panelTitle: "Người tham gia",
     host: "Host",
     mute: "Tắt mic",
+    unmute: "Bật mic",
     kick: "Mời ra",
     followingAria: "Đang follow view của người này",
     followingBanner: "Đang follow {name} — view khoá theo họ",

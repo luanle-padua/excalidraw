@@ -243,6 +243,7 @@ export const en: Widened<typeof vi> = {
     panelTitle: "Participants",
     host: "Host",
     mute: "Mute",
+    unmute: "Unmute",
     kick: "Remove",
     followingAria: "Following this person's view",
     followingBanner: "Following {name} — your view tracks theirs",

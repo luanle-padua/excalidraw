@@ -249,6 +249,7 @@ export const ko: Widened<typeof vi> = {
     panelTitle: "참가자",
     host: "호스트",
     mute: "음소거",
+    unmute: "음소거 해제",
     kick: "내보내기",
     followingAria: "이 사람의 뷰를 따라가는 중",
     followingBanner: "{name} 님의 뷰를 따라가는 중",

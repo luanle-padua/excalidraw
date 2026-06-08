@@ -1178,6 +1178,19 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               if (audioRoom && aState.status === "live" && !aState.muted) {
                 audioRoom.toggleMute();
               }
+            } else if (action === "UNMUTE" && target && target === mySocketId) {
+              // The host un-muted me — re-enable the mic if I have one. (No-op
+              // in listener mode: there is no mic to turn on.)
+              const audioRoom = appJotaiStore.get(audioRoomInstanceAtom);
+              const aState = appJotaiStore.get(audioStateAtom);
+              if (
+                audioRoom &&
+                aState.status === "live" &&
+                aState.muted &&
+                aState.canTransmit
+              ) {
+                audioRoom.toggleMute();
+              }
             }
             break;
           }

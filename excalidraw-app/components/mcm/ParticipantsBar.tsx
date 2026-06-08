@@ -7,7 +7,7 @@
 // populated.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { MicOff, UserX, X } from "lucide-react";
+import { Mic, MicOff, UserX, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
@@ -177,6 +177,7 @@ const Person = ({
   onOpenProfile,
   onKick,
   onMute,
+  hostMuted,
 }: {
   p: Tile;
   onFollowToggle?: (tile: Tile) => void;
@@ -188,6 +189,9 @@ const Person = ({
    *  this tile is a kickable peer (not me, not the host). */
   onKick?: (tile: Tile) => void;
   onMute?: (tile: Tile) => void;
+  /** Whether the host has muted this participant — toggles the mute button to
+   *  an "un-mute" affordance. */
+  hostMuted?: boolean;
 }) => {
   const t = useT();
   // Full name for the tooltip — always the original so user-set
@@ -344,14 +348,18 @@ const Person = ({
             <button
               type="button"
               className="mcm-person__ha-btn"
-              title={t("participants.muteHint")}
-              aria-label={t("participants.muteHint")}
+              title={
+                hostMuted ? t("participants.unmute") : t("participants.muteHint")
+              }
+              aria-label={
+                hostMuted ? t("participants.unmute") : t("participants.muteHint")
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 onMute(p);
               }}
             >
-              <MicOff size={11} />
+              {hostMuted ? <Mic size={11} /> : <MicOff size={11} />}
             </button>
           )}
           {onKick && (
@@ -395,12 +403,14 @@ const REACTION_TTL_MS = 3200;
 const ParticipantsPanel = ({
   tiles,
   iAmHost,
+  mutedByHost,
   onClose,
   onMute,
   onKick,
 }: {
   tiles: Tile[];
   iAmHost: boolean;
+  mutedByHost: Set<string>;
   onClose: () => void;
   onMute: (tile: Tile) => void;
   onKick: (tile: Tile) => void;
@@ -478,7 +488,15 @@ const ParticipantsPanel = ({
                       className="mcm-pp__btn"
                       onClick={() => onMute(p)}
                     >
-                      <MicOff size={13} /> {t("participants.mute")}
+                      {mutedByHost.has(p.id) ? (
+                        <>
+                          <Mic size={13} /> {t("participants.unmute")}
+                        </>
+                      ) : (
+                        <>
+                          <MicOff size={13} /> {t("participants.mute")}
+                        </>
+                      )}
                     </button>
                     <button
                       type="button"
@@ -542,6 +560,10 @@ export const ParticipantsBar = ({
   const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
   const panelOpen = useAtomValue(participantsPanelOpenAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
+  // Which peers the host has muted — drives the mute↔un-mute toggle. Local to
+  // the host's view (we track our own commands rather than round-tripping a
+  // remote mute-state broadcast).
+  const [mutedByHost, setMutedByHost] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!excalidrawAPI) {
@@ -746,11 +768,22 @@ export const ParticipantsBar = ({
       action: "KICK",
       target: tile.id as SocketId,
     });
-  const doMute = (tile: Tile) =>
+  const doMute = (tile: Tile) => {
+    const muted = mutedByHost.has(tile.id);
     collabAPI?.portal.broadcastHostCommand({
-      action: "MUTE",
+      action: muted ? "UNMUTE" : "MUTE",
       target: tile.id as SocketId,
     });
+    setMutedByHost((prev) => {
+      const next = new Set(prev);
+      if (muted) {
+        next.delete(tile.id);
+      } else {
+        next.add(tile.id);
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -771,6 +804,7 @@ export const ParticipantsBar = ({
                 onOpenProfile={onOpenProfile}
                 onKick={canModerate ? doKick : undefined}
                 onMute={canModerate ? doMute : undefined}
+                hostMuted={mutedByHost.has(p.id)}
               />
             );
           })}
@@ -780,6 +814,7 @@ export const ParticipantsBar = ({
         <ParticipantsPanel
           tiles={tiles}
           iAmHost={iAmHost}
+          mutedByHost={mutedByHost}
           onClose={() => setPanelOpen(false)}
           onMute={doMute}
           onKick={doKick}
