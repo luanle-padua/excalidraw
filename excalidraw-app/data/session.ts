@@ -20,6 +20,9 @@ export type Session = {
   email: string;
   company?: string;
   branch?: string;
+  /** true when app_metadata.role === "admin" — gates the admin console.
+   *  (The Worker independently re-checks the role on /v1/admin/*.) */
+  isAdmin: boolean;
 };
 
 export const sessionAtom = atom<Session | null>(null);
@@ -42,6 +45,7 @@ const nameFromEmail = (email: string): string => {
  *  display_name / name / company / division). */
 export const deriveSession = (user: User): Session => {
   const md = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const appMd = (user.app_metadata ?? {}) as Record<string, unknown>;
   const email = user.email ?? "";
   // Prefer the Korean name (사원명, seeded as `name`) for display; fall back to
   // the romanized display_name, then the email local-part.
@@ -54,6 +58,7 @@ export const deriveSession = (user: User): Session => {
     email,
     company: typeof md.company === "string" ? md.company : undefined,
     branch: typeof md.division === "string" ? md.division : undefined,
+    isAdmin: appMd.role === "admin",
   };
 };
 

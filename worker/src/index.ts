@@ -44,12 +44,18 @@ type Bindings = {
   // verifying user access tokens. (No secret needed: tokens are ES256-signed,
   // verified against the public JWKS.)
   SUPABASE_URL?: string;
+  // Supabase secret/service key — ADMIN ONLY (proxies the Supabase Admin REST
+  // API for user management). Never sent to the client; gated behind the admin
+  // role. Local: worker/.dev.vars · Prod: `wrangler secret put`.
+  SUPABASE_SERVICE_API_KEY?: string;
 };
 
 // Auth context attached by the JWT middleware for downstream handlers.
 type Variables = {
   userId: string;
   email?: string;
+  /** app_metadata.role from the verified JWT ("admin" gates /v1/admin/*). */
+  role?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
@@ -60,7 +66,7 @@ app.use(
   "*",
   cors({
     origin: "*",
-    allowMethods: ["GET", "PUT", "POST", "PATCH", "OPTIONS"],
+    allowMethods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "x-kind", "x-name", "Authorization"],
   }),
 );
@@ -102,10 +108,25 @@ app.use("/v1/*", async (c, next) => {
     });
     c.set("userId", String(payload.sub ?? ""));
     c.set("email", typeof payload.email === "string" ? payload.email : undefined);
+    const appMeta = payload.app_metadata as { role?: unknown } | undefined;
+    c.set(
+      "role",
+      typeof appMeta?.role === "string" ? appMeta.role : undefined,
+    );
     return next();
   } catch {
     return c.json({ error: "invalid token" }, 401);
   }
+});
+
+// ---- Admin gate ----------------------------------------------------------
+// /v1/admin/* requires the "admin" role (Supabase app_metadata.role, carried in
+// the verified JWT). Runs AFTER the JWT middleware above, so the role is set.
+app.use("/v1/admin/*", async (c, next) => {
+  if (c.get("role") !== "admin") {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  return next();
 });
 
 const now = () => Date.now();
@@ -534,6 +555,205 @@ app.get("/v1/daily/token", async (c) => {
   }
 
   return c.json({ data: { url: roomUrl, token } });
+});
+
+// ==========================================================================
+// ADMIN CONSOLE — gated by the "admin" role (see /v1/admin/* middleware above)
+// ==========================================================================
+
+// Proxy a call to the Supabase Admin REST API with the service key (never
+// exposed to the client).
+const supaAdmin = (
+  url: string,
+  key: string,
+  method: string,
+  path: string,
+  body?: unknown,
+) =>
+  fetch(`${url}/auth/v1${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      apikey: key,
+      "Content-Type": "application/json",
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+const adminCreds = (c: { env: Bindings }) => {
+  const url = c.env.SUPABASE_URL;
+  const key = c.env.SUPABASE_SERVICE_API_KEY;
+  return url && key ? { url, key } : null;
+};
+
+// ---- Admin: users --------------------------------------------------------
+
+app.get("/v1/admin/users", async (c) => {
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const page = c.req.query("page") ?? "1";
+  const perPage = c.req.query("perPage") ?? "200";
+  const res = await supaAdmin(
+    cr.url,
+    cr.key,
+    "GET",
+    `/admin/users?page=${page}&per_page=${perPage}`,
+  );
+  if (!res.ok) {
+    return c.json({ error: "list users failed", detail: await res.text() }, 502);
+  }
+  return c.json(await res.json());
+});
+
+app.post("/v1/admin/users", async (c) => {
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const b = await c.req.json<{
+    email: string;
+    password: string;
+    role?: string;
+    name?: string;
+  }>();
+  if (!b.email || !b.password) {
+    return c.json({ error: "email + password required" }, 400);
+  }
+  const res = await supaAdmin(cr.url, cr.key, "POST", "/admin/users", {
+    email: b.email,
+    password: b.password,
+    email_confirm: true,
+    app_metadata: { role: b.role ?? "member" },
+    user_metadata: b.name ? { display_name: b.name, name: b.name } : {},
+  });
+  if (!res.ok) {
+    return c.json({ error: "create user failed", detail: await res.text() }, 502);
+  }
+  return c.json(await res.json());
+});
+
+// Update role / password / disabled (ban) for a user.
+app.patch("/v1/admin/users/:id", async (c) => {
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const id = c.req.param("id");
+  const b = await c.req.json<{
+    role?: string;
+    password?: string;
+    disabled?: boolean;
+  }>();
+  const patch: Record<string, unknown> = {};
+  if (b.role) {
+    patch.app_metadata = { role: b.role };
+  }
+  if (b.password) {
+    patch.password = b.password;
+  }
+  if (typeof b.disabled === "boolean") {
+    // Supabase "ban" = disable login; a long duration ≈ indefinite.
+    patch.ban_duration = b.disabled ? "876000h" : "none";
+  }
+  const res = await supaAdmin(cr.url, cr.key, "PUT", `/admin/users/${id}`, patch);
+  if (!res.ok) {
+    return c.json({ error: "update user failed", detail: await res.text() }, 502);
+  }
+  return c.json(await res.json());
+});
+
+app.delete("/v1/admin/users/:id", async (c) => {
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const res = await supaAdmin(
+    cr.url,
+    cr.key,
+    "DELETE",
+    `/admin/users/${c.req.param("id")}`,
+  );
+  if (!res.ok && res.status !== 200 && res.status !== 204) {
+    return c.json({ error: "delete user failed", detail: await res.text() }, 502);
+  }
+  return c.json({ ok: true });
+});
+
+// ---- Admin: meetings (across ALL hosts/projects) -------------------------
+
+app.get("/v1/admin/meetings", async (c) => {
+  const limit = Math.min(
+    500,
+    Math.max(1, parseInt(c.req.query("limit") ?? "200", 10)),
+  );
+  const { results } = await c.env.DB.prepare(
+    `SELECT m.id, m.project_id, m.title, m.topic, m.type, m.status,
+            m.created_by, m.participant_count, m.duration_s,
+            m.created_at, m.updated_at, m.last_opened_at,
+            p.name AS project_name
+     FROM meeting m LEFT JOIN project p ON p.id = m.project_id
+     ORDER BY m.updated_at DESC LIMIT ?1`,
+  )
+    .bind(limit)
+    .all();
+  const countRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total FROM meeting`,
+  ).first<{ total: number }>();
+  return c.json({ meetings: results, total: countRow?.total ?? 0 });
+});
+
+// Delete a meeting + cascade: its R2 blobs (scene/files/chats/library) + file rows.
+app.delete("/v1/admin/meetings/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  const meeting = await c.env.DB.prepare(
+    `SELECT id FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  // R2: delete everything under each per-room prefix.
+  for (const prefix of [
+    `scenes/${roomId}`,
+    `files/${roomId}`,
+    `chats/${roomId}`,
+    `library/${roomId}`,
+  ]) {
+    let cursor: string | undefined;
+    do {
+      const listed = await c.env.BUCKET.list({ prefix, cursor });
+      for (const obj of listed.objects) {
+        await c.env.BUCKET.delete(obj.key);
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+  }
+  await c.env.DB.prepare(`DELETE FROM file WHERE meeting_id = ?1`)
+    .bind(roomId)
+    .run();
+  await c.env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`)
+    .bind(roomId)
+    .run();
+  return c.json({ ok: true, deleted: roomId });
+});
+
+// ---- Admin: dashboard stats ---------------------------------------------
+
+app.get("/v1/admin/stats", async (c) => {
+  const dayAgo = now() - 24 * 60 * 60 * 1000;
+  const row = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM meeting) AS total_meetings,
+       (SELECT COUNT(*) FROM project) AS total_projects,
+       (SELECT COUNT(*) FROM meeting WHERE created_at > ?1) AS meetings_today,
+       (SELECT COUNT(*) FROM file) AS total_files`,
+  )
+    .bind(dayAgo)
+    .first();
+  return c.json({ stats: row });
 });
 
 export default app;

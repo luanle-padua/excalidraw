@@ -13,6 +13,7 @@ import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
 import { authReadyAtom, sessionAtom, signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { AdminConsole } from "./AdminConsole";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
 import { ProjectBrowser } from "./ProjectBrowser";
@@ -51,6 +52,7 @@ export const MeetingLobby = () => {
   const authReady = useAtomValue(authReadyAtom);
 
   const [dismissed, setDismissed] = useState(false);
+  const [adminDismissed, setAdminDismissed] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinValue, setJoinValue] = useState("");
   const [joinError, setJoinError] = useState(false);
@@ -98,6 +100,12 @@ export const MeetingLobby = () => {
   // enforces auth server-side, so this is the UX half of the same gate.
   if (!session) {
     return <LoginScreen />;
+  }
+
+  // Admin: the back-office console takes over the home (unless they exited it
+  // to join/create a meeting, or are already in one).
+  if (session.isAdmin && !adminDismissed && !isCollaborating) {
+    return <AdminConsole onExit={() => setAdminDismissed(true)} />;
   }
 
   // Authenticated: suppress the project home while in a meeting, auto-joining
