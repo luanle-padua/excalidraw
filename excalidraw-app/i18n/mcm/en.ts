@@ -8,6 +8,9 @@ export const en: Widened<typeof vi> = {
   header: {
     invite: "Invite",
     inviteCopied: "Link copied!",
+    endMeeting: "End meeting",
+    endConfirm:
+      "End the meeting for EVERYONE? All participants switch to read-only review.",
     leave: "Leave",
     share: "Share",
     transcript: "Transcript",

@@ -27,6 +27,14 @@ export type Session = {
 
 export const sessionAtom = atom<Session | null>(null);
 
+/** Internal organisation email domains. Members on these domains are "internal"
+ *  (auto-admit, can become acting host); everyone else is an external guest.
+ *  Mirrors the admin Settings `internal_domains` (hardcoded default for now). */
+export const INTERNAL_DOMAINS = ["mapgroup.co.kr"];
+export const isInternalEmail = (email?: string | null): boolean =>
+  !!email &&
+  INTERNAL_DOMAINS.some((d) => email.toLowerCase().endsWith(`@${d}`));
+
 /** false until the first Supabase session check resolves — the login gate
  *  waits on this so it doesn't flash the login screen for an already
  *  authenticated user mid-check. */

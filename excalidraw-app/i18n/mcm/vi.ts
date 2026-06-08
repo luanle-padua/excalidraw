@@ -15,6 +15,9 @@ export const vi = {
   header: {
     invite: "Mời",
     inviteCopied: "Đã copy link!",
+    endMeeting: "Kết thúc họp",
+    endConfirm:
+      "Kết thúc cuộc họp cho TẤT CẢ? Mọi người sẽ chuyển sang chế độ xem lại (read-only).",
     leave: "Rời",
     share: "Chia sẻ",
     transcript: "Biên bản",

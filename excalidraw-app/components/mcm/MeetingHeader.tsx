@@ -7,6 +7,7 @@ import {
   LogOut,
   Mic,
   MoreHorizontal,
+  PhoneOff,
   Presentation,
   Settings,
   Share2,
@@ -17,12 +18,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
 
-import { useAtomValue } from "../../app-jotai";
+import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
-import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
+import {
+  activeRoomLinkAtom,
+  collabAPIAtom,
+  meetingViewOnlyAtom,
+} from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
+import { markReviewRoom } from "../../data/reviewMode";
 import { transcriptionLogAtom } from "../../data/transcription";
+import { hostSocketIdAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
@@ -225,6 +232,28 @@ export const MeetingHeader = ({
     window.setTimeout(() => setCopied(false), 2000);
   }, [roomId, roomKey, t]);
 
+  // Host control: only the elected host sees the "End meeting" button.
+  const hostSocketId = useAtomValue(hostSocketIdAtom);
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
+  const setViewOnly = useSetAtom(meetingViewOnlyAtom);
+  const isHost = !!selfSocketId && hostSocketId === selfSocketId;
+
+  const handleEndMeeting = useCallback(async () => {
+    if (!roomId || !isHost) {
+      return;
+    }
+    if (!window.confirm(t("header.endConfirm"))) {
+      return;
+    }
+    // Mark the meeting finished in the registry (so reopen = read-only review)…
+    await updateMeeting(roomId, { status: "Completed" });
+    // …tell everyone in the room to switch to review…
+    collabAPI?.portal?.broadcastHostCommand({ action: "END_MEETING" });
+    // …and switch ourselves too.
+    markReviewRoom(roomId);
+    setViewOnly(true);
+  }, [roomId, isHost, collabAPI, setViewOnly, t]);
+
   return (
     <header className="mcm-header">
       <div className="mcm-header__brand">
@@ -366,6 +395,17 @@ export const MeetingHeader = ({
           <UserPlus size={18} />
           {copied ? t("header.inviteCopied") : t("header.invite")}
         </button>
+        {isHost && !viewOnly && (
+          <button
+            type="button"
+            className="mcm-header__btn mcm-header__btn--danger"
+            onClick={() => void handleEndMeeting()}
+            title={t("header.endMeeting")}
+          >
+            <PhoneOff size={18} />
+            {t("header.endMeeting")}
+          </button>
+        )}
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--ghost"

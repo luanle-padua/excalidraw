@@ -422,6 +422,7 @@ class Portal {
     company?: string;
     avatar?: string;
     joinedAt?: number;
+    email?: string;
   }) => {
     if (this.socket?.id) {
       const data: SocketUpdateDataSource["USER_PROFILE"] = {
@@ -434,6 +435,7 @@ class Portal {
           ...(typeof profile.joinedAt === "number"
             ? { joinedAt: profile.joinedAt }
             : {}),
+          ...(profile.email ? { email: profile.email } : {}),
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);
@@ -457,6 +459,25 @@ class Portal {
           hostSocketId: this.socket.id as SocketId,
           ...(state.hostName ? { hostName: state.hostName } : {}),
           startedAt: state.startedAt,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
+  /** Host-only broadcast: a control command (end meeting now; later kick/mute).
+   *  Peers validate `hostSocketId` against their host election before obeying. */
+  broadcastHostCommand = (cmd: {
+    action: "END_MEETING";
+    target?: SocketId;
+  }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["HOST_COMMAND"] = {
+        type: WS_SUBTYPES.HOST_COMMAND,
+        payload: {
+          hostSocketId: this.socket.id as SocketId,
+          action: cmd.action,
+          ...(cmd.target ? { target: cmd.target } : {}),
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);

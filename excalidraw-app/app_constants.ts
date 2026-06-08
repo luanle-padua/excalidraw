@@ -60,6 +60,9 @@ export enum WS_SUBTYPES {
    *  late-joiners and re-renders compute the elapsed timer locally
    *  rather than waiting for a tick broadcast. */
   RECORDING_STATE = "RECORDING_STATE",
+  /** Host-only control command (end meeting for all; later kick/mute).
+   *  Validated against the local host election before being obeyed. */
+  HOST_COMMAND = "HOST_COMMAND",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

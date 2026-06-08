@@ -10,6 +10,7 @@
 // atom keyed by socketId.
 
 import { atom, appJotaiStore } from "../app-jotai";
+import { isInternalEmail } from "./session";
 
 const STORAGE_KEY = "mcm:userProfile:v1";
 
@@ -73,6 +74,9 @@ export type UserProfile = {
   /** Either `"lib:NN.png"` (library) or a `data:image/...` URL
    *  (user-uploaded). Absent → tile falls back to the emoji avatar. */
   avatar?: string;
+  /** Authenticated email (from the session). Broadcast so peers can tell who
+   *  is INTERNAL — drives the acting-host election. Absent for anon link-joins. */
+  email?: string;
 };
 
 /** Local user's own profile, mirrored from localStorage on app boot
@@ -261,7 +265,34 @@ export const hostSocketIdAtom = atom<string | null>((get) => {
         return socketId;
       }
     }
-    // Creator not present → fall through to the join-order election.
+    // Creator not present → fall through to the acting-host election.
+  }
+
+  // Acting host: creator absent → the first INTERNAL (@mapgroup) participant by
+  // join order takes over, so the meeting isn't stuck and a guest never runs it.
+  {
+    const joined = get(peerJoinedAtAtom);
+    const myProfile = get(userProfileAtom);
+    type C = { socketId: string; joinedAt: number };
+    const internal: C[] = [];
+    if (mySocketId && MY_JOINED_AT != null && isInternalEmail(myProfile?.email)) {
+      internal.push({ socketId: mySocketId, joinedAt: MY_JOINED_AT });
+    }
+    for (const [socketId, profile] of get(peerProfilesAtom)) {
+      if (isInternalEmail(profile.email)) {
+        internal.push({ socketId, joinedAt: joined.get(socketId) ?? Infinity });
+      }
+    }
+    if (internal.length > 0) {
+      internal.sort((a, b) =>
+        a.joinedAt !== b.joinedAt
+          ? a.joinedAt - b.joinedAt
+          : a.socketId < b.socketId
+          ? -1
+          : 1,
+      );
+      return internal[0].socketId;
+    }
   }
 
   // Fallback: smallest joinedAt across self + peers (link-sharer heuristic).

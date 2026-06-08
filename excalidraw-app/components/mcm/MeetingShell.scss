@@ -341,6 +341,16 @@
         background: var(--mcm-surface-2);
       }
     }
+
+    &--danger {
+      background: var(--mcm-danger, #dc2626);
+      border: 0;
+      color: #fff;
+
+      &:hover {
+        background: #b91c1c;
+      }
+    }
   }
 }
 

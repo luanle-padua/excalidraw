@@ -119,6 +119,7 @@ import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache
 
 import {
   ensureMyJoinedAt,
+  hostSocketIdAtom,
   importUserProfileFromLocalStorage,
   markMeAsFirstInRoom,
   peerProfilesAtom,
@@ -1117,12 +1118,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.USER_PROFILE: {
-            const { socketId, username, company, avatar, joinedAt } =
+            const { socketId, username, company, avatar, joinedAt, email } =
               decryptedData.payload;
             upsertPeerProfile(socketId, {
               username,
               ...(company ? { company } : {}),
               ...(avatar ? { avatar } : {}),
+              ...(email ? { email } : {}),
             });
             if (typeof joinedAt === "number" && Number.isFinite(joinedAt)) {
               upsertPeerJoinedAt(socketId, joinedAt);
@@ -1143,6 +1145,22 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               hostName: hostName ?? null,
               startedAt: startedAt ?? null,
             });
+            break;
+          }
+
+          case WS_SUBTYPES.HOST_COMMAND: {
+            const { hostSocketId, action } = decryptedData.payload;
+            // Only obey a command from the host we locally recognise. If our
+            // host election hasn't resolved yet (null), trust it — the End
+            // button is host-only UI, so the sender is the host.
+            const localHost = appJotaiStore.get(hostSocketIdAtom);
+            if (localHost && hostSocketId !== localHost) {
+              break;
+            }
+            if (action === "END_MEETING") {
+              appJotaiStore.set(meetingViewOnlyAtom, true);
+              markReviewRoom(this.portal.roomId ?? "");
+            }
             break;
           }
 
@@ -2655,6 +2673,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       username,
       ...(profile?.company ? { company: profile.company } : {}),
       ...(profile?.avatar ? { avatar: profile.avatar } : {}),
+      ...(profile?.email ? { email: profile.email } : {}),
       joinedAt,
     });
   };

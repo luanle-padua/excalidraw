@@ -240,6 +240,9 @@ export type SocketUpdateDataSource = {
        *  across re-broadcasts within the same browser session so
        *  late joiners see the same ordering as everyone else. */
       joinedAt?: number;
+      /** Authenticated email — lets peers identify INTERNAL participants for
+       *  the acting-host election. Absent for anonymous link-joins. */
+      email?: string;
     };
   };
   RECORDING_STATE: {
@@ -261,6 +264,19 @@ export type SocketUpdateDataSource = {
        *  `recording === false`. Lets every peer render an elapsed
        *  timer that converges from the same baseline. */
       startedAt: number | null;
+    };
+  };
+  /** Host-only control command (end meeting now; later: kick/mute). Receivers
+   *  validate `hostSocketId` against their locally-computed `hostSocketIdAtom`
+   *  before obeying, so a stale ex-host tab can't end the meeting. */
+  HOST_COMMAND: {
+    type: WS_SUBTYPES.HOST_COMMAND;
+    payload: {
+      hostSocketId: SocketId;
+      action: "END_MEETING";
+      /** Target participant for per-user actions (kick/mute). Unused for
+       *  END_MEETING. */
+      target?: SocketId;
     };
   };
 };

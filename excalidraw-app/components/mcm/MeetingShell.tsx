@@ -221,11 +221,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       const needsProfileSync =
         !userProfile ||
         userProfile.username !== session.name ||
+        userProfile.email !== session.email ||
         (!!session.company && userProfile.company !== session.company);
       if (needsProfileSync) {
         saveUserProfile({
           ...userProfile,
           username: session.name,
+          email: session.email,
           company: session.company ?? userProfile?.company,
         });
       }

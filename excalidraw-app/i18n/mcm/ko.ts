@@ -16,6 +16,8 @@ export const ko: Widened<typeof vi> = {
   header: {
     invite: "초대",
     inviteCopied: "링크 복사됨!",
+    endMeeting: "회의 종료",
+    endConfirm: "모두에 대해 회의를 종료할까요? 모든 참가자가 읽기 전용 검토로 전환됩니다.",
     leave: "나가기",
     share: "공유",
     transcript: "회의록",
