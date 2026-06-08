@@ -94,6 +94,12 @@ export const peerProfilesAtom = atom<ReadonlyMap<string, UserProfile>>(
   new Map(),
 );
 
+/** A peer's audio state (in the call + muted), populated from AUDIO_STATE
+ *  broadcasts. Lets every participant render the same mic on/off/idle icon —
+ *  including self-mute — in real time. */
+export type PeerAudio = { inCall: boolean; muted: boolean };
+export const peerAudioAtom = atom<ReadonlyMap<string, PeerAudio>>(new Map());
+
 /** Local user's session start timestamp. Captured once when Collab
  *  hydrates and broadcast inside every USER_PROFILE payload so peers
  *  can rank participants by join order. Module-scope variable rather
@@ -396,4 +402,29 @@ export const removePeerProfile = (socketId: string): void => {
   const next = new Map(current);
   next.delete(socketId);
   appJotaiStore.set(peerProfilesAtom, next);
+};
+
+export const upsertPeerAudio = (socketId: string, audio: PeerAudio): void => {
+  const current = appJotaiStore.get(peerAudioAtom);
+  const existing = current.get(socketId);
+  if (
+    existing &&
+    existing.inCall === audio.inCall &&
+    existing.muted === audio.muted
+  ) {
+    return;
+  }
+  const next = new Map(current);
+  next.set(socketId, audio);
+  appJotaiStore.set(peerAudioAtom, next);
+};
+
+export const removePeerAudio = (socketId: string): void => {
+  const current = appJotaiStore.get(peerAudioAtom);
+  if (!current.has(socketId)) {
+    return;
+  }
+  const next = new Map(current);
+  next.delete(socketId);
+  appJotaiStore.set(peerAudioAtom, next);
 };

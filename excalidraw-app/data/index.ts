@@ -280,6 +280,16 @@ export type SocketUpdateDataSource = {
       target?: SocketId;
     };
   };
+  AUDIO_STATE: {
+    type: WS_SUBTYPES.AUDIO_STATE;
+    payload: {
+      socketId: SocketId;
+      /** In the audio call (joined Daily). */
+      inCall: boolean;
+      /** Mic muted (true) — drives the red mic-off badge for everyone. */
+      muted: boolean;
+    };
+  };
 };
 
 export type SocketUpdateDataIncoming =

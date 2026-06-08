@@ -123,12 +123,14 @@ import {
   markMeAsFirstInRoom,
   peerProfilesAtom,
   persistHostClaimForRoom,
+  removePeerAudio,
   removePeerJoinedAt,
   removePeerProfile,
   resetMyJoinedAt,
   resolveAvatarUrlWithDefault,
   restoreHostClaimForRoom,
   setMySocketId,
+  upsertPeerAudio,
   upsertPeerJoinedAt,
   upsertPeerProfile,
   userProfileAtom,
@@ -409,6 +411,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       }
     });
 
+    // Rebroadcast our audio state (in-call + muted) whenever it changes, so
+    // every peer renders the same mic icon in real time — including self-mute,
+    // which Daily's track events alone don't surface to other clients. The
+    // snapshot dedups internally so peer/speaking churn doesn't spam the room.
+    const unsubAudio = appJotaiStore.sub(audioStateAtom, () => {
+      this.broadcastAudioStateSnapshot();
+    });
+
     // When a peer's profile arrives or changes, push the new name /
     // avatar onto their Collaborator entry so the on-canvas cursor
     // label + Excalidraw's built-in UserList refresh immediately —
@@ -442,6 +452,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       unsubOnScrollChange();
       unsubProfile();
       unsubPeerProfiles();
+      unsubAudio();
     };
 
     this.onOfflineStatusToggle();
@@ -1195,6 +1206,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             break;
           }
 
+          case WS_SUBTYPES.AUDIO_STATE: {
+            const { socketId, inCall, muted } = decryptedData.payload;
+            upsertPeerAudio(socketId, { inCall, muted });
+            break;
+          }
+
           default: {
             assertNever(decryptedData, null);
           }
@@ -1493,6 +1510,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       if (!validIds.has(peerId)) {
         removePeerProfile(peerId);
         removePeerJoinedAt(peerId);
+        removePeerAudio(peerId);
       }
     }
   }
@@ -2707,6 +2725,34 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       ...(profile?.email ? { email: profile.email } : {}),
       joinedAt,
     });
+    // Piggyback our audio state so a (late) joiner who just triggered this
+    // also learns whether we're in the call + muted. Force past the dedup so
+    // they get the current value even if it hasn't changed for us.
+    this.broadcastAudioStateSnapshot(true);
+  };
+
+  private lastAudio: { inCall: boolean; muted: boolean } | null = null;
+
+  /** Broadcast our own audio state (in-call + muted). Dedups against the last
+   *  sent value so peer/speaking churn on audioStateAtom doesn't spam the room;
+   *  pass force=true on join so a new peer gets the current value regardless. */
+  broadcastAudioStateSnapshot = (force = false) => {
+    if (!this.portal.socket) {
+      return;
+    }
+    const a = appJotaiStore.get(audioStateAtom);
+    const inCall = a.status === "live";
+    const muted = inCall ? a.muted : false;
+    if (
+      !force &&
+      this.lastAudio &&
+      this.lastAudio.inCall === inCall &&
+      this.lastAudio.muted === muted
+    ) {
+      return;
+    }
+    this.lastAudio = { inCall, muted };
+    this.portal.broadcastAudioState({ inCall, muted });
   };
 
   /** Host-only broadcast wrapper for RECORDING_STATE. Called by the

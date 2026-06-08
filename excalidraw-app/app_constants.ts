@@ -63,6 +63,10 @@ export enum WS_SUBTYPES {
   /** Host-only control command (end meeting for all; later kick/mute).
    *  Validated against the local host election before being obeyed. */
   HOST_COMMAND = "HOST_COMMAND",
+  /** A participant's own audio state (in the call + muted). Broadcast on
+   *  change + on join so every peer renders the same mic-on/off/idle icon in
+   *  real time — including self-mute, which Daily's track events alone miss. */
+  AUDIO_STATE = "AUDIO_STATE",
 }
 
 export const FIREBASE_STORAGE_PREFIXES = {

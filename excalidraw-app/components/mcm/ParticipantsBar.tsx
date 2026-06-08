@@ -30,6 +30,7 @@ import {
 } from "../../collab/Collab";
 import {
   hostSocketIdAtom,
+  peerAudioAtom,
   peerProfilesAtom,
   resolveAvatarUrlWithDefault,
   userProfileAtom,
@@ -540,6 +541,10 @@ export const ParticipantsBar = ({
   // round-trip through the socket); peers come from broadcasts.
   const myProfile = useAtomValue(userProfileAtom);
   const peerProfiles = useAtomValue(peerProfilesAtom);
+  // Per-peer audio state (in-call + muted), broadcast over AUDIO_STATE — lets
+  // every tile show the real mic on/off/idle icon, including a peer's
+  // self-mute (which Daily's track drop alone renders as plain "idle").
+  const peerAudio = useAtomValue(peerAudioAtom);
   // Single source of truth for "who is host" — derived from the
   // smallest joinedAt across self + every peer's USER_PROFILE
   // payload. The link-sharer's sentinel `joinedAt = 1` ensures they
@@ -734,15 +739,18 @@ export const ParticipantsBar = ({
         })`
       : gradientFor(socketId);
     const isFollowed = userToFollow?.socketId === socketId;
+    // Prefer the broadcast audio state (knows muted-but-in-call); fall back to
+    // Daily track presence before the first AUDIO_STATE arrives.
+    const pa = peerAudio.get(socketId);
+    const inCall = pa ? pa.inCall : !!peer;
+    const micOn = pa ? pa.inCall && !pa.muted : !!peer;
     tiles.push({
       id: socketId,
       name,
       avatar,
       speaking: peer?.speaking ?? false,
-      // we don't know remote mute state yet — assume on when we hear
-      // any audio from them
-      micOn: !!peer,
-      inCall: !!peer,
+      micOn,
+      inCall,
       handRaised: raisedHands.has(socketId),
       reactions: reactionsBySocket.get(socketId) ?? [],
       isFollowed,

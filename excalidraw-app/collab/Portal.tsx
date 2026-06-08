@@ -442,6 +442,22 @@ class Portal {
     }
   };
 
+  /** Broadcast my own audio state (in-call + muted) so every peer renders the
+   *  same mic icon in real time — including self-mute. */
+  broadcastAudioState = (state: { inCall: boolean; muted: boolean }) => {
+    if (this.socket?.id) {
+      const data: SocketUpdateDataSource["AUDIO_STATE"] = {
+        type: WS_SUBTYPES.AUDIO_STATE,
+        payload: {
+          socketId: this.socket.id as SocketId,
+          inCall: state.inCall,
+          muted: state.muted,
+        },
+      };
+      return this._broadcastSocketData(data as SocketUpdateData);
+    }
+  };
+
   /** Host-only broadcast: tell everyone in the room that recording
    *  has started or stopped. Peers gate this against their locally
    *  computed `hostSocketIdAtom` before trusting it, so a stranded
