@@ -135,6 +135,51 @@ const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
 const chatKey = (roomId: string) => `chats/${roomId}/current`;
 const libraryKey = (roomId: string) => `library/${roomId}/current`;
 
+// DEV NOTE: internal domain hardcoded (mirrors the client). Move to
+// system_settings.internal_domains before production. See dev-phase-notes.md.
+const INTERNAL_DOMAIN = "@mapgroup.co.kr";
+const isInternalEmail = (email?: string) =>
+  !!email && email.toLowerCase().endsWith(INTERNAL_DOMAIN);
+
+// Per-meeting authz (Phase 4.5). can-see = admin OR internal staff OR an active
+// meeting_invitee OR a member of the meeting's project. Internal-allow keeps the
+// open dev flow working; the security win is that EXTERNAL guests are now gated
+// (a client can only reach a meeting they were invited to). Tighten internal →
+// project_member only before production (dev-phase-notes.md).
+const canSeeMeeting = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+  roomId: string,
+): Promise<boolean> => {
+  if (role === "admin" || isInternalEmail(email)) {
+    return true;
+  }
+  if (!email) {
+    return false;
+  }
+  const e = email.toLowerCase();
+  const invite = await db
+    .prepare(
+      `SELECT 1 FROM meeting_invitee
+       WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked' LIMIT 1`,
+    )
+    .bind(roomId, e)
+    .first();
+  if (invite) {
+    return true;
+  }
+  const member = await db
+    .prepare(
+      `SELECT 1 FROM project_member pm
+       JOIN meeting m ON m.project_id = pm.project_id
+       WHERE m.id = ?1 AND pm.email = ?2 LIMIT 1`,
+    )
+    .bind(roomId, e)
+    .first();
+  return !!member;
+};
+
 app.get("/v1/health", (c) => c.json({ ok: true }));
 
 // ---- Scene (canvas) blob -------------------------------------------------
@@ -491,6 +536,108 @@ app.post("/v1/meetings/:roomId/participant", async (c) => {
   return c.json({ ok: true });
 });
 
+// ---- Invite / membership (Phase 4.5) -------------------------------------
+// Invite people to a meeting. Internal staff + admins can invite (dev rule).
+// Each invitee gets a meeting_invitee row (the per-meeting grant). `addToProject`
+// (internal emails only) also grants project membership — a client is NEVER
+// auto-added to the project (confidentiality). See host-and-scheduling.md.
+app.post("/v1/meetings/:roomId/invitees", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(role === "admin" || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const b = await c.req.json<{
+    invitees?: { email: string; role?: string }[];
+    addToProject?: string[];
+  }>();
+  const list = b.invitees ?? [];
+  const meeting = await c.env.DB.prepare(
+    `SELECT project_id FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{ project_id: string | null }>();
+  const t = now();
+  for (const inv of list) {
+    const ie = (inv.email || "").trim().toLowerCase();
+    if (!ie.includes("@")) {
+      continue;
+    }
+    const kind = isInternalEmail(ie) ? "internal" : "guest";
+    await c.env.DB.prepare(
+      `INSERT INTO meeting_invitee
+         (meeting_id, email, kind, role, status, invited_by, invited_at)
+       VALUES (?1, ?2, ?3, ?4, 'invited', ?5, ?6)
+       ON CONFLICT(meeting_id, email) DO UPDATE SET
+         status = 'invited', role = ?4, revoked_at = NULL`,
+    )
+      .bind(roomId, ie, kind, inv.role ?? "attendee", email ?? null, t)
+      .run();
+  }
+  // addToProject: grant project membership — internal only, never a client.
+  if (meeting?.project_id && b.addToProject?.length) {
+    for (const m of b.addToProject) {
+      const me = (m || "").trim().toLowerCase();
+      if (!isInternalEmail(me)) {
+        continue;
+      }
+      await c.env.DB.prepare(
+        `INSERT OR IGNORE INTO project_member
+           (project_id, email, role, added_by, added_at)
+         VALUES (?1, ?2, 'member', ?3, ?4)`,
+      )
+        .bind(meeting.project_id, me, email ?? null, t)
+        .run();
+    }
+  }
+  await logAudit(c.env.DB, email, "meeting.invite", roomId, {
+    count: list.length,
+  });
+  return c.json({ ok: true });
+});
+
+// Revoke an invite (soft — keep the row for audit, treated as no-access).
+app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
+  const roomId = c.req.param("roomId");
+  const target = decodeURIComponent(c.req.param("email")).toLowerCase();
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(role === "admin" || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_invitee SET status = 'revoked', revoked_at = ?3
+     WHERE meeting_id = ?1 AND email = ?2`,
+  )
+    .bind(roomId, target, now())
+    .run();
+  await logAudit(c.env.DB, email, "meeting.revoke", roomId, { email: target });
+  return c.json({ ok: true });
+});
+
+// The current user's invited / upcoming meetings — the ONLY surface a client
+// sees (project NAME only, never the folder). Powers the "Invited / Upcoming"
+// list. See host-and-scheduling.md.
+app.get("/v1/me/invitations", async (c) => {
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ invitations: [] });
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT m.id, m.title, m.topic, m.status, m.scheduled_at, m.duration_min,
+            m.created_by, p.name AS project_name, mi.role AS my_role
+     FROM meeting_invitee mi
+     JOIN meeting m ON m.id = mi.meeting_id
+     LEFT JOIN project p ON p.id = m.project_id
+     WHERE mi.email = ?1 AND mi.status <> 'revoked'
+     ORDER BY COALESCE(m.scheduled_at, '') ASC, m.updated_at DESC`,
+  )
+    .bind(email.toLowerCase())
+    .all();
+  return c.json({ invitations: results });
+});
+
 // ---- Daily.co screen-share token -----------------------------------------
 // Mints a short-lived meeting token for the Daily room that mirrors this
 // meeting's roomId. The DAILY_API_KEY stays server-side; the client only
@@ -509,6 +656,12 @@ app.get("/v1/daily/token", async (c) => {
   const roomId = c.req.query("roomId");
   if (!roomId) {
     return c.json({ error: "roomId required" }, 400);
+  }
+  // Per-meeting gate: a guest can only get a Daily token for a meeting they
+  // were invited to (internal staff + admins pass). Closes the "any JWT mints
+  // any room's token" hole noted in roadmap/dev-phase-notes.
+  if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
+    return c.json({ error: "not invited to this meeting" }, 403);
   }
   const userName = (c.req.query("name") || "Guest").slice(0, 64);
   // Optional stable identity (we pass the socket.id) — baked into the token as
