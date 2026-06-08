@@ -1,16 +1,35 @@
-import { LayoutDashboard, LogOut, Trash2, UserPlus, Users } from "lucide-react";
+import {
+  DollarSign,
+  HardDrive,
+  LayoutDashboard,
+  LogOut,
+  Plug,
+  ScrollText,
+  Trash2,
+  UserPlus,
+  Users,
+  Video,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   createAdminUser,
   deleteAdminMeeting,
   deleteAdminUser,
+  getAdminAudit,
+  getAdminCost,
+  getAdminIntegrations,
   getAdminStats,
+  getAdminStorage,
   listAdminMeetings,
   listAdminUsers,
   updateAdminUser,
+  type AdminAuditEntry,
+  type AdminCost,
+  type AdminIntegration,
   type AdminMeeting,
   type AdminStats,
+  type AdminStorage,
   type AdminUser,
 } from "../../data/admin";
 import { signOut } from "../../data/session";
@@ -20,9 +39,37 @@ import { LangThemeSwitcher } from "./LangThemeSwitcher";
 
 import "./AdminConsole.scss";
 
-type Tab = "dashboard" | "users" | "meetings";
+type Tab =
+  | "dashboard"
+  | "users"
+  | "meetings"
+  | "cost"
+  | "integrations"
+  | "storage"
+  | "audit"
+  | "recordings";
 
 const ROLES = ["admin", "host", "member"] as const;
+
+const fmtBytes = (b: number | null | undefined): string => {
+  if (!b) {
+    return "0 B";
+  }
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(u.length - 1, Math.floor(Math.log(b) / Math.log(1024)));
+  return `${(b / 1024 ** i).toFixed(i ? 1 : 0)} ${u[i]}`;
+};
+
+// Real billing lives in each provider's dashboard (we link out); the estimate
+// below is derived from our own usage × published rates.
+const BILLING_LINKS: { name: string; url: string }[] = [
+  { name: "Daily.co", url: "https://dashboard.daily.co/billing" },
+  { name: "Supabase", url: "https://supabase.com/dashboard/project/_/settings/billing" },
+  { name: "Cloudflare (R2/Workers)", url: "https://dash.cloudflare.com/" },
+  { name: "Google (Gemini)", url: "https://console.cloud.google.com/billing" },
+  { name: "Deepgram", url: "https://console.deepgram.com/" },
+];
+const R2_USD_PER_GB_MONTH = 0.015;
 
 const fmtDate = (ms: number | null | undefined): string =>
   ms ? new Date(ms).toLocaleString() : "—";
@@ -44,6 +91,10 @@ export const AdminConsole = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [meetings, setMeetings] = useState<AdminMeeting[]>([]);
+  const [cost, setCost] = useState<AdminCost | null>(null);
+  const [integrations, setIntegrations] = useState<AdminIntegration[]>([]);
+  const [storage, setStorage] = useState<AdminStorage | null>(null);
+  const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -80,6 +131,14 @@ export const AdminConsole = () => {
       void refreshUsers();
     } else if (tab === "meetings") {
       void refreshMeetings();
+    } else if (tab === "cost") {
+      void getAdminCost().then(setCost);
+    } else if (tab === "integrations") {
+      void getAdminIntegrations().then(setIntegrations);
+    } else if (tab === "storage") {
+      void getAdminStorage().then(setStorage);
+    } else if (tab === "audit") {
+      void getAdminAudit().then(setAudit);
     }
   }, [tab, refreshUsers, refreshMeetings]);
 
@@ -177,6 +236,41 @@ export const AdminConsole = () => {
             onClick={() => setTab("meetings")}
           >
             <LayoutDashboard size={16} /> {t("admin.tabMeetings")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "cost" ? " --active" : ""}`}
+            onClick={() => setTab("cost")}
+          >
+            <DollarSign size={16} /> {t("admin.tabCost")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "integrations" ? " --active" : ""}`}
+            onClick={() => setTab("integrations")}
+          >
+            <Plug size={16} /> {t("admin.tabApi")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "storage" ? " --active" : ""}`}
+            onClick={() => setTab("storage")}
+          >
+            <HardDrive size={16} /> {t("admin.tabStorage")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "audit" ? " --active" : ""}`}
+            onClick={() => setTab("audit")}
+          >
+            <ScrollText size={16} /> {t("admin.tabAudit")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "recordings" ? " --active" : ""}`}
+            onClick={() => setTab("recordings")}
+          >
+            <Video size={16} /> {t("admin.tabRecordings")}
           </button>
         </nav>
         <div className="mcm-admin__top-actions">
@@ -408,6 +502,195 @@ export const AdminConsole = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {tab === "cost" && (
+          <div className="mcm-admin__pad">
+            <p className="mcm-admin__note">{t("admin.billingNote")}</p>
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {cost?.meetings ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.statMeetings")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {cost?.meeting_minutes ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.costUsage")} (min)
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {fmtBytes(cost?.storage_bytes)}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.statFiles")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  $
+                  {(
+                    ((cost?.storage_bytes ?? 0) / 1024 ** 3) *
+                    R2_USD_PER_GB_MONTH
+                  ).toFixed(3)}
+                  /mo
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.costEstimate")} (R2)
+                </span>
+              </div>
+            </div>
+            <h4 className="mcm-admin__h4">{t("admin.costBilling")}</h4>
+            <div className="mcm-admin__links">
+              {BILLING_LINKS.map((l) => (
+                <a
+                  key={l.name}
+                  href={l.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  {l.name} ↗
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {tab === "integrations" && (
+          <div className="mcm-admin__section">
+            <table className="mcm-admin__table">
+              <tbody>
+                {integrations.map((i) => (
+                  <tr key={i.name}>
+                    <td>
+                      <strong>{i.name}</strong>
+                      <span className="mcm-admin__sub">{i.note}</span>
+                    </td>
+                    <td>
+                      <span
+                        className={
+                          i.configured === true
+                            ? "mcm-admin__badge --on"
+                            : i.configured === false
+                            ? "mcm-admin__badge --off"
+                            : "mcm-admin__badge"
+                        }
+                      >
+                        {i.configured === true
+                          ? t("admin.integConfigured")
+                          : i.configured === false
+                          ? t("admin.integNotConfigured")
+                          : t("admin.integExternal")}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === "storage" && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {fmtBytes(storage?.total.bytes)}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.storageTotal")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {storage?.total.files ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.statFiles")}
+                </span>
+              </div>
+            </div>
+            <h4 className="mcm-admin__h4">{t("admin.storageByKind")}</h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {(storage?.byKind ?? []).map((k) => (
+                    <tr key={k.kind ?? "?"}>
+                      <td>
+                        <strong>{k.kind ?? "—"}</strong>
+                      </td>
+                      <td>
+                        {k.files} {t("admin.files")}
+                      </td>
+                      <td>{fmtBytes(k.bytes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <h4 className="mcm-admin__h4">{t("admin.storageTopMeetings")}</h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {(storage?.topMeetings ?? []).map((m) => (
+                    <tr key={m.meeting_id}>
+                      <td>
+                        <strong>{m.title || m.meeting_id}</strong>
+                      </td>
+                      <td>
+                        {m.files} {t("admin.files")}
+                      </td>
+                      <td>{fmtBytes(m.bytes)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "audit" && (
+          <div className="mcm-admin__section">
+            <table className="mcm-admin__table">
+              <thead>
+                <tr>
+                  <th>{t("admin.auditTime")}</th>
+                  <th>{t("admin.auditActor")}</th>
+                  <th>{t("admin.auditAction")}</th>
+                  <th>{t("admin.auditTarget")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {audit.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>{t("admin.empty")}</td>
+                  </tr>
+                )}
+                {audit.map((e) => (
+                  <tr key={e.id}>
+                    <td>{fmtDate(e.ts)}</td>
+                    <td>{e.actor_email || "—"}</td>
+                    <td>
+                      <code>{e.action}</code>
+                    </td>
+                    <td className="mcm-admin__sub">{e.target || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === "recordings" && (
+          <div className="mcm-admin__pad mcm-admin__center">
+            <p className="mcm-admin__note">{t("admin.recordingsSoon")}</p>
           </div>
         )}
       </div>

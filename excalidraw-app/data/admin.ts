@@ -144,3 +144,76 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
     return null;
   }
 };
+
+// ---- A2: audit / storage / cost / integrations --------------------------
+
+export type AdminAuditEntry = {
+  id: string;
+  actor_email: string | null;
+  action: string;
+  target: string | null;
+  meta: string | null;
+  ts: number;
+};
+
+export type AdminStorage = {
+  total: { files: number; bytes: number };
+  byKind: { kind: string | null; files: number; bytes: number }[];
+  topMeetings: {
+    meeting_id: string;
+    title: string | null;
+    files: number;
+    bytes: number;
+  }[];
+};
+
+export type AdminCost = {
+  meetings: number;
+  projects: number;
+  storage_bytes: number;
+  meeting_minutes: number;
+  recording_minutes: number;
+  ai_calls: number;
+};
+
+export type AdminIntegration = {
+  name: string;
+  configured: boolean | null;
+  note: string;
+};
+
+export const getAdminAudit = async (): Promise<AdminAuditEntry[]> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/audit`);
+    return res.ok ? (await res.json()).entries ?? [] : [];
+  } catch {
+    return [];
+  }
+};
+
+export const getAdminStorage = async (): Promise<AdminStorage | null> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/storage`);
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getAdminCost = async (): Promise<AdminCost | null> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/cost`);
+    return res.ok ? (await res.json()).usage ?? null : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getAdminIntegrations = async (): Promise<AdminIntegration[]> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/integrations`);
+    return res.ok ? (await res.json()).integrations ?? [] : [];
+  } catch {
+    return [];
+  }
+};

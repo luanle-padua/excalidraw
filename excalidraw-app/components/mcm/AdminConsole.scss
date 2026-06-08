@@ -262,4 +262,47 @@
       background: color-mix(in srgb, var(--mcm-danger, #dc2626) 10%, transparent) !important;
     }
   }
+
+  &__pad {
+    padding: 22px;
+    max-width: 920px;
+  }
+  &__center {
+    text-align: center;
+  }
+  &__note {
+    font-size: 12.5px;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    margin: 0 0 14px;
+  }
+  &__h4 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 20px 0 8px;
+  }
+  &__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    a {
+      font-size: 13px;
+      color: var(--mcm-accent, #2563eb);
+      text-decoration: none;
+      padding: 7px 12px;
+      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+      border-radius: 9px;
+
+      &:hover {
+        background: var(--mcm-surface-2, #f0f0f3);
+      }
+    }
+  }
+
+  code {
+    font-size: 12px;
+    background: var(--mcm-surface-2, #f0f0f3);
+    padding: 1px 6px;
+    border-radius: 5px;
+  }
 }

@@ -586,6 +586,34 @@ const adminCreds = (c: { env: Bindings }) => {
   return url && key ? { url, key } : null;
 };
 
+// Record an admin mutation in the audit log (best-effort — never blocks).
+const logAudit = async (
+  db: D1Database,
+  email: string | undefined,
+  action: string,
+  target?: string,
+  meta?: unknown,
+) => {
+  try {
+    await db
+      .prepare(
+        `INSERT INTO audit_log (id, actor_email, action, target, meta, ts)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        email ?? null,
+        action,
+        target ?? null,
+        meta !== undefined ? JSON.stringify(meta) : null,
+        now(),
+      )
+      .run();
+  } catch {
+    // audit failure must not break the action
+  }
+};
+
 // ---- Admin: users --------------------------------------------------------
 
 app.get("/v1/admin/users", async (c) => {
@@ -631,6 +659,9 @@ app.post("/v1/admin/users", async (c) => {
   if (!res.ok) {
     return c.json({ error: "create user failed", detail: await res.text() }, 502);
   }
+  await logAudit(c.env.DB, c.get("email"), "user.create", b.email, {
+    role: b.role ?? "member",
+  });
   return c.json(await res.json());
 });
 
@@ -661,6 +692,11 @@ app.patch("/v1/admin/users/:id", async (c) => {
   if (!res.ok) {
     return c.json({ error: "update user failed", detail: await res.text() }, 502);
   }
+  await logAudit(c.env.DB, c.get("email"), "user.update", id, {
+    role: b.role,
+    disabled: b.disabled,
+    passwordChanged: !!b.password,
+  });
   return c.json(await res.json());
 });
 
@@ -678,6 +714,7 @@ app.delete("/v1/admin/users/:id", async (c) => {
   if (!res.ok && res.status !== 200 && res.status !== 204) {
     return c.json({ error: "delete user failed", detail: await res.text() }, 502);
   }
+  await logAudit(c.env.DB, c.get("email"), "user.delete", c.req.param("id"));
   return c.json({ ok: true });
 });
 
@@ -737,6 +774,7 @@ app.delete("/v1/admin/meetings/:roomId", async (c) => {
   await c.env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`)
     .bind(roomId)
     .run();
+  await logAudit(c.env.DB, c.get("email"), "meeting.delete", roomId);
   return c.json({ ok: true, deleted: roomId });
 });
 
@@ -754,6 +792,102 @@ app.get("/v1/admin/stats", async (c) => {
     .bind(dayAgo)
     .first();
   return c.json({ stats: row });
+});
+
+// ---- Admin: audit log ----------------------------------------------------
+app.get("/v1/admin/audit", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, actor_email, action, target, meta, ts
+     FROM audit_log ORDER BY ts DESC LIMIT 200`,
+  ).all();
+  return c.json({ entries: results });
+});
+
+// ---- Admin: storage (R2 usage from the D1 file index) --------------------
+app.get("/v1/admin/storage", async (c) => {
+  const total = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes FROM file`,
+  ).first();
+  const { results: byKind } = await c.env.DB.prepare(
+    `SELECT kind, COUNT(*) AS files, COALESCE(SUM(size),0) AS bytes
+     FROM file GROUP BY kind ORDER BY bytes DESC`,
+  ).all();
+  const { results: topMeetings } = await c.env.DB.prepare(
+    `SELECT f.meeting_id, m.title, COUNT(*) AS files,
+            COALESCE(SUM(f.size),0) AS bytes
+     FROM file f LEFT JOIN meeting m ON m.id = f.meeting_id
+     GROUP BY f.meeting_id ORDER BY bytes DESC LIMIT 10`,
+  ).all();
+  return c.json({ total, byKind, topMeetings });
+});
+
+// ---- Admin: cost/usage aggregates ----------------------------------------
+// Raw usage we can measure from our own data; the client multiplies by the
+// published provider rates to show an ESTIMATE (real $ lives in each provider's
+// billing dashboard, linked client-side).
+app.get("/v1/admin/cost", async (c) => {
+  const row = await c.env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM meeting) AS meetings,
+       (SELECT COUNT(*) FROM project) AS projects,
+       (SELECT COALESCE(SUM(size),0) FROM file) AS storage_bytes,
+       (SELECT COALESCE(SUM(duration_s),0) FROM meeting) AS total_seconds`,
+  ).first<{
+    meetings: number;
+    projects: number;
+    storage_bytes: number;
+    total_seconds: number;
+  }>();
+  return c.json({
+    usage: {
+      meetings: row?.meetings ?? 0,
+      projects: row?.projects ?? 0,
+      storage_bytes: row?.storage_bytes ?? 0,
+      meeting_minutes: Math.round((row?.total_seconds ?? 0) / 60),
+      recording_minutes: 0, // tracked once Phase 5 recording lands
+      ai_calls: 0, // tracked once AI usage metering lands
+    },
+  });
+});
+
+// ---- Admin: integration/health status ------------------------------------
+app.get("/v1/admin/integrations", (c) => {
+  return c.json({
+    integrations: [
+      {
+        name: "Supabase Auth",
+        configured: !!c.env.SUPABASE_URL,
+        note: "user login + JWT verify (JWKS)",
+      },
+      {
+        name: "Supabase Admin",
+        configured: !!c.env.SUPABASE_SERVICE_API_KEY,
+        note: "user management (this console)",
+      },
+      {
+        name: "Daily.co",
+        configured: !!c.env.DAILY_API_KEY,
+        note: "audio + screen-share media",
+      },
+      { name: "R2 storage", configured: !!c.env.BUCKET, note: "scenes/files/chats/library" },
+      { name: "D1 database", configured: !!c.env.DB, note: "registry + audit log" },
+      {
+        name: "Gemini (AI)",
+        configured: null,
+        note: "room server — translate / summarize / chatbot",
+      },
+      {
+        name: "Deepgram (STT)",
+        configured: null,
+        note: "room server — speech-to-text",
+      },
+      {
+        name: "Cloudflare TURN",
+        configured: null,
+        note: "room server — WebRTC relay",
+      },
+    ],
+  });
 });
 
 export default app;
