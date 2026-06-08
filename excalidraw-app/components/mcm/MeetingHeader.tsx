@@ -24,6 +24,7 @@ import {
   activeRoomLinkAtom,
   collabAPIAtom,
   meetingViewOnlyAtom,
+  participantsPanelOpenAtom,
 } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
@@ -236,6 +237,7 @@ export const MeetingHeader = ({
   const hostSocketId = useAtomValue(hostSocketIdAtom);
   const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const setViewOnly = useSetAtom(meetingViewOnlyAtom);
+  const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
   const isHost = !!selfSocketId && hostSocketId === selfSocketId;
 
   const handleEndMeeting = useCallback(async () => {
@@ -291,16 +293,14 @@ export const MeetingHeader = ({
         <span>{fmt(elapsed)}</span>
       </div>
 
-      <div
-        className="mcm-header__stat"
+      <button
+        type="button"
+        className="mcm-header__stat mcm-header__stat--btn"
+        onClick={() => activeRoomLink && setPanelOpen(true)}
+        disabled={!activeRoomLink}
         title={
           activeRoomLink
-            ? inCallCount > 0
-              ? t("header.participantsInCallWith", {
-                  count: realCount,
-                  inCall: inCallCount,
-                })
-              : t("header.participantsInCall", { count: realCount })
+            ? t("participants.panelTitle")
             : t("header.previewNotInRoom")
         }
       >
@@ -316,7 +316,7 @@ export const MeetingHeader = ({
             </span>
           )}
         </span>
-      </div>
+      </button>
 
       <div className="mcm-header__actions">
         {onOpenFolder && (

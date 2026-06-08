@@ -18,12 +18,13 @@ import type {
   UserToFollow,
 } from "@excalidraw/excalidraw/types";
 
-import { useAtomValue } from "../../app-jotai";
+import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
   meetingReactionsAtom,
+  participantsPanelOpenAtom,
   raisedHandsAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
@@ -539,7 +540,8 @@ export const ParticipantsBar = ({
   // the avatar currently being followed AND render the "Đang follow X
   // — Esc để thoát" banner.
   const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const panelOpen = useAtomValue(participantsPanelOpenAtom);
+  const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
 
   useEffect(() => {
     if (!excalidrawAPI) {

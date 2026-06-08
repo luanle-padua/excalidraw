@@ -251,6 +251,21 @@
     }
   }
 
+  // Participant stat as a button → opens the participants panel.
+  &__stat--btn {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 120ms;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-3, rgba(0, 0, 0, 0.1));
+    }
+    &:disabled {
+      cursor: default;
+    }
+  }
+
   &__actions {
     display: flex;
     align-items: center;

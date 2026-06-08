@@ -162,6 +162,11 @@ export const meetingViewOnlyAtom = atom(false);
  *  watches this, shows a notice, and leaves the room. */
 export const kickedAtom = atom(false);
 
+/** Open state of the Zoom-style participants management panel. Lifted to an
+ *  atom so both the toolbar button (MeetingHeader) and the bar chip can open it
+ *  while ParticipantsBar owns the rendering. */
+export const participantsPanelOpenAtom = atom(false);
+
 /** Map of socketId → true for participants currently signaling "hand
  *  raised". Sticky until that peer broadcasts a lower (or leaves). */
 export const raisedHandsAtom = atom<ReadonlyMap<string, true>>(new Map());
