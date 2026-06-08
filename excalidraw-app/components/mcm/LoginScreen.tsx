@@ -1,7 +1,14 @@
-import { Command, Crown, LayoutGrid, Sparkles, Zap } from "lucide-react";
+import {
+  Command,
+  Crown,
+  LayoutGrid,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
-import { DEMO_DIVISION, DEMO_USERS } from "../../data/demoUsers";
+import { DEMO_DIVISION, DEMO_USERS, type DemoUser } from "../../data/demoUsers";
 import { supabase } from "../../data/supabaseClient";
 import { useT } from "../../i18n/mcm";
 
@@ -100,10 +107,10 @@ export const LoginScreen = () => {
     }
   };
 
-  // One-click login for the seeded internal team accounts.
-  const signInDemo = (mail: string) => {
-    setEmail(mail);
-    void doSignIn(mail, DEMO_PASSWORD);
+  // One-click login for the seeded accounts (admin uses its own password).
+  const signInDemo = (u: DemoUser) => {
+    setEmail(u.email);
+    void doSignIn(u.email, u.password ?? DEMO_PASSWORD);
   };
 
   return (
@@ -238,7 +245,7 @@ export const LoginScreen = () => {
                     <button
                       type="button"
                       className="mcm-login__demo-user"
-                      onClick={() => signInDemo(u.email)}
+                      onClick={() => signInDemo(u)}
                       title={`${u.title} · ${u.email}`}
                       disabled={loading}
                     >
@@ -251,6 +258,11 @@ export const LoginScreen = () => {
                           {u.isHost && (
                             <span className="mcm-login__demo-host">
                               <Crown size={11} /> {t("login.host")}
+                            </span>
+                          )}
+                          {u.isAdmin && (
+                            <span className="mcm-login__demo-host">
+                              <ShieldCheck size={11} /> Admin
                             </span>
                           )}
                         </span>

@@ -8,12 +8,24 @@ export type DemoUser = {
   email: string;
   title: string;
   isHost?: boolean;
+  /** back-office admin account (separate from meeting users — never joins). */
+  isAdmin?: boolean;
+  /** per-account password override (admin uses a different one). Defaults to
+   *  the shared demo password in LoginScreen. */
+  password?: string;
 };
 
 export const DEMO_DIVISION = "Architectural AI R&D Center";
 export const DEMO_COMPANY = "MAP";
 
 export const DEMO_USERS: DemoUser[] = [
+  {
+    name: "관리자",
+    email: "admin@mapgroup.co.kr",
+    title: "System Admin",
+    isAdmin: true,
+    password: "MapAdmin@2026",
+  },
   { name: "유훈", email: "hyu@mapgroup.co.kr", title: "부사장" },
   {
     name: "루안",
