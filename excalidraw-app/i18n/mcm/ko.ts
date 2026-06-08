@@ -13,6 +13,23 @@ import type { Widened } from "./index";
 import type { vi } from "./vi";
 
 export const ko: Widened<typeof vi> = {
+  invite: {
+    title: "참가자 초대",
+    copyLink: "초대 링크 복사",
+    internal: "내부",
+    search: "이름 / 부서로 검색…",
+    client: "고객 (외부 이메일)",
+    clientPlaceholder: "you@company.com",
+    add: "추가",
+    addToProject: "프로젝트 접근도 부여 (내부만)",
+    send: "초대 보내기",
+    sent: "보냄 ✓",
+    empty: "결과 없음",
+  },
+  invited: {
+    title: "초대됨 / 예정",
+    join: "참가",
+  },
   header: {
     invite: "초대",
     inviteCopied: "링크 복사됨!",

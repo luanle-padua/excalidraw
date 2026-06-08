@@ -5,6 +5,23 @@ import type { Widened } from "./index";
 import type { vi } from "./vi";
 
 export const en: Widened<typeof vi> = {
+  invite: {
+    title: "Invite people",
+    copyLink: "Copy invite link",
+    internal: "Internal",
+    search: "Search by name / department…",
+    client: "Client (external email)",
+    clientPlaceholder: "you@company.com",
+    add: "Add",
+    addToProject: "Also grant project access (internal only)",
+    send: "Send invites",
+    sent: "Sent ✓",
+    empty: "No one found",
+  },
+  invited: {
+    title: "Invited / Upcoming",
+    join: "Join",
+  },
   header: {
     invite: "Invite",
     inviteCopied: "Link copied!",

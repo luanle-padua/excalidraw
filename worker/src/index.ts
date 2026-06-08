@@ -638,6 +638,61 @@ app.get("/v1/me/invitations", async (c) => {
   return c.json({ invitations: results });
 });
 
+// Internal staff directory for the invite picker (name/email/title/division).
+// Any internal user can read it (to invite colleagues); guests get 403. Uses
+// the Supabase service key server-side; only minimal fields are returned.
+app.get("/v1/directory", async (c) => {
+  const me = c.get("email");
+  if (!(c.get("role") === "admin" || isInternalEmail(me))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ users: [] });
+  }
+  const people: {
+    email: string;
+    name: string;
+    title?: string;
+    division?: string;
+  }[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const res = await supaAdmin(
+      cr.url,
+      cr.key,
+      "GET",
+      `/admin/users?page=${page}&per_page=200`,
+    );
+    if (!res.ok) {
+      break;
+    }
+    const { users } = (await res.json()) as {
+      users: {
+        email?: string;
+        user_metadata?: { name?: string; title?: string; division?: string };
+        app_metadata?: { role?: string };
+      }[];
+    };
+    for (const u of users) {
+      // internal humans only — skip externals + the admin console account.
+      if (!isInternalEmail(u.email) || u.app_metadata?.role === "admin") {
+        continue;
+      }
+      people.push({
+        email: u.email!.toLowerCase(),
+        name: u.user_metadata?.name || u.email!,
+        title: u.user_metadata?.title,
+        division: u.user_metadata?.division,
+      });
+    }
+    if (users.length < 200) {
+      break;
+    }
+  }
+  people.sort((a, b) => a.name.localeCompare(b.name));
+  return c.json({ users: people });
+});
+
 // ---- Daily.co screen-share token -----------------------------------------
 // Mints a short-lived meeting token for the Daily room that mirrors this
 // meeting's roomId. The DAILY_API_KEY stays server-side; the client only

@@ -26,13 +26,13 @@ import {
   meetingViewOnlyAtom,
   participantsPanelOpenAtom,
 } from "../../collab/Collab";
-import { getCollaborationLink } from "../../data";
 import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
 import { markReviewRoom } from "../../data/reviewMode";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { hostSocketIdAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
@@ -80,7 +80,7 @@ export const MeetingHeader = ({
   // is backgrounded and interval ticks are throttled). Resets on leave.
   const [elapsed, setElapsed] = useState(0);
   const startedAtRef = useRef<number | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const log = useAtomValue(transcriptionLogAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
@@ -218,20 +218,6 @@ export const MeetingHeader = ({
     return () => window.clearInterval(id);
   }, [activeRoomLink, meetingStartMs]);
 
-  const handleInvite = useCallback(async () => {
-    if (!roomId || !roomKey) {
-      return;
-    }
-    const link = getCollaborationLink({ roomId, roomKey });
-    try {
-      await navigator.clipboard.writeText(link);
-    } catch {
-      // clipboard blocked — fall back to a prompt so the host can copy manually
-      window.prompt(t("header.inviteCopied"), link);
-    }
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
-  }, [roomId, roomKey, t]);
 
   // Host control: only the elected host sees the "End meeting" button.
   const hostSocketId = useAtomValue(hostSocketIdAtom);
@@ -389,11 +375,11 @@ export const MeetingHeader = ({
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--primary"
-          onClick={handleInvite}
+          onClick={() => setInviteOpen(true)}
           title={t("header.invite")}
         >
           <UserPlus size={18} />
-          {copied ? t("header.inviteCopied") : t("header.invite")}
+          {t("header.invite")}
         </button>
         {isHost && !viewOnly && (
           <button
@@ -422,6 +408,13 @@ export const MeetingHeader = ({
           fields={buildMeetingFields(meetingInfo ?? {})}
           onSave={saveMeeting}
           onClose={() => setEditing(false)}
+        />
+      )}
+      {inviteOpen && roomId && (
+        <InvitePanel
+          roomId={roomId}
+          roomKey={roomKey}
+          onClose={() => setInviteOpen(false)}
         />
       )}
     </header>

@@ -11,6 +11,24 @@
 //     translated, so nothing silently drifts.
 
 export const vi = {
+  // ---------------- Invite -----------------------------------------
+  invite: {
+    title: "Mời người tham gia",
+    copyLink: "Copy link mời",
+    internal: "Nội bộ",
+    search: "Tìm theo tên / phòng ban…",
+    client: "Khách (email ngoài)",
+    clientPlaceholder: "ban@congty.com",
+    add: "Thêm",
+    addToProject: "Cho xem cả dự án (chỉ nội bộ)",
+    send: "Gửi lời mời",
+    sent: "Đã gửi ✓",
+    empty: "Không có ai",
+  },
+  invited: {
+    title: "Được mời / Sắp tới",
+    join: "Vào họp",
+  },
   // ---------------- Header -----------------------------------------
   header: {
     invite: "Mời",

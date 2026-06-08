@@ -19,6 +19,7 @@ import {
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { InvitedMeetings } from "./InvitedMeetings";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields, buildProjectFields } from "./metadataFields";
 
@@ -236,6 +237,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     <div className="mcm-folder__body mcm-browser">
       {/* Left: projects */}
       <aside className="mcm-folder__projects">
+        <InvitedMeetings />
         <ul className="mcm-folder__project-list">
           {projects.length === 0 && (
             <li className="mcm-folder__empty">{t("folder.empty")}</li>
