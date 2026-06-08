@@ -8,6 +8,8 @@
 // (`meeting.room_key`) — the SSE/managed-key trade-off documented in the
 // storage layer.
 
+import { fetchWithAuth } from "./fetchWithAuth";
+
 // Tunnel mode → same-origin via the Vite `/v1` proxy (base = ""); local
 // dev → absolute worker URL. Mirrors storage.ts / Collab's socket handling.
 const STORAGE_URL =
@@ -58,7 +60,7 @@ export const listProjects = async (host?: string): Promise<Project[]> => {
     ? `${STORAGE_URL}/v1/projects?host=${encodeURIComponent(host)}`
     : `${STORAGE_URL}/v1/projects`;
   try {
-    const res = await fetch(url);
+    const res = await fetchWithAuth(url);
     if (!res.ok) {
       return [];
     }
@@ -77,7 +79,7 @@ export const createProject = async (
     return null;
   }
   try {
-    const res = await fetch(`${STORAGE_URL}/v1/projects`, {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/projects`, {
       method: "POST",
       headers: json,
       body: JSON.stringify({ name, hostEmail }),
@@ -106,7 +108,7 @@ export const updateProject = async (
     return false;
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/projects/${encodeURIComponent(id)}`,
       { method: "PATCH", headers: json, body: JSON.stringify(patch) },
     );
@@ -134,7 +136,7 @@ export const updateMeeting = async (
     return false;
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
       { method: "PATCH", headers: json, body: JSON.stringify(patch) },
     );
@@ -151,7 +153,7 @@ export const listMeetings = async (
     return [];
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/meetings`,
     );
     if (!res.ok) {
@@ -175,7 +177,7 @@ export const registerMeeting = async (m: {
     return false;
   }
   try {
-    const res = await fetch(`${STORAGE_URL}/v1/meetings`, {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/meetings`, {
       method: "POST",
       headers: json,
       body: JSON.stringify(m),
@@ -201,6 +203,9 @@ export const getMeeting = async (
   confidentiality: string | null;
   scheduled_at: string | null;
   created_by: string | null;
+  /** ms-since-epoch the meeting row was created = when the host started it;
+   *  the shared, objective anchor for the meeting timer. */
+  created_at: number | null;
   project_id: string | null;
   project_name: string | null;
   project_stage: string | null;
@@ -209,7 +214,7 @@ export const getMeeting = async (
     return null;
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
     );
     if (!res.ok) {
@@ -240,7 +245,7 @@ export const getDailyToken = async (
     if (userId) {
       params.set("uid", userId);
     }
-    const res = await fetch(`${STORAGE_URL}/v1/daily/token?${params}`);
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/daily/token?${params}`);
     if (!res.ok) {
       return null;
     }

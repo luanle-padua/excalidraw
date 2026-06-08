@@ -13,13 +13,14 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
 
 import { useAtomValue } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
+import { getCollaborationLink } from "../../data";
 import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { useT } from "../../i18n/mcm";
@@ -27,7 +28,6 @@ import { useT } from "../../i18n/mcm";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
-import { MOCK_MEETING_DURATION_S } from "./meetingMock";
 
 const fmt = (s: number) =>
   [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
@@ -36,7 +36,6 @@ const fmt = (s: number) =>
 
 export const MeetingHeader = ({
   participantCount: participantCountProp,
-  onInvite,
   onLeave,
   onOpenLog,
   onOpenProfile,
@@ -49,7 +48,6 @@ export const MeetingHeader = ({
    *  storybook). Real call counts come from the collab atom + Excalidraw
    *  collaborators map. */
   participantCount?: number;
-  onInvite?: () => void;
   onLeave?: () => void;
   onOpenLog?: () => void;
   /** Opens the project folder (switch project / reopen / new meeting).
@@ -69,7 +67,12 @@ export const MeetingHeader = ({
   presentDisabled?: boolean;
 }) => {
   const t = useT();
-  const [elapsed, setElapsed] = useState(MOCK_MEETING_DURATION_S);
+  // Real elapsed time of the current meeting session, counted from when we
+  // entered the room (wall-clock based, so it stays accurate even if the tab
+  // is backgrounded and interval ticks are throttled). Resets on leave.
+  const [elapsed, setElapsed] = useState(0);
+  const startedAtRef = useRef<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const log = useAtomValue(transcriptionLogAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
@@ -88,6 +91,7 @@ export const MeetingHeader = ({
     priority: string | null;
     confidentiality: string | null;
     scheduled_at: string | null;
+    createdAt: number | null;
     projectName: string | null;
   } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -115,6 +119,7 @@ export const MeetingHeader = ({
             priority: m.priority,
             confidentiality: m.confidentiality,
             scheduled_at: m.scheduled_at,
+            createdAt: m.created_at,
             projectName: m.project_name,
           }
         : null,
@@ -181,10 +186,44 @@ export const MeetingHeader = ({
   const inCallCount =
     audioState.status === "live" ? audioState.peers.size + 1 : 0;
 
+  // The meeting clock is OBJECTIVE: it counts from when the HOST started the
+  // meeting (the registry `created_at`, shared by all), so late joiners see the
+  // SAME elapsed time — not their own per-person count. Falls back to our
+  // room-entry time only for an unregistered ad-hoc room with no shared anchor.
+  const meetingStartMs =
+    typeof meetingInfo?.createdAt === "number" ? meetingInfo.createdAt : null;
   useEffect(() => {
-    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    if (!activeRoomLink) {
+      startedAtRef.current = null;
+      setElapsed(0);
+      return;
+    }
+    if (startedAtRef.current === null) {
+      startedAtRef.current = Date.now();
+    }
+    const start = meetingStartMs ?? startedAtRef.current;
+    const tick = () => {
+      setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, []);
+  }, [activeRoomLink, meetingStartMs]);
+
+  const handleInvite = useCallback(async () => {
+    if (!roomId || !roomKey) {
+      return;
+    }
+    const link = getCollaborationLink({ roomId, roomKey });
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      // clipboard blocked — fall back to a prompt so the host can copy manually
+      window.prompt(t("header.inviteCopied"), link);
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }, [roomId, roomKey, t]);
 
   return (
     <header className="mcm-header">
@@ -321,10 +360,11 @@ export const MeetingHeader = ({
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--primary"
-          onClick={onInvite}
+          onClick={handleInvite}
+          title={t("header.invite")}
         >
           <UserPlus size={18} />
-          {t("header.invite")}
+          {copied ? t("header.inviteCopied") : t("header.invite")}
         </button>
         <button
           type="button"

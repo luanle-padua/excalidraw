@@ -10,7 +10,7 @@ import {
   type LastMeeting,
 } from "../../data/lastMeeting";
 import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
-import { clearSession, sessionAtom } from "../../data/session";
+import { authReadyAtom, sessionAtom, signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
@@ -48,6 +48,7 @@ export const MeetingLobby = () => {
   const collabAPI = useAtomValue(collabAPIAtom);
   const isCollaborating = useAtomValue(isCollaboratingAtom);
   const session = useAtomValue(sessionAtom);
+  const authReady = useAtomValue(authReadyAtom);
 
   const [dismissed, setDismissed] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
@@ -85,19 +86,26 @@ export const MeetingLobby = () => {
     };
   }, [session]);
 
-  // Live check (NOT memoized) so leaving a meeting — which clears the
-  // #room hash — re-shows the project home. On initial load via an invite
-  // link this still suppresses the home flash until App auto-joins.
-  const hasRoomInUrl = /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash);
-
-  if (isCollaborating || hasRoomInUrl || dismissed || !collabAPI) {
+  // Still resolving the Supabase session — render nothing for the brief check
+  // so we don't flash the login screen at an already-authenticated user.
+  if (!authReady) {
     return null;
   }
 
-  // Demo flow: app → LOGIN → project home. Invite-link joins bypass this
-  // (handled by the hasRoomInUrl guard above).
+  // LOGIN REQUIRED FOR EVERYONE — including invite-link joiners (the #room hash
+  // stays in the URL, so App auto-joins right after login). This closes the old
+  // anonymous link-join path; meeting data is confidential. The Worker also
+  // enforces auth server-side, so this is the UX half of the same gate.
   if (!session) {
     return <LoginScreen />;
+  }
+
+  // Authenticated: suppress the project home while in a meeting, auto-joining
+  // from a link, gone solo, or before collab is ready. Live (NOT memoized) hash
+  // check so leaving a meeting re-shows the home.
+  const hasRoomInUrl = /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash);
+  if (isCollaborating || hasRoomInUrl || dismissed || !collabAPI) {
+    return null;
   }
 
   const startAdHoc = async () => {
@@ -164,7 +172,7 @@ export const MeetingLobby = () => {
             <button
               type="button"
               className="mcm-lobby__join-toggle"
-              onClick={() => clearSession()}
+              onClick={() => void signOut()}
               title={`${session.name} · ${session.email}`}
             >
               {t("login.signOut")}

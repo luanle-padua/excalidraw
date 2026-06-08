@@ -31,6 +31,7 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 type Bindings = {
   BUCKET: R2Bucket;
@@ -39,9 +40,19 @@ type Bindings = {
   // Local: worker/.dev.vars · Prod: `wrangler secret put DAILY_API_KEY`.
   DAILY_API_KEY?: string;
   DAILY_DOMAIN?: string;
+  // Supabase project URL — used to build the JWT issuer + JWKS endpoint for
+  // verifying user access tokens. (No secret needed: tokens are ES256-signed,
+  // verified against the public JWKS.)
+  SUPABASE_URL?: string;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
+// Auth context attached by the JWT middleware for downstream handlers.
+type Variables = {
+  userId: string;
+  email?: string;
+};
+
+const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // TEST PHASE: allow any origin (pages.dev, localhost, tunnel). Lock this
 // down to the app's real origin(s) before rollout.
@@ -50,9 +61,52 @@ app.use(
   cors({
     origin: "*",
     allowMethods: ["GET", "PUT", "POST", "PATCH", "OPTIONS"],
-    allowHeaders: ["Content-Type", "x-kind", "x-name"],
+    allowHeaders: ["Content-Type", "x-kind", "x-name", "Authorization"],
   }),
 );
+
+// ---- Supabase JWT auth gate ----------------------------------------------
+// Every /v1 route (except /v1/health) now requires a valid Supabase user
+// access token: `Authorization: Bearer <jwt>`. We verify OFFLINE against the
+// project's public JWKS (ES256) — no per-request call to Supabase. The JWKS is
+// fetched once per worker isolate and cached by jose. On success the user id
+// (sub) + email are attached for handlers/authz. This closes the previously
+// wide-open API; per-meeting membership authz layers on later.
+//
+// CORS preflight (OPTIONS) is answered by the cors() middleware above before
+// this runs, so browsers can still negotiate without a token.
+
+let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+
+app.use("/v1/*", async (c, next) => {
+  if (c.req.path === "/v1/health") {
+    return next();
+  }
+  const supabaseUrl = c.env.SUPABASE_URL;
+  if (!supabaseUrl) {
+    return c.json({ error: "auth not configured" }, 503);
+  }
+  const authz = c.req.header("Authorization");
+  if (!authz?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const token = authz.slice(7);
+  const issuer = `${supabaseUrl}/auth/v1`;
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+  }
+  try {
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer,
+      audience: "authenticated",
+    });
+    c.set("userId", String(payload.sub ?? ""));
+    c.set("email", typeof payload.email === "string" ? payload.email : undefined);
+    return next();
+  } catch {
+    return c.json({ error: "invalid token" }, 401);
+  }
+});
 
 const now = () => Date.now();
 const sceneKey = (roomId: string) => `scenes/${roomId}/current`;
@@ -330,7 +384,7 @@ app.get("/v1/meetings/:roomId", async (c) => {
             m.status, m.discipline, m.priority, m.confidentiality,
             m.scheduled_at, m.created_by, m.room_key, m.scene_r2_key,
             m.scene_updated_at, m.thumbnail, m.participant_count, m.duration_s,
-            m.updated_at, m.last_opened_at,
+            m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.stage AS project_stage
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
      WHERE m.id = ?1`,

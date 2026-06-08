@@ -14,18 +14,18 @@ export const DEMO_DIVISION = "Architectural AI R&D Center";
 export const DEMO_COMPANY = "MAP";
 
 export const DEMO_USERS: DemoUser[] = [
-  { name: "Yu Hun", email: "hyu@mapgroup.co.kr", title: "Vice President" },
+  { name: "유훈", email: "hyu@mapgroup.co.kr", title: "부사장" },
   {
-    name: "Luan",
+    name: "루안",
     email: "lethanhluan@mapgroup.co.kr",
-    title: "Team Lead",
+    title: "팀장",
     isHost: true,
   },
-  { name: "Jang Dojin", email: "dojin0721@mapgroup.co.kr", title: "Director" },
+  { name: "장도진", email: "dojin0721@mapgroup.co.kr", title: "실장" },
   {
-    name: "Jeon Hee-jin",
+    name: "전희진",
     email: "heejini1@mapgroup.co.kr",
-    title: "Deputy Team Lead",
+    title: "부팀장",
   },
-  { name: "Jin Hyo-won", email: "jhw0512@mapgroup.co.kr", title: "Staff" },
+  { name: "진효원", email: "jhw0512@mapgroup.co.kr", title: "사원" },
 ];

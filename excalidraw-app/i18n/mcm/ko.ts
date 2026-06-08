@@ -15,6 +15,7 @@ import type { vi } from "./vi";
 export const ko: Widened<typeof vi> = {
   header: {
     invite: "초대",
+    inviteCopied: "링크 복사됨!",
     leave: "나가기",
     share: "공유",
     transcript: "회의록",
@@ -65,8 +66,14 @@ export const ko: Widened<typeof vi> = {
     passwordLabel: "비밀번호",
     passwordPlaceholder: "비밀번호 입력",
     signIn: "로그인",
+    signingIn: "로그인 중…",
+    signInError: "이메일 또는 비밀번호가 올바르지 않습니다.",
     needHelp: "도움이 필요하신가요? 관리자에게 문의하세요.",
     emailInvalid: "이메일이 올바르지 않습니다.",
+    guestToggle: "게스트? 이메일로 로그인 링크 받기",
+    usePassword: "← 비밀번호로 로그인",
+    sendMagicLink: "로그인 링크 보내기",
+    magicSent: "{email}(으)로 로그인 링크를 보냈습니다. 이메일을 열어 참여하세요.",
     signOut: "로그아웃",
     demoTitle: "빠른 로그인 (데모)",
     host: "호스트",

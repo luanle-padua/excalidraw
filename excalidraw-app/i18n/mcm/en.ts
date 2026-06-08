@@ -7,6 +7,7 @@ import type { vi } from "./vi";
 export const en: Widened<typeof vi> = {
   header: {
     invite: "Invite",
+    inviteCopied: "Link copied!",
     leave: "Leave",
     share: "Share",
     transcript: "Transcript",
@@ -57,8 +58,14 @@ export const en: Widened<typeof vi> = {
     passwordLabel: "Password",
     passwordPlaceholder: "Enter your password",
     signIn: "Sign In",
+    signingIn: "Signing in…",
+    signInError: "Wrong email or password.",
     needHelp: "Need help? Contact your administrator.",
     emailInvalid: "That email looks invalid.",
+    guestToggle: "Guest? Get a login link by email",
+    usePassword: "← Sign in with a password",
+    sendMagicLink: "Send login link",
+    magicSent: "Login link sent to {email}. Open the email to join.",
     signOut: "Sign out",
     demoTitle: "Quick login (demo)",
     host: "Host",

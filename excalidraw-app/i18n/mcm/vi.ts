@@ -14,6 +14,7 @@ export const vi = {
   // ---------------- Header -----------------------------------------
   header: {
     invite: "Mời",
+    inviteCopied: "Đã copy link!",
     leave: "Rời",
     share: "Chia sẻ",
     transcript: "Biên bản",
@@ -67,8 +68,14 @@ export const vi = {
     passwordLabel: "Mật khẩu",
     passwordPlaceholder: "Nhập mật khẩu",
     signIn: "Đăng nhập",
+    signingIn: "Đang đăng nhập…",
+    signInError: "Email hoặc mật khẩu không đúng.",
     needHelp: "Cần trợ giúp? Liên hệ quản trị viên.",
     emailInvalid: "Email không hợp lệ.",
+    guestToggle: "Khách? Nhận link đăng nhập qua email",
+    usePassword: "← Đăng nhập bằng mật khẩu",
+    sendMagicLink: "Gửi link đăng nhập",
+    magicSent: "Đã gửi link đăng nhập tới {email}. Mở email để vào họp.",
     signOut: "Đăng xuất",
     demoTitle: "Đăng nhập nhanh (demo)",
     host: "Host",

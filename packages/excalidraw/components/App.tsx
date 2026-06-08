@@ -5337,7 +5337,9 @@ class App extends React.Component<AppProps, AppState> {
 
       // eye dropper
       // -----------------------------------------------------------------------
-      const lowerCased = event.key.toLocaleLowerCase();
+      // `event.key` can be undefined (e.g. password-manager autofill events on
+      // the login inputs bubbling here) — guard before lower-casing.
+      const lowerCased = event.key?.toLocaleLowerCase();
       const isPickingStroke =
         lowerCased === KEYS.S && event.shiftKey && !event[KEYS.CTRL_OR_CMD];
       const isPickingBackground =

@@ -38,6 +38,7 @@ import type {
 } from "@excalidraw/excalidraw/types";
 
 import { getSyncableElements } from ".";
+import { fetchWithAuth } from "./fetchWithAuth";
 
 import type { SyncableExcalidrawElement } from ".";
 import type Portal from "../collab/Portal";
@@ -143,7 +144,7 @@ const fetchStoredElements = async (
   // so deletions still win against an older stored element.
   deleteInvisibleElements = false,
 ): Promise<readonly SyncableExcalidrawElement[] | null> => {
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${STORAGE_URL}/v1/scenes/${encodeURIComponent(roomId)}`,
   );
   if (res.status === 404) {
@@ -214,7 +215,7 @@ export const saveToStorage = async (
     iv,
     new Uint8Array(ciphertext),
   );
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${STORAGE_URL}/v1/scenes/${encodeURIComponent(roomId)}`,
     {
       method: "PUT",
@@ -277,7 +278,7 @@ const saveJsonBlob = async (
   blob[0] = iv.length;
   blob.set(iv, 1);
   blob.set(ciphertext, 1 + iv.length);
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${STORAGE_URL}/v1/${kind}/${encodeURIComponent(roomId)}`,
     {
       method: "PUT",
@@ -298,7 +299,7 @@ const loadJsonBlob = async <T = unknown>(
   if (!IS_STORAGE_CONFIGURED || !roomId || !roomKey) {
     return null;
   }
-  const res = await fetch(
+  const res = await fetchWithAuth(
     `${STORAGE_URL}/v1/${kind}/${encodeURIComponent(roomId)}`,
   );
   if (res.status === 404) {
@@ -368,7 +369,7 @@ export const saveFilesToStorage = async ({
   await Promise.all(
     files.map(async ({ id, buffer }) => {
       try {
-        const res = await fetch(
+        const res = await fetchWithAuth(
           `${STORAGE_URL}/v1/files/${encodeURIComponent(
             roomId,
           )}/${encodeURIComponent(id)}`,
@@ -415,7 +416,7 @@ export const loadFilesFromStorage = async (
     const backoffsMs = [250, 750];
     for (let attempt = 0; ; attempt++) {
       try {
-        const res = await fetch(url);
+        const res = await fetchWithAuth(url);
         if (res.status >= 500 && attempt < backoffsMs.length) {
           await new Promise((r) => setTimeout(r, backoffsMs[attempt]));
           continue;
