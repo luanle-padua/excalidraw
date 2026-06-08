@@ -174,6 +174,9 @@ export const ko: Widened<typeof vi> = {
     sortBy: "정렬:",
     sortRank: "직급",
     sortName: "이름",
+    tabClients: "고객",
+    company: "회사",
+    noClients: "고객 없음",
   },
 
   folder: {

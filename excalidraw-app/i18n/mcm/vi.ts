@@ -178,6 +178,9 @@ export const vi = {
     sortBy: "Sắp xếp:",
     sortRank: "cấp bậc",
     sortName: "tên",
+    tabClients: "Khách hàng",
+    company: "Công ty",
+    noClients: "Chưa có khách hàng nào",
   },
 
   // ---------------- Project folder ---------------------------------

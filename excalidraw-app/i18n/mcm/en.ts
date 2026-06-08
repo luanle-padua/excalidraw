@@ -167,6 +167,9 @@ export const en: Widened<typeof vi> = {
     sortBy: "Sort:",
     sortRank: "rank",
     sortName: "name",
+    tabClients: "Clients",
+    company: "Company",
+    noClients: "No clients yet",
   },
 
   folder: {

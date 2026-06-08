@@ -674,16 +674,25 @@ app.post("/v1/admin/users", async (c) => {
     password: string;
     role?: string;
     name?: string;
+    company?: string;
   }>();
   if (!b.email || !b.password) {
     return c.json({ error: "email + password required" }, 400);
+  }
+  const md: Record<string, unknown> = {};
+  if (b.name) {
+    md.display_name = b.name;
+    md.name = b.name;
+  }
+  if (b.company) {
+    md.company = b.company;
   }
   const res = await supaAdmin(cr.url, cr.key, "POST", "/admin/users", {
     email: b.email,
     password: b.password,
     email_confirm: true,
     app_metadata: { role: b.role ?? "member" },
-    user_metadata: b.name ? { display_name: b.name, name: b.name } : {},
+    user_metadata: md,
   });
   if (!res.ok) {
     return c.json({ error: "create user failed", detail: await res.text() }, 502);

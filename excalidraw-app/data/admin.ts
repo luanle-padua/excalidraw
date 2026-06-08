@@ -69,6 +69,7 @@ export const createAdminUser = async (u: {
   password: string;
   role?: string;
   name?: string;
+  company?: string;
 }): Promise<boolean> => {
   try {
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/users`, {
