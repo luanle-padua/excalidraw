@@ -214,6 +214,18 @@
     font-weight: 400;
   }
 
+  &__chip {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10.5px;
+    font-weight: 650;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mcm-accent, #6965db) 12%, transparent);
+    color: var(--mcm-accent, #6965db);
+    vertical-align: middle;
+  }
+
   &__badge {
     font-size: 11.5px;
     font-weight: 650;

@@ -410,8 +410,22 @@ export const AdminConsole = () => {
                           {u.user_metadata?.display_name ||
                             u.user_metadata?.name ||
                             u.email}
+                          {u.user_metadata?.title && (
+                            <span className="mcm-admin__chip">
+                              {u.user_metadata.title}
+                            </span>
+                          )}
                         </strong>
                         <span className="mcm-admin__sub">{u.email}</span>
+                        {(u.user_metadata?.division ||
+                          u.user_metadata?.department) && (
+                          <span className="mcm-admin__sub">
+                            {u.user_metadata?.division}
+                            {u.user_metadata?.department
+                              ? ` · ${u.user_metadata.department}`
+                              : ""}
+                          </span>
+                        )}
                       </td>
                       <td>
                         <select

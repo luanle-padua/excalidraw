@@ -14,7 +14,15 @@ export type AdminUser = {
   id: string;
   email: string;
   app_metadata?: { role?: string };
-  user_metadata?: { display_name?: string; name?: string; company?: string };
+  user_metadata?: {
+    display_name?: string;
+    name?: string;
+    company?: string;
+    title?: string;
+    division?: string;
+    department?: string;
+    emp_no?: string;
+  };
   created_at?: string;
   last_sign_in_at?: string | null;
   email_confirmed_at?: string | null;
