@@ -1,5 +1,8 @@
 import {
+  ArrowLeft,
   DollarSign,
+  Eye,
+  FileText,
   HardDrive,
   LayoutDashboard,
   LogOut,
@@ -19,6 +22,7 @@ import {
   getAdminAudit,
   getAdminCost,
   getAdminIntegrations,
+  getAdminMeetingDetail,
   getAdminStats,
   getAdminStorage,
   listAdminMeetings,
@@ -28,6 +32,7 @@ import {
   type AdminCost,
   type AdminIntegration,
   type AdminMeeting,
+  type AdminMeetingDetail,
   type AdminStats,
   type AdminStorage,
   type AdminUser,
@@ -95,8 +100,18 @@ export const AdminConsole = () => {
   const [integrations, setIntegrations] = useState<AdminIntegration[]>([]);
   const [storage, setStorage] = useState<AdminStorage | null>(null);
   const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
+  const [detail, setDetail] = useState<AdminMeetingDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const openDetail = async (roomId: string) => {
+    setLoading(true);
+    try {
+      setDetail(await getAdminMeetingDetail(roomId));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // New-user form
   const [nuEmail, setNuEmail] = useState("");
@@ -127,6 +142,7 @@ export const AdminConsole = () => {
   }, []);
 
   useEffect(() => {
+    setDetail(null);
     if (tab === "users") {
       void refreshUsers();
     } else if (tab === "meetings") {
@@ -451,7 +467,7 @@ export const AdminConsole = () => {
           </div>
         )}
 
-        {tab === "meetings" && (
+        {tab === "meetings" && !detail && (
           <div className="mcm-admin__section">
             <table className="mcm-admin__table">
               <thead>
@@ -479,7 +495,13 @@ export const AdminConsole = () => {
                 {meetings.map((m) => (
                   <tr key={m.id}>
                     <td>
-                      <strong>{m.title || m.id}</strong>
+                      <button
+                        type="button"
+                        className="mcm-admin__link"
+                        onClick={() => void openDetail(m.id)}
+                      >
+                        {m.title || m.id}
+                      </button>
                       {m.topic && <span className="mcm-admin__sub">{m.topic}</span>}
                     </td>
                     <td>{m.project_name || "—"}</td>
@@ -488,6 +510,14 @@ export const AdminConsole = () => {
                     <td>{fmtDur(m.duration_s)}</td>
                     <td>{fmtDate(m.created_at)}</td>
                     <td className="mcm-admin__row-actions">
+                      <button
+                        type="button"
+                        title={t("admin.secMeta")}
+                        aria-label={t("admin.secMeta")}
+                        onClick={() => void openDetail(m.id)}
+                      >
+                        <Eye size={14} />
+                      </button>
                       <button
                         type="button"
                         className="mcm-admin__danger"
@@ -502,6 +532,187 @@ export const AdminConsole = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {tab === "meetings" && detail && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__detail-head">
+              <button
+                type="button"
+                className="mcm-admin__ghost"
+                onClick={() => setDetail(null)}
+              >
+                <ArrowLeft size={15} /> {t("admin.detailBack")}
+              </button>
+              <button
+                type="button"
+                className="mcm-admin__ghost mcm-admin__danger"
+                onClick={() =>
+                  void (async () => {
+                    if (window.confirm(t("admin.confirmDeleteMeeting"))) {
+                      await deleteAdminMeeting(detail.meeting.id);
+                      setDetail(null);
+                      void refreshMeetings();
+                    }
+                  })()
+                }
+              >
+                <Trash2 size={14} /> {t("admin.delete")}
+              </button>
+            </div>
+
+            <h2 className="mcm-admin__detail-title">
+              {detail.meeting.title || detail.meeting.id}
+              {detail.meeting.status && (
+                <span className="mcm-admin__badge --on">
+                  {detail.meeting.status}
+                </span>
+              )}
+            </h2>
+
+            <h4 className="mcm-admin__h4">{t("admin.secProject")}</h4>
+            <dl className="mcm-admin__dl">
+              <div>
+                <dt>{t("admin.colProject")}</dt>
+                <dd>
+                  {detail.meeting.project_name || "—"}
+                  {detail.meeting.project_code
+                    ? ` · ${detail.meeting.project_code}`
+                    : ""}
+                  {detail.meeting.project_stage
+                    ? ` · ${detail.meeting.project_stage}`
+                    : ""}
+                </dd>
+              </div>
+              <div>
+                <dt>{t("admin.colHost")}</dt>
+                <dd>{detail.meeting.created_by || "—"}</dd>
+              </div>
+            </dl>
+
+            <h4 className="mcm-admin__h4">{t("admin.secMeta")}</h4>
+            <dl className="mcm-admin__dl">
+              {detail.meeting.topic && (
+                <div>
+                  <dt>{t("admin.mTopic")}</dt>
+                  <dd>{detail.meeting.topic}</dd>
+                </div>
+              )}
+              {detail.meeting.description && (
+                <div>
+                  <dt>{t("admin.mDescription")}</dt>
+                  <dd>{detail.meeting.description}</dd>
+                </div>
+              )}
+              {detail.meeting.type && (
+                <div>
+                  <dt>{t("admin.mType")}</dt>
+                  <dd>{detail.meeting.type}</dd>
+                </div>
+              )}
+              {detail.meeting.discipline && (
+                <div>
+                  <dt>{t("admin.mDiscipline")}</dt>
+                  <dd>{detail.meeting.discipline}</dd>
+                </div>
+              )}
+              {detail.meeting.priority && (
+                <div>
+                  <dt>{t("admin.mPriority")}</dt>
+                  <dd>{detail.meeting.priority}</dd>
+                </div>
+              )}
+              {detail.meeting.confidentiality && (
+                <div>
+                  <dt>{t("admin.mConfidentiality")}</dt>
+                  <dd>{detail.meeting.confidentiality}</dd>
+                </div>
+              )}
+              {detail.meeting.scheduled_at && (
+                <div>
+                  <dt>{t("admin.mScheduled")}</dt>
+                  <dd>{detail.meeting.scheduled_at}</dd>
+                </div>
+              )}
+              <div>
+                <dt>{t("admin.colDuration")}</dt>
+                <dd>{fmtDur(detail.meeting.duration_s)}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.colCreated")}</dt>
+                <dd>{fmtDate(detail.meeting.created_at)}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.mUpdated")}</dt>
+                <dd>{fmtDate(detail.meeting.updated_at)}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.mLastOpened")}</dt>
+                <dd>{fmtDate(detail.meeting.last_opened_at)}</dd>
+              </div>
+            </dl>
+
+            <h4 className="mcm-admin__h4">
+              {t("admin.secParticipants")} ({detail.participants.length})
+            </h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <thead>
+                  <tr>
+                    <th>{t("admin.colUser")}</th>
+                    <th>{t("admin.pJoined")}</th>
+                    <th>{t("admin.pLastSeen")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.participants.length === 0 && (
+                    <tr>
+                      <td colSpan={3}>{t("admin.noParticipants")}</td>
+                    </tr>
+                  )}
+                  {detail.participants.map((p) => (
+                    <tr key={p.user_email}>
+                      <td>
+                        <strong>{p.name || p.user_email}</strong>
+                        <span className="mcm-admin__sub">{p.user_email}</span>
+                      </td>
+                      <td>{fmtDate(p.joined_at)}</td>
+                      <td>{fmtDate(p.last_seen_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mcm-admin__h4">
+              {t("admin.secFiles")} ({detail.files.length})
+            </h4>
+            <div className="mcm-admin__section">
+              <table className="mcm-admin__table">
+                <tbody>
+                  {detail.files.length === 0 && (
+                    <tr>
+                      <td>{t("admin.noFiles")}</td>
+                    </tr>
+                  )}
+                  {detail.files.map((f) => (
+                    <tr key={f.id}>
+                      <td>
+                        <FileText
+                          size={13}
+                          style={{ verticalAlign: "-2px", marginRight: 6 }}
+                        />
+                        {f.name || f.id}
+                      </td>
+                      <td>{f.kind || "—"}</td>
+                      <td>{fmtBytes(f.size)}</td>
+                      <td>{fmtDate(f.created_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

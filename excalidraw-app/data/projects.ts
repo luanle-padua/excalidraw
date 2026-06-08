@@ -226,6 +226,30 @@ export const getMeeting = async (
   }
 };
 
+// Record that the current (logged-in) user joined this meeting. Best-effort —
+// the authoritative email is taken from the JWT server-side; `name` is only the
+// display label. Used by the admin meeting-detail view ("who participated").
+export const logParticipation = async (
+  roomId: string,
+  name?: string,
+): Promise<void> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return;
+  }
+  try {
+    await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/participant`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      },
+    );
+  } catch {
+    // non-critical
+  }
+};
+
 // Daily.co screen-share token for a meeting. The worker mints a short-lived
 // token for the Daily room named after `roomId` (creating it on first use)
 // and returns the join URL + token. The API key lives only on the worker.

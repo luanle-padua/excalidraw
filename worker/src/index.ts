@@ -462,6 +462,35 @@ app.patch("/v1/meetings/:roomId", async (c) => {
   return c.json({ ok: true });
 });
 
+// Log that the current user joined this meeting. The email comes from the
+// VERIFIED JWT (can't be spoofed); the client only supplies a display name.
+// Upsert: joined_at on first join, last_seen_at refreshed each call.
+app.post("/v1/meetings/:roomId/participant", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ error: "no email" }, 400);
+  }
+  let name: string | undefined;
+  try {
+    name = (await c.req.json<{ name?: string }>()).name;
+  } catch {
+    // body optional
+  }
+  const t = now();
+  await c.env.DB.prepare(
+    `INSERT INTO meeting_participant
+       (meeting_id, user_email, name, joined_at, last_seen_at)
+     VALUES (?1, ?2, ?3, ?4, ?4)
+     ON CONFLICT(meeting_id, user_email) DO UPDATE SET
+       last_seen_at = ?4,
+       name = COALESCE(?3, name)`,
+  )
+    .bind(roomId, email, name ?? null, t)
+    .run();
+  return c.json({ ok: true });
+});
+
 // ---- Daily.co screen-share token -----------------------------------------
 // Mints a short-lived meeting token for the Daily room that mirrors this
 // meeting's roomId. The DAILY_API_KEY stays server-side; the client only
@@ -739,6 +768,39 @@ app.get("/v1/admin/meetings", async (c) => {
     `SELECT COUNT(*) AS total FROM meeting`,
   ).first<{ total: number }>();
   return c.json({ meetings: results, total: countRow?.total ?? 0 });
+});
+
+// Full detail of one meeting: metadata + project + files + WHO joined.
+// (room_key / scene_r2_key are deliberately NOT returned.)
+app.get("/v1/admin/meetings/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  const meeting = await c.env.DB.prepare(
+    `SELECT m.id, m.project_id, m.title, m.topic, m.description, m.type,
+            m.status, m.discipline, m.priority, m.confidentiality,
+            m.scheduled_at, m.created_by, m.participant_count, m.duration_s,
+            m.thumbnail, m.created_at, m.updated_at, m.last_opened_at,
+            p.name AS project_name, p.code AS project_code, p.stage AS project_stage
+     FROM meeting m LEFT JOIN project p ON p.id = m.project_id
+     WHERE m.id = ?1`,
+  )
+    .bind(roomId)
+    .first();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const { results: files } = await c.env.DB.prepare(
+    `SELECT id, kind, name, size, created_at FROM file
+     WHERE meeting_id = ?1 ORDER BY created_at DESC`,
+  )
+    .bind(roomId)
+    .all();
+  const { results: participants } = await c.env.DB.prepare(
+    `SELECT user_email, name, joined_at, last_seen_at FROM meeting_participant
+     WHERE meeting_id = ?1 ORDER BY joined_at ASC`,
+  )
+    .bind(roomId)
+    .all();
+  return c.json({ meeting, files, participants });
 });
 
 // Delete a meeting + cascade: its R2 blobs (scene/files/chats/library) + file rows.

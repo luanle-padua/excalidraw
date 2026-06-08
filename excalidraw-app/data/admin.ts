@@ -217,3 +217,49 @@ export const getAdminIntegrations = async (): Promise<AdminIntegration[]> => {
     return [];
   }
 };
+
+// ---- Meeting detail (metadata + project + files + who joined) ------------
+
+export type AdminMeetingFile = {
+  id: string;
+  kind: string | null;
+  name: string | null;
+  size: number | null;
+  created_at: number | null;
+};
+
+export type AdminParticipant = {
+  user_email: string;
+  name: string | null;
+  joined_at: number;
+  last_seen_at: number;
+};
+
+export type AdminMeetingDetail = {
+  meeting: AdminMeeting & {
+    description: string | null;
+    discipline: string | null;
+    priority: string | null;
+    confidentiality: string | null;
+    scheduled_at: string | null;
+    thumbnail: string | null;
+    updated_at: number | null;
+    project_code: string | null;
+    project_stage: string | null;
+  };
+  files: AdminMeetingFile[];
+  participants: AdminParticipant[];
+};
+
+export const getAdminMeetingDetail = async (
+  roomId: string,
+): Promise<AdminMeetingDetail | null> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/admin/meetings/${encodeURIComponent(roomId)}`,
+    );
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+};

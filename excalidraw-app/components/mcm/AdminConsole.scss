@@ -305,4 +305,65 @@
     padding: 1px 6px;
     border-radius: 5px;
   }
+
+  // ----- meeting detail -----
+  &__link {
+    border: 0;
+    background: transparent;
+    color: var(--mcm-accent, #2563eb);
+    font: inherit;
+    font-weight: 650;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  &__detail-title {
+    font-size: 22px;
+    font-weight: 750;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px 24px;
+    margin: 0 0 6px;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
+    border-radius: 12px;
+    padding: 16px 18px;
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    dt {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+      font-weight: 700;
+    }
+    dd {
+      margin: 0;
+      font-size: 13.5px;
+      line-height: 1.4;
+    }
+  }
 }

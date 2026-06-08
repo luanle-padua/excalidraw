@@ -12,7 +12,7 @@ import {
 import { useT } from "../../i18n/mcm";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
-import { getMeeting } from "../../data/projects";
+import { getMeeting, logParticipation } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import {
   ensureMyJoinedAt,
@@ -197,6 +197,15 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       cancelled = true;
     };
   }, [roomId, setMeetingCreator]);
+
+  // Record WHO joined this meeting (for the admin meeting-detail view). Only
+  // logged-in users; the authoritative email is taken from the JWT server-side,
+  // the session name is just the display label.
+  useEffect(() => {
+    if (roomId && session) {
+      void logParticipation(roomId, session.name);
+    }
+  }, [roomId, session]);
 
   // Logged-in users get their identity from the account (session). The
   // display name everywhere — participant tile, chat sender, on-canvas cursor
