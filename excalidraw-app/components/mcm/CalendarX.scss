@@ -506,3 +506,38 @@
     filter: brightness(1.06);
   }
 }
+
+// === Per-cell create "+": bottom-right of each day cell, revealed on hover ===
+.mcm-calx__date-add {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 7px;
+  background: var(--mcm-accent);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  pointer-events: none; // don't intercept clicks while hidden
+  box-shadow: 0 2px 7px color-mix(in srgb, var(--mcm-accent) 42%, transparent);
+  transition: opacity 130ms ease, transform 130ms ease, filter 130ms ease;
+  z-index: 4;
+
+  &:hover {
+    filter: brightness(1.08);
+    transform: scale(1.06);
+  }
+}
+// Reveal on day-cell hover (and keyboard focus-within for a11y).
+.mcm-calx .sx__month-grid-day:hover .mcm-calx__date-add,
+.mcm-calx .sx__month-grid-day:focus-within .mcm-calx__date-add {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}

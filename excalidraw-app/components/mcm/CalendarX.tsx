@@ -347,7 +347,11 @@ export const CalendarX = ({
   const customComponents = useMemo(
     () => ({
       monthGridDate: (props: Record<string, unknown>) => (
-        <MonthGridDate {...props} holidaysRef={holidaysRef} />
+        <MonthGridDate
+          {...props}
+          holidaysRef={holidaysRef}
+          onCreateRef={onCreateRef}
+        />
       ),
     }),
     [],
@@ -366,7 +370,6 @@ export const CalendarX = ({
         meetings={meetings}
         lang={lang}
         onOpen={(id) => onOpenRef.current(id)}
-        onCreate={() => onCreateRef.current(`${focusedDay}T09:00`)}
       />
     </div>
   );
@@ -383,13 +386,11 @@ const DayPanel = ({
   meetings,
   lang,
   onOpen,
-  onCreate,
 }: {
   dayKeyStr: string;
   meetings: CalMeeting[];
   lang: string;
   onOpen: (id: string) => void;
-  onCreate: () => void;
 }) => {
   const t = useT();
   const dayMeetings = useMemo(
@@ -447,15 +448,6 @@ const DayPanel = ({
         })}
       </ul>
       <DayNotes dayKeyStr={dayKeyStr} />
-      <button
-        type="button"
-        className="mcm-calx__fab"
-        onClick={onCreate}
-        title={t("cal.createOnDay")}
-        aria-label={t("cal.createOnDay")}
-      >
-        <Plus size={20} />
-      </button>
     </div>
   );
 };
@@ -473,10 +465,12 @@ const MonthGridDate = ({
   date,
   jsDate,
   holidaysRef,
+  onCreateRef,
 }: {
   date?: unknown;
   jsDate?: unknown;
   holidaysRef: React.MutableRefObject<HolidayMap>;
+  onCreateRef: React.MutableRefObject<(dateISO: string) => void>;
 }) => {
   // Schedule-X's prop shape varies by version — it may hand us a "YYYY-MM-DD"
   // string, a Date in `date`, or a Date in `jsDate`. Derive a concrete local
@@ -518,6 +512,20 @@ const MonthGridDate = ({
           {name}
         </span>
       ) : null}
+      {/* Per-cell create "+": hidden until the day cell is hovered (CSS). */}
+      <button
+        type="button"
+        className="mcm-calx__date-add"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCreateRef.current(`${dayKey(jd)}T09:00`);
+        }}
+        aria-label="Create meeting on this day"
+        title="+"
+        tabIndex={-1}
+      >
+        <Plus size={13} />
+      </button>
     </div>
   );
 };
