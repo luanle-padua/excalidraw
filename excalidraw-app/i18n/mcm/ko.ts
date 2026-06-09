@@ -268,6 +268,23 @@ export const ko: Widened<typeof vi> = {
     otherPlaceholder: "직접 입력…",
   },
 
+  // ---------------- Meeting list view controls ---------------------
+  view: {
+    label: "보기",
+    grid: "그리드",
+    list: "목록",
+  },
+  sort: {
+    label: "정렬",
+    time: "시간순",
+    title: "제목순",
+    status: "상태순",
+  },
+  color: {
+    label: "회의 색상",
+    none: "기본값",
+  },
+
   participants: {
     label: "참여자",
     countInRoom: "방에 {count}명",

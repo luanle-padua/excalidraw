@@ -27,13 +27,7 @@ import {
 } from "@schedule-x/calendar";
 import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { ScheduleXCalendar, useCalendarApp } from "@schedule-x/react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import "@schedule-x/theme-default/dist/index.css";
 
@@ -55,11 +49,7 @@ import type { CalendarEventExternal, CalendarType } from "@schedule-x/calendar";
 // `calendarId`, which must match a key in the `calendars` config below.
 // ---------------------------------------------------------------------------
 
-type StatusCalendarId =
-  | "scheduled"
-  | "in-progress"
-  | "completed"
-  | "cancelled";
+type StatusCalendarId = "scheduled" | "in-progress" | "completed" | "cancelled";
 
 /** Map a free-form worker status string to one of four colour buckets. */
 const statusCalendarId = (status: string | null): StatusCalendarId => {
@@ -81,23 +71,55 @@ const statusCalendarId = (status: string | null): StatusCalendarId => {
 const CALENDARS: Record<StatusCalendarId, CalendarType> = {
   scheduled: {
     colorName: "scheduled",
-    lightColors: { main: "#1c7df9", container: "#d2e7ff", onContainer: "#002859" },
-    darkColors: { main: "#7db4ff", container: "#19315a", onContainer: "#dee9ff" },
+    lightColors: {
+      main: "#1c7df9",
+      container: "#d2e7ff",
+      onContainer: "#002859",
+    },
+    darkColors: {
+      main: "#7db4ff",
+      container: "#19315a",
+      onContainer: "#dee9ff",
+    },
   },
   "in-progress": {
     colorName: "in-progress",
-    lightColors: { main: "#16a34a", container: "#caf1d8", onContainer: "#012d16" },
-    darkColors: { main: "#67e0a3", container: "#0f3d28", onContainer: "#daf6e6" },
+    lightColors: {
+      main: "#16a34a",
+      container: "#caf1d8",
+      onContainer: "#012d16",
+    },
+    darkColors: {
+      main: "#67e0a3",
+      container: "#0f3d28",
+      onContainer: "#daf6e6",
+    },
   },
   completed: {
     colorName: "completed",
-    lightColors: { main: "#64748b", container: "#e2e8f0", onContainer: "#1e293b" },
-    darkColors: { main: "#9aa7b8", container: "#2b3442", onContainer: "#e6ebf2" },
+    lightColors: {
+      main: "#64748b",
+      container: "#e2e8f0",
+      onContainer: "#1e293b",
+    },
+    darkColors: {
+      main: "#9aa7b8",
+      container: "#2b3442",
+      onContainer: "#e6ebf2",
+    },
   },
   cancelled: {
     colorName: "cancelled",
-    lightColors: { main: "#ef4444", container: "#ffd5d5", onContainer: "#4c0000" },
-    darkColors: { main: "#ff9b9b", container: "#4a1a1a", onContainer: "#ffe2e2" },
+    lightColors: {
+      main: "#ef4444",
+      container: "#ffd5d5",
+      onContainer: "#4c0000",
+    },
+    darkColors: {
+      main: "#ff9b9b",
+      container: "#4a1a1a",
+      onContainer: "#ffe2e2",
+    },
   },
 };
 
@@ -121,20 +143,46 @@ const dateTimeKey = (d: Date): string =>
 const meetingDate = (m: CalMeeting): Date =>
   m.scheduled_at ? new Date(m.scheduled_at) : new Date(m.created_at);
 
+/** A Schedule-X calendarId for a user-assigned hex colour. We register one
+ *  "calendar" per distinct custom colour on the fly (see customCalendars
+ *  below) so the event paints in that exact colour — keeping card + calendar
+ *  in sync. Sanitised to the [a-f0-9] the id needs. */
+const colorCalendarId = (hex: string): string =>
+  `c-${hex.replace(/[^a-fA-F0-9]/g, "").toLowerCase()}`;
+
 /** Map one CalMeeting → a Schedule-X event. end = start + duration (default
- *  60 min). Events are colour-coded through `calendarId`. */
+ *  60 min). Colour: the user-assigned `meeting.color` when set (via a custom
+ *  calendar), else the status bucket's calendar. */
 const toEvent = (m: CalMeeting): CalendarEventExternal => {
   const start = meetingDate(m);
-  const durationMin = m.duration_min && m.duration_min > 0 ? m.duration_min : 60;
+  const durationMin =
+    m.duration_min && m.duration_min > 0 ? m.duration_min : 60;
   const end = new Date(start.getTime() + durationMin * 60_000);
   return {
     id: m.id,
     title: m.title ?? m.id,
     start: dateTimeKey(start),
     end: dateTimeKey(end),
-    calendarId: statusCalendarId(m.status),
+    calendarId: m.color ? colorCalendarId(m.color) : statusCalendarId(m.status),
   };
 };
+
+/** Build a Schedule-X `CalendarType` from an arbitrary hex. We derive soft
+ *  container tints from the base colour with `color-mix` so custom-coloured
+ *  events read consistently in both themes. */
+const calendarForColor = (hex: string): CalendarType => ({
+  colorName: colorCalendarId(hex),
+  lightColors: {
+    main: hex,
+    container: `color-mix(in srgb, ${hex} 22%, #ffffff)`,
+    onContainer: `color-mix(in srgb, ${hex} 60%, #000000)`,
+  },
+  darkColors: {
+    main: hex,
+    container: `color-mix(in srgb, ${hex} 30%, #1b1b1f)`,
+    onContainer: `color-mix(in srgb, ${hex} 30%, #ffffff)`,
+  },
+});
 
 /** Resolve the app theme atom (which may be "system") to a concrete dark flag. */
 const useIsDark = (): boolean => {
@@ -187,7 +235,9 @@ export const CalendarX = ({
 
   // The day the notes panel is bound to. Starts on today; follows the
   // calendar's selected date as the user navigates / clicks.
-  const [focusedDay, setFocusedDay] = useState<string>(() => dayKey(new Date()));
+  const [focusedDay, setFocusedDay] = useState<string>(() =>
+    dayKey(new Date()),
+  );
 
   // Self-fetch when the parent didn't hand us a list.
   useEffect(() => {
@@ -213,6 +263,22 @@ export const CalendarX = ({
       .map(toEvent);
   }, [meetings]);
 
+  // Register one Schedule-X "calendar" per distinct user-assigned colour so
+  // those events paint in their exact hex. Merged with the four status
+  // calendars. The signature key lets us rebuild the app only when the set of
+  // colours actually changes (rare) — colour changes are otherwise pushed
+  // through the events service on the next set().
+  const customCalendars = useMemo<Record<string, CalendarType>>(() => {
+    const out: Record<string, CalendarType> = {};
+    for (const m of meetings) {
+      if (m.color) {
+        out[colorCalendarId(m.color)] = calendarForColor(m.color);
+      }
+    }
+    return out;
+  }, [meetings]);
+  const calendarsKey = Object.keys(customCalendars).sort().join(",");
+
   const calendar = useCalendarApp(
     {
       views: [
@@ -223,7 +289,7 @@ export const CalendarX = ({
       ],
       defaultView: createViewMonthGrid().name,
       events,
-      calendars: CALENDARS,
+      calendars: { ...CALENDARS, ...customCalendars },
       isDark,
       locale: LOCALE_MAP[lang] ?? "en-US",
       selectedDate: dayKey(new Date()),
@@ -253,7 +319,9 @@ export const CalendarX = ({
         },
       },
     },
-    [eventsService],
+    // Rebuild when the set of custom colour-calendars changes so newly
+    // assigned colours register; event-only changes go via eventsService.set.
+    [eventsService, calendarsKey],
   );
 
   // Keep Schedule-X's events in sync with our meeting list. Seeding via config

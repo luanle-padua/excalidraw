@@ -21,6 +21,9 @@ export type CalMeeting = {
   project_name: string | null;
   created_by: string | null;
   duration_min: number | null;
+  /** User-assigned accent colour (hex). When set, the calendar event uses
+   *  it instead of the status palette so card + calendar colours match. */
+  color?: string | null;
 };
 
 /** Every meeting the current user can see, for placement on the calendar. */

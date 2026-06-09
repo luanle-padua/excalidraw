@@ -8285,9 +8285,16 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     padding: 14px 16px;
     border-bottom: 1px solid var(--mcm-hairline);
   }
+  // Title + (optional) project-edit button, kept together on the left.
+  &__middle-titlebox {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
   &__middle-title {
     margin: 0;
-    flex: 1;
     min-width: 0;
     font-size: 15px;
     font-weight: 700;
@@ -8521,5 +8528,504 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       opacity: 0.5;
       cursor: default;
     }
+  }
+}
+
+// =========================================================================
+// HOME DESIGN SYSTEM — one button system, one pill system, one toolbar.
+//
+// Added to fix the "loạn xạ" (chaotic) mix of bespoke button/badge styles
+// across the home. Everything below is the canonical set the home uses:
+//   • .mcm-btn            — text buttons (primary / secondary / ghost · --sm)
+//   • .mcm-icon-btn       — square icon buttons (--sm)
+//   • .mcm-pill           — status/label pills (one shape, status tints)
+//   • .mcm-toolbar        — the middle-header view/sort cluster
+//   • .mcm-segmented      — grid⇄list segmented toggle
+//   • .mcm-select         — the sort dropdown
+//   • .mcm-mcard(s)       — the redesigned meeting cards (grid + list)
+//   • .mcm-swatches       — the colour-assign popover
+// 8px spacing rhythm · 8px radius · 999px pills · 200ms ease.
+// =========================================================================
+
+// ----- Buttons (text) -----------------------------------------------------
+.mcm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 200ms ease, border-color 200ms ease,
+    color 200ms ease, box-shadow 200ms ease, transform 100ms ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  // Compact size used in dense headers / card footers.
+  &--sm {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+
+  // Primary = brand accent fill. The home's main CTA (e.g. + New meeting).
+  &--primary {
+    background: var(--mcm-accent);
+    color: #fff;
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 1px 2px rgba(105, 101, 219, 0.25);
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+  }
+
+  // Secondary = solid surface with a hairline. Neutral actions.
+  &--secondary {
+    background: var(--mcm-surface-2);
+    border-color: var(--mcm-hairline);
+    color: var(--mcm-text);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-accent-soft);
+      border-color: var(--mcm-accent);
+      color: var(--mcm-accent);
+    }
+  }
+
+  // Ghost = transparent until hover. Lowest-emphasis.
+  &--ghost {
+    background: transparent;
+    color: var(--mcm-text-soft);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+}
+
+// ----- Buttons (square icon) ---------------------------------------------
+.mcm-icon-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--mcm-text-soft);
+  cursor: pointer;
+  transition: background-color 200ms ease, color 200ms ease,
+    border-color 200ms ease;
+
+  &:hover:not(:disabled) {
+    background: var(--mcm-surface-2);
+    color: var(--mcm-accent);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  // Small variant for the on-card action cluster.
+  &--sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+  }
+}
+
+// ----- Pills (status / label) --------------------------------------------
+// One shape for every status/label pill on the home. The four status tints
+// match the calendar palette so card pill ⇄ calendar event read alike.
+.mcm-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: var(--mcm-surface-2);
+  color: var(--mcm-text-soft);
+
+  &--scheduled {
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+  }
+  &--in-progress {
+    background: color-mix(in srgb, var(--mcm-success) 16%, transparent);
+    color: var(--mcm-success);
+  }
+  &--completed {
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-soft);
+  }
+  &--cancelled {
+    background: var(--mcm-danger-soft);
+    color: var(--mcm-danger);
+  }
+}
+
+// ----- Middle-header toolbar (view toggle + sort) ------------------------
+.mcm-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+// Segmented control — grid ⇄ list. Two icon buttons in a hairline shell.
+.mcm-segmented {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  gap: 2px;
+  background: var(--mcm-surface-2);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 9px;
+
+  &__btn {
+    width: 28px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease,
+      box-shadow 160ms ease;
+
+    &:hover {
+      color: var(--mcm-text);
+    }
+    // Active segment lifts onto a solid surface chip.
+    &--active {
+      background: var(--mcm-surface);
+      color: var(--mcm-accent);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    }
+  }
+}
+
+// Sort dropdown — leading icon + native select, styled to match.
+.mcm-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  background: var(--mcm-surface-2);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 9px;
+  color: var(--mcm-text-soft);
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease;
+
+  &:hover {
+    border-color: var(--mcm-accent);
+  }
+
+  &__icon {
+    flex-shrink: 0;
+  }
+
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    padding-right: 2px;
+  }
+}
+
+// ----- Redesigned meeting cards ------------------------------------------
+// No thumbnail. A left colour stripe (meeting.color → status fallback) then
+// title / topic / date+time / status pill + project name. Grid = compact
+// cards; list = full-width rows. Hover reveals colour + detail + edit.
+.mcm-mcards {
+  list-style: none;
+  margin: 0;
+  align-content: start;
+
+  &--grid {
+    padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  &--list {
+    padding: 8px 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.mcm-mcard {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 12px;
+  transition: border-color 200ms ease, box-shadow 200ms ease,
+    transform 150ms ease;
+
+  &:hover {
+    border-color: var(--mcm-accent);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  // Left colour stripe — the meeting's effective colour.
+  &__stripe {
+    flex-shrink: 0;
+    width: 4px;
+    align-self: stretch;
+    background: var(--mcard-color, var(--mcm-accent));
+  }
+
+  // Main click target (reopen). Fills the rest of the card.
+  &__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 13px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    font: inherit;
+    color: var(--mcm-text);
+    cursor: pointer;
+
+    &:disabled {
+      cursor: default;
+    }
+  }
+
+  &__title {
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--mcm-text);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__topic {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Date + time row — tabular figures, dot-separated.
+  &__when {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11.5px;
+    color: var(--mcm-text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  &__time {
+    color: var(--mcm-text-faint);
+    &::before {
+      content: "·";
+      margin-right: 6px;
+      color: var(--mcm-text-faint);
+    }
+  }
+
+  // Footer — status pill + project name.
+  &__foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    min-width: 0;
+  }
+  &__project {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--mcm-text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  // Hover action cluster — colour / detail / edit. Top-right, fades in.
+  &__actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  &:hover &__actions,
+  &:focus-within &__actions {
+    opacity: 1;
+  }
+
+  // Each action button gets a solid backing so it stays legible over text.
+  &__actions .mcm-icon-btn {
+    background: var(--mcm-surface);
+    border-color: var(--mcm-hairline);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2);
+    }
+  }
+
+  // Colour control anchors the swatch popover.
+  &__color {
+    position: relative;
+    display: inline-flex;
+  }
+
+  // ----- List layout overrides -----
+  .mcm-mcards--list & {
+    align-items: center;
+
+    .mcm-mcard__main {
+      flex-direction: row;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 13px;
+      // Leave room for the (always-reserved) action cluster on the right.
+      padding-right: 104px;
+    }
+
+    .mcm-mcard__title {
+      flex: 0 1 auto;
+      max-width: 38%;
+    }
+    .mcm-mcard__topic {
+      flex: 1 1 auto;
+    }
+    .mcm-mcard__when {
+      margin-top: 0;
+      flex-shrink: 0;
+    }
+    .mcm-mcard__foot {
+      margin-top: 0;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .mcm-mcard__actions {
+      top: 50%;
+      transform: translateY(-50%);
+    }
+  }
+}
+
+// ----- Colour-assign popover ---------------------------------------------
+.mcm-swatches {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 12px;
+  box-shadow: var(--mcm-elev);
+  animation: mcm-swatches-in 140ms ease;
+
+  &__dot {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--swatch, var(--mcm-accent));
+    color: #fff;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    transition: transform 120ms ease, box-shadow 120ms ease;
+
+    &:hover {
+      transform: scale(1.12);
+    }
+    &--active {
+      box-shadow: 0 0 0 2px var(--mcm-surface),
+        0 0 0 4px var(--swatch, var(--mcm-accent));
+    }
+  }
+
+  &__clear {
+    height: 22px;
+    padding: 0 10px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 999px;
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-soft);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background: var(--mcm-surface);
+      color: var(--mcm-text);
+    }
+  }
+}
+
+@keyframes mcm-swatches-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }

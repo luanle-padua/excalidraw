@@ -28,11 +28,13 @@
   "dependencies": {
     "@daily-co/daily-js": "0.90.0",
     "@excalidraw/random-username": "1.0.0",
+    "@preact/signals": "2.9.1",
     "@schedule-x/calendar": "2.36.0",
     "@schedule-x/events-service": "2.36.0",
     "@schedule-x/react": "2.36.0",
     "@schedule-x/theme-default": "2.36.0",
     "@sentry/browser": "9.0.1",
+    "preact": "10.29.2",
     "@supabase/supabase-js": "2.107.0",
     "callsites": "4.2.0",
     "dxf-viewer": "1.0.47",

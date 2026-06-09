@@ -262,6 +262,23 @@ export const en: Widened<typeof vi> = {
     otherPlaceholder: "Type a custom value…",
   },
 
+  // ---------------- Meeting list view controls ---------------------
+  view: {
+    label: "View",
+    grid: "Grid",
+    list: "List",
+  },
+  sort: {
+    label: "Sort by",
+    time: "By time",
+    title: "By title",
+    status: "By status",
+  },
+  color: {
+    label: "Meeting colour",
+    none: "Default",
+  },
+
   participants: {
     label: "Participants",
     countInRoom: "{count} in room",

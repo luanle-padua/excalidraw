@@ -52,6 +52,14 @@ export type MeetingSummary = {
   priority?: string | null;
   confidentiality?: string | null;
   scheduled_at?: string | null;
+  /** User-assigned accent colour (hex) — overrides the status colour on
+   *  the card stripe and the calendar event. Nullable: most meetings have
+   *  none and fall back to the status palette. */
+  color?: string | null;
+  /** Parent project name, when the API/adaptor carries it (the project
+   *  view already knows it from context; the calendar/invite adapters
+   *  populate it so the card can show it in every context). */
+  project_name?: string | null;
 };
 
 const json = { "content-type": "application/json" };
@@ -137,6 +145,8 @@ export const updateMeeting = async (
     duration_min?: number;
     organizer_email?: string;
     host_email?: string;
+    /** Accent colour (hex) or null to clear it. Synced to the calendar. */
+    color?: string | null;
   },
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED) {

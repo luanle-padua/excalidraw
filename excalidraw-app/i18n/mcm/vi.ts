@@ -276,6 +276,23 @@ export const vi = {
     otherPlaceholder: "Nhập giá trị khác…",
   },
 
+  // ---------------- Meeting list view controls ---------------------
+  view: {
+    label: "Hiển thị",
+    grid: "Dạng lưới",
+    list: "Dạng danh sách",
+  },
+  sort: {
+    label: "Sắp xếp",
+    time: "Theo thời gian",
+    title: "Theo tên",
+    status: "Theo trạng thái",
+  },
+  color: {
+    label: "Màu cuộc họp",
+    none: "Mặc định",
+  },
+
   // ---------------- Participants bar -------------------------------
   participants: {
     label: "Người tham dự",

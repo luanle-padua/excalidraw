@@ -182,6 +182,34 @@ const canSeeMeeting = async (
   return !!member;
 };
 
+// Per-project authz. can-see = admin OR a member of the project. Unlike
+// canSeeMeeting this does NOT internal-allow: project folders (and the whole
+// meeting list inside them) are visible only to people explicitly added as a
+// project_member (0008 backfilled each owner as a member, so owners keep their
+// own projects). A client invited to a single meeting still reaches it via
+// /v1/me/invitations — they just don't get the project folder.
+const canSeeProject = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+  projectId: string,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  if (!email) {
+    return false;
+  }
+  const member = await db
+    .prepare(
+      `SELECT 1 FROM project_member
+       WHERE project_id = ?1 AND email = ?2 LIMIT 1`,
+    )
+    .bind(projectId, email.toLowerCase())
+    .first();
+  return !!member;
+};
+
 // Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
 // where any valid JWT could read room_key + scene + chat + library + files for
 // ANY meeting (Daily-token gating alone left the canvas wide open). Internal
@@ -362,17 +390,49 @@ app.post("/v1/projects", async (c) => {
   return c.json({ id, name: name.trim(), hostEmail: hostEmail ?? null });
 });
 
+// Visibility: admins see ALL projects; everyone else sees ONLY projects they
+// are a project_member of (0008 backfilled each owner as a member, so owners
+// keep their own folders). The optional ?host= filter still works and is
+// further intersected with the caller's membership for non-admins. A client
+// invited to a single meeting reaches it via /v1/me/invitations instead.
 app.get("/v1/projects", async (c) => {
   const host = c.req.query("host");
+  const isAdmin = c.get("role") === "admin";
   const cols = `id, name, host_email, code, client, location, stage, type, branch, cover, description, created_at, updated_at`;
-  const stmt = host
-    ? c.env.DB.prepare(
-        `SELECT ${cols} FROM project
-         WHERE host_email = ?1 ORDER BY updated_at DESC`,
-      ).bind(host)
-    : c.env.DB.prepare(
-        `SELECT ${cols} FROM project ORDER BY updated_at DESC LIMIT 200`,
-      );
+  let stmt: D1PreparedStatement;
+  if (isAdmin) {
+    stmt = host
+      ? c.env.DB.prepare(
+          `SELECT ${cols} FROM project
+           WHERE host_email = ?1 ORDER BY updated_at DESC`,
+        ).bind(host)
+      : c.env.DB.prepare(
+          `SELECT ${cols} FROM project ORDER BY updated_at DESC LIMIT 200`,
+        );
+  } else {
+    const email = c.get("email");
+    if (!email) {
+      return c.json({ projects: [] });
+    }
+    const e = email.toLowerCase();
+    // Non-admins: restrict to projects they're a member of (qualify columns so
+    // the JOIN onto project_member is unambiguous).
+    const mcols = cols
+      .split(", ")
+      .map((col) => `p.${col}`)
+      .join(", ");
+    stmt = host
+      ? c.env.DB.prepare(
+          `SELECT ${mcols} FROM project p
+           JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+           WHERE p.host_email = ?2 ORDER BY p.updated_at DESC`,
+        ).bind(e, host)
+      : c.env.DB.prepare(
+          `SELECT ${mcols} FROM project p
+           JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+           ORDER BY p.updated_at DESC LIMIT 200`,
+        ).bind(e);
+  }
   const { results } = await stmt.all();
   return c.json({ projects: results });
 });
@@ -421,14 +481,24 @@ app.patch("/v1/projects/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// Visibility: only an admin OR a member of this project may list its meetings
+// (the per-meeting roomGate/canSeeMeeting still gate the actual blobs). A client
+// invited to a single meeting reaches it via /v1/me/invitations, not here.
 app.get("/v1/projects/:projectId/meetings", async (c) => {
+  const projectId = c.req.param("projectId");
+  if (
+    !(await canSeeProject(c.env.DB, c.get("email"), c.get("role"), projectId))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
   const { results } = await c.env.DB.prepare(
     `SELECT id, title, topic, type, status, created_by, thumbnail,
             participant_count, duration_s, scene_updated_at, updated_at,
-            last_opened_at, discipline, priority, confidentiality, scheduled_at
+            last_opened_at, discipline, priority, confidentiality, scheduled_at,
+            color
      FROM meeting WHERE project_id = ?1 ORDER BY updated_at DESC`,
   )
-    .bind(c.req.param("projectId"))
+    .bind(projectId)
     .all();
   return c.json({ meetings: results });
 });
@@ -505,6 +575,9 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     duration_min?: number;
     organizer_email?: string;
     host_email?: string;
+    // User-assigned accent colour (nullable hex, e.g. "#6965db"). COALESCE:
+    // omit to keep the current colour; the calendar + cards read it back.
+    color?: string;
   }>();
   await c.env.DB.prepare(
     `UPDATE meeting SET
@@ -520,6 +593,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
        duration_min = COALESCE(?12, duration_min),
        organizer_email = COALESCE(?13, organizer_email),
        host_email = COALESCE(?14, host_email),
+       color = COALESCE(?15, color),
        updated_at = ?11
      WHERE id = ?1`,
   )
@@ -538,6 +612,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       b.duration_min ?? null,
       b.organizer_email ?? null,
       b.host_email ?? null,
+      b.color ?? null,
     )
     .run();
   return c.json({ ok: true });
@@ -744,7 +819,7 @@ app.get("/v1/me/meetings", async (c) => {
   }
   const cols = `m.id, m.title, m.status, m.scheduled_at, m.created_at,
                 m.project_id, p.name AS project_name, m.created_by,
-                m.duration_min`;
+                m.duration_min, m.color`;
   const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
   if (isAdmin) {
     const { results } = await c.env.DB.prepare(

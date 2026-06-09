@@ -1,12 +1,14 @@
 import {
-  Clock,
+  ArrowUpDown,
+  Check,
   Eye,
-  Image as ImageIcon,
+  LayoutGrid,
+  List as ListIcon,
+  Palette,
   Pencil,
   Plus,
-  Users,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
@@ -26,6 +28,11 @@ import { useT } from "../../i18n/mcm";
 
 import { CalendarX } from "./CalendarX";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
+import {
+  MEETING_COLOR_PRESETS,
+  meetingColor,
+  statusBucket,
+} from "./meetingColors";
 import { MetadataEditor } from "./MetadataEditor";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { buildMeetingFields, buildProjectFields } from "./metadataFields";
@@ -38,15 +45,38 @@ type MeetingDraft = { id: string } & MeetingFieldsInput;
 // "all" = my whole calendar · "invited" = invitations · else a project id.
 type View = "all" | "invited" | string;
 
-const fmtDate = (ms: number | null) =>
-  ms ? new Date(ms).toLocaleString() : "—";
+// Middle-column presentation controls (persisted in component state).
+type ViewMode = "grid" | "list";
+type SortBy = "time" | "title" | "status";
 
-const fmtDuration = (s: number): string => {
-  const m = Math.round(s / 60);
-  return m < 60
-    ? `${m}m`
-    : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
+// When a meeting sits in time: its scheduled slot if set, else when the row
+// was last touched. Used for both display and sort.
+const meetingWhenMs = (m: MeetingSummary): number => {
+  if (m.scheduled_at) {
+    const t = Date.parse(m.scheduled_at);
+    if (!Number.isNaN(t)) {
+      return t;
+    }
+  }
+  return m.scene_updated_at ?? m.updated_at ?? 0;
 };
+
+const fmtDateOnly = (ms: number): string =>
+  ms
+    ? new Date(ms).toLocaleDateString(undefined, {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
+
+const fmtTimeOnly = (ms: number): string =>
+  ms
+    ? new Date(ms).toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
 
 // Adapt the calendar/invite shapes to the card grid's MeetingSummary so the
 // middle column renders the same card for every context.
@@ -64,6 +94,8 @@ const calToSummary = (c: CalMeeting): MeetingSummary => ({
   updated_at: c.created_at,
   last_opened_at: null,
   scheduled_at: c.scheduled_at,
+  color: c.color ?? null,
+  project_name: c.project_name,
 });
 
 const invToSummary = (i: MyInvitation): MeetingSummary => ({
@@ -80,6 +112,7 @@ const invToSummary = (i: MyInvitation): MeetingSummary => ({
   updated_at: 0,
   last_opened_at: null,
   scheduled_at: i.scheduled_at,
+  project_name: i.project_name,
 });
 
 /**
@@ -111,6 +144,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // Calendar column width: null = equal 50/50 split (default); a number = px
   // once the user drags the divider.
   const [calWidth, setCalWidth] = useState<number | null>(null);
+  // Middle-column presentation (persisted in component state for the session).
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortBy, setSortBy] = useState<SortBy>("time");
+  // The card whose colour-swatch menu is open (one at a time), by room id.
+  const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
 
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects());
@@ -157,7 +195,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     ? t("invited.title")
     : t("cal.upcoming");
 
-  const enterRoom = async (roomId: string, roomKey: string, viewOnly = false) => {
+  const enterRoom = async (
+    roomId: string,
+    roomKey: string,
+    viewOnly = false,
+  ) => {
     if (collabAPI.isCollaborating()) {
       collabAPI.stopCollaboration(false);
     }
@@ -250,6 +292,14 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     });
   };
 
+  // Assign (or clear) a meeting's colour, then refresh so the card stripe and
+  // the calendar event (which reads meeting.color) update together.
+  const assignColor = async (id: string, color: string | null) => {
+    setColorMenuFor(null);
+    await updateMeeting(id, { color });
+    await refreshCards();
+  };
+
   const saveProject = async (values: Record<string, string>) => {
     if (!editingProject) {
       return;
@@ -287,6 +337,18 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setEditingMeeting(null);
     await refreshCards();
   };
+
+  // Apply the chosen sort. Time = upcoming/most-recent first (descending),
+  // which doubles as the "View theo thời gian" time-ordered list.
+  const sortedCards = [...cards].sort((a, b) => {
+    if (sortBy === "title") {
+      return (a.title || "").localeCompare(b.title || "");
+    }
+    if (sortBy === "status") {
+      return (a.status || "").localeCompare(b.status || "");
+    }
+    return meetingWhenMs(b) - meetingWhenMs(a);
+  });
 
   const navItem = (key: View, label: string) => (
     <button
@@ -368,22 +430,72 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       {/* MIDDLE — context meetings, or the inline detail / create form */}
       <section className="mcm-3col__middle">
         <div className="mcm-3col__middle-head">
-          <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
-          {selectedProject && (
-            <button
-              type="button"
-              className="mcm-folder__edit"
-              onClick={() => setEditingProject(selectedProject)}
-              title={t("folder.editProject")}
-              aria-label={t("folder.editProject")}
-            >
-              <Pencil size={14} />
-            </button>
+          <div className="mcm-3col__middle-titlebox">
+            <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
+            {selectedProject && (
+              <button
+                type="button"
+                className="mcm-icon-btn mcm-icon-btn--sm"
+                onClick={() => setEditingProject(selectedProject)}
+                title={t("folder.editProject")}
+                aria-label={t("folder.editProject")}
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+          </div>
+          {/* Toolbar — view toggle + sort. Only meaningful on the card list,
+              so it hides while a detail/create form occupies the column. */}
+          {!detailRoomId && !meetingFormOpen && (
+            <div className="mcm-toolbar">
+              <div
+                className="mcm-segmented"
+                role="group"
+                aria-label={t("view.label")}
+              >
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    viewMode === "grid" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setViewMode("grid")}
+                  title={t("view.grid")}
+                  aria-label={t("view.grid")}
+                  aria-pressed={viewMode === "grid" ? "true" : "false"}
+                >
+                  <LayoutGrid size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    viewMode === "list" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setViewMode("list")}
+                  title={t("view.list")}
+                  aria-label={t("view.list")}
+                  aria-pressed={viewMode === "list" ? "true" : "false"}
+                >
+                  <ListIcon size={14} />
+                </button>
+              </div>
+              <label className="mcm-select" title={t("sort.label")}>
+                <ArrowUpDown size={13} className="mcm-select__icon" />
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortBy)}
+                  aria-label={t("sort.label")}
+                >
+                  <option value="time">{t("sort.time")}</option>
+                  <option value="title">{t("sort.title")}</option>
+                  <option value="status">{t("sort.status")}</option>
+                </select>
+              </label>
+            </div>
           )}
           {view !== "invited" && targetProject && !detailRoomId && (
             <button
               type="button"
-              className="mcm-3col__new-meeting"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
               onClick={() => setMeetingFormOpen("now")}
               disabled={busy}
             >
@@ -429,100 +541,109 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           ) : cards.length === 0 ? (
             <div className="mcm-3col__hint">{t("folder.noMeetings")}</div>
           ) : (
-            <ul className="mcm-3col__grid">
-              {cards.map((m) => (
-                <li key={m.id} className="mcm-folder__card">
-                  <button
-                    type="button"
-                    className="mcm-folder__card-btn"
-                    onClick={() => handleReopen(m)}
-                    disabled={busy}
-                    title={t("folder.reopen")}
+            <ul
+              className={`mcm-mcards mcm-mcards--${viewMode}`}
+              data-sort={sortBy}
+            >
+              {sortedCards.map((m) => {
+                const when = meetingWhenMs(m);
+                const stripe = meetingColor(m.color, m.status);
+                const projectName = selectedProject?.name ?? m.project_name;
+                return (
+                  <li
+                    key={m.id}
+                    className="mcm-mcard"
+                    style={
+                      {
+                        ["--mcard-color" as string]: stripe,
+                      } as React.CSSProperties
+                    }
                   >
-                    <div className="mcm-folder__thumb">
-                      {m.thumbnail ? (
-                        <img src={m.thumbnail} alt="" draggable={false} />
-                      ) : (
-                        <ImageIcon
-                          className="mcm-folder__thumb-glyph"
-                          size={26}
-                        />
-                      )}
-                    </div>
-                    <div className="mcm-folder__card-meta">
-                      <span className="mcm-folder__card-title">
+                    <span className="mcm-mcard__stripe" aria-hidden="true" />
+                    <button
+                      type="button"
+                      className="mcm-mcard__main"
+                      onClick={() => handleReopen(m)}
+                      disabled={busy}
+                      title={t("folder.reopen")}
+                    >
+                      <span className="mcm-mcard__title">
                         {m.title || t("folder.meetingFallbackTitle")}
                       </span>
-                      {(m.type || m.status || m.discipline) && (
-                        <span className="mcm-folder__card-chips">
-                          {m.type && (
-                            <span className="mcm-folder__card-type">
-                              {m.type}
-                            </span>
-                          )}
-                          {m.discipline && (
-                            <span className="mcm-folder__card-type mcm-folder__card-type--alt">
-                              {m.discipline}
-                            </span>
-                          )}
-                          {m.status && (
-                            <span
-                              className={`mcm-folder__card-status mcm-folder__card-status--${m.status
-                                .replace(/\s+/g, "-")
-                                .toLowerCase()}`}
-                            >
-                              {m.status}
-                            </span>
-                          )}
-                        </span>
-                      )}
                       {m.topic && (
-                        <span className="mcm-folder__card-topic">
-                          {m.topic}
-                        </span>
+                        <span className="mcm-mcard__topic">{m.topic}</span>
                       )}
-                      <span className="mcm-folder__card-date">
-                        {fmtDate(m.scene_updated_at ?? m.updated_at)}
+                      <span className="mcm-mcard__when">
+                        <span className="mcm-mcard__date">
+                          {fmtDateOnly(when)}
+                        </span>
+                        {fmtTimeOnly(when) && (
+                          <span className="mcm-mcard__time">
+                            {fmtTimeOnly(when)}
+                          </span>
+                        )}
                       </span>
-                      {(m.participant_count != null ||
-                        m.duration_s != null) && (
-                        <span className="mcm-folder__card-stats">
-                          {m.participant_count != null && (
-                            <span>
-                              <Users size={12} /> {m.participant_count}
-                            </span>
-                          )}
-                          {m.duration_s != null && (
-                            <span>
-                              <Clock size={12} /> {fmtDuration(m.duration_s)}
-                            </span>
-                          )}
-                        </span>
-                      )}
+                      <span className="mcm-mcard__foot">
+                        {m.status && (
+                          <span
+                            className={`mcm-pill mcm-pill--${statusBucket(
+                              m.status,
+                            )}`}
+                          >
+                            {m.status}
+                          </span>
+                        )}
+                        {projectName && (
+                          <span className="mcm-mcard__project">
+                            {projectName}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    <div className="mcm-mcard__actions">
+                      <div className="mcm-mcard__color">
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm"
+                          onClick={() =>
+                            setColorMenuFor(colorMenuFor === m.id ? null : m.id)
+                          }
+                          title={t("color.label")}
+                          aria-label={t("color.label")}
+                        >
+                          <Palette size={14} />
+                        </button>
+                        {colorMenuFor === m.id && (
+                          <ColorMenu
+                            current={m.color ?? null}
+                            onPick={(c) => void assignColor(m.id, c)}
+                            onClose={() => setColorMenuFor(null)}
+                            clearLabel={t("color.none")}
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm"
+                        onClick={() => setDetailRoomId(m.id)}
+                        title={t("folder.detail")}
+                        aria-label={t("folder.detail")}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm"
+                        onClick={() => void openMeetingEditor(m)}
+                        title={t("folder.editMeeting")}
+                        aria-label={t("folder.editMeeting")}
+                      >
+                        <Pencil size={14} />
+                      </button>
                     </div>
-                  </button>
-                  <div className="mcm-folder__card-actions">
-                    <button
-                      type="button"
-                      className="mcm-folder__card-act"
-                      onClick={() => setDetailRoomId(m.id)}
-                      title={t("folder.detail")}
-                      aria-label={t("folder.detail")}
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className="mcm-folder__card-act"
-                      onClick={() => void openMeetingEditor(m)}
-                      title={t("folder.editMeeting")}
-                      aria-label={t("folder.editMeeting")}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -560,6 +681,74 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           onClose={() => setEditingMeeting(null)}
         />
       )}
+    </div>
+  );
+};
+
+/**
+ * Small colour picker popover for a meeting card — a row of preset swatches
+ * plus a "none" option that clears the colour back to the status default.
+ * Closes on outside-click / Esc.
+ */
+const ColorMenu = ({
+  current,
+  onPick,
+  onClose,
+  clearLabel,
+}: {
+  current: string | null;
+  onPick: (color: string | null) => void;
+  onClose: () => void;
+  clearLabel: string;
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="mcm-swatches" ref={ref}>
+      {MEETING_COLOR_PRESETS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          className={`mcm-swatches__dot${
+            current?.toLowerCase() === c.toLowerCase()
+              ? " mcm-swatches__dot--active"
+              : ""
+          }`}
+          style={{ ["--swatch" as string]: c } as React.CSSProperties}
+          onClick={() => onPick(c)}
+          aria-label={c}
+          title={c}
+        >
+          {current?.toLowerCase() === c.toLowerCase() && <Check size={12} />}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="mcm-swatches__clear"
+        onClick={() => onPick(null)}
+        title={clearLabel}
+      >
+        {clearLabel}
+      </button>
     </div>
   );
 };

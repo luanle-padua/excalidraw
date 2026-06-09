@@ -91,6 +91,10 @@ export default defineConfig(({ mode }) => {
       include: ["dxf-viewer", "three", "pdfjs-dist"],
     },
     resolve: {
+      // Force a single copy of React across the app + deps (Schedule-X is
+      // Preact-based and pulled a second React instance through vite's
+      // optimizer → "Invalid hook call / more than one copy of React").
+      dedupe: ["react", "react-dom"],
       alias: [
         {
           find: /^@excalidraw\/common$/,
