@@ -7966,6 +7966,34 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 }
 
+// ===== CalendarX (Schedule-X) =====
+// The Schedule-X calendar needs an explicitly sized wrapper to render its
+// month/week/day grids. We let it grow to fill the column and dock the notes
+// panel underneath. The `.sx-react-calendar-wrapper` is Schedule-X's own root.
+.mcm-calx {
+  &__cal {
+    flex: 1;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sx-react-calendar-wrapper {
+    flex: 1;
+    width: 100%;
+    min-height: 420px;
+    // Nudge Schedule-X's design tokens toward the MCM surface palette so the
+    // calendar chrome blends with the lobby in both light and dark themes.
+    --sx-color-background: var(--mcm-surface);
+    --sx-color-surface: var(--mcm-surface);
+    --sx-internal-color-text: var(--mcm-text);
+  }
+
+  &__notes {
+    flex: 0 0 auto;
+  }
+}
+
 // ===== Home tabs (Projects | Calendar | Invited) =====
 .mcm-home {
   flex: 1;
@@ -8217,12 +8245,14 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 .mcm-3col {
   flex: 1;
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr) minmax(340px, 420px);
+  // Meetings + calendar split 50/50 by default (both 1fr); dragging the
+  // divider switches the calendar column to a fixed px width via --cal-w.
+  grid-template-columns: 248px minmax(0, 1fr) var(--cal-w, 1fr);
   min-height: 0;
   background: var(--mcm-bg);
 
   @media (max-width: 1180px) {
-    grid-template-columns: 216px minmax(0, 1fr) 320px;
+    grid-template-columns: 216px minmax(0, 1fr) var(--cal-w, 1fr);
   }
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
@@ -8319,6 +8349,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     font-size: 13px;
   }
   &__calendar {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -8326,9 +8357,45 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-surface);
     overflow: hidden;
 
-    > * {
+    > .mcm-cal,
+    > .mcm-calx {
       flex: 1;
       min-height: 0;
+    }
+  }
+  // Drag handle on the calendar's left edge — resizes the column.
+  &__resize {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 7px;
+    margin-left: -3px;
+    z-index: 5;
+    cursor: col-resize;
+    background: transparent;
+    transition: background 140ms;
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--mcm-hairline);
+      transition: background 140ms;
+    }
+    &:hover::after,
+    &:active::after {
+      background: var(--mcm-accent);
+      width: 2px;
+    }
+  }
+
+  @media (max-width: 900px) {
+    &__resize {
+      display: none;
     }
   }
 }

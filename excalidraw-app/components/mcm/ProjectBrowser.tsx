@@ -24,7 +24,7 @@ import {
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
-import { CalendarView } from "./CalendarView";
+import { CalendarX } from "./CalendarX";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
 import { MetadataEditor } from "./MetadataEditor";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
@@ -108,6 +108,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     "now" | "schedule" | null
   >(null);
   const [formDefaultWhen, setFormDefaultWhen] = useState<string | undefined>();
+  // Calendar column width: null = equal 50/50 split (default); a number = px
+  // once the user drags the divider.
+  const [calWidth, setCalWidth] = useState<number | null>(null);
 
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects());
@@ -179,6 +182,21 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const calCreate = (dateISO: string) => {
     setFormDefaultWhen(dateISO);
     setMeetingFormOpen("schedule");
+  };
+
+  // Drag the divider between the meetings + calendar columns to resize.
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const onMove = (ev: MouseEvent) =>
+      setCalWidth(Math.max(300, Math.min(760, window.innerWidth - ev.clientX)));
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    };
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   };
 
   const handleCreateProject = async () => {
@@ -285,7 +303,14 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   );
 
   return (
-    <div className="mcm-home mcm-3col">
+    <div
+      className="mcm-home mcm-3col"
+      style={
+        calWidth != null
+          ? ({ ["--cal-w" as string]: `${calWidth}px` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {/* LEFT — sidebar nav */}
       <aside className="mcm-3col__sidebar mcm-scroll">
         <div className="mcm-nav__section">
@@ -503,9 +528,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
       </section>
 
-      {/* RIGHT — calendar, always visible */}
+      {/* RIGHT — calendar, always visible (drag the left edge to resize) */}
       <div className="mcm-3col__calendar">
-        <CalendarView
+        <div
+          className="mcm-3col__resize"
+          onMouseDown={startResize}
+          role="separator"
+          aria-orientation="vertical"
+          title="Resize"
+        />
+        <CalendarX
           onJoinMeeting={calJoin}
           onOpenMeeting={calOpen}
           onCreateOnDay={calCreate}

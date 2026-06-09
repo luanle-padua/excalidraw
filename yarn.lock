@@ -3279,6 +3279,26 @@
   resolved "https://registry.yarnpkg.com/@rushstack/eslint-patch/-/eslint-patch-1.10.5.tgz#3a1c12c959010a55c17d46b395ed3047b545c246"
   integrity sha512-kkKUDVlII2DQiKy7UstOR1ErJP8kUKAQ4oa+SQtM0K+lPdmmjj0YnnxBgtTVYH7mUKtbsxeFC9y0AmK7Yb78/A==
 
+"@schedule-x/calendar@2.36.0":
+  version "2.36.0"
+  resolved "https://registry.yarnpkg.com/@schedule-x/calendar/-/calendar-2.36.0.tgz#e6752317ce0e3512bbe25565a3a8aeb6b30040e1"
+  integrity sha512-UqPMoxjok3SFNvgx1+PY5Whmoig+gU7sjy80z68A9QQ1FjIt1Q3ODPZKdA3G0spDss9lDtKilpO393vWpXJyfg==
+
+"@schedule-x/events-service@2.36.0":
+  version "2.36.0"
+  resolved "https://registry.yarnpkg.com/@schedule-x/events-service/-/events-service-2.36.0.tgz#e1b7f3ee739d1af7cffbaeecfe601b0dc371438b"
+  integrity sha512-M4dz8AgaEtpbXAanvYvuPnEDAKlhMO7d6R8WQ8wX8hXsJSzWa18XS3qLJOT+5jCR7O8QD8aDIDg3RpihleUeiA==
+
+"@schedule-x/react@2.36.0":
+  version "2.36.0"
+  resolved "https://registry.yarnpkg.com/@schedule-x/react/-/react-2.36.0.tgz#d20ad0d57f1522970df2af3da22506d7d4f20293"
+  integrity sha512-MZAs67Krn1zmxmmlM1iWUdypmYAiOkIV7Z4wi9PJKWjt4Dtbx8K8Q4kW38aWmfDCImPbfBUGDp3LaP9u53zCzg==
+
+"@schedule-x/theme-default@2.36.0":
+  version "2.36.0"
+  resolved "https://registry.yarnpkg.com/@schedule-x/theme-default/-/theme-default-2.36.0.tgz#e538ce8d94ba7a72dfe58b0f884ec53030194927"
+  integrity sha512-jkN9/srYS54dO2h12iCvNMMrLEiod6BAoUc47KbOgGE66zyUU+kmQwUOYQ3A2LrKyIWjwtCp3Ewdd4h/HHvG9A==
+
 "@sentry-internal/browser-utils@8.55.2":
   version "8.55.2"
   resolved "https://registry.yarnpkg.com/@sentry-internal/browser-utils/-/browser-utils-8.55.2.tgz#3463115ac048813d71565c6fa2a48e6d60f15e8b"
