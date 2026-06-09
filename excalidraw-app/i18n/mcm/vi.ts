@@ -24,6 +24,9 @@ export const vi = {
     send: "Gửi lời mời",
     sent: "Đã gửi ✓",
     empty: "Không có ai",
+    pickMembers: "Thêm thành viên",
+    pickTitle: "Chọn thành viên",
+    addSelected: "Thêm {count} người",
   },
   invited: {
     title: "Được mời / Sắp tới",

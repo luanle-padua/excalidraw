@@ -17,6 +17,9 @@ export const en: Widened<typeof vi> = {
     send: "Send invites",
     sent: "Sent ✓",
     empty: "No one found",
+    pickMembers: "Add members",
+    pickTitle: "Select members",
+    addSelected: "Add {count}",
   },
   invited: {
     title: "Invited / Upcoming",

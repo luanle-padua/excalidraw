@@ -1,4 +1,11 @@
-import { ArrowLeft, Briefcase, CalendarPlus, Search, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Briefcase,
+  CalendarPlus,
+  Search,
+  Users,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
@@ -13,7 +20,21 @@ import { registerMeeting, updateMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { MemberPicker } from "./MemberPicker";
+
 type Selected = { email: string; name: string; kind: "internal" | "guest" };
+
+// 30-minute time slots (00:00 … 23:30) for the time dropdown — click, not type.
+const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2);
+  const m = i % 2 ? 30 : 0;
+  const value = `${String(h).padStart(2, "0")}:${m ? "30" : "00"}`;
+  const label = new Date(2000, 0, 1, h, m).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return { value, label };
+});
 
 /** Schedule a meeting AHEAD of time: pick a date/time + invitees, create it as
  *  `scheduled` (without entering), and send invites. The invited users then see
@@ -41,8 +62,12 @@ export const ScheduleMeetingForm = ({
   const t = useT();
   const session = useAtomValue(sessionAtom);
   const [title, setTitle] = useState("");
-  const [when, setWhen] = useState(defaultWhen ?? "");
+  const [dateStr, setDateStr] = useState(
+    defaultWhen ? defaultWhen.slice(0, 10) : "",
+  );
+  const [timeStr, setTimeStr] = useState(defaultWhen?.slice(11, 16) || "09:00");
   const [duration, setDuration] = useState("60");
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [dir, setDir] = useState<DirectoryUser[]>([]);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
@@ -128,7 +153,9 @@ export const ScheduleMeetingForm = ({
         ...(mode === "schedule"
           ? {
               status: "scheduled",
-              scheduled_at: when ? new Date(when).toISOString() : undefined,
+              scheduled_at: dateStr
+                ? new Date(`${dateStr}T${timeStr || "09:00"}`).toISOString()
+                : undefined,
               duration_min: duration ? parseInt(duration, 10) : undefined,
             }
           : {}),
@@ -193,10 +220,25 @@ export const ScheduleMeetingForm = ({
                   {t("folder.dateTime")}
                 </span>
                 <input
-                  type="datetime-local"
-                  value={when}
-                  onChange={(e) => setWhen(e.target.value)}
+                  type="date"
+                  value={dateStr}
+                  onChange={(e) => setDateStr(e.target.value)}
                 />
+              </label>
+              <label>
+                <span className="mcm-invite__label">&nbsp;</span>
+                <select
+                  className="mcm-sched__time"
+                  aria-label={t("folder.dateTime")}
+                  value={timeStr}
+                  onChange={(e) => setTimeStr(e.target.value)}
+                >
+                  {TIME_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
                 <span className="mcm-invite__label">
@@ -235,7 +277,16 @@ export const ScheduleMeetingForm = ({
             </div>
           )}
 
-          <label className="mcm-invite__label">{t("invite.internal")}</label>
+          <div className="mcm-invite__label-row">
+            <span className="mcm-invite__label">{t("invite.internal")}</span>
+            <button
+              type="button"
+              className="mcm-invite__pick-btn"
+              onClick={() => setPickerOpen(true)}
+            >
+              <Users size={13} /> {t("invite.pickMembers")}
+            </button>
+          </div>
           <div className="mcm-invite__search">
             <Search size={14} />
             <input
@@ -346,6 +397,27 @@ export const ScheduleMeetingForm = ({
               : t("folder.createNow")}
           </button>
         </footer>
+      {pickerOpen && (
+        <MemberPicker
+          directory={dir}
+          disabledEmails={
+            new Set(
+              [...selected.values()]
+                .filter((s) => s.kind === "internal")
+                .map((s) => s.email),
+            )
+          }
+          onConfirm={(emails) =>
+            emails.forEach((e) => {
+              const u = dir.find((x) => x.email === e);
+              if (u) {
+                add({ email: u.email, name: u.name, kind: "internal" });
+              }
+            })
+          }
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </div>
   );
 };

@@ -25,6 +25,9 @@ export const ko: Widened<typeof vi> = {
     send: "초대 보내기",
     sent: "보냄 ✓",
     empty: "결과 없음",
+    pickMembers: "멤버 추가",
+    pickTitle: "멤버 선택",
+    addSelected: "{count}명 추가",
   },
   invited: {
     title: "초대됨 / 예정",
