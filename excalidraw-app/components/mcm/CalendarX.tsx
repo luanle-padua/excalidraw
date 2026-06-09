@@ -33,6 +33,7 @@ import {
 } from "@schedule-x/calendar";
 import { createEventsServicePlugin } from "@schedule-x/events-service";
 import { ScheduleXCalendar, useCalendarApp } from "@schedule-x/react";
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import "@schedule-x/theme-default/dist/index.css";
@@ -294,16 +295,13 @@ export const CalendarX = ({
         onEventClick: (event) => {
           onOpenRef.current(String(event.id));
         },
-        // Month view: clicking a day → create a meeting on it (default 09:00).
+        // Clicking a day FOCUSES it — the day panel below then shows that day's
+        // meetings + notes, with a "+" to create (no longer create-on-click).
         onClickDate: (date) => {
           setFocusedDay(date);
-          onCreateRef.current(`${date}T09:00`);
         },
-        // Week/Day view: clicking a time slot → create at that day, 09:00.
         onClickDateTime: (dateTime) => {
-          const date = dateTime.slice(0, 10);
-          setFocusedDay(date);
-          onCreateRef.current(`${date}T09:00`);
+          setFocusedDay(dateTime.slice(0, 10));
         },
         // Navigating / selecting a date (without creating) re-points the notes.
         onSelectedDateUpdate: (date) => {
@@ -363,7 +361,101 @@ export const CalendarX = ({
           customComponents={customComponents}
         />
       </div>
-      <DayNotes dayKeyStr={focusedDay} />
+      <DayPanel
+        dayKeyStr={focusedDay}
+        meetings={meetings}
+        lang={lang}
+        onOpen={(id) => onOpenRef.current(id)}
+        onCreate={() => onCreateRef.current(`${focusedDay}T09:00`)}
+      />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Day panel (below the calendar): the focused day's meetings + a notes box,
+// with a floating "+" (bottom-right) to create a meeting on that day. Clicking
+// a calendar day focuses it here rather than jumping straight into create.
+// ---------------------------------------------------------------------------
+
+const DayPanel = ({
+  dayKeyStr,
+  meetings,
+  lang,
+  onOpen,
+  onCreate,
+}: {
+  dayKeyStr: string;
+  meetings: CalMeeting[];
+  lang: string;
+  onOpen: (id: string) => void;
+  onCreate: () => void;
+}) => {
+  const t = useT();
+  const dayMeetings = useMemo(
+    () =>
+      meetings
+        .filter((m) => dayKey(meetingDate(m)) === dayKeyStr)
+        .sort((a, b) => meetingDate(a).getTime() - meetingDate(b).getTime()),
+    [meetings, dayKeyStr],
+  );
+  const [y, mo, d] = dayKeyStr.split("-").map(Number);
+  const label = new Date(y, (mo || 1) - 1, d || 1).toLocaleDateString(lang, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
+  return (
+    <div className="mcm-calx__day">
+      <div className="mcm-calx__day-head">{label}</div>
+      <ul className="mcm-calx__day-list">
+        {dayMeetings.length === 0 && (
+          <li className="mcm-calx__day-empty">{t("cal.noMeetings")}</li>
+        )}
+        {dayMeetings.map((m) => {
+          const md = meetingDate(m);
+          return (
+            <li key={m.id}>
+              <button
+                type="button"
+                className="mcm-calx__day-item"
+                onClick={() => onOpen(m.id)}
+                style={
+                  {
+                    ["--mc" as string]: meetingColor(m.color, m.status),
+                  } as React.CSSProperties
+                }
+              >
+                <span className="mcm-calx__day-time">
+                  {m.scheduled_at
+                    ? md.toLocaleTimeString(lang, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </span>
+                <span className="mcm-calx__day-title">{m.title || m.id}</span>
+                {m.status && (
+                  <span className="mcm-pill mcm-pill--scheduled mcm-calx__day-status">
+                    {m.status}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <DayNotes dayKeyStr={dayKeyStr} />
+      <button
+        type="button"
+        className="mcm-calx__fab"
+        onClick={onCreate}
+        title={t("cal.createOnDay")}
+        aria-label={t("cal.createOnDay")}
+      >
+        <Plus size={20} />
+      </button>
     </div>
   );
 };

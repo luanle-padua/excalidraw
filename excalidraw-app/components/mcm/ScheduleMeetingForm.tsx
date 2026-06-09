@@ -74,17 +74,21 @@ export const ScheduleMeetingForm = ({
   }, [clients, clientQ, selected]);
 
   const filtered = useMemo(() => {
-    const n = q.trim().toLowerCase();
+    // Normalise punctuation/spacing so "div 1" matches "Div. 1", and search the
+    // title too (people search by role + department).
+    const norm = (s: string) => s.toLowerCase().replace(/[.\s]+/g, " ").trim();
+    const n = norm(q);
     return dir
       .filter((u) => !selected.has(u.email))
       .filter(
         (u) =>
           !n ||
-          u.name.toLowerCase().includes(n) ||
-          u.email.toLowerCase().includes(n) ||
-          (u.division ?? "").toLowerCase().includes(n),
+          norm(u.name).includes(n) ||
+          norm(u.email).includes(n) ||
+          norm(u.division ?? "").includes(n) ||
+          norm(u.title ?? "").includes(n),
       )
-      .slice(0, 30);
+      .slice(0, 50);
   }, [dir, q, selected]);
 
   const add = (s: Selected) =>

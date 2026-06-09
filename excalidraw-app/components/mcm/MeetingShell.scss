@@ -7045,10 +7045,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 230px;
+    max-height: 168px;
     overflow-y: auto;
     border: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
     border-radius: 10px;
+    scrollbar-width: thin;
 
     li button {
       width: 100%;

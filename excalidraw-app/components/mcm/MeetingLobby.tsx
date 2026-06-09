@@ -172,6 +172,13 @@ export const MeetingLobby = () => {
             <button
               type="button"
               className="mcm-lobby__join-toggle"
+              onClick={() => setDismissed(true)}
+            >
+              {t("lobby.solo")}
+            </button>
+            <button
+              type="button"
+              className="mcm-lobby__join-toggle"
               onClick={() => setJoinOpen((v) => !v)}
             >
               {t("lobby.joinByLink")}
@@ -250,15 +257,6 @@ export const MeetingLobby = () => {
           </div>
         )}
 
-        <footer className="mcm-lobby__foot">
-          <button
-            type="button"
-            className="mcm-lobby__solo"
-            onClick={() => setDismissed(true)}
-          >
-            {t("lobby.solo")}
-          </button>
-        </footer>
       </div>
     </div>
   );
