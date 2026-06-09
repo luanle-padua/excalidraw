@@ -281,12 +281,12 @@
   // Highlight the whole TODAY cell with a soft accent wash + inner ring so it's
   // obvious at a glance which day is today.
   .sx__month-grid-day.sx__is-today {
-    background: color-mix(in srgb, var(--mcm-accent) 9%, transparent);
-    box-shadow: inset 0 0 0 1.5px
-      color-mix(in srgb, var(--mcm-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--mcm-accent) 10%, transparent);
+    box-shadow: inset 0 0 0 2px var(--mcm-accent);
+    border-radius: 4px;
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-accent) 13%, transparent);
+      background: color-mix(in srgb, var(--mcm-accent) 15%, transparent);
     }
   }
 
