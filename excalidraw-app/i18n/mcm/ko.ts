@@ -32,6 +32,7 @@ export const ko: Widened<typeof vi> = {
   },
   cal: {
     title: "일정",
+    upcoming: "예정",
     today: "오늘",
     month: "월",
     day: "일",

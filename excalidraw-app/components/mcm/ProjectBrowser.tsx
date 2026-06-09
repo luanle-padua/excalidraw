@@ -1,32 +1,30 @@
 import {
-  CalendarPlus,
   Clock,
   Eye,
   Image as ImageIcon,
   Pencil,
+  Plus,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
-import {
-  generateCollaborationLinkData,
-  getCollaborationLink,
-} from "../../data";
+import { getCollaborationLink } from "../../data";
+import { getMyMeetings, type CalMeeting } from "../../data/calendar";
+import { getMyInvitations, type MyInvitation } from "../../data/invite";
 import {
   createProject,
   getMeeting,
   listMeetings,
   listProjects,
-  registerMeeting,
   updateMeeting,
   updateProject,
 } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
-import { InvitedMeetings } from "./InvitedMeetings";
+import { CalendarView } from "./CalendarView";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
 import { MetadataEditor } from "./MetadataEditor";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
@@ -36,6 +34,9 @@ import type { MeetingSummary, Project } from "../../data/projects";
 import type { MeetingFieldsInput } from "./metadataFields";
 
 type MeetingDraft = { id: string } & MeetingFieldsInput;
+
+// "all" = my whole calendar · "invited" = invitations · else a project id.
+type View = "all" | "invited" | string;
 
 const fmtDate = (ms: number | null) =>
   ms ? new Date(ms).toLocaleString() : "—";
@@ -47,17 +48,45 @@ const fmtDuration = (s: number): string => {
     : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`;
 };
 
+// Adapt the calendar/invite shapes to the card grid's MeetingSummary so the
+// middle column renders the same card for every context.
+const calToSummary = (c: CalMeeting): MeetingSummary => ({
+  id: c.id,
+  title: c.title,
+  topic: null,
+  type: null,
+  status: c.status,
+  created_by: c.created_by,
+  thumbnail: null,
+  participant_count: null,
+  duration_s: null,
+  scene_updated_at: null,
+  updated_at: c.created_at,
+  last_opened_at: null,
+  scheduled_at: c.scheduled_at,
+});
+
+const invToSummary = (i: MyInvitation): MeetingSummary => ({
+  id: i.id,
+  title: i.title,
+  topic: i.topic,
+  type: null,
+  status: i.status,
+  created_by: i.created_by,
+  thumbnail: null,
+  participant_count: null,
+  duration_s: null,
+  scene_updated_at: null,
+  updated_at: 0,
+  last_opened_at: null,
+  scheduled_at: i.scheduled_at,
+});
+
 /**
- * Project-first browser: projects on the left, the selected project's
- * meetings on the right. Shared by the lobby home (inline) and the
- * in-canvas folder modal (ProjectFolder).
- *
- * Projects and meetings can be renamed + given metadata (project stage /
- * description, meeting topic / description) via a shared MetadataEditor —
- * the field set is the only thing that grows as more metadata accrues.
- *
- * `onEntered` fires after a room is joined/created so a wrapping modal
- * can close itself (the lobby auto-hides via isCollaborating).
+ * Unified home (Notion-style 3 columns): a sidebar (calendar / invited / the
+ * project list) on the LEFT, the selected context's meeting cards in the
+ * MIDDLE (which the inline detail + create/schedule form replace), and the
+ * calendar always on the RIGHT. `onEntered` fires after a room is joined.
  */
 export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const t = useT();
@@ -65,9 +94,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const session = useAtomValue(sessionAtom);
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [meetings, setMeetings] = useState<MeetingSummary[]>([]);
-  const [loadingMeetings, setLoadingMeetings] = useState(false);
+  const [view, setView] = useState<View>("all");
+  const [cards, setCards] = useState<MeetingSummary[]>([]);
+  const [loadingCards, setLoadingCards] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -78,60 +107,78 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [meetingFormOpen, setMeetingFormOpen] = useState<
     "now" | "schedule" | null
   >(null);
+  const [formDefaultWhen, setFormDefaultWhen] = useState<string | undefined>();
 
   const refreshProjects = useCallback(async () => {
-    const list = await listProjects();
-    setProjects(list);
-    setSelectedId((prev) => prev ?? list[0]?.id ?? null);
+    setProjects(await listProjects());
   }, []);
 
-  const refreshMeetings = useCallback(async () => {
-    if (!selectedId) {
-      setMeetings([]);
-      return;
-    }
-    setLoadingMeetings(true);
+  // Load the middle column for the current context.
+  const refreshCards = useCallback(async () => {
+    setLoadingCards(true);
     try {
-      setMeetings(await listMeetings(selectedId));
+      if (view === "all") {
+        setCards((await getMyMeetings()).map(calToSummary));
+      } else if (view === "invited") {
+        setCards((await getMyInvitations()).map(invToSummary));
+      } else {
+        setCards(await listMeetings(view));
+      }
     } finally {
-      setLoadingMeetings(false);
+      setLoadingCards(false);
     }
-  }, [selectedId]);
+  }, [view]);
 
   useEffect(() => {
     void refreshProjects();
   }, [refreshProjects]);
 
   useEffect(() => {
-    void refreshMeetings();
-  }, [refreshMeetings]);
+    void refreshCards();
+  }, [refreshCards]);
 
   if (!collabAPI) {
     return null;
   }
 
-  const createdBy = session?.name || collabAPI.getUsername() || undefined;
-  const selectedProject = projects.find((p) => p.id === selectedId) ?? null;
+  const selectedProject =
+    view === "all" || view === "invited"
+      ? null
+      : projects.find((p) => p.id === view) ?? null;
+  // The project a new meeting attaches to (the open one, else the first).
+  const targetProject = selectedProject ?? projects[0] ?? null;
 
-  const enterRoom = async (
-    roomId: string,
-    roomKey: string,
-    // Reopening a past meeting from the folder = REVIEW (read-only,
-    // immutable, extract-only). Creating a new meeting = editable.
-    viewOnly = false,
-  ) => {
-    // If the folder was opened from INSIDE a live meeting, tear that down
-    // first. Otherwise startCollaboration early-returns (`if portal.socket
-    // return null`) and the room never actually switches — leaving the
-    // review/edit state set for a room we never entered (the sticky /
-    // inverted view-mode bug). stopCollaboration saves the old scene, then
-    // resets the canvas + review state before we join the new room.
+  const contextLabel = selectedProject
+    ? selectedProject.name
+    : view === "invited"
+    ? t("invited.title")
+    : t("cal.upcoming");
+
+  const enterRoom = async (roomId: string, roomKey: string, viewOnly = false) => {
     if (collabAPI.isCollaborating()) {
       collabAPI.stopCollaboration(false);
     }
     window.history.pushState({}, "", getCollaborationLink({ roomId, roomKey }));
     await collabAPI.startCollaboration({ roomId, roomKey }, { viewOnly });
     onEntered?.();
+  };
+
+  const joinMeetingById = async (roomId: string) => {
+    const m = await getMeeting(roomId);
+    if (!m?.room_key) {
+      return;
+    }
+    const finished = m.status === "Completed" || m.status === "Cancelled";
+    await enterRoom(roomId, m.room_key, finished);
+  };
+
+  // Calendar (right column) callbacks — the detail + create form open in the
+  // always-visible middle column, so no view switch is needed.
+  const calJoin = (id: string) => void joinMeetingById(id);
+  const calOpen = (id: string) => setDetailRoomId(id);
+  const calCreate = (dateISO: string) => {
+    setFormDefaultWhen(dateISO);
+    setMeetingFormOpen("schedule");
   };
 
   const handleCreateProject = async () => {
@@ -145,13 +192,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       setNewProjectName("");
       await refreshProjects();
       if (project) {
-        setSelectedId(project.id);
+        setView(project.id);
       }
     } finally {
       setBusy(false);
     }
   };
-
 
   const handleReopen = async (m: MeetingSummary) => {
     if (busy) {
@@ -161,9 +207,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     try {
       const meeting = await getMeeting(m.id);
       if (meeting?.room_key) {
-        // Review (read-only) ONLY for FINISHED meetings. An in-progress /
-        // scheduled meeting reopened from the folder is still editable —
-        // you're rejoining live work, not reviewing a closed record.
         const finished =
           meeting.status === "Completed" || meeting.status === "Cancelled";
         await enterRoom(m.id, meeting.room_key, finished);
@@ -224,51 +267,71 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       scheduled_at: values.scheduled_at,
     });
     setEditingMeeting(null);
-    await refreshMeetings();
+    await refreshCards();
   };
 
+  const navItem = (key: View, label: string) => (
+    <button
+      type="button"
+      className={`mcm-nav__item${view === key ? " mcm-nav__item--active" : ""}`}
+      onClick={() => {
+        setView(key);
+        setDetailRoomId(null);
+        setMeetingFormOpen(null);
+      }}
+    >
+      <span className="mcm-nav__item-label">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="mcm-folder__body mcm-browser">
-      {/* Left: projects */}
-      <aside className="mcm-folder__projects">
-        <InvitedMeetings />
-        <ul className="mcm-folder__project-list">
-          {projects.length === 0 && (
-            <li className="mcm-folder__empty">{t("folder.empty")}</li>
-          )}
-          {projects.map((p) => (
-            <li key={p.id}>
-              <button
-                type="button"
-                className={`mcm-folder__project${
-                  p.id === selectedId ? " mcm-folder__project--active" : ""
-                }`}
-                onClick={() => setSelectedId(p.id)}
-              >
-                <span className="mcm-folder__project-name">{p.name}</span>
-                {p.stage && (
-                  <span className="mcm-folder__project-stage">{p.stage}</span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="mcm-folder__new-project">
+    <div className="mcm-home mcm-3col">
+      {/* LEFT — sidebar nav */}
+      <aside className="mcm-3col__sidebar mcm-scroll">
+        <div className="mcm-nav__section">
+          {navItem("all", t("cal.title"))}
+          {navItem("invited", t("invited.title"))}
+        </div>
+        <div className="mcm-nav__section">
+          <h3 className="mcm-nav__section-label">{t("header.projects")}</h3>
+          <ul className="mcm-nav__items">
+            {projects.length === 0 && (
+              <li className="mcm-nav__empty">{t("folder.empty")}</li>
+            )}
+            {projects.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  className={`mcm-nav__item${
+                    view === p.id ? " mcm-nav__item--active" : ""
+                  }`}
+                  onClick={() => {
+                    setView(p.id);
+                    setDetailRoomId(null);
+                    setMeetingFormOpen(null);
+                  }}
+                >
+                  <span className="mcm-nav__item-label">{p.name}</span>
+                  {p.stage && (
+                    <span className="mcm-nav__item-stage">{p.stage}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="mcm-nav__footer">
           <input
             type="text"
-            className="mcm-folder__input"
+            className="mcm-nav__input"
             placeholder={t("folder.projectNamePlaceholder")}
             value={newProjectName}
             onChange={(e) => setNewProjectName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                void handleCreateProject();
-              }
-            }}
+            onKeyDown={(e) => e.key === "Enter" && void handleCreateProject()}
           />
           <button
             type="button"
-            className="mcm-folder__create"
+            className="mcm-nav__create"
             onClick={handleCreateProject}
             disabled={busy || !newProjectName.trim()}
           >
@@ -277,192 +340,177 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
       </aside>
 
-      {/* Right: meetings in the selected project */}
-      <section className="mcm-folder__meetings">
-        {!selectedProject ? (
-          <div className="mcm-folder__hint">{t("folder.selectProject")}</div>
-        ) : detailRoomId ? (
-          <MeetingDetailPreview
-            roomId={detailRoomId}
-            onClose={() => setDetailRoomId(null)}
-            onEdit={() => {
-              const m = meetings.find((x) => x.id === detailRoomId);
-              setDetailRoomId(null);
-              if (m) {
-                void openMeetingEditor(m);
-              }
-            }}
-          />
-        ) : meetingFormOpen ? (
-          <ScheduleMeetingForm
-            projectId={selectedProject.id}
-            projectName={selectedProject.name}
-            mode={meetingFormOpen}
-            onClose={() => setMeetingFormOpen(null)}
-            onCreated={() => {
-              setMeetingFormOpen(null);
-              void refreshMeetings();
-            }}
-            onCreatedEnter={(roomId, roomKey) => {
-              setMeetingFormOpen(null);
-              void enterRoom(roomId, roomKey);
-            }}
-          />
-        ) : (
-          <>
-            {selectedProject.cover && (
-              <div className="mcm-folder__cover">
-                <img src={selectedProject.cover} alt="" draggable={false} />
-              </div>
-            )}
-            <div className="mcm-folder__meetings-head">
-              <div className="mcm-folder__headline">
-                <span className="mcm-folder__meetings-title">
-                  {selectedProject.name}
-                </span>
-                {selectedProject.stage && (
-                  <span className="mcm-folder__stage">
-                    {selectedProject.stage}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="mcm-folder__edit"
-                  onClick={() => setEditingProject(selectedProject)}
-                  title={t("folder.editProject")}
-                  aria-label={t("folder.editProject")}
-                >
-                  <Pencil size={14} />
-                </button>
-              </div>
-              <div className="mcm-folder__head-actions">
-                <button
-                  type="button"
-                  className="mcm-folder__schedule-btn"
-                  onClick={() => setMeetingFormOpen("schedule")}
-                  disabled={busy}
-                >
-                  <CalendarPlus size={15} /> {t("folder.schedule")}
-                </button>
-                <button
-                  type="button"
-                  className="mcm-folder__new-meeting"
-                  onClick={() => setMeetingFormOpen("now")}
-                  disabled={busy}
-                >
-                  {t("folder.newMeetingInProject")}
-                </button>
-              </div>
-            </div>
-            {selectedProject.description && (
-              <p className="mcm-folder__project-desc">
-                {selectedProject.description}
-              </p>
-            )}
-            {loadingMeetings ? (
-              <div className="mcm-folder__hint">…</div>
-            ) : meetings.length === 0 ? (
-              <div className="mcm-folder__hint">{t("folder.noMeetings")}</div>
-            ) : (
-              <ul className="mcm-folder__meeting-grid">
-                {meetings.map((m) => (
-                  <li key={m.id} className="mcm-folder__card">
+      {/* MIDDLE — context meetings, or the inline detail / create form */}
+      <section className="mcm-3col__middle">
+        <div className="mcm-3col__middle-head">
+          <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
+          {selectedProject && (
+            <button
+              type="button"
+              className="mcm-folder__edit"
+              onClick={() => setEditingProject(selectedProject)}
+              title={t("folder.editProject")}
+              aria-label={t("folder.editProject")}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          {view !== "invited" && targetProject && !detailRoomId && (
+            <button
+              type="button"
+              className="mcm-3col__new-meeting"
+              onClick={() => setMeetingFormOpen("now")}
+              disabled={busy}
+            >
+              <Plus size={15} /> {t("folder.newMeetingInProject")}
+            </button>
+          )}
+        </div>
+
+        <div className="mcm-3col__middle-body mcm-scroll">
+          {detailRoomId ? (
+            <MeetingDetailPreview
+              roomId={detailRoomId}
+              onClose={() => setDetailRoomId(null)}
+              onEdit={() => {
+                const m = cards.find((x) => x.id === detailRoomId);
+                setDetailRoomId(null);
+                if (m) {
+                  void openMeetingEditor(m);
+                }
+              }}
+            />
+          ) : meetingFormOpen && targetProject ? (
+            <ScheduleMeetingForm
+              projectId={targetProject.id}
+              projectName={targetProject.name}
+              mode={meetingFormOpen}
+              defaultWhen={formDefaultWhen}
+              onClose={() => {
+                setMeetingFormOpen(null);
+                setFormDefaultWhen(undefined);
+              }}
+              onCreated={() => {
+                setMeetingFormOpen(null);
+                void refreshCards();
+              }}
+              onCreatedEnter={(roomId, roomKey) => {
+                setMeetingFormOpen(null);
+                void enterRoom(roomId, roomKey);
+              }}
+            />
+          ) : loadingCards ? (
+            <div className="mcm-3col__hint">…</div>
+          ) : cards.length === 0 ? (
+            <div className="mcm-3col__hint">{t("folder.noMeetings")}</div>
+          ) : (
+            <ul className="mcm-3col__grid">
+              {cards.map((m) => (
+                <li key={m.id} className="mcm-folder__card">
+                  <button
+                    type="button"
+                    className="mcm-folder__card-btn"
+                    onClick={() => handleReopen(m)}
+                    disabled={busy}
+                    title={t("folder.reopen")}
+                  >
+                    <div className="mcm-folder__thumb">
+                      {m.thumbnail ? (
+                        <img src={m.thumbnail} alt="" draggable={false} />
+                      ) : (
+                        <ImageIcon
+                          className="mcm-folder__thumb-glyph"
+                          size={26}
+                        />
+                      )}
+                    </div>
+                    <div className="mcm-folder__card-meta">
+                      <span className="mcm-folder__card-title">
+                        {m.title || t("folder.meetingFallbackTitle")}
+                      </span>
+                      {(m.type || m.status || m.discipline) && (
+                        <span className="mcm-folder__card-chips">
+                          {m.type && (
+                            <span className="mcm-folder__card-type">
+                              {m.type}
+                            </span>
+                          )}
+                          {m.discipline && (
+                            <span className="mcm-folder__card-type mcm-folder__card-type--alt">
+                              {m.discipline}
+                            </span>
+                          )}
+                          {m.status && (
+                            <span
+                              className={`mcm-folder__card-status mcm-folder__card-status--${m.status
+                                .replace(/\s+/g, "-")
+                                .toLowerCase()}`}
+                            >
+                              {m.status}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      {m.topic && (
+                        <span className="mcm-folder__card-topic">
+                          {m.topic}
+                        </span>
+                      )}
+                      <span className="mcm-folder__card-date">
+                        {fmtDate(m.scene_updated_at ?? m.updated_at)}
+                      </span>
+                      {(m.participant_count != null ||
+                        m.duration_s != null) && (
+                        <span className="mcm-folder__card-stats">
+                          {m.participant_count != null && (
+                            <span>
+                              <Users size={12} /> {m.participant_count}
+                            </span>
+                          )}
+                          {m.duration_s != null && (
+                            <span>
+                              <Clock size={12} /> {fmtDuration(m.duration_s)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                  <div className="mcm-folder__card-actions">
                     <button
                       type="button"
-                      className="mcm-folder__card-btn"
-                      onClick={() => handleReopen(m)}
-                      disabled={busy}
-                      title={t("folder.reopen")}
+                      className="mcm-folder__card-act"
+                      onClick={() => setDetailRoomId(m.id)}
+                      title={t("folder.detail")}
+                      aria-label={t("folder.detail")}
                     >
-                      <div className="mcm-folder__thumb">
-                        {m.thumbnail ? (
-                          <img src={m.thumbnail} alt="" draggable={false} />
-                        ) : (
-                          <ImageIcon
-                            className="mcm-folder__thumb-glyph"
-                            size={26}
-                          />
-                        )}
-                      </div>
-                      <div className="mcm-folder__card-meta">
-                        <span className="mcm-folder__card-title">
-                          {m.title || t("folder.meetingFallbackTitle")}
-                        </span>
-                        {(m.type || m.status || m.discipline) && (
-                          <span className="mcm-folder__card-chips">
-                            {m.type && (
-                              <span className="mcm-folder__card-type">
-                                {m.type}
-                              </span>
-                            )}
-                            {m.discipline && (
-                              <span className="mcm-folder__card-type mcm-folder__card-type--alt">
-                                {m.discipline}
-                              </span>
-                            )}
-                            {m.status && (
-                              <span
-                                className={`mcm-folder__card-status mcm-folder__card-status--${m.status
-                                  .replace(/\s+/g, "-")
-                                  .toLowerCase()}`}
-                              >
-                                {m.status}
-                              </span>
-                            )}
-                          </span>
-                        )}
-                        {m.topic && (
-                          <span className="mcm-folder__card-topic">
-                            {m.topic}
-                          </span>
-                        )}
-                        <span className="mcm-folder__card-date">
-                          {fmtDate(m.scene_updated_at ?? m.updated_at)}
-                        </span>
-                        {(m.participant_count != null ||
-                          m.duration_s != null) && (
-                          <span className="mcm-folder__card-stats">
-                            {m.participant_count != null && (
-                              <span>
-                                <Users size={12} /> {m.participant_count}
-                              </span>
-                            )}
-                            {m.duration_s != null && (
-                              <span>
-                                <Clock size={12} /> {fmtDuration(m.duration_s)}
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </div>
+                      <Eye size={14} />
                     </button>
-                    <div className="mcm-folder__card-actions">
-                      <button
-                        type="button"
-                        className="mcm-folder__card-act"
-                        onClick={() => setDetailRoomId(m.id)}
-                        title={t("folder.detail")}
-                        aria-label={t("folder.detail")}
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="mcm-folder__card-act"
-                        onClick={() => void openMeetingEditor(m)}
-                        title={t("folder.editMeeting")}
-                        aria-label={t("folder.editMeeting")}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
+                    <button
+                      type="button"
+                      className="mcm-folder__card-act"
+                      onClick={() => void openMeetingEditor(m)}
+                      title={t("folder.editMeeting")}
+                      aria-label={t("folder.editMeeting")}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
+
+      {/* RIGHT — calendar, always visible */}
+      <div className="mcm-3col__calendar">
+        <CalendarView
+          onJoinMeeting={calJoin}
+          onOpenMeeting={calOpen}
+          onCreateOnDay={calCreate}
+        />
+      </div>
 
       {editingProject && (
         <MetadataEditor
@@ -472,7 +520,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           onClose={() => setEditingProject(null)}
         />
       )}
-
       {editingMeeting && (
         <MetadataEditor
           title={t("folder.editMeeting")}

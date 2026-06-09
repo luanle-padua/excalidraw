@@ -32,6 +32,7 @@ export const vi = {
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",
+    upcoming: "Sắp tới",
     today: "Hôm nay",
     month: "Tháng",
     day: "Ngày",

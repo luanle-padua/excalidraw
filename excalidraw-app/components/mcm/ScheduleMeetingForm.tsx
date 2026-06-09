@@ -21,6 +21,7 @@ export const ScheduleMeetingForm = ({
   projectId,
   projectName,
   mode,
+  defaultWhen,
   onClose,
   onCreated,
   onCreatedEnter,
@@ -30,6 +31,8 @@ export const ScheduleMeetingForm = ({
   /** "now" = create + enter the room immediately; "schedule" = create as
    *  scheduled (date/time shown), don't enter — appears in Upcoming. */
   mode: "now" | "schedule";
+  /** Prefill date/time (e.g. from a calendar day click), "YYYY-MM-DDTHH:mm". */
+  defaultWhen?: string;
   onClose: () => void;
   onCreated: () => void;
   onCreatedEnter?: (roomId: string, roomKey: string) => void;
@@ -37,7 +40,7 @@ export const ScheduleMeetingForm = ({
   const t = useT();
   const session = useAtomValue(sessionAtom);
   const [title, setTitle] = useState("");
-  const [when, setWhen] = useState("");
+  const [when, setWhen] = useState(defaultWhen ?? "");
   const [duration, setDuration] = useState("60");
   const [dir, setDir] = useState<DirectoryUser[]>([]);
   const [q, setQ] = useState("");

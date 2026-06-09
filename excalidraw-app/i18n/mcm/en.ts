@@ -24,6 +24,7 @@ export const en: Widened<typeof vi> = {
   },
   cal: {
     title: "Calendar",
+    upcoming: "Upcoming",
     today: "Today",
     month: "Month",
     day: "Day",
