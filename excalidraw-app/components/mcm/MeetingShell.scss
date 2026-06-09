@@ -5492,7 +5492,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__projects {
-    width: 240px;
+    width: 280px;
     flex-shrink: 0;
     border-right: 1px solid var(--mcm-hairline);
     display: flex;
@@ -5625,11 +5625,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     flex: 1;
     list-style: none;
     margin: 0;
-    padding: 16px;
+    padding: 18px;
     overflow-y: auto;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 16px;
     align-content: start;
   }
 
@@ -5705,15 +5705,19 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 // Wider panel hosting <ProjectBrowser> (reuses the .mcm-folder__* body
 // styles). Join-by-link + solo are side options in the top/footer bars.
 .mcm-lobby__home {
-  width: 100%;
-  max-width: 880px;
-  height: min(640px, 88vh);
+  // True full-screen app layout: break out of the lobby's centering + padding
+  // and fill the whole viewport (the home is shown alone, never beside the
+  // login card, so a fixed overlay is safe). No rounded card / inset.
+  position: fixed;
+  inset: 0;
+  width: auto;
+  max-width: none;
+  height: auto;
   display: flex;
   flex-direction: column;
   background: var(--mcm-surface);
-  border: 1px solid var(--mcm-hairline-2);
-  border-radius: 16px;
-  box-shadow: var(--mcm-elev);
+  border: none;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -6782,7 +6786,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 .mcm-pp-overlay {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  // Above the lobby (1000) + project folder (1100) stacking contexts — these
+  // modals portal to <body> but those fixed ancestors would otherwise cover
+  // them, making the drawer open invisibly behind the home (the "click does
+  // nothing" bug).
+  z-index: 1200;
   background: rgba(0, 0, 0, 0.28);
   display: flex;
   justify-content: flex-end;
@@ -7206,5 +7214,226 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       opacity: 0.5;
       cursor: default;
     }
+  }
+}
+
+// ===== ProjectBrowser enrichment: card actions, schedule, detail drawer =====
+.mcm-folder {
+  &__card-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+  &__card:hover &__card-actions {
+    opacity: 1;
+  }
+  &__card-act {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 7px;
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+    background: var(--mcm-surface, #fff);
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    cursor: pointer;
+    transition: background-color 140ms, color 140ms;
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+      color: var(--mcm-accent, #6965db);
+    }
+  }
+  &__card-type--alt {
+    background: color-mix(
+      in srgb,
+      var(--mcm-accent, #6965db) 12%,
+      transparent
+    ) !important;
+    color: var(--mcm-accent, #6965db) !important;
+  }
+  &__head-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  &__schedule-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+    background: transparent;
+    color: var(--mcm-text, #1b1b1f);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 13px;
+    border-radius: 10px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+}
+
+// Schedule form: date + duration row (reuses .mcm-invite shell)
+.mcm-sched__row {
+  display: flex;
+  gap: 10px;
+
+  > label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  input {
+    height: 36px;
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
+    border-radius: 9px;
+    padding: 0 10px;
+    font-size: 13.5px;
+    background: var(--mcm-bg, #fff);
+    color: var(--mcm-text, #1b1b1f);
+  }
+}
+
+// Meeting detail preview drawer (reuses .mcm-pp-overlay + .mcm-pp__head/__close)
+.mcm-mdp {
+  width: 380px;
+  max-width: 94vw;
+  height: 100%;
+  background: var(--mcm-surface, #fff);
+  color: var(--mcm-text, #1b1b1f);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.18);
+  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  animation: mcm-pp-in 160ms ease;
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 18px;
+  }
+  &__status {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+    color: var(--mcm-accent, #6965db);
+    margin-bottom: 4px;
+  }
+  &__dl {
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin: 0 0 6px;
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    dt {
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+    }
+    dd {
+      margin: 0;
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: var(--mcm-text, #1b1b1f);
+    }
+  }
+}
+
+// ===== Inline right-panel (detail + create/schedule form) =====
+// Fills the meetings column in the full-screen home instead of a floating
+// drawer (the create form + detail render here, with a back button).
+.mcm-folder__rpanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  // neutralise the .mcm-invite drawer shell when it renders inline here:
+  // the form body/footer become centered columns in the wide meetings area.
+  .mcm-invite__body,
+  .mcm-invite__foot {
+    width: 100%;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+.mcm-folder__rpanel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--mcm-hairline);
+  flex-shrink: 0;
+
+  strong {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 650;
+    color: var(--mcm-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+.mcm-folder__rpanel-back,
+.mcm-folder__rpanel-act {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--mcm-hairline);
+  background: var(--mcm-surface);
+  color: var(--mcm-text-soft);
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+  }
+}
+.mcm-folder__rpanel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+
+  > * {
+    max-width: 760px;
   }
 }

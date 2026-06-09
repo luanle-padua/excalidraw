@@ -48,6 +48,10 @@ export type MeetingSummary = {
   scene_updated_at: number | null;
   updated_at: number;
   last_opened_at: number | null;
+  discipline?: string | null;
+  priority?: string | null;
+  confidentiality?: string | null;
+  scheduled_at?: string | null;
 };
 
 const json = { "content-type": "application/json" };
@@ -130,6 +134,9 @@ export const updateMeeting = async (
     priority?: string;
     confidentiality?: string;
     scheduled_at?: string;
+    duration_min?: number;
+    organizer_email?: string;
+    host_email?: string;
   },
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED) {

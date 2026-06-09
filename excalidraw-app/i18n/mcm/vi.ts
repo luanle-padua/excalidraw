@@ -29,6 +29,19 @@ export const vi = {
     title: "Được mời / Sắp tới",
     join: "Vào họp",
   },
+  // ---------------- Calendar ---------------------------------------
+  cal: {
+    title: "Lịch họp",
+    today: "Hôm nay",
+    month: "Tháng",
+    day: "Ngày",
+    createOnDay: "+ Tạo cuộc họp ngày này",
+    notes: "Ghi chú",
+    noMeetings: "Không có cuộc họp nào trong ngày này",
+    join: "Vào họp",
+    detail: "Chi tiết",
+    more: "+{count} nữa",
+  },
   // ---------------- Header -----------------------------------------
   header: {
     invite: "Mời",
@@ -233,6 +246,13 @@ export const vi = {
     selectProject: "Chọn một dự án để xem các cuộc họp",
     noMeetings: "Dự án này chưa có cuộc họp",
     newMeetingInProject: "+ Cuộc họp mới",
+    schedule: "Lên lịch",
+    detail: "Chi tiết",
+    meetingTitle: "Tiêu đề cuộc họp",
+    dateTime: "Ngày & giờ",
+    durationMin: "Thời lượng (phút)",
+    createScheduled: "Tạo & gửi mời",
+    createNow: "Tạo & vào họp",
     reopen: "Mở lại",
     meetingFallbackTitle: "Cuộc họp không tên",
     newMeetingDefaultTitle: "Cuộc họp mới",

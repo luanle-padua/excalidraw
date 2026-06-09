@@ -425,7 +425,7 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT id, title, topic, type, status, created_by, thumbnail,
             participant_count, duration_s, scene_updated_at, updated_at,
-            last_opened_at
+            last_opened_at, discipline, priority, confidentiality, scheduled_at
      FROM meeting WHERE project_id = ?1 ORDER BY updated_at DESC`,
   )
     .bind(c.req.param("projectId"))
@@ -727,6 +727,105 @@ app.get("/v1/directory", async (c) => {
   }
   people.sort((a, b) => a.name.localeCompare(b.name));
   return c.json({ users: people });
+});
+
+// ---- Calendar: my meetings -----------------------------------------------
+// Every meeting the caller can MANAGE on their calendar — the union of:
+//   (a) meetings they organize/created (created_by OR organizer_email = me),
+//   (b) meetings they're an active invitee of (status <> 'revoked'),
+//   (c) meetings in projects they're a project_member of.
+// Deduped by meeting id. Admins see ALL meetings. Distinct from
+// /v1/me/invitations, which is the client-facing "invited to" list only.
+app.get("/v1/me/meetings", async (c) => {
+  const email = c.get("email");
+  const isAdmin = c.get("role") === "admin";
+  if (!email && !isAdmin) {
+    return c.json({ meetings: [] });
+  }
+  const cols = `m.id, m.title, m.status, m.scheduled_at, m.created_at,
+                m.project_id, p.name AS project_name, m.created_by,
+                m.duration_min`;
+  const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
+  if (isAdmin) {
+    const { results } = await c.env.DB.prepare(
+      `SELECT ${cols}
+       FROM meeting m LEFT JOIN project p ON p.id = m.project_id
+       ${order}`,
+    ).all();
+    return c.json({ meetings: results });
+  }
+  const e = (email as string).toLowerCase();
+  const { results } = await c.env.DB.prepare(
+    `SELECT ${cols}
+     FROM meeting m LEFT JOIN project p ON p.id = m.project_id
+     WHERE m.id IN (
+       SELECT id FROM meeting
+         WHERE lower(created_by) = ?1 OR lower(organizer_email) = ?1
+       UNION
+       SELECT meeting_id FROM meeting_invitee
+         WHERE email = ?1 AND status <> 'revoked'
+       UNION
+       SELECT mm.id FROM meeting mm
+         JOIN project_member pm ON pm.project_id = mm.project_id
+         WHERE pm.email = ?1
+     )
+     ${order}`,
+  )
+    .bind(e)
+    .all();
+  return c.json({ meetings: results });
+});
+
+// ---- Calendar: per-user notes --------------------------------------------
+// A scratch note owned by the caller, keyed by scope+ref:
+//   scope=day     · ref=YYYY-MM-DD  → note for a calendar day
+//   scope=meeting · ref=roomId      → note for one meeting
+// Strictly per-user: every query is bound to the caller's JWT email, so a
+// note is never read from or written for anyone else.
+app.get("/v1/notes", async (c) => {
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ body: "" });
+  }
+  const scope = c.req.query("scope");
+  const ref = (c.req.query("ref") ?? "").trim();
+  if ((scope !== "day" && scope !== "meeting") || !ref) {
+    return c.json({ body: "" });
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT body FROM note WHERE scope = ?1 AND ref = ?2 AND email = ?3`,
+  )
+    .bind(scope, ref, email.toLowerCase())
+    .first<{ body: string }>();
+  return c.json({ body: row?.body ?? "" });
+});
+
+app.put("/v1/notes", async (c) => {
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ error: "no email" }, 400);
+  }
+  const b = await c.req.json<{
+    scope?: string;
+    ref?: string;
+    body?: string;
+  }>();
+  if (b.scope !== "day" && b.scope !== "meeting") {
+    return c.json({ error: "invalid scope" }, 400);
+  }
+  const ref = (b.ref ?? "").trim();
+  if (!ref) {
+    return c.json({ error: "ref required" }, 400);
+  }
+  await c.env.DB.prepare(
+    `INSERT INTO note (scope, ref, email, body, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5)
+     ON CONFLICT(scope, ref, email) DO UPDATE SET
+       body = excluded.body, updated_at = excluded.updated_at`,
+  )
+    .bind(b.scope, ref, email.toLowerCase(), b.body ?? "", now())
+    .run();
+  return c.json({ ok: true });
 });
 
 // ---- Daily.co screen-share token -----------------------------------------

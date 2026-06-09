@@ -1,4 +1,11 @@
-import { Clock, Image as ImageIcon, Pencil, Users } from "lucide-react";
+import {
+  CalendarPlus,
+  Clock,
+  Eye,
+  Image as ImageIcon,
+  Pencil,
+  Users,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
@@ -20,7 +27,9 @@ import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { InvitedMeetings } from "./InvitedMeetings";
+import { MeetingDetailPreview } from "./MeetingDetailPreview";
 import { MetadataEditor } from "./MetadataEditor";
+import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { buildMeetingFields, buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
@@ -65,6 +74,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [editingMeeting, setEditingMeeting] = useState<MeetingDraft | null>(
     null,
   );
+  const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
+  const [meetingFormOpen, setMeetingFormOpen] = useState<
+    "now" | "schedule" | null
+  >(null);
 
   const refreshProjects = useCallback(async () => {
     const list = await listProjects();
@@ -139,25 +152,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     }
   };
 
-  const handleNewMeeting = async () => {
-    if (!selectedId || busy) {
-      return;
-    }
-    setBusy(true);
-    try {
-      const { roomId, roomKey } = await generateCollaborationLinkData();
-      await registerMeeting({
-        roomId,
-        roomKey,
-        projectId: selectedId,
-        title: t("folder.newMeetingDefaultTitle"),
-        createdBy,
-      });
-      await enterRoom(roomId, roomKey);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleReopen = async (m: MeetingSummary) => {
     if (busy) {
@@ -287,6 +281,33 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       <section className="mcm-folder__meetings">
         {!selectedProject ? (
           <div className="mcm-folder__hint">{t("folder.selectProject")}</div>
+        ) : detailRoomId ? (
+          <MeetingDetailPreview
+            roomId={detailRoomId}
+            onClose={() => setDetailRoomId(null)}
+            onEdit={() => {
+              const m = meetings.find((x) => x.id === detailRoomId);
+              setDetailRoomId(null);
+              if (m) {
+                void openMeetingEditor(m);
+              }
+            }}
+          />
+        ) : meetingFormOpen ? (
+          <ScheduleMeetingForm
+            projectId={selectedProject.id}
+            projectName={selectedProject.name}
+            mode={meetingFormOpen}
+            onClose={() => setMeetingFormOpen(null)}
+            onCreated={() => {
+              setMeetingFormOpen(null);
+              void refreshMeetings();
+            }}
+            onCreatedEnter={(roomId, roomKey) => {
+              setMeetingFormOpen(null);
+              void enterRoom(roomId, roomKey);
+            }}
+          />
         ) : (
           <>
             {selectedProject.cover && (
@@ -314,14 +335,24 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                   <Pencil size={14} />
                 </button>
               </div>
-              <button
-                type="button"
-                className="mcm-folder__new-meeting"
-                onClick={handleNewMeeting}
-                disabled={busy}
-              >
-                {t("folder.newMeetingInProject")}
-              </button>
+              <div className="mcm-folder__head-actions">
+                <button
+                  type="button"
+                  className="mcm-folder__schedule-btn"
+                  onClick={() => setMeetingFormOpen("schedule")}
+                  disabled={busy}
+                >
+                  <CalendarPlus size={15} /> {t("folder.schedule")}
+                </button>
+                <button
+                  type="button"
+                  className="mcm-folder__new-meeting"
+                  onClick={() => setMeetingFormOpen("now")}
+                  disabled={busy}
+                >
+                  {t("folder.newMeetingInProject")}
+                </button>
+              </div>
             </div>
             {selectedProject.description && (
               <p className="mcm-folder__project-desc">
@@ -357,11 +388,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                         <span className="mcm-folder__card-title">
                           {m.title || t("folder.meetingFallbackTitle")}
                         </span>
-                        {(m.type || m.status) && (
+                        {(m.type || m.status || m.discipline) && (
                           <span className="mcm-folder__card-chips">
                             {m.type && (
                               <span className="mcm-folder__card-type">
                                 {m.type}
+                              </span>
+                            )}
+                            {m.discipline && (
+                              <span className="mcm-folder__card-type mcm-folder__card-type--alt">
+                                {m.discipline}
                               </span>
                             )}
                             {m.status && (
@@ -400,15 +436,26 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                         )}
                       </div>
                     </button>
-                    <button
-                      type="button"
-                      className="mcm-folder__edit mcm-folder__card-edit"
-                      onClick={() => void openMeetingEditor(m)}
-                      title={t("folder.editMeeting")}
-                      aria-label={t("folder.editMeeting")}
-                    >
-                      <Pencil size={14} />
-                    </button>
+                    <div className="mcm-folder__card-actions">
+                      <button
+                        type="button"
+                        className="mcm-folder__card-act"
+                        onClick={() => setDetailRoomId(m.id)}
+                        title={t("folder.detail")}
+                        aria-label={t("folder.detail")}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mcm-folder__card-act"
+                        onClick={() => void openMeetingEditor(m)}
+                        title={t("folder.editMeeting")}
+                        aria-label={t("folder.editMeeting")}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
