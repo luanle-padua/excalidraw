@@ -237,6 +237,33 @@ export const vi = {
       "Theo dõi đăng nhập sai cần log-drains (làm sau). Dưới là nhật ký thao tác admin gần đây.",
   },
 
+  // ---------------- Client list (CRM-lite contact book) ------------
+  clients: {
+    title: "Danh sách khách hàng",
+    subtitle: "Sổ liên hệ khách dùng chung — chọn nhanh khi mời",
+    add: "Thêm khách hàng",
+    name: "Tên",
+    namePlaceholder: "VD: Nguyễn Văn A",
+    company: "Công ty",
+    companyPlaceholder: "VD: ABC Corp",
+    email: "Email",
+    emailPlaceholder: "khach@congty.com",
+    note: "Ghi chú",
+    notePlaceholder: "Ghi chú thêm…",
+    colContact: "Liên hệ",
+    colCompany: "Công ty",
+    colAddedBy: "Người thêm",
+    colAdded: "Thêm lúc",
+    empty: "Chưa có khách hàng nào",
+    confirmDelete: "Xoá khách hàng này khỏi danh sách?",
+    manage: "Quản lý khách hàng",
+    pickFromList: "Chọn từ danh sách khách hàng",
+    pickSearch: "Tìm khách theo tên / công ty / email…",
+    pickEmpty: "Không có khách phù hợp",
+    noEmail: "(chưa có email)",
+    count: "{count} khách hàng",
+  },
+
   // ---------------- Project folder ---------------------------------
   folder: {
     title: "Dự án",

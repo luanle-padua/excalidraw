@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { getMeeting } from "../../data/projects";
 import { useT } from "../../i18n/mcm";
 
+import { statusBucket } from "./meetingColors";
+
 type Detail = Awaited<ReturnType<typeof getMeeting>>;
 
 const fmtIso = (s: string | null | undefined) => {
@@ -84,7 +86,13 @@ export const MeetingDetailPreview = ({
         {!loading && !d && <p className="mcm-admin__note">{t("admin.empty")}</p>}
         {!loading && d && (
           <>
-            {d.status && <span className="mcm-mdp__status">{d.status}</span>}
+            {d.status && (
+              <span
+                className={`mcm-pill mcm-pill--${statusBucket(d.status)} mcm-mdp__status`}
+              >
+                {d.status}
+              </span>
+            )}
 
             <h4 className="mcm-admin__h4">{t("admin.secProject")}</h4>
             <dl className="mcm-mdp__dl">

@@ -1,8 +1,9 @@
-import { ArrowLeft, CalendarPlus, Search, X } from "lucide-react";
+import { ArrowLeft, Briefcase, CalendarPlus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { generateCollaborationLinkData } from "../../data";
+import { listClients, type Client } from "../../data/clients";
 import {
   getDirectory,
   inviteToMeeting,
@@ -46,12 +47,31 @@ export const ScheduleMeetingForm = ({
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
   const [clientEmail, setClientEmail] = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientQ, setClientQ] = useState("");
   const [addToProject, setAddToProject] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void getDirectory().then(setDir);
+    void listClients().then(setClients);
   }, []);
+
+  // Saved clients (with an email) not already picked, filtered by the search —
+  // invite straight from the synced client list instead of retyping.
+  const clientMatches = useMemo(() => {
+    const n = clientQ.trim().toLowerCase();
+    return clients
+      .filter((c) => c.email && !selected.has(c.email.toLowerCase()))
+      .filter(
+        (c) =>
+          !n ||
+          c.name.toLowerCase().includes(n) ||
+          (c.company ?? "").toLowerCase().includes(n) ||
+          (c.email ?? "").toLowerCase().includes(n),
+      )
+      .slice(0, 30);
+  }, [clients, clientQ, selected]);
 
   const filtered = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -242,6 +262,44 @@ export const ScheduleMeetingForm = ({
             )}
           </ul>
 
+          <label className="mcm-invite__label">
+            <Briefcase size={13} style={{ verticalAlign: "-2px" }} />{" "}
+            {t("clients.pickFromList")}
+          </label>
+          <div className="mcm-invite__search">
+            <Search size={14} />
+            <input
+              value={clientQ}
+              onChange={(e) => setClientQ(e.target.value)}
+              placeholder={t("clients.pickSearch")}
+            />
+          </div>
+          <ul className="mcm-invite__list">
+            {clientMatches.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    add({
+                      email: c.email!.toLowerCase(),
+                      name: c.company ? `${c.name} · ${c.company}` : c.name,
+                      kind: "guest",
+                    })
+                  }
+                >
+                  <strong>{c.name}</strong>
+                  <span>
+                    {[c.company, c.email].filter(Boolean).join(" · ") ||
+                      c.email}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {clientMatches.length === 0 && (
+              <li className="mcm-invite__empty">{t("clients.pickEmpty")}</li>
+            )}
+          </ul>
+
           <label className="mcm-invite__label">{t("invite.client")}</label>
           <div className="mcm-invite__client">
             <input
@@ -251,7 +309,11 @@ export const ScheduleMeetingForm = ({
               onKeyDown={(e) => e.key === "Enter" && addClient()}
               placeholder={t("invite.clientPlaceholder")}
             />
-            <button type="button" onClick={addClient}>
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
+              onClick={addClient}
+            >
               {t("invite.add")}
             </button>
           </div>
@@ -271,7 +333,7 @@ export const ScheduleMeetingForm = ({
         <footer className="mcm-invite__foot">
           <button
             type="button"
-            className="mcm-invite__send"
+            className="mcm-btn mcm-btn--primary mcm-btn--block"
             onClick={() => void create()}
             disabled={!title.trim() || saving}
           >

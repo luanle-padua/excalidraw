@@ -1,0 +1,374 @@
+// CalendarX theme — dresses the Schedule-X (v2) calendar in the MCM
+// Notion/Apple look. Scoped entirely under `.mcm-calx` so it lives alongside
+// the small token nudge in MeetingShell.scss (which this file supersedes for
+// CalendarX) without leaking into anything else.
+//
+// Strategy:
+//   1. Drive Schedule-X's own design tokens (`--sx-color-*`) from the MCM
+//      tokens (`--mcm-*`). CalendarX renders inside `.mcm-shell`, where those
+//      vars are defined at runtime, so referencing them here resolves in BOTH
+//      light and dark — and because Schedule-X reads its colours from these
+//      vars, theming the variables alone re-skins most of the chrome.
+//   2. A thin layer of `.sx__*` overrides for the bits the tokens don't reach
+//      (hairline grid, small radii, header buttons, date-picker popup, event
+//      pill density, weekday header).
+//   3. Korean red-calendar tinting for the custom month-grid date cell
+//      (`.mcm-calx__date`, rendered by CalendarX's monthGridDate component):
+//      Sundays + holidays RED, Saturdays BLUE, with the holiday name beneath.
+//
+// All colour comes from tokens / `color-mix`, never hard-coded per theme, so
+// dark mode follows automatically when `--mcm-*` flips.
+
+.mcm-calx {
+  // --- container ----------------------------------------------------------
+  &__cal {
+    flex: 1;
+    min-height: 420px;
+    display: flex;
+    flex-direction: column;
+  }
+  &__notes {
+    flex: 0 0 auto;
+  }
+
+  // === Schedule-X design tokens → MCM palette ==============================
+  // Highest-specificity wins over MeetingShell.scss's same selector regardless
+  // of import order, and keeps every Schedule-X surface on the MCM palette.
+  .sx-react-calendar-wrapper {
+    flex: 1;
+    width: 100%;
+    min-height: 420px;
+
+    // Surfaces / background
+    --sx-color-background: var(--mcm-surface);
+    --sx-color-surface: var(--mcm-surface);
+    --sx-color-surface-dim: var(--mcm-surface-2);
+    --sx-color-surface-bright: var(--mcm-surface);
+    --sx-color-surface-container: var(--mcm-surface);
+    --sx-color-surface-container-low: var(--mcm-surface);
+    --sx-color-surface-container-high: var(--mcm-surface-2);
+    --sx-color-on-surface: var(--mcm-text);
+    --sx-color-on-background: var(--mcm-text);
+
+    // Primary = MCM accent (today button, selection, focus rings)
+    --sx-color-primary: var(--mcm-accent);
+    --sx-color-on-primary: #ffffff;
+    --sx-color-primary-container: var(--mcm-accent-soft);
+    --sx-color-on-primary-container: var(--mcm-text);
+
+    // Secondary / tertiary kept on-palette so any incidental use stays calm
+    --sx-color-secondary: var(--mcm-text-soft);
+    --sx-color-on-secondary: #ffffff;
+    --sx-color-secondary-container: var(--mcm-surface-2);
+    --sx-color-on-secondary-container: var(--mcm-text);
+    --sx-color-tertiary: var(--mcm-accent);
+    --sx-color-on-tertiary: #ffffff;
+    --sx-color-tertiary-container: var(--mcm-accent-soft);
+    --sx-color-on-tertiary-container: var(--mcm-text);
+
+    // Hairlines — the calm, thin grid the brief asks for
+    --sx-color-outline: var(--mcm-hairline);
+    --sx-color-outline-variant: var(--mcm-hairline-2);
+    --sx-color-neutral: var(--mcm-hairline);
+    --sx-color-neutral-variant: var(--mcm-hairline-2);
+    --sx-color-shadow: rgba(0, 0, 0, 0.18);
+    --sx-color-surface-tint: var(--mcm-accent);
+
+    // Schedule-X "internal" (non-material) tokens
+    --sx-internal-color-text: var(--mcm-text);
+    --sx-internal-color-light-gray: var(--mcm-surface-2);
+    --sx-internal-color-gray-ripple-background: color-mix(
+      in srgb,
+      var(--mcm-accent) 16%,
+      transparent
+    );
+
+    font-family: inherit;
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+  }
+
+  // === Calendar frame ======================================================
+  .sx__calendar {
+    border: 0;
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+  }
+
+  // --- Header: nav + range heading + today + view switcher -----------------
+  .sx__calendar-header {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--mcm-hairline);
+    gap: 8px;
+  }
+
+  .sx__range-heading {
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    color: var(--mcm-text);
+  }
+
+  // Prev / next chevrons — quiet round icon buttons
+  .sx__chevron-wrapper {
+    border-radius: 8px;
+    color: var(--mcm-text-soft);
+    transition: background 120ms ease, color 120ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+  .sx__chevron {
+    border-color: currentColor;
+  }
+
+  // "Today" button — hairline pill
+  .sx__today-button {
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 8px;
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 6px 12px;
+    transition: background 120ms ease, border-color 120ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      border-color: color-mix(in srgb, var(--mcm-accent) 40%, var(--mcm-hairline));
+    }
+  }
+
+  // View switcher (Month / Week / Day / Agenda) — segmented control
+  .sx__view-selection-items {
+    background: var(--mcm-surface-2);
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 9px;
+    padding: 2px;
+    box-shadow: none;
+  }
+  .sx__view-selection-item,
+  .sx__view-selection-selected-item {
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mcm-text-soft);
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
+      color: var(--mcm-text);
+    }
+  }
+  .sx__view-selection-selected-item {
+    background: var(--mcm-surface);
+    color: var(--mcm-text);
+    box-shadow: var(--mcm-elev, 0 1px 2px rgba(0, 0, 0, 0.08));
+  }
+
+  // === Date-input + date-picker popup =====================================
+  .sx__date-input {
+    background: var(--mcm-surface);
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 8px;
+    color: var(--mcm-text);
+
+    &--active {
+      border-color: var(--mcm-accent);
+      box-shadow: 0 0 0 2px var(--mcm-accent-soft);
+    }
+  }
+  .sx__date-picker-popup {
+    background: var(--mcm-surface);
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 12px;
+    box-shadow: var(--mcm-elev, 0 12px 28px rgba(0, 0, 0, 0.18));
+    color: var(--mcm-text);
+  }
+  .sx__date-picker__day-name {
+    color: var(--mcm-text-faint);
+    font-weight: 600;
+  }
+  .sx__date-picker__day {
+    border-radius: 8px;
+    color: var(--mcm-text);
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+    &--today {
+      color: var(--mcm-accent);
+      font-weight: 700;
+    }
+    &--selected {
+      background: var(--mcm-accent);
+      color: #ffffff;
+    }
+  }
+  .sx__date-picker__month-view-header__month-year {
+    color: var(--mcm-text);
+    font-weight: 650;
+  }
+
+  // === Month grid ==========================================================
+  .sx__month-grid-wrapper {
+    background: var(--mcm-surface);
+  }
+  // Hairline cells, no heavy borders
+  .sx__month-grid-day,
+  .sx__month-grid-week {
+    border-color: var(--mcm-hairline-2);
+  }
+  .sx__month-grid-day {
+    transition: background 120ms ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-accent) 5%, transparent);
+    }
+  }
+  // Weekday header row (Mon, Tue, …)
+  .sx__month-grid-day__header-day-name {
+    color: var(--mcm-text-faint);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  // The date number cell — our custom component is portaled in here, so strip
+  // the default padding/sizing and let `.mcm-calx__date` own the layout.
+  .sx__month-grid-day__header-date {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+  }
+  // Today marker — accent ring instead of a filled blob so the red/blue date
+  // number underneath stays legible.
+  .sx__is-today .sx__month-grid-day__header-date,
+  .sx__month-grid-day.sx__is-today .sx__month-grid-day__header {
+    background: transparent;
+  }
+  .sx__is-today .mcm-calx__date-num {
+    background: var(--mcm-accent);
+    color: #ffffff;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mcm-accent) 28%, transparent);
+  }
+
+  // "+ N more" affordance
+  .sx__month-grid-day__events-more {
+    color: var(--mcm-accent);
+    font-weight: 600;
+  }
+
+  // === Event pills (month / week / day / agenda) ==========================
+  // Small radius, hairline ring; main colour stays the meeting's exact hex via
+  // the per-colour Schedule-X calendar registered in CalendarX.tsx.
+  .sx__month-grid-event,
+  .sx__time-grid-event,
+  .sx__date-grid-event,
+  .sx__month-agenda-event {
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 12px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent);
+  }
+  .sx__month-grid-event {
+    margin: 1px 4px;
+    padding: 2px 6px;
+  }
+
+  // === Week / day grid =====================================================
+  .sx__week-grid,
+  .sx__time-grid-day {
+    border-color: var(--mcm-hairline-2);
+  }
+  .sx__current-time-indicator,
+  .sx__current-time-indicator-full-week {
+    background: var(--mcm-danger, #dc2626);
+  }
+
+  // === Month-agenda view ===================================================
+  .sx__month-agenda-day-name {
+    color: var(--mcm-text-faint);
+  }
+  .sx__month-agenda-day--active .sx__month-agenda-day-name,
+  .sx__month-agenda-day--active {
+    color: var(--mcm-accent);
+  }
+
+  // =========================================================================
+  // Korean red-calendar — custom month-grid date cell (monthGridDate). Tones
+  // are set by CalendarX via data-tone; colour comes from tokens / mixes so the
+  // red/blue stay readable in dark mode too.
+  // =========================================================================
+  &__date {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    line-height: 1.1;
+  }
+  &__date-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--mcm-text);
+  }
+  &__date-holiday {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: color-mix(in srgb, #e5484d 86%, var(--mcm-text));
+  }
+
+  // Sunday / holiday → RED date number
+  &__date[data-tone="holiday"] &__date-num {
+    color: #e5484d;
+  }
+  // Saturday → BLUE date number
+  &__date[data-tone="saturday"] &__date-num {
+    color: #2f6fed;
+  }
+}
+
+// Dark mode: the token-driven theming above already follows dark automatically
+// (the `--mcm-*` vars flip under `.mcm-shell:has(.excalidraw.theme--dark)`, and
+// `.mcm-calx` lives inside `.mcm-shell`). Only the intentionally NON-token
+// red/blue/holiday colours need lifting so they read on the dark surface. Match
+// the app's exact dark-mode ancestor pattern.
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-calx {
+  .mcm-calx__date[data-tone="holiday"] .mcm-calx__date-num {
+    color: #ff8a8f;
+  }
+  .mcm-calx__date[data-tone="saturday"] .mcm-calx__date-num {
+    color: #7aa2ff;
+  }
+  .mcm-calx__date-holiday {
+    color: color-mix(in srgb, #ff8a8f 80%, var(--mcm-text));
+  }
+}
+
+// Today's filled number must stay white in every tone (override the red/blue),
+// in both light and dark.
+.mcm-calx .sx__is-today .mcm-calx__date-num,
+.mcm-shell:has(.excalidraw.theme--dark)
+  .mcm-calx
+  .sx__is-today
+  .mcm-calx__date-num {
+  color: #ffffff;
+}

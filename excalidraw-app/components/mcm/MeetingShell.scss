@@ -6976,23 +6976,9 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     flex-direction: column;
     gap: 12px;
   }
+  // The copy-link button is a .mcm-btn; only pin its alignment here.
   &__link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
     align-self: flex-start;
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-    background: transparent;
-    color: var(--mcm-text, #1b1b1f);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 13px;
-    border-radius: 9px;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--mcm-surface-2, #f0f0f3);
-    }
   }
   &__label {
     font-size: 11.5px;
@@ -7055,16 +7041,6 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       outline: none;
     }
   }
-  &__client button {
-    border: 0;
-    background: var(--mcm-accent, #2563eb);
-    color: #fff;
-    font-size: 12.5px;
-    font-weight: 650;
-    padding: 5px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-  }
   &__list {
     list-style: none;
     margin: 0;
@@ -7121,22 +7097,6 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     flex-shrink: 0;
     padding: 12px 16px;
     border-top: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
-  }
-  &__send {
-    width: 100%;
-    border: 0;
-    border-radius: 10px;
-    height: 40px;
-    font-size: 14px;
-    font-weight: 650;
-    color: #fff;
-    background: var(--mcm-accent, #2563eb);
-    cursor: pointer;
-
-    &:disabled {
-      opacity: 0.45;
-      cursor: default;
-    }
   }
 }
 
@@ -7327,16 +7287,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     overflow-y: auto;
     padding: 16px 18px;
   }
+  // Status chip is a .mcm-pill; only add bottom spacing in this layout.
   &__status {
-    display: inline-block;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    padding: 3px 9px;
-    border-radius: 999px;
-    background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
-    color: var(--mcm-accent, #6965db);
     margin-bottom: 4px;
   }
   &__dl {
@@ -8616,6 +8568,25 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       color: var(--mcm-text);
     }
   }
+
+  // Danger = destructive action (delete). Hairline + red text until hover,
+  // then a soft red wash. Can be stacked on --secondary/--ghost or used alone.
+  &--danger {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--mcm-danger) 30%, transparent);
+    color: var(--mcm-danger);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-danger-soft);
+      border-color: color-mix(in srgb, var(--mcm-danger) 45%, transparent);
+      color: var(--mcm-danger);
+    }
+  }
+
+  // Full-width block (modal footers, drawer "send" actions).
+  &--block {
+    width: 100%;
+  }
 }
 
 // ----- Buttons (square icon) ---------------------------------------------
@@ -8648,6 +8619,24 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     width: 28px;
     height: 28px;
     border-radius: 7px;
+  }
+
+  // Outlined variant — hairline border so it reads as a discrete control in
+  // dense table action clusters (vs the borderless on-card variant).
+  &--outline {
+    border-color: var(--mcm-hairline);
+    background: var(--mcm-surface);
+  }
+
+  // Destructive icon button (delete). Red on hover-wash.
+  &--danger {
+    color: var(--mcm-danger);
+    border-color: color-mix(in srgb, var(--mcm-danger) 28%, transparent);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-danger-soft);
+      color: var(--mcm-danger);
+    }
   }
 }
 
@@ -8684,6 +8673,178 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-danger-soft);
     color: var(--mcm-danger);
   }
+
+  // Admin/state tints — the same pill, reused for on/off/neutral statuses
+  // (user active vs disabled, integration configured vs not, …) so every
+  // status chip across the app is one shape/size/weight.
+  &--on {
+    background: var(--mcm-success-soft);
+    color: var(--mcm-success);
+  }
+  &--off {
+    background: var(--mcm-danger-soft);
+    color: var(--mcm-danger);
+  }
+  &--neutral {
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-soft);
+  }
+  &--accent {
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+  }
+
+  // Inline tag pill (e.g. a user's rank chip next to their name): slightly
+  // taller hit area, sits inline in a table cell.
+  &--tag {
+    height: 18px;
+    padding: 0 7px;
+    font-size: 10px;
+  }
+}
+
+// ----- Tables (admin + clients + every list view) ------------------------
+// ONE table style for the whole app (Users, Meetings, Audit, Clients, Storage,
+// Analytics, …). Notion-calm: uppercase hairline header, hairline rows, soft
+// row hover, 8px-rhythm cell padding. Reuses .mcm-pill for status chips and
+// .mcm-btn / .mcm-icon-btn for row actions, so cells look identical everywhere.
+.mcm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--mcm-hairline-2);
+    vertical-align: middle;
+  }
+
+  thead th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    transition: background-color 140ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+  }
+  // Don't let the hover wash fight the group-header / empty rows.
+  tbody tr.mcm-table__grouprow:hover,
+  tbody tr.mcm-table__norow:hover {
+    background: var(--mcm-surface-2);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  // Primary cell text (name/title). Block so a secondary line can sit under it.
+  td strong {
+    display: block;
+    font-weight: 600;
+    color: var(--mcm-text);
+  }
+
+  // Secondary line(s) inside a cell (email, division, sub-label).
+  &__sub {
+    display: block;
+    margin-top: 1px;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--mcm-text-soft);
+  }
+
+  // Right-aligned action cluster — a row of .mcm-btn--sm / .mcm-icon-btn.
+  &__actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+    white-space: nowrap;
+  }
+
+  // A linky button in a cell (open detail). Reads as a link, behaves as a btn.
+  &__link {
+    border: 0;
+    background: transparent;
+    color: var(--mcm-accent);
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  // Grouping header row (e.g. department divider in the user list).
+  &__grouprow td {
+    background: var(--mcm-surface-2);
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--mcm-text);
+  }
+  &__grouptoggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
+
+    svg {
+      opacity: 0.55;
+    }
+  }
+  &__gcount {
+    margin-left: 4px;
+    font-size: 11px;
+    font-weight: 650;
+    color: var(--mcm-text-soft);
+    background: var(--mcm-surface);
+    padding: 1px 8px;
+    border-radius: 999px;
+  }
+
+  // Empty / loading placeholder row.
+  &__empty td,
+  td.mcm-table__empty {
+    text-align: center;
+    color: var(--mcm-text-soft);
+    padding: 22px 14px;
+  }
+
+  code {
+    font-size: 12px;
+    background: var(--mcm-surface-2);
+    padding: 1px 6px;
+    border-radius: 5px;
+  }
+}
+
+// Card-like shell that wraps a .mcm-table (rounded hairline container).
+.mcm-tablecard {
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 14px;
+  overflow: hidden;
 }
 
 // ----- Middle-header toolbar (view toggle + sort) ------------------------

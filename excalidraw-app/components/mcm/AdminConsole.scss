@@ -73,23 +73,6 @@
     align-items: center;
     gap: 8px;
   }
-  &__ghost {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    background: transparent;
-    color: var(--mcm-text, #1b1b1f);
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 7px 11px;
-    border-radius: 9px;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--mcm-surface-2, #f0f0f3);
-    }
-  }
 
   &__body {
     flex: 1;
@@ -124,13 +107,12 @@
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
   }
 
-  // ----- sections / tables -----
-  &__section {
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
-    border-radius: 14px;
-    overflow: hidden;
-  }
+  // Tables, status pills, row-action buttons and the rounded table shell all
+  // come from the shared design system (.mcm-table / .mcm-tablecard / .mcm-pill
+  // / .mcm-btn / .mcm-icon-btn in MeetingShell.scss) — admin uses those classes
+  // directly so every table/badge/button matches the rest of the app. Only
+  // admin-specific chrome (top bar, tabs, dashboard cards, settings, meeting
+  // detail) is styled below.
 
   &__newuser {
     display: flex;
@@ -156,76 +138,6 @@
     }
   }
 
-  &__primary {
-    height: 32px;
-    border: 0;
-    border-radius: 8px;
-    padding: 0 16px;
-    font-size: 13px;
-    font-weight: 650;
-    color: #fff;
-    background: var(--mcm-accent, #2563eb);
-    cursor: pointer;
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: default;
-    }
-  }
-
-  &__table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-
-    th,
-    td {
-      text-align: left;
-      padding: 11px 14px;
-      border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.05));
-      vertical-align: middle;
-    }
-    th {
-      font-size: 11.5px;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
-      font-weight: 700;
-    }
-    td strong {
-      display: block;
-      font-weight: 650;
-    }
-    select {
-      height: 28px;
-      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      border-radius: 7px;
-      background: var(--mcm-bg, #fff);
-      color: var(--mcm-text, #1b1b1f);
-      font-size: 12.5px;
-      padding: 0 6px;
-    }
-  }
-
-  &__sub {
-    display: block;
-    font-size: 11.5px;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
-    font-weight: 400;
-  }
-
-  &__chip {
-    display: inline-block;
-    margin-left: 8px;
-    font-size: 10.5px;
-    font-weight: 650;
-    padding: 1px 7px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--mcm-accent, #6965db) 12%, transparent);
-    color: var(--mcm-accent, #6965db);
-    vertical-align: middle;
-  }
-
   &__toolbar {
     display: flex;
     align-items: center;
@@ -237,42 +149,6 @@
     font-size: 12.5px;
     font-weight: 600;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-  }
-
-  &__grouprow td {
-    background: var(--mcm-surface-2, #f0f0f3);
-    font-weight: 750;
-    font-size: 12px;
-    color: var(--mcm-text, #1b1b1f);
-
-    svg {
-      vertical-align: -2px;
-      margin-right: 6px;
-      opacity: 0.55;
-    }
-  }
-  &__gcount {
-    margin-left: 8px;
-    font-size: 11px;
-    font-weight: 650;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
-    background: var(--mcm-surface, #fff);
-    padding: 1px 8px;
-    border-radius: 999px;
-  }
-  &__grouptoggle {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-weight: 750;
-    cursor: pointer;
-    padding: 0;
-    text-align: left;
   }
 
   &__settings {
@@ -324,55 +200,6 @@
     }
   }
 
-  &__badge {
-    font-size: 11.5px;
-    font-weight: 650;
-    padding: 3px 9px;
-    border-radius: 999px;
-
-    &.--on {
-      background: #dcfce7;
-      color: #15803d;
-    }
-    &.--off {
-      background: #fee2e2;
-      color: #b91c1c;
-    }
-  }
-
-  &__row-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-
-    button {
-      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      background: transparent;
-      color: var(--mcm-text, #1b1b1f);
-      font-size: 12px;
-      font-weight: 600;
-      padding: 5px 9px;
-      border-radius: 7px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-
-      &:hover {
-        background: var(--mcm-surface-2, #f0f0f3);
-      }
-    }
-  }
-
-  &__danger {
-    color: var(--mcm-danger, #dc2626) !important;
-    border-color: color-mix(in srgb, var(--mcm-danger, #dc2626) 30%, transparent) !important;
-
-    &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 10%, transparent) !important;
-    }
-  }
-
   &__pad {
     padding: 22px;
     max-width: 920px;
@@ -417,21 +244,6 @@
   }
 
   // ----- meeting detail -----
-  &__link {
-    border: 0;
-    background: transparent;
-    color: var(--mcm-accent, #2563eb);
-    font: inherit;
-    font-weight: 650;
-    padding: 0;
-    cursor: pointer;
-    text-align: left;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
-
   &__detail-head {
     display: flex;
     justify-content: space-between;

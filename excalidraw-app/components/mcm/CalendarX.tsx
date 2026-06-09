@@ -4,14 +4,20 @@
 //
 // What it does that the hand-rolled CalendarView did:
 //   • Month / Week / Day (+ month-agenda) views with a built-in view switcher.
-//   • Color-marks each meeting by status via Schedule-X "calendars"
-//     (scheduled = blue, in-progress = green, completed = gray, cancelled = red).
+//   • Colour-marks each meeting by its EFFECTIVE colour — the exact hex its card
+//     stripe uses: meetingColor(m.color, m.status) (assigned colour wins, else
+//     the status colour). Derived from STATUS_COLOR in meetingColors.ts, the one
+//     source of truth shared with the cards, so card ↔ calendar always agree.
 //   • Clicking an event opens the meeting; clicking an empty day/slot creates
 //     a meeting on that day (default 09:00) — matching the old affordances.
 //   • Keeps the NOTES feature: a textarea below the calendar bound to the
 //     focused day, loading getNote("day", …) and saving via saveNote
 //     (blur + 700ms debounce) — identical behaviour to CalendarView's DayNotes.
 //   • Syncs Schedule-X's light/dark theme to the app theme.
+//   • Korean red-calendar: Sundays + public holidays render the date in RED,
+//     Saturdays in BLUE, with the holiday name in the cell. Holidays are fetched
+//     on demand per visible year from a free API (see holidaysApi.ts) — never
+//     hard-coded — and re-fetched as the user navigates across years.
 //
 // Why Schedule-X v2 (not v3): v2 takes plain "YYYY-MM-DD HH:mm" strings for
 // event start/end and string dates in callbacks, and its peerDependencies
@@ -42,86 +48,49 @@ import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
 import { appThemeAtom } from "../../useHandleAppTheme";
 
+import { getKoreanHolidays, type HolidayMap } from "./holidaysApi";
+import {
+  MEETING_COLOR_PRESETS,
+  meetingColor,
+  STATUS_COLOR,
+} from "./meetingColors";
+
+import "./CalendarX.scss";
+
 import type { CalendarEventExternal, CalendarType } from "@schedule-x/calendar";
 
 // ---------------------------------------------------------------------------
-// Status → calendar (colour) mapping. Schedule-X colours events by their
-// `calendarId`, which must match a key in the `calendars` config below.
+// Colour → Schedule-X "calendar". Schedule-X colours an event by its
+// `calendarId`, which must match a key in the `calendars` config. We want every
+// event painted EXACTLY meetingColor(m.color, m.status) — the same hex the card
+// stripe uses — so we register one calendar per distinct EFFECTIVE hex (status
+// colours come straight from STATUS_COLOR, the shared source of truth) and map
+// each meeting to the calendar for its effective hex.
 // ---------------------------------------------------------------------------
 
-type StatusCalendarId = "scheduled" | "in-progress" | "completed" | "cancelled";
+/** A Schedule-X calendarId for a hex colour. One "calendar" is registered per
+ *  distinct effective hex (see effectiveCalendars) so the event paints in that
+ *  exact colour — keeping card + calendar in sync. Sanitised to the [a-f0-9]
+ *  an id needs. */
+const colorCalendarId = (hex: string): string =>
+  `c-${hex.replace(/[^a-fA-F0-9]/g, "").toLowerCase()}`;
 
-/** Map a free-form worker status string to one of four colour buckets. */
-const statusCalendarId = (status: string | null): StatusCalendarId => {
-  const s = (status ?? "").toLowerCase();
-  if (s === "in progress" || s === "in_progress" || s === "live") {
-    return "in-progress";
-  }
-  if (s === "completed" || s === "done") {
-    return "completed";
-  }
-  if (s === "cancelled" || s === "canceled") {
-    return "cancelled";
-  }
-  return "scheduled";
-};
-
-/** The colour palette for each status bucket (light + dark variants). These
- *  are the "colours by meeting status" the owner asked for. */
-const CALENDARS: Record<StatusCalendarId, CalendarType> = {
-  scheduled: {
-    colorName: "scheduled",
-    lightColors: {
-      main: "#1c7df9",
-      container: "#d2e7ff",
-      onContainer: "#002859",
-    },
-    darkColors: {
-      main: "#7db4ff",
-      container: "#19315a",
-      onContainer: "#dee9ff",
-    },
+/** Build a Schedule-X `CalendarType` from an arbitrary hex. We derive soft
+ *  container tints from the base colour with `color-mix` so events read
+ *  consistently in both themes while the pill/accent stays the exact hex. */
+const calendarForColor = (hex: string): CalendarType => ({
+  colorName: colorCalendarId(hex),
+  lightColors: {
+    main: hex,
+    container: `color-mix(in srgb, ${hex} 20%, #ffffff)`,
+    onContainer: `color-mix(in srgb, ${hex} 64%, #000000)`,
   },
-  "in-progress": {
-    colorName: "in-progress",
-    lightColors: {
-      main: "#16a34a",
-      container: "#caf1d8",
-      onContainer: "#012d16",
-    },
-    darkColors: {
-      main: "#67e0a3",
-      container: "#0f3d28",
-      onContainer: "#daf6e6",
-    },
+  darkColors: {
+    main: hex,
+    container: `color-mix(in srgb, ${hex} 30%, #1b1b1f)`,
+    onContainer: `color-mix(in srgb, ${hex} 32%, #ffffff)`,
   },
-  completed: {
-    colorName: "completed",
-    lightColors: {
-      main: "#64748b",
-      container: "#e2e8f0",
-      onContainer: "#1e293b",
-    },
-    darkColors: {
-      main: "#9aa7b8",
-      container: "#2b3442",
-      onContainer: "#e6ebf2",
-    },
-  },
-  cancelled: {
-    colorName: "cancelled",
-    lightColors: {
-      main: "#ef4444",
-      container: "#ffd5d5",
-      onContainer: "#4c0000",
-    },
-    darkColors: {
-      main: "#ff9b9b",
-      container: "#4a1a1a",
-      onContainer: "#ffe2e2",
-    },
-  },
-};
+});
 
 // ---------------------------------------------------------------------------
 // Date helpers — Schedule-X v2 wants LOCAL "YYYY-MM-DD HH:mm" strings. We build
@@ -143,16 +112,13 @@ const dateTimeKey = (d: Date): string =>
 const meetingDate = (m: CalMeeting): Date =>
   m.scheduled_at ? new Date(m.scheduled_at) : new Date(m.created_at);
 
-/** A Schedule-X calendarId for a user-assigned hex colour. We register one
- *  "calendar" per distinct custom colour on the fly (see customCalendars
- *  below) so the event paints in that exact colour — keeping card + calendar
- *  in sync. Sanitised to the [a-f0-9] the id needs. */
-const colorCalendarId = (hex: string): string =>
-  `c-${hex.replace(/[^a-fA-F0-9]/g, "").toLowerCase()}`;
+/** The effective colour for a meeting — the EXACT hex its card stripe paints.
+ *  Single source of truth: meetingColor() over STATUS_COLOR. */
+const effectiveColor = (m: CalMeeting): string =>
+  meetingColor(m.color, m.status);
 
 /** Map one CalMeeting → a Schedule-X event. end = start + duration (default
- *  60 min). Colour: the user-assigned `meeting.color` when set (via a custom
- *  calendar), else the status bucket's calendar. */
+ *  60 min). Colour: the meeting's effective hex via its colour-calendar. */
 const toEvent = (m: CalMeeting): CalendarEventExternal => {
   const start = meetingDate(m);
   const durationMin =
@@ -163,26 +129,33 @@ const toEvent = (m: CalMeeting): CalendarEventExternal => {
     title: m.title ?? m.id,
     start: dateTimeKey(start),
     end: dateTimeKey(end),
-    calendarId: m.color ? colorCalendarId(m.color) : statusCalendarId(m.status),
+    calendarId: colorCalendarId(effectiveColor(m)),
   };
 };
 
-/** Build a Schedule-X `CalendarType` from an arbitrary hex. We derive soft
- *  container tints from the base colour with `color-mix` so custom-coloured
- *  events read consistently in both themes. */
-const calendarForColor = (hex: string): CalendarType => ({
-  colorName: colorCalendarId(hex),
-  lightColors: {
-    main: hex,
-    container: `color-mix(in srgb, ${hex} 22%, #ffffff)`,
-    onContainer: `color-mix(in srgb, ${hex} 60%, #000000)`,
-  },
-  darkColors: {
-    main: hex,
-    container: `color-mix(in srgb, ${hex} 30%, #1b1b1f)`,
-    onContainer: `color-mix(in srgb, ${hex} 30%, #ffffff)`,
-  },
-});
+/** The four status colours, pre-registered as calendars so even meetings whose
+ *  effective colour equals a status colour resolve to a stable id. Built once
+ *  from STATUS_COLOR. */
+const STATUS_CALENDARS: Record<string, CalendarType> = Object.fromEntries(
+  Object.values(STATUS_COLOR).map((hex) => [
+    colorCalendarId(hex),
+    calendarForColor(hex),
+  ]),
+);
+
+/** Every colour a meeting can paint with — the 4 status colours + the 6 user
+ *  presets — pre-registered ONCE so the Schedule-X app is created with a static
+ *  `calendars` set (no per-meeting rebuild). Any assigned preset colour is
+ *  therefore already registered and the event matches the card stripe exactly. */
+const ALL_CALENDARS: Record<string, CalendarType> = {
+  ...STATUS_CALENDARS,
+  ...Object.fromEntries(
+    MEETING_COLOR_PRESETS.map((hex) => [
+      colorCalendarId(hex),
+      calendarForColor(hex),
+    ]),
+  ),
+};
 
 /** Resolve the app theme atom (which may be "system") to a concrete dark flag. */
 const useIsDark = (): boolean => {
@@ -209,8 +182,9 @@ const LOCALE_MAP: Record<string, string> = {
 // Component
 // ---------------------------------------------------------------------------
 
-/** Inline Schedule-X calendar of the user's meetings, colour-marked by status,
- *  with a per-day notes panel underneath. Same props as CalendarView. */
+/** Inline Schedule-X calendar of the user's meetings, colour-marked to match
+ *  each card's stripe, with Korean weekend/holiday tinting and a per-day notes
+ *  panel underneath. Same props as CalendarView. */
 export const CalendarX = ({
   onCreateOnDay,
   onOpenMeeting,
@@ -239,6 +213,39 @@ export const CalendarX = ({
     dayKey(new Date()),
   );
 
+  // Korean public holidays for the years the user has navigated to. Fetched on
+  // demand per visible year (holidaysApi caches + fails gracefully), merged
+  // here, and read by the month-grid date cell via a ref so the (stable) custom
+  // component always sees the freshest map without rebuilding the calendar.
+  const [holidays, setHolidays] = useState<HolidayMap>(() => new Map());
+  const holidaysRef = useRef<HolidayMap>(holidays);
+  holidaysRef.current = holidays;
+  const loadedYears = useRef<Set<number>>(new Set());
+
+  const ensureHolidaysForYear = useCallback((year: number) => {
+    if (loadedYears.current.has(year) || !Number.isFinite(year)) {
+      return;
+    }
+    loadedYears.current.add(year);
+    void getKoreanHolidays(year).then((map) => {
+      if (map.size === 0) {
+        return;
+      }
+      setHolidays((prev) => {
+        const next = new Map(prev);
+        for (const [k, v] of map) {
+          next.set(k, v);
+        }
+        return next;
+      });
+    });
+  }, []);
+
+  // Prime the current year up front so today's grid is tinted on first paint.
+  useEffect(() => {
+    ensureHolidaysForYear(new Date().getFullYear());
+  }, [ensureHolidaysForYear]);
+
   // Self-fetch when the parent didn't hand us a list.
   useEffect(() => {
     if (!externalMeetings) {
@@ -253,8 +260,8 @@ export const CalendarX = ({
   onCreateRef.current = onCreateOnDay;
   onOpenRef.current = onOpenMeeting;
 
-  // Events service plugin — created once; we push the live event list through
-  // it via .set() whenever `meetings` changes (see effect below).
+  // Events service plugin — created once, REGISTERED in `plugins` below; we push
+  // the live event list through it via .set() whenever `meetings` changes.
   const eventsService = useState(() => createEventsServicePlugin())[0];
 
   const events = useMemo<CalendarEventExternal[]>(() => {
@@ -262,22 +269,6 @@ export const CalendarX = ({
       .filter((m) => !Number.isNaN(meetingDate(m).getTime()))
       .map(toEvent);
   }, [meetings]);
-
-  // Register one Schedule-X "calendar" per distinct user-assigned colour so
-  // those events paint in their exact hex. Merged with the four status
-  // calendars. The signature key lets us rebuild the app only when the set of
-  // colours actually changes (rare) — colour changes are otherwise pushed
-  // through the events service on the next set().
-  const customCalendars = useMemo<Record<string, CalendarType>>(() => {
-    const out: Record<string, CalendarType> = {};
-    for (const m of meetings) {
-      if (m.color) {
-        out[colorCalendarId(m.color)] = calendarForColor(m.color);
-      }
-    }
-    return out;
-  }, [meetings]);
-  const calendarsKey = Object.keys(customCalendars).sort().join(",");
 
   const calendar = useCalendarApp(
     {
@@ -289,7 +280,8 @@ export const CalendarX = ({
       ],
       defaultView: createViewMonthGrid().name,
       events,
-      calendars: { ...CALENDARS, ...customCalendars },
+      calendars: ALL_CALENDARS,
+      plugins: [eventsService],
       isDark,
       locale: LOCALE_MAP[lang] ?? "en-US",
       selectedDate: dayKey(new Date()),
@@ -317,11 +309,19 @@ export const CalendarX = ({
         onClickAgendaDate: (date) => {
           setFocusedDay(date.slice(0, 10));
         },
+        // Whenever the visible range changes (navigation / view switch / first
+        // render), make sure holidays for every year it spans are loaded so the
+        // red/blue tinting is robust across month navigation and year edges.
+        onRangeUpdate: (range) => {
+          const startYear = Number(String(range.start).slice(0, 4));
+          const endYear = Number(String(range.end).slice(0, 4));
+          ensureHolidaysForYear(startYear);
+          if (endYear !== startYear) {
+            ensureHolidaysForYear(endYear);
+          }
+        },
       },
     },
-    // Rebuild when the set of custom colour-calendars changes so newly
-    // assigned colours register; event-only changes go via eventsService.set.
-    [eventsService, calendarsKey],
   );
 
   // Keep Schedule-X's events in sync with our meeting list. Seeding via config
@@ -337,12 +337,91 @@ export const CalendarX = ({
     calendar?.setTheme(isDark ? "dark" : "light");
   }, [calendar, isDark]);
 
+  // Custom month-grid date cell: paint the day number per the Korean
+  // red-calendar convention and surface the holiday name. Stable identity (no
+  // deps) so it never forces a calendar rebuild; it reads the latest holidays
+  // through holidaysRef. Schedule-X's prop shape varies by version, so we
+  // forward whatever it passes and let the cell derive the date defensively.
+  const customComponents = useMemo(
+    () => ({
+      monthGridDate: (props: Record<string, unknown>) => (
+        <MonthGridDate {...props} holidaysRef={holidaysRef} />
+      ),
+    }),
+    [],
+  );
+
   return (
     <div className="mcm-cal mcm-calx">
       <div className="mcm-calx__cal">
-        <ScheduleXCalendar calendarApp={calendar} />
+        <ScheduleXCalendar
+          calendarApp={calendar}
+          customComponents={customComponents}
+        />
       </div>
       <DayNotes dayKeyStr={focusedDay} />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Month-grid date cell — Korean red-calendar tinting.
+//   • Sunday (getDay() === 0) or a public holiday → date in RED.
+//   • Saturday (getDay() === 6)                   → date in BLUE.
+//   • Holiday name shown beneath the number when present.
+// Classes are styled in CalendarX.scss; data-attrs let CSS target the states
+// without inline colour so light/dark both resolve via tokens.
+// ---------------------------------------------------------------------------
+
+const MonthGridDate = ({
+  date,
+  jsDate,
+  holidaysRef,
+}: {
+  date?: unknown;
+  jsDate?: unknown;
+  holidaysRef: React.MutableRefObject<HolidayMap>;
+}) => {
+  // Schedule-X's prop shape varies by version — it may hand us a "YYYY-MM-DD"
+  // string, a Date in `date`, or a Date in `jsDate`. Derive a concrete local
+  // Date defensively (never assume `date` is a string → no `.split` crash).
+  const jd =
+    jsDate instanceof Date
+      ? jsDate
+      : date instanceof Date
+      ? date
+      : typeof date === "string"
+      ? (() => {
+          const [y, m, d] = date.slice(0, 10).split("-").map(Number);
+          return new Date(y, (m || 1) - 1, d || 1);
+        })()
+      : null;
+
+  if (!jd || Number.isNaN(jd.getTime())) {
+    return (
+      <div className="mcm-calx__date">
+        <span className="mcm-calx__date-num">
+          {typeof date === "number" || typeof date === "string"
+            ? String(date)
+            : ""}
+        </span>
+      </div>
+    );
+  }
+
+  const weekday = jd.getDay();
+  const name = holidaysRef.current.get(dayKey(jd));
+  const tone =
+    name || weekday === 0 ? "holiday" : weekday === 6 ? "saturday" : "weekday";
+
+  return (
+    <div className="mcm-calx__date" data-tone={tone}>
+      <span className="mcm-calx__date-num">{jd.getDate()}</span>
+      {name ? (
+        <span className="mcm-calx__date-holiday" title={name}>
+          {name}
+        </span>
+      ) : null}
     </div>
   );
 };

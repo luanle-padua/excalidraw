@@ -53,6 +53,9 @@ import {
 import { signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { statusBucket } from "./meetingColors";
+
+import { ClientsManager } from "./ClientsManager";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 
 import "./AdminConsole.scss";
@@ -367,41 +370,51 @@ export const AdminConsole = () => {
         <td>
           <strong>
             {md?.name || md?.display_name || u.email}
-            {md?.title && <span className="mcm-admin__chip">{md.title}</span>}
+            {md?.title && (
+              <span className="mcm-pill mcm-pill--accent mcm-pill--tag">
+                {md.title}
+              </span>
+            )}
           </strong>
-          <span className="mcm-admin__sub">{u.email}</span>
+          <span className="mcm-table__sub">{u.email}</span>
           {(md?.department || md?.company) && (
-            <span className="mcm-admin__sub">
+            <span className="mcm-table__sub">
               {md?.department || md?.company}
             </span>
           )}
         </td>
         <td>
           <span
-            className={
-              banned ? "mcm-admin__badge --off" : "mcm-admin__badge --on"
-            }
+            className={`mcm-pill ${banned ? "mcm-pill--off" : "mcm-pill--on"}`}
           >
             {banned ? t("admin.disabled") : t("admin.active")}
           </span>
         </td>
         <td>{fmtIso(u.last_sign_in_at)}</td>
-        <td className="mcm-admin__row-actions">
+        <td className="mcm-table__actions">
           {isAdminUser(u) ? (
-            <span className="mcm-admin__sub">
+            <span className="mcm-table__sub">
               <Lock size={12} style={{ verticalAlign: "-1px" }} /> admin
             </span>
           ) : (
             <>
-              <button type="button" onClick={() => void toggleDisabled(u)}>
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                onClick={() => void toggleDisabled(u)}
+              >
                 {banned ? t("admin.enable") : t("admin.disable")}
               </button>
-              <button type="button" onClick={() => void resetPw(u)}>
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                onClick={() => void resetPw(u)}
+              >
                 {t("admin.reset")}
               </button>
               <button
                 type="button"
-                className="mcm-admin__danger"
+                className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
                 title={t("admin.delete")}
                 aria-label={t("admin.delete")}
                 onClick={() => void removeUser(u)}
@@ -512,7 +525,7 @@ export const AdminConsole = () => {
           <LangThemeSwitcher />
           <button
             type="button"
-            className="mcm-admin__ghost"
+            className="mcm-btn mcm-btn--secondary mcm-btn--sm"
             onClick={() => void signOut()}
           >
             <LogOut size={16} /> {t("login.signOut")}
@@ -559,7 +572,7 @@ export const AdminConsole = () => {
         )}
 
         {tab === "users" && (
-          <div className="mcm-admin__section">
+          <div className="mcm-tablecard">
             <div className="mcm-admin__newuser">
               <UserPlus size={16} />
               <input
@@ -580,7 +593,7 @@ export const AdminConsole = () => {
               />
               <button
                 type="button"
-                className="mcm-admin__primary"
+                className="mcm-btn mcm-btn--primary mcm-btn--sm"
                 onClick={handleCreate}
                 disabled={busy || !nuEmail.trim() || !nuPassword}
               >
@@ -594,7 +607,7 @@ export const AdminConsole = () => {
               </span>
               <button
                 type="button"
-                className="mcm-admin__ghost"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
                 onClick={() =>
                   setUsersSort((s) => (s === "rank" ? "name" : "rank"))
                 }
@@ -606,7 +619,7 @@ export const AdminConsole = () => {
               </button>
             </div>
 
-            <table className="mcm-admin__table">
+            <table className="mcm-table">
               <thead>
                 <tr>
                   <th>{t("admin.colUser")}</th>
@@ -631,11 +644,11 @@ export const AdminConsole = () => {
                     const isOpen = !collapsed.has(division);
                     return (
                       <Fragment key={division}>
-                        <tr className="mcm-admin__grouprow">
+                        <tr className="mcm-table__grouprow">
                           <td colSpan={4}>
                             <button
                               type="button"
-                              className="mcm-admin__grouptoggle"
+                              className="mcm-table__grouptoggle"
                               onClick={() => toggleGroup(division)}
                             >
                               {isOpen ? (
@@ -644,7 +657,7 @@ export const AdminConsole = () => {
                                 <ChevronRight size={14} />
                               )}
                               <Building2 size={13} /> {division}
-                              <span className="mcm-admin__gcount">
+                              <span className="mcm-table__gcount">
                                 {list.length}
                               </span>
                             </button>
@@ -660,68 +673,45 @@ export const AdminConsole = () => {
         )}
 
         {tab === "clients" && (
-          <div className="mcm-admin__section">
-            <div className="mcm-admin__newuser">
-              <Briefcase size={16} />
-              <input
-                placeholder={t("admin.email")}
-                value={nuEmail}
-                onChange={(e) => setNuEmail(e.target.value)}
-              />
-              <input
-                placeholder={t("admin.name")}
-                value={nuName}
-                onChange={(e) => setNuName(e.target.value)}
-              />
-              <input
-                placeholder={t("admin.company")}
-                value={nuCompany}
-                onChange={(e) => setNuCompany(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder={t("admin.password")}
-                value={nuPassword}
-                onChange={(e) => setNuPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                className="mcm-admin__primary"
-                onClick={handleCreate}
-                disabled={busy || !nuEmail.trim() || !nuPassword}
-              >
-                {t("admin.create")}
-              </button>
+          <div className="mcm-admin__pad">
+            <h4 className="mcm-admin__h4">{t("clients.title")}</h4>
+            <p className="mcm-admin__note">{t("clients.subtitle")}</p>
+            <ClientsManager />
+
+            {/* Secondary: external contacts that ALSO have a login account
+                (Supabase users on a non-internal domain). Read-only monitor. */}
+            <h4 className="mcm-admin__h4">{t("admin.tabUsers")}</h4>
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
+                <thead>
+                  <tr>
+                    <th>{t("admin.colUser")}</th>
+                    <th>{t("admin.colStatus")}</th>
+                    <th>{t("admin.colLastLogin")}</th>
+                    <th>{t("admin.colActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && (
+                    <tr>
+                      <td colSpan={4}>{t("admin.loading")}</td>
+                    </tr>
+                  )}
+                  {!loading && clients.length === 0 && (
+                    <tr>
+                      <td colSpan={4}>{t("admin.noClients")}</td>
+                    </tr>
+                  )}
+                  {!loading && clients.map(renderUserRow)}
+                </tbody>
+              </table>
             </div>
-            <table className="mcm-admin__table">
-              <thead>
-                <tr>
-                  <th>{t("admin.colUser")}</th>
-                  <th>{t("admin.colStatus")}</th>
-                  <th>{t("admin.colLastLogin")}</th>
-                  <th>{t("admin.colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={4}>{t("admin.loading")}</td>
-                  </tr>
-                )}
-                {!loading && clients.length === 0 && (
-                  <tr>
-                    <td colSpan={4}>{t("admin.noClients")}</td>
-                  </tr>
-                )}
-                {!loading && clients.map(renderUserRow)}
-              </tbody>
-            </table>
           </div>
         )}
 
         {tab === "meetings" && !detail && (
-          <div className="mcm-admin__section">
-            <table className="mcm-admin__table">
+          <div className="mcm-tablecard">
+            <table className="mcm-table">
               <thead>
                 <tr>
                   <th>{t("admin.colMeeting")}</th>
@@ -749,21 +739,22 @@ export const AdminConsole = () => {
                     <td>
                       <button
                         type="button"
-                        className="mcm-admin__link"
+                        className="mcm-table__link"
                         onClick={() => void openDetail(m.id)}
                       >
                         {m.title || m.id}
                       </button>
-                      {m.topic && <span className="mcm-admin__sub">{m.topic}</span>}
+                      {m.topic && <span className="mcm-table__sub">{m.topic}</span>}
                     </td>
                     <td>{m.project_name || "—"}</td>
                     <td>{m.created_by || "—"}</td>
                     <td>{m.participant_count ?? "—"}</td>
                     <td>{fmtDur(m.duration_s)}</td>
                     <td>{fmtDate(m.created_at)}</td>
-                    <td className="mcm-admin__row-actions">
+                    <td className="mcm-table__actions">
                       <button
                         type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--outline"
                         title={t("admin.secMeta")}
                         aria-label={t("admin.secMeta")}
                         onClick={() => void openDetail(m.id)}
@@ -772,7 +763,7 @@ export const AdminConsole = () => {
                       </button>
                       <button
                         type="button"
-                        className="mcm-admin__danger"
+                        className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
                         title={t("admin.delete")}
                         aria-label={t("admin.delete")}
                         onClick={() => void removeMeeting(m)}
@@ -792,14 +783,14 @@ export const AdminConsole = () => {
             <div className="mcm-admin__detail-head">
               <button
                 type="button"
-                className="mcm-admin__ghost"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
                 onClick={() => setDetail(null)}
               >
                 <ArrowLeft size={15} /> {t("admin.detailBack")}
               </button>
               <button
                 type="button"
-                className="mcm-admin__ghost mcm-admin__danger"
+                className="mcm-btn mcm-btn--danger mcm-btn--sm"
                 onClick={() =>
                   void (async () => {
                     if (window.confirm(t("admin.confirmDeleteMeeting"))) {
@@ -817,7 +808,11 @@ export const AdminConsole = () => {
             <h2 className="mcm-admin__detail-title">
               {detail.meeting.title || detail.meeting.id}
               {detail.meeting.status && (
-                <span className="mcm-admin__badge --on">
+                <span
+                  className={`mcm-pill mcm-pill--${statusBucket(
+                    detail.meeting.status,
+                  )}`}
+                >
                   {detail.meeting.status}
                 </span>
               )}
@@ -908,8 +903,8 @@ export const AdminConsole = () => {
             <h4 className="mcm-admin__h4">
               {t("admin.secParticipants")} ({detail.participants.length})
             </h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <thead>
                   <tr>
                     <th>{t("admin.colUser")}</th>
@@ -927,7 +922,7 @@ export const AdminConsole = () => {
                     <tr key={p.user_email}>
                       <td>
                         <strong>{p.name || p.user_email}</strong>
-                        <span className="mcm-admin__sub">{p.user_email}</span>
+                        <span className="mcm-table__sub">{p.user_email}</span>
                       </td>
                       <td>{fmtDate(p.joined_at)}</td>
                       <td>{fmtDate(p.last_seen_at)}</td>
@@ -940,8 +935,8 @@ export const AdminConsole = () => {
             <h4 className="mcm-admin__h4">
               {t("admin.secFiles")} ({detail.files.length})
             </h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {detail.files.length === 0 && (
                     <tr>
@@ -1027,23 +1022,23 @@ export const AdminConsole = () => {
         )}
 
         {tab === "integrations" && (
-          <div className="mcm-admin__section">
-            <table className="mcm-admin__table">
+          <div className="mcm-tablecard">
+            <table className="mcm-table">
               <tbody>
                 {integrations.map((i) => (
                   <tr key={i.name}>
                     <td>
                       <strong>{i.name}</strong>
-                      <span className="mcm-admin__sub">{i.note}</span>
+                      <span className="mcm-table__sub">{i.note}</span>
                     </td>
                     <td>
                       <span
                         className={
                           i.configured === true
-                            ? "mcm-admin__badge --on"
+                            ? "mcm-pill mcm-pill--on"
                             : i.configured === false
-                            ? "mcm-admin__badge --off"
-                            : "mcm-admin__badge"
+                            ? "mcm-pill mcm-pill--off"
+                            : "mcm-pill mcm-pill--neutral"
                         }
                       >
                         {i.configured === true
@@ -1081,8 +1076,8 @@ export const AdminConsole = () => {
               </div>
             </div>
             <h4 className="mcm-admin__h4">{t("admin.storageByKind")}</h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {(storage?.byKind ?? []).map((k) => (
                     <tr key={k.kind ?? "?"}>
@@ -1099,8 +1094,8 @@ export const AdminConsole = () => {
               </table>
             </div>
             <h4 className="mcm-admin__h4">{t("admin.storageTopMeetings")}</h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {(storage?.topMeetings ?? []).map((m) => (
                     <tr key={m.meeting_id}>
@@ -1120,8 +1115,8 @@ export const AdminConsole = () => {
         )}
 
         {tab === "audit" && (
-          <div className="mcm-admin__section">
-            <table className="mcm-admin__table">
+          <div className="mcm-tablecard">
+            <table className="mcm-table">
               <thead>
                 <tr>
                   <th>{t("admin.auditTime")}</th>
@@ -1143,7 +1138,7 @@ export const AdminConsole = () => {
                     <td>
                       <code>{e.action}</code>
                     </td>
-                    <td className="mcm-admin__sub">{e.target || "—"}</td>
+                    <td className="mcm-table__sub">{e.target || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1189,8 +1184,8 @@ export const AdminConsole = () => {
             </div>
 
             <h4 className="mcm-admin__h4">{t("admin.topProjects")}</h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {(analytics?.topProjects ?? []).length === 0 && (
                     <tr>
@@ -1212,8 +1207,8 @@ export const AdminConsole = () => {
             </div>
 
             <h4 className="mcm-admin__h4">{t("admin.topParticipants")}</h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {(analytics?.topParticipants ?? []).length === 0 && (
                     <tr>
@@ -1224,7 +1219,7 @@ export const AdminConsole = () => {
                     <tr key={p.user_email}>
                       <td>
                         <strong>{p.name || p.user_email}</strong>
-                        <span className="mcm-admin__sub">{p.user_email}</span>
+                        <span className="mcm-table__sub">{p.user_email}</span>
                       </td>
                       <td>
                         {p.meetings} {t("admin.tabMeetings")}
@@ -1290,7 +1285,7 @@ export const AdminConsole = () => {
             </label>
             <button
               type="button"
-              className="mcm-admin__primary"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
               onClick={() => void saveSettings()}
               disabled={busy || !settingsDirty}
             >
@@ -1339,8 +1334,8 @@ export const AdminConsole = () => {
             </div>
             <p className="mcm-admin__note">{t("admin.securityNote")}</p>
             <h4 className="mcm-admin__h4">{t("admin.tabAudit")}</h4>
-            <div className="mcm-admin__section">
-              <table className="mcm-admin__table">
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
                 <tbody>
                   {audit.length === 0 && (
                     <tr>
@@ -1354,7 +1349,7 @@ export const AdminConsole = () => {
                       <td>
                         <code>{e.action}</code>
                       </td>
-                      <td className="mcm-admin__sub">{e.target || "—"}</td>
+                      <td className="mcm-table__sub">{e.target || "—"}</td>
                     </tr>
                   ))}
                 </tbody>

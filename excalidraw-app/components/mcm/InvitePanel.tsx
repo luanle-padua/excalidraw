@@ -1,9 +1,10 @@
-import { Check, Copy, Search, UserPlus, X } from "lucide-react";
+import { Briefcase, Check, Copy, Search, UserPlus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { createPortal } from "react-dom";
 
 import { getCollaborationLink } from "../../data";
+import { listClients, type Client } from "../../data/clients";
 import {
   getDirectory,
   inviteToMeeting,
@@ -30,6 +31,8 @@ export const InvitePanel = ({
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
   const [clientEmail, setClientEmail] = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [clientQ, setClientQ] = useState("");
   const [addToProject, setAddToProject] = useState(true);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -37,7 +40,24 @@ export const InvitePanel = ({
 
   useEffect(() => {
     void getDirectory().then(setDir);
+    void listClients().then(setClients);
   }, []);
+
+  // Saved clients (with an email) the user hasn't already selected, filtered by
+  // the picker search — so inviting pulls from the synced list, not retyping.
+  const clientMatches = useMemo(() => {
+    const needle = clientQ.trim().toLowerCase();
+    return clients
+      .filter((c) => c.email && !selected.has(c.email.toLowerCase()))
+      .filter(
+        (c) =>
+          !needle ||
+          c.name.toLowerCase().includes(needle) ||
+          (c.company ?? "").toLowerCase().includes(needle) ||
+          (c.email ?? "").toLowerCase().includes(needle),
+      )
+      .slice(0, 30);
+  }, [clients, clientQ, selected]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -140,7 +160,7 @@ export const InvitePanel = ({
           {roomKey && (
             <button
               type="button"
-              className="mcm-invite__link"
+              className="mcm-btn mcm-btn--secondary mcm-invite__link"
               onClick={() => void copyLink()}
             >
               {copied ? <Check size={15} /> : <Copy size={15} />}
@@ -203,7 +223,46 @@ export const InvitePanel = ({
             )}
           </ul>
 
-          {/* External client */}
+          {/* Pick from the saved client list (synced) */}
+          <label className="mcm-invite__label">
+            <Briefcase size={13} style={{ verticalAlign: "-2px" }} />{" "}
+            {t("clients.pickFromList")}
+          </label>
+          <div className="mcm-invite__search">
+            <Search size={14} />
+            <input
+              value={clientQ}
+              onChange={(e) => setClientQ(e.target.value)}
+              placeholder={t("clients.pickSearch")}
+            />
+          </div>
+          <ul className="mcm-invite__list">
+            {clientMatches.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    addOne({
+                      email: c.email!.toLowerCase(),
+                      name: c.company ? `${c.name} · ${c.company}` : c.name,
+                      kind: "guest",
+                    })
+                  }
+                >
+                  <strong>{c.name}</strong>
+                  <span>
+                    {[c.company, c.email].filter(Boolean).join(" · ") ||
+                      c.email}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {clientMatches.length === 0 && (
+              <li className="mcm-invite__empty">{t("clients.pickEmpty")}</li>
+            )}
+          </ul>
+
+          {/* External client — raw email */}
           <label className="mcm-invite__label">{t("invite.client")}</label>
           <div className="mcm-invite__client">
             <input
@@ -213,7 +272,11 @@ export const InvitePanel = ({
               onKeyDown={(e) => e.key === "Enter" && addClient()}
               placeholder={t("invite.clientPlaceholder")}
             />
-            <button type="button" onClick={addClient}>
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
+              onClick={addClient}
+            >
               {t("invite.add")}
             </button>
           </div>
@@ -233,7 +296,7 @@ export const InvitePanel = ({
         <footer className="mcm-invite__foot">
           <button
             type="button"
-            className="mcm-invite__send"
+            className="mcm-btn mcm-btn--primary mcm-btn--block"
             onClick={() => void send()}
             disabled={selected.size === 0 || sending}
           >

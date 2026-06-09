@@ -804,6 +804,95 @@ app.get("/v1/directory", async (c) => {
   return c.json({ users: people });
 });
 
+// ---- Client list (shared CRM-lite contact book) --------------------------
+// A reusable address book of EXTERNAL contacts (clients/consultants) that
+// internal staff manage once and then pick from when inviting — instead of
+// retyping a raw email each time. A `client` row is just a contact card, NOT a
+// login: inviting one still creates a normal guest meeting_invitee by email.
+// Gate: internal staff + admins (same rule as the directory/invite). Admins
+// monitor + manage every row from the Admin → Clients tab.
+
+const canManageClients = (
+  email: string | undefined,
+  role: string | undefined,
+): boolean => role === "admin" || isInternalEmail(email);
+
+// List all clients (newest first). Internal staff + admins only.
+app.get("/v1/clients", async (c) => {
+  if (!canManageClients(c.get("email"), c.get("role"))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, name, company, email, note, created_by, created_at
+     FROM client ORDER BY created_at DESC LIMIT 500`,
+  ).all();
+  return c.json({ clients: results });
+});
+
+// Create a client (contact card). name required; company/email/note optional.
+// email (if given) is validated + lower-cased to match the invite/authz model.
+app.post("/v1/clients", async (c) => {
+  const me = c.get("email");
+  if (!canManageClients(me, c.get("role"))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const b = await c.req.json<{
+    name?: string;
+    company?: string;
+    email?: string;
+    note?: string;
+  }>();
+  const name = (b.name ?? "").trim();
+  if (!name) {
+    return c.json({ error: "name required" }, 400);
+  }
+  const email = (b.email ?? "").trim().toLowerCase();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ error: "invalid email" }, 400);
+  }
+  const id = crypto.randomUUID();
+  const ts = now();
+  await c.env.DB.prepare(
+    `INSERT INTO client (id, name, company, email, note, created_by, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+  )
+    .bind(
+      id,
+      name,
+      (b.company ?? "").trim() || null,
+      email || null,
+      (b.note ?? "").trim() || null,
+      me ?? null,
+      ts,
+    )
+    .run();
+  await logAudit(c.env.DB, me, "client.create", id, { name, email });
+  return c.json({
+    client: {
+      id,
+      name,
+      company: (b.company ?? "").trim() || null,
+      email: email || null,
+      note: (b.note ?? "").trim() || null,
+      created_by: me ?? null,
+      created_at: ts,
+    },
+  });
+});
+
+// Delete a client (hard delete — it's only a contact card; existing meeting
+// invites are unaffected since they live in meeting_invitee, not here).
+app.delete("/v1/clients/:id", async (c) => {
+  const me = c.get("email");
+  if (!canManageClients(me, c.get("role"))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const id = c.req.param("id");
+  await c.env.DB.prepare(`DELETE FROM client WHERE id = ?1`).bind(id).run();
+  await logAudit(c.env.DB, me, "client.delete", id);
+  return c.json({ ok: true, deleted: id });
+});
+
 // ---- Calendar: my meetings -----------------------------------------------
 // Every meeting the caller can MANAGE on their calendar — the union of:
 //   (a) meetings they organize/created (created_by OR organizer_email = me),
