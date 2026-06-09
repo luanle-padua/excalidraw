@@ -227,6 +227,22 @@
       background: color-mix(in srgb, var(--mcm-accent) 5%, transparent);
     }
   }
+  // Red-calendar cell tint: Sundays + public holidays get a soft red wash,
+  // Saturdays a soft blue one, so days off stand out at a glance (KR + VN).
+  .sx__month-grid-day:has(.mcm-calx__date[data-tone="holiday"]) {
+    background: color-mix(in srgb, #ef4444 10%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, #ef4444 15%, transparent);
+    }
+  }
+  .sx__month-grid-day:has(.mcm-calx__date[data-tone="saturday"]) {
+    background: color-mix(in srgb, #1c7df9 8%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, #1c7df9 13%, transparent);
+    }
+  }
   // Weekday header row (Mon, Tue, …)
   .sx__month-grid-day__header-day-name {
     color: var(--mcm-text-faint);
@@ -238,9 +254,12 @@
   // The date number cell — our custom component is portaled in here, so strip
   // the default padding/sizing and let `.mcm-calx__date` own the layout.
   .sx__month-grid-day__header-date {
-    width: auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     height: auto;
     padding: 0;
+    overflow: hidden;
     border-radius: 8px;
     background: transparent;
     color: inherit;
@@ -310,6 +329,9 @@
     align-items: flex-start;
     gap: 1px;
     width: 100%;
+    min-width: 0; // let the holiday label ellipsise instead of overflowing
+    max-width: 100%;
+    overflow: hidden;
     line-height: 1.1;
   }
   &__date-num {

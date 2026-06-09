@@ -44,11 +44,19 @@ export const STATUS_COLOR: Record<StatusBucket, string> = {
  *  distinct and calm (Apple/Notion-ish), one per common intent. */
 export const MEETING_COLOR_PRESETS: readonly string[] = [
   "#6965db", // brand purple
+  "#8b5cf6", // violet
   "#1c7df9", // blue
+  "#0ea5e9", // sky
+  "#14b8a6", // teal
   "#16a34a", // green
+  "#84cc16", // lime
+  "#eab308", // yellow
   "#d97706", // amber
+  "#f97316", // orange
   "#ef4444", // red
+  "#ec4899", // pink
   "#64748b", // slate
+  "#78716c", // stone
 ] as const;
 
 /** Resolve a meeting's effective stripe/event colour: explicit colour wins,

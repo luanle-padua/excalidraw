@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { createPortal } from "react-dom";
+
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
@@ -149,6 +151,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [sortBy, setSortBy] = useState<SortBy>("time");
   // The card whose colour-swatch menu is open (one at a time), by room id.
   const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
+  const [colorMenuAnchor, setColorMenuAnchor] = useState<DOMRect | null>(null);
+  // Bumped on any meeting change so the calendar (which self-fetches) re-pulls
+  // and its event colours stay in sync with the cards.
+  const [calRefresh, setCalRefresh] = useState(0);
 
   const refreshProjects = useCallback(async () => {
     setProjects(await listProjects());
@@ -298,6 +304,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setColorMenuFor(null);
     await updateMeeting(id, { color });
     await refreshCards();
+    setCalRefresh((k) => k + 1);
   };
 
   const saveProject = async (values: Record<string, string>) => {
@@ -336,6 +343,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     });
     setEditingMeeting(null);
     await refreshCards();
+    setCalRefresh((k) => k + 1);
   };
 
   // Apply the chosen sort. Time = upcoming/most-recent first (descending),
@@ -530,6 +538,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               onCreated={() => {
                 setMeetingFormOpen(null);
                 void refreshCards();
+                setCalRefresh((k) => k + 1);
               }}
               onCreatedEnter={(roomId, roomKey) => {
                 setMeetingFormOpen(null);
@@ -605,16 +614,24 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                         <button
                           type="button"
                           className="mcm-icon-btn mcm-icon-btn--sm"
-                          onClick={() =>
-                            setColorMenuFor(colorMenuFor === m.id ? null : m.id)
-                          }
+                          onClick={(e) => {
+                            if (colorMenuFor === m.id) {
+                              setColorMenuFor(null);
+                            } else {
+                              setColorMenuAnchor(
+                                e.currentTarget.getBoundingClientRect(),
+                              );
+                              setColorMenuFor(m.id);
+                            }
+                          }}
                           title={t("color.label")}
                           aria-label={t("color.label")}
                         >
                           <Palette size={14} />
                         </button>
-                        {colorMenuFor === m.id && (
+                        {colorMenuFor === m.id && colorMenuAnchor && (
                           <ColorMenu
+                            anchor={colorMenuAnchor}
                             current={m.color ?? null}
                             onPick={(c) => void assignColor(m.id, c)}
                             onClose={() => setColorMenuFor(null)}
@@ -659,6 +676,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           title="Resize"
         />
         <CalendarX
+          refreshKey={calRefresh}
           onJoinMeeting={calJoin}
           onOpenMeeting={calOpen}
           onCreateOnDay={calCreate}
@@ -691,11 +709,13 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
  * Closes on outside-click / Esc.
  */
 const ColorMenu = ({
+  anchor,
   current,
   onPick,
   onClose,
   clearLabel,
 }: {
+  anchor: DOMRect;
   current: string | null;
   onPick: (color: string | null) => void;
   onClose: () => void;
@@ -722,8 +742,20 @@ const ColorMenu = ({
     };
   }, [onClose]);
 
-  return (
-    <div className="mcm-swatches" ref={ref}>
+  // Render in a portal positioned just under the trigger so the scroll
+  // container can't clip it (the "underlay" bug). Clamp to the viewport.
+  const top = Math.min(anchor.bottom + 6, window.innerHeight - 80);
+  const left = Math.max(
+    8,
+    Math.min(anchor.right - 224, window.innerWidth - 232),
+  );
+
+  return createPortal(
+    <div
+      className="mcm-swatches mcm-swatches--pop"
+      ref={ref}
+      style={{ position: "fixed", top, left } as React.CSSProperties}
+    >
       {MEETING_COLOR_PRESETS.map((c) => (
         <button
           key={c}
@@ -749,7 +781,8 @@ const ColorMenu = ({
       >
         {clearLabel}
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

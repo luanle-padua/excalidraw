@@ -9134,6 +9134,17 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   box-shadow: var(--mcm-elev);
   animation: mcm-swatches-in 140ms ease;
 
+  // Portaled variant (rendered to <body> at a fixed position from the trigger):
+  // must sit above the full-screen home (z 1000+) and wrap the colour grid.
+  &--pop {
+    right: auto;
+    z-index: 1300;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 232px;
+    max-width: calc(100vw - 16px);
+  }
+
   &__dot {
     width: 22px;
     height: 22px;

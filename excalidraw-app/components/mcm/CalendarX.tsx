@@ -193,6 +193,7 @@ export const CalendarX = ({
   // wired to a calendar gesture here — kept for signature parity.
   onJoinMeeting: _onJoinMeeting,
   meetings: externalMeetings,
+  refreshKey,
 }: {
   onCreateOnDay: (dateISO: string) => void;
   onOpenMeeting: (roomId: string) => void;
@@ -200,6 +201,8 @@ export const CalendarX = ({
   /** When provided (e.g. by the split view), use these instead of self-fetching
    *  so the list + calendar share one fetch. */
   meetings?: CalMeeting[];
+  /** Bump to force a self-fetch refresh (e.g. after a colour change). */
+  refreshKey?: number;
 }) => {
   const lang = useAtomValue(preferredLanguageAtom);
   const isDark = useIsDark();
@@ -246,12 +249,13 @@ export const CalendarX = ({
     ensureHolidaysForYear(new Date().getFullYear());
   }, [ensureHolidaysForYear]);
 
-  // Self-fetch when the parent didn't hand us a list.
+  // Self-fetch when the parent didn't hand us a list; re-fetch when refreshKey
+  // bumps (e.g. a meeting colour was assigned) so event colours stay in sync.
   useEffect(() => {
     if (!externalMeetings) {
       void getMyMeetings().then(setLocalMeetings);
     }
-  }, [externalMeetings]);
+  }, [externalMeetings, refreshKey]);
 
   // Stable refs so the (memoised-at-creation) Schedule-X callbacks always see
   // the latest handlers without re-creating the calendar app.
