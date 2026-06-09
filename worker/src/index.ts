@@ -31,6 +31,8 @@
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+
+import type { MiddlewareHandler } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 type Bindings = {
@@ -179,6 +181,31 @@ const canSeeMeeting = async (
     .first();
   return !!member;
 };
+
+// Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
+// where any valid JWT could read room_key + scene + chat + library + files for
+// ANY meeting (Daily-token gating alone left the canvas wide open). Internal
+// staff + admins pass (open dev flow); EXTERNAL guests are restricted to
+// meetings they were invited to. roomId is path segment 3 for all these paths.
+const roomGate: MiddlewareHandler<{
+  Bindings: Bindings;
+  Variables: Variables;
+}> = async (c, next) => {
+  const roomId = c.req.path.split("/")[3];
+  if (
+    roomId &&
+    !(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  return next();
+};
+app.use("/v1/scenes/*", roomGate);
+app.use("/v1/chats/*", roomGate);
+app.use("/v1/library/*", roomGate);
+app.use("/v1/files/*", roomGate);
+app.use("/v1/meetings/:roomId", roomGate);
+app.use("/v1/meetings/:roomId/*", roomGate);
 
 app.get("/v1/health", (c) => c.json({ ok: true }));
 
@@ -475,6 +502,9 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     priority?: string;
     confidentiality?: string;
     scheduled_at?: string;
+    duration_min?: number;
+    organizer_email?: string;
+    host_email?: string;
   }>();
   await c.env.DB.prepare(
     `UPDATE meeting SET
@@ -487,6 +517,9 @@ app.patch("/v1/meetings/:roomId", async (c) => {
        priority = COALESCE(?8, priority),
        confidentiality = COALESCE(?9, confidentiality),
        scheduled_at = COALESCE(?10, scheduled_at),
+       duration_min = COALESCE(?12, duration_min),
+       organizer_email = COALESCE(?13, organizer_email),
+       host_email = COALESCE(?14, host_email),
        updated_at = ?11
      WHERE id = ?1`,
   )
@@ -502,6 +535,9 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       b.confidentiality ?? null,
       b.scheduled_at ?? null,
       now(),
+      b.duration_min ?? null,
+      b.organizer_email ?? null,
+      b.host_email ?? null,
     )
     .run();
   return c.json({ ok: true });
@@ -561,7 +597,7 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
   const t = now();
   for (const inv of list) {
     const ie = (inv.email || "").trim().toLowerCase();
-    if (!ie.includes("@")) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ie)) {
       continue;
     }
     const kind = isInternalEmail(ie) ? "internal" : "guest";

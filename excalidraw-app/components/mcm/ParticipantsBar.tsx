@@ -404,14 +404,12 @@ const REACTION_TTL_MS = 3200;
 const ParticipantsPanel = ({
   tiles,
   iAmHost,
-  mutedByHost,
   onClose,
   onMute,
   onKick,
 }: {
   tiles: Tile[];
   iAmHost: boolean;
-  mutedByHost: Set<string>;
   onClose: () => void;
   onMute: (tile: Tile) => void;
   onKick: (tile: Tile) => void;
@@ -489,7 +487,7 @@ const ParticipantsPanel = ({
                       className="mcm-pp__btn"
                       onClick={() => onMute(p)}
                     >
-                      {mutedByHost.has(p.id) ? (
+                      {p.inCall && !p.micOn ? (
                         <>
                           <Mic size={13} /> {t("participants.unmute")}
                         </>
@@ -565,10 +563,6 @@ export const ParticipantsBar = ({
   const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
   const panelOpen = useAtomValue(participantsPanelOpenAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
-  // Which peers the host has muted — drives the mute↔un-mute toggle. Local to
-  // the host's view (we track our own commands rather than round-tripping a
-  // remote mute-state broadcast).
-  const [mutedByHost, setMutedByHost] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!excalidrawAPI) {
@@ -777,19 +771,12 @@ export const ParticipantsBar = ({
       target: tile.id as SocketId,
     });
   const doMute = (tile: Tile) => {
-    const muted = mutedByHost.has(tile.id);
+    // Drive off the REAL broadcast state (peerAudio → tile.micOn/inCall), not a
+    // host-local guess: in-call + mic off ⇒ already muted ⇒ send UNMUTE.
+    const muted = tile.inCall && !tile.micOn;
     collabAPI?.portal.broadcastHostCommand({
       action: muted ? "UNMUTE" : "MUTE",
       target: tile.id as SocketId,
-    });
-    setMutedByHost((prev) => {
-      const next = new Set(prev);
-      if (muted) {
-        next.delete(tile.id);
-      } else {
-        next.add(tile.id);
-      }
-      return next;
     });
   };
 
@@ -812,7 +799,7 @@ export const ParticipantsBar = ({
                 onOpenProfile={onOpenProfile}
                 onKick={canModerate ? doKick : undefined}
                 onMute={canModerate ? doMute : undefined}
-                hostMuted={mutedByHost.has(p.id)}
+                hostMuted={p.inCall && !p.micOn}
               />
             );
           })}
@@ -822,7 +809,6 @@ export const ParticipantsBar = ({
         <ParticipantsPanel
           tiles={tiles}
           iAmHost={iAmHost}
-          mutedByHost={mutedByHost}
           onClose={() => setPanelOpen(false)}
           onMute={doMute}
           onKick={doKick}

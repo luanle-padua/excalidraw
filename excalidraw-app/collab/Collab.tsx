@@ -119,6 +119,7 @@ import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache
 
 import {
   ensureMyJoinedAt,
+  hostSocketIdAtom,
   importUserProfileFromLocalStorage,
   markMeAsFirstInRoom,
   peerProfilesAtom,
@@ -1169,13 +1170,19 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.HOST_COMMAND: {
-            const { action, target } = decryptedData.payload;
-            // Trust the command (like RECORDING_STATE) — the host controls are
-            // host-only UI, so the sender is the host. We don't gate on the
-            // local host election here because it can momentarily disagree
-            // across clients (unsynced USER_PROFILE) and silently drop the
-            // command. Per-user actions are still scoped by `target`.
+            const { hostSocketId, action, target } = decryptedData.payload;
             const mySocketId = this.portal.socket?.id;
+            // Destructive commands (end meeting / kick) must come from the host
+            // we locally elect — blocks a rogue/forked peer from ending the
+            // meeting or kicking someone. If our election is unresolved (null)
+            // we accept (host-only UI in practice). MUTE/UNMUTE stay trusted:
+            // they're target-scoped and low-harm.
+            if (action === "END_MEETING" || action === "KICK") {
+              const localHost = appJotaiStore.get(hostSocketIdAtom);
+              if (localHost && hostSocketId !== localHost) {
+                break;
+              }
+            }
             if (action === "END_MEETING") {
               appJotaiStore.set(meetingViewOnlyAtom, true);
               markReviewRoom(this.portal.roomId ?? "");

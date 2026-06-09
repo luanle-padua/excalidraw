@@ -351,6 +351,9 @@ export const importUserProfileFromLocalStorage = (): UserProfile | null => {
       username: parsed.username,
       company: typeof parsed.company === "string" ? parsed.company : undefined,
       avatar: typeof parsed.avatar === "string" ? parsed.avatar : undefined,
+      // Carry email through so the acting-host election can tell we're internal
+      // on boot, before the session effect re-saves the profile.
+      email: typeof parsed.email === "string" ? parsed.email : undefined,
     };
   } catch (err) {
     console.warn("[userProfile] failed to import", err);

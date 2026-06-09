@@ -68,7 +68,7 @@ export const InvitePanel = ({
 
   const addClient = () => {
     const e = clientEmail.trim().toLowerCase();
-    if (!e.includes("@") || selected.has(e)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || selected.has(e)) {
       return;
     }
     addOne({ email: e, name: e, kind: "guest" });
