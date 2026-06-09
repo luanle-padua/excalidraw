@@ -9190,3 +9190,39 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     transform: translateY(0) scale(1);
   }
 }
+
+// ===== Unified scrollbars — every scroll container inside an MCM panel =====
+// One thin, calm (Notion-style) scrollbar everywhere: the sidebars, meeting
+// lists, calendar, notes, drawers, admin tables. Scoped to the MCM roots so it
+// doesn't touch unrelated app chrome.
+.mcm-3col,
+.mcm-lobby,
+.mcm-lobby__home,
+.mcm-admin,
+.mcm-folder,
+.mcm-pp-overlay {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--mcm-text-faint);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
