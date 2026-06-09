@@ -782,7 +782,10 @@ const ColorMenu = ({
         {clearLabel}
       </button>
     </div>,
-    document.body,
+    // Portal into .mcm-shell (NOT document.body) so the --mcm-* design tokens —
+    // surface/hairline/elev/dark-mode — resolve; on body they'd be undefined and
+    // the popover would render with no background.
+    document.querySelector(".mcm-shell") ?? document.body,
   );
 };
 

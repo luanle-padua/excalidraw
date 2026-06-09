@@ -222,6 +222,10 @@
   }
   .sx__month-grid-day {
     transition: background 120ms ease;
+    // min-width:0 keeps the column from widening to the holiday text; the label
+    // wraps vertically (white-space:normal) into the cell's empty events area.
+    min-width: 0;
+    position: relative;
 
     &:hover {
       background: color-mix(in srgb, var(--mcm-accent) 5%, transparent);
@@ -259,7 +263,6 @@
     max-width: 100%;
     height: auto;
     padding: 0;
-    overflow: hidden;
     border-radius: 8px;
     background: transparent;
     color: inherit;
@@ -329,9 +332,8 @@
     align-items: flex-start;
     gap: 1px;
     width: 100%;
-    min-width: 0; // let the holiday label ellipsise instead of overflowing
+    min-width: 0; // constrain to the cell width so the label wraps within it
     max-width: 100%;
-    overflow: hidden;
     line-height: 1.1;
   }
   &__date-num {
@@ -348,12 +350,17 @@
     color: var(--mcm-text);
   }
   &__date-holiday {
+    width: 100%;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    // Wrap to as many lines as needed — show the full holiday name (holidays
+    // have no meetings, so there's room). Wrapping is vertical, so it never
+    // widens the column / breaks the grid the way nowrap did.
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
     font-size: 10px;
     font-weight: 600;
+    line-height: 1.25;
     letter-spacing: -0.01em;
     color: color-mix(in srgb, #e5484d 86%, var(--mcm-text));
   }

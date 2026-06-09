@@ -36,7 +36,9 @@ const endpoint = (year: number, country: string): string =>
 const memCache = new Map<number, HolidayMap>();
 const inFlight = new Map<number, Promise<HolidayMap>>();
 
-const LS_PREFIX = "mcm.holidays.";
+// v2: the merge format changed (one name per date, not "KR · VN"), so bump the
+// key to discard any stale cached maps from the old format.
+const LS_PREFIX = "mcm.holidays.v2.";
 const LS_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — holiday tables are stable
 
 interface CachedShape {
