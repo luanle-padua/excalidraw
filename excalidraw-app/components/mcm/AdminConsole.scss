@@ -251,6 +251,32 @@
     margin-bottom: 14px;
   }
 
+  // Right-side action cluster in a detail head (compliance open + delete).
+  &__detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  // AI summary block (admin meeting detail) — long-form text, keep the
+  // model's own line breaks.
+  &__summary {
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
+    border-radius: 12px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    margin: 0 0 6px;
+  }
+  &__summary-when {
+    display: block;
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+  }
+
   &__detail-title {
     font-size: 22px;
     font-weight: 750;

@@ -1,6 +1,6 @@
 # MCM Roadmap — các Phase đang follow
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: 2026-06-05.
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: 2026-06-10 (Phase 4.5 ✅ + hardening — xem `2026-06-10.md`; kế tiếp: production data theo `production-data-plan.md`).
 
 ## ✅ Đã xong
 

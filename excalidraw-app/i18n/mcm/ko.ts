@@ -42,6 +42,11 @@ export const ko: Widened<typeof vi> = {
     join: "지금 참가",
     dismiss: "나중에",
   },
+  ai: {
+    summaryTitle: "AI 요약",
+    showMore: "더 보기",
+    showLess: "접기",
+  },
   cal: {
     title: "일정",
     upcoming: "예정",
@@ -244,6 +249,37 @@ export const ko: Widened<typeof vi> = {
     setRetention: "데이터 보존 (일)",
     securityNote:
       "로그인 실패 추적은 로그 드레인이 필요합니다(추후). 아래는 최근 관리자 작업 로그입니다.",
+    // ---- Projects back-office + compliance access (06-10 #1) ----
+    tabProjects: "프로젝트",
+    colOwner: "프로젝트 소유자",
+    colStage: "단계",
+    colMembers: "구성원",
+    colUpdated: "업데이트",
+    secMembers: "프로젝트 구성원",
+    membersPlaceholder: "내부 이메일, 쉼표로 구분…",
+    addMembers: "추가",
+    membersHint: "내부 이메일만 — 그 외는 자동으로 건너뜁니다.",
+    removeMember: "제거",
+    lastOwnerError: "프로젝트의 마지막 소유자는 제거할 수 없습니다.",
+    deleteProject: "프로젝트 삭제",
+    confirmDeleteProject:
+      '"{name}" 프로젝트를 영구 삭제할까요?\n\n회의 {count}개(캔버스, 파일, 채팅)와 구성원 목록이 함께 삭제되며 복구할 수 없습니다.\n\n확인을 위해 프로젝트 이름을 정확히 입력하세요:',
+    deleteProjectMismatch: "프로젝트 이름이 일치하지 않아 취소했습니다.",
+    noMembers: "아직 구성원이 없습니다",
+    mOrganizer: "주최자",
+    mHost: "호스트",
+    secAiSummary: "AI 요약",
+    secInvitees: "초대 대상",
+    invKind: "유형",
+    invStatus: "상태",
+    invitedBy: "초대한 사람",
+    invitedAt: "초대 시각",
+    noInvitees: "초대 대상이 없습니다",
+    openContent: "내용 열기 (컴플라이언스)",
+    openContentConfirm:
+      "이 회의의 내용을 읽기 전용·완전 비공개(컴플라이언스)로 열까요?\n\n방에 입장하지 않고 최신 저장 상태를 봅니다 — 참석자에게 보이지 않습니다. 이 접근은 감사 로그(admin.open_content)에 영구 기록됩니다.",
+    openContentNoKey: "저장된 키가 없는 회의입니다 — 내용을 열 수 없습니다.",
+    openContentFailed: "회의 내용을 열지 못했습니다.",
   },
 
   clients: {
@@ -324,6 +360,7 @@ export const ko: Widened<typeof vi> = {
       "이 회의를 영구 삭제할까요? 캔버스, 파일, 모든 기록이 삭제되며 복구할 수 없습니다.",
     host: "호스트",
     noCohost: "— 없음 —",
+    invitedBadge: "초대됨",
     waitingRoom: "게스트 대기실",
     recordingOn: "회의 녹화",
     // Zone headers of the redesigned create/schedule form (small-caps).
@@ -339,6 +376,32 @@ export const ko: Widened<typeof vi> = {
     internalCount: "내부 ({count})",
     guestCount: "고객 ({count})",
     noGroup: "기타",
+  },
+
+  // ---------------- 내 문서함 (personal document shelf) ---------------
+  myfiles: {
+    title: "내 문서함",
+    subtitle: "한 번 업로드하면 모든 회의에서 사용",
+    emptyTitle: "개인 문서함",
+    emptyDesc:
+      "한 번 업로드하면 모든 회의에 넣을 수 있습니다. 회의에 넣으면 복사본이 만들어지므로 여기서 삭제해도 회의에는 영향이 없습니다.",
+    dropHint: "파일을 끌어다 놓거나 클릭하여 선택",
+    dropActive: "여기에 놓으면 업로드됩니다",
+    uploading: "업로드 중…",
+    uploadFailed: "업로드 실패: {name}",
+    tooLarge: "파일이 너무 큽니다 (최대 50MB): {name}",
+    deleteConfirm:
+      '"{name}" 파일을 문서함에서 삭제할까요?\n\n이미 이 파일을 복사한 회의에는 영향이 없습니다.',
+    delete: "삭제",
+    count: "문서 {count}개",
+    fromShelf: "내 문서함에서",
+    pickerTitle: "내 문서함",
+    pickerHint: "클릭하면 이 회의로 복사됩니다",
+    pickerEmpty:
+      "문서함이 비어 있습니다 — 홈 화면의 “내 문서함”에서 업로드하세요.",
+    copying: "회의로 복사 중…",
+    copyFailed: "문서함에서 파일을 불러오지 못했습니다: {name}",
+    close: "닫기",
   },
 
   // ---------------- Meeting status (canonical lifecycle) ------------

@@ -37,8 +37,9 @@ import type {
   DataURL,
 } from "@excalidraw/excalidraw/types";
 
-import { getSyncableElements } from ".";
 import { fetchWithAuth } from "./fetchWithAuth";
+
+import { getSyncableElements } from ".";
 
 import type { SyncableExcalidrawElement } from ".";
 import type Portal from "../collab/Portal";
@@ -263,7 +264,7 @@ export const loadFromStorage = async (
 //   [u8 ivLength][iv bytes][ciphertext bytes]
 
 const saveJsonBlob = async (
-  kind: "chats" | "library",
+  kind: "chats" | "library" | "transcripts",
   roomId: string,
   roomKey: string,
   value: unknown,
@@ -292,7 +293,7 @@ const saveJsonBlob = async (
 };
 
 const loadJsonBlob = async <T = unknown>(
-  kind: "chats" | "library",
+  kind: "chats" | "library" | "transcripts",
   roomId: string,
   roomKey: string,
 ): Promise<T | null> => {
@@ -331,6 +332,21 @@ export const loadChatFromStorage = <T = unknown>(
   roomId: string,
   roomKey: string,
 ): Promise<T[] | null> => loadJsonBlob<T[]>("chats", roomId, roomKey);
+
+// STT transcript log — same E2E blob treatment as the chat log, so a
+// finished meeting reviewed on any machine shows what was said. The server
+// stores only ciphertext; the AI summary (D1, plaintext) is the queryable
+// artifact — this blob is the detail layer behind it.
+export const saveTranscriptToStorage = (
+  roomId: string,
+  roomKey: string,
+  segments: readonly unknown[],
+): Promise<void> => saveJsonBlob("transcripts", roomId, roomKey, segments);
+
+export const loadTranscriptFromStorage = <T = unknown>(
+  roomId: string,
+  roomKey: string,
+): Promise<T[] | null> => loadJsonBlob<T[]>("transcripts", roomId, roomKey);
 
 // Full meeting library (source bytes + metadata for DXF / IFC / PDF / images)
 // as one blob, so a reopen on any browser — no peer, empty IndexedDB —

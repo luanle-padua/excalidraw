@@ -23,6 +23,10 @@ export type Project = {
   id: string;
   name: string;
   host_email: string | null;
+  /** How the caller reaches this folder: "member" = full folder;
+   *  "invitee" = internal user invited to / attended some meetings only —
+   *  the server already filters the meeting list down to those. */
+  access?: "member" | "invitee";
   code: string | null;
   client: string | null;
   location: string | null;
@@ -86,10 +90,9 @@ export const listProjects = async (host?: string): Promise<Project[]> => {
   }
 };
 
-export const createProject = async (
-  name: string,
-  hostEmail?: string,
-): Promise<Project | null> => {
+// The owner is stamped server-side from the verified JWT (and gets their
+// project_member row in the same request) — no client-supplied host email.
+export const createProject = async (name: string): Promise<Project | null> => {
   if (!IS_PROJECTS_CONFIGURED) {
     return null;
   }
@@ -97,7 +100,7 @@ export const createProject = async (
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/projects`, {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ name, hostEmail }),
+      body: JSON.stringify({ name }),
     });
     return res.ok ? res.json() : null;
   } catch {
@@ -253,6 +256,11 @@ export const getMeeting = async (
   project_id: string | null;
   project_name: string | null;
   project_stage: string | null;
+  /** AI recap written once at End-for-all (quyết định 06-10 #4 —
+   *  summary-first). Plaintext in D1 — queryable, unlike the E2E
+   *  transcript blob it is derived from. */
+  ai_summary: string | null;
+  ai_summary_at: number | null;
 } | null> => {
   if (!IS_PROJECTS_CONFIGURED) {
     return null;
@@ -267,6 +275,30 @@ export const getMeeting = async (
     return (await res.json()).meeting ?? null;
   } catch {
     return null;
+  }
+};
+
+/** Store the AI-generated recap for a meeting (D1 `meeting.ai_summary`).
+ *  Written once, fire-and-forget, from the host's End-for-all flow. */
+export const saveMeetingAiSummary = async (
+  roomId: string,
+  summary: string,
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED || !summary.trim()) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/summary`,
+      {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ summary }),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 };
 

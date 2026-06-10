@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Pencil,
   RotateCcw,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -87,9 +88,13 @@ export const MeetingDetailPreview = ({
   const [timeStr, setTimeStr] = useState("09:00");
   const [duration, setDuration] = useState("60");
   const [busy, setBusy] = useState(false);
+  // AI recap clamp/expand — collapsed by default so a long recap doesn't
+  // push the people sections below the fold.
+  const [aiExpanded, setAiExpanded] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setAiExpanded(false);
     // Reset the reschedule scratch state so a meeting WITHOUT a schedule
     // doesn't inherit the previous meeting's date when switching cards.
     setDateStr("");
@@ -478,6 +483,43 @@ export const MeetingDetailPreview = ({
                 </div>
               )}
             </section>
+
+            {/* ZONE 1.5 — AI SUMMARY. The auto-recap written at End-for-all
+                (quyết định 06-10 #4 — summary-first). Muted card, clamped to
+                a few lines with an expand toggle; absent until the meeting
+                finished with content to recap. */}
+            {d.ai_summary && (
+              <section className="mcm-mdp__zone mcm-mdp__ai">
+                <h4 className="mcm-mdp__sec mcm-mdp__ai-head">
+                  <Sparkles size={13} aria-hidden="true" />
+                  {t("ai.summaryTitle")}
+                  {d.ai_summary_at ? (
+                    <span className="mcm-mdp__ai-at">
+                      {fmtMs(d.ai_summary_at)}
+                    </span>
+                  ) : null}
+                </h4>
+                <div className="mcm-mdp__ai-card">
+                  <p
+                    className={`mcm-mdp__ai-text${
+                      aiExpanded ? " mcm-mdp__ai-text--open" : ""
+                    }`}
+                  >
+                    {d.ai_summary}
+                  </p>
+                  {(d.ai_summary.length > 220 ||
+                    d.ai_summary.split("\n").length > 4) && (
+                    <button
+                      type="button"
+                      className="mcm-mdp__ai-more"
+                      onClick={() => setAiExpanded((v) => !v)}
+                    >
+                      {aiExpanded ? t("ai.showLess") : t("ai.showMore")}
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* ZONE 2 — PROPERTIES. Quiet Notion-style label/value grid;
                 Row hides empty values so the grid never shows blanks.

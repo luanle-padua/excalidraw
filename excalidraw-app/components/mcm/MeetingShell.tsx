@@ -14,6 +14,7 @@ import { useT } from "../../i18n/mcm";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
 import { getMeeting, logParticipation } from "../../data/projects";
+import { isStealthRoom } from "../../data/reviewMode";
 import { sessionAtom } from "../../data/session";
 import {
   ensureMyJoinedAt,
@@ -226,9 +227,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
 
   // Record WHO joined this meeting (for the admin meeting-detail view). Only
   // logged-in users; the authoritative email is taken from the JWT server-side,
-  // the session name is just the display label.
+  // the session name is just the display label. A STEALTH compliance review
+  // (admin, "ẩn hoàn toàn") leaves no participant row — the audit_log entry
+  // is its only trace.
   useEffect(() => {
-    if (roomId && session) {
+    if (roomId && session && !isStealthRoom(roomId)) {
       void logParticipation(roomId, session.name);
     }
   }, [roomId, session]);

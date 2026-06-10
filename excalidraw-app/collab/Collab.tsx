@@ -69,8 +69,11 @@ import {
 } from "../data";
 import {
   clearReviewRoom,
+  clearStealthRoom,
   isReviewRoom,
+  isStealthRoom,
   markReviewRoom,
+  markStealthRoom,
 } from "../data/reviewMode";
 import {
   encodeFilesForUpload,
@@ -85,10 +88,12 @@ import {
   loadFilesFromFirebase,
   loadFromFirebase,
   loadLibraryFromFirebase,
+  loadTranscriptFromFirebase,
   saveChatToFirebase,
   saveFilesToFirebase,
   saveLibraryToFirebase,
   saveToFirebase,
+  saveTranscriptToFirebase,
 } from "../data/firebase";
 import {
   importUsernameFromLocalStorage,
@@ -109,6 +114,7 @@ import {
 import { fetchBatchTranslation } from "../data/translation";
 import {
   liveTranscriptsAtom,
+  loadTranscriptLog,
   saveTranscriptLog,
   transcriptionLogAtom,
 } from "../data/transcription";
@@ -706,6 +712,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       this.setIsCollaborating(false);
       appJotaiStore.set(meetingViewOnlyAtom, false);
       clearReviewRoom();
+      clearStealthRoom();
       // Drop the LEFT meeting's chat so it can't bleed into the next room;
       // the next room loads its own persisted history on join.
       appJotaiStore.set(chatMessagesAtom, []);
@@ -786,7 +793,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   startCollaboration = async (
     existingRoomLinkData: null | { roomId: string; roomKey: string },
-    opts?: { viewOnly?: boolean },
+    opts?: { viewOnly?: boolean; stealth?: boolean },
   ) => {
     // REVIEW MODE: opening a finished meeting from the project folder. The
     // canvas is locked read-only (viewModeEnabled, driven by this atom) —
@@ -804,6 +811,63 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       markReviewRoom(reviewRoomId);
     } else {
       clearReviewRoom();
+      // An editable join also wipes any stale stealth mark, mirroring the
+      // review-mark hygiene above.
+      clearStealthRoom();
+    }
+
+    // STEALTH REVIEW (admin compliance open — "ẩn hoàn toàn", quyết định
+    // 06-10): load the meeting PURELY from its R2 snapshot. No socket join,
+    // so nothing observable leaks to the people in the room: no presence, no
+    // cursor, no USER_PROFILE broadcast. (The participant row is suppressed
+    // separately in MeetingShell.) Trade-off: a LIVE meeting shows its last
+    // autosaved state, not realtime strokes — accepted for invisibility.
+    // The sessionStorage mark makes a mid-review reload re-enter stealth
+    // instead of silently joining as a visible peer.
+    if (
+      existingRoomLinkData &&
+      (opts?.stealth || isStealthRoom(reviewRoomId))
+    ) {
+      const { roomId: sRoomId, roomKey: sRoomKey } = existingRoomLinkData;
+      appJotaiStore.set(meetingViewOnlyAtom, true);
+      markReviewRoom(sRoomId);
+      markStealthRoom(sRoomId);
+      appJotaiStore.set(startGateAtom, null);
+      this.portal.roomId = sRoomId;
+      this.portal.roomKey = sRoomKey;
+      this.setIsCollaborating(true);
+      LocalData.pauseSave("collaboration");
+      this.excalidrawAPI.resetScene();
+      void this.loadChatHistory(sRoomId, sRoomKey);
+      void this.loadLibrary(sRoomId, sRoomKey);
+      void this.loadTranscriptHistory(sRoomId, sRoomKey);
+      const stealthScene = resolvablePromise<
+        | (ImportedDataState & {
+            elements: readonly OrderedExcalidrawElement[];
+          })
+        | null
+      >();
+      try {
+        const elements = await loadFromFirebase(sRoomId, sRoomKey, null);
+        if (elements) {
+          this.setLastBroadcastedOrReceivedSceneVersion(
+            getSceneVersion(elements),
+          );
+          this.handleRemoteSceneUpdate(
+            this._reconcileElements(
+              toBrandedType<readonly RemoteExcalidrawElement[]>(elements),
+            ),
+          );
+          stealthScene.resolve({ elements, scrollToContent: true });
+        } else {
+          stealthScene.resolve(null);
+        }
+      } catch (error: any) {
+        console.error(error);
+        stealthScene.resolve(null);
+      }
+      this.setActiveRoomLink(window.location.href);
+      return stealthScene;
     }
 
     if (!this.state.username) {
@@ -961,6 +1025,10 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         existingRoomLinkData.roomKey,
       );
       void this.loadLibrary(
+        existingRoomLinkData.roomId,
+        existingRoomLinkData.roomKey,
+      );
+      void this.loadTranscriptHistory(
         existingRoomLinkData.roomId,
         existingRoomLinkData.roomKey,
       );
@@ -1799,6 +1867,68 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
   };
 
+  // --- Transcript persistence (STT log → R2, E2E with the room key) --------
+  // Same treatment as the chat log so a finished meeting reviewed on ANY
+  // machine shows what was said — localStorage stays as the fast local cache,
+  // R2 is the durable copy. Debounced wider than chat (segments arrive in
+  // bursts while someone talks). Never writes in read-only review.
+  private transcriptSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private persistTranscript = () => {
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return;
+    }
+    if (this.transcriptSaveTimer) {
+      clearTimeout(this.transcriptSaveTimer);
+    }
+    this.transcriptSaveTimer = setTimeout(() => {
+      this.transcriptSaveTimer = null;
+      const log = appJotaiStore.get(transcriptionLogAtom) ?? [];
+      if (!log.length) {
+        return;
+      }
+      void saveTranscriptToFirebase(roomId, roomKey, log).catch((error) => {
+        console.error(error);
+      });
+    }, 5000);
+  };
+
+  /** Restore the transcript from R2 when the local cache is empty (fresh
+   *  browser / review on another machine). Merges by id with whatever the
+   *  live session already collected, mirrors the result back into the
+   *  localStorage cache, and seeds the atom. */
+  private loadTranscriptHistory = async (roomId: string, roomKey: string) => {
+    try {
+      if (loadTranscriptLog(roomId).length > 0) {
+        // Local cache wins — it's at least as fresh as the blob we wrote.
+        return;
+      }
+      const history = await loadTranscriptFromFirebase<TranscriptSegment>(
+        roomId,
+        roomKey,
+      );
+      if (!history?.length || this.portal.roomId !== roomId) {
+        return;
+      }
+      const byId = new Map<string, TranscriptSegment>();
+      for (const s of history) {
+        byId.set(s.id, s);
+      }
+      // Live segments win over stored ones.
+      for (const s of appJotaiStore.get(transcriptionLogAtom) ?? []) {
+        byId.set(s.id, s);
+      }
+      const merged = Array.from(byId.values()).sort((a, b) => a.ts - b.ts);
+      appJotaiStore.set(transcriptionLogAtom, merged);
+      saveTranscriptLog(roomId, merged);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   // --- Meeting library persistence (DXF / IFC / PDF source + metadata) -----
   // The library lives in meetingFilesAtom, persisted per-browser to IndexedDB
   // and synced peer-to-peer. Neither survives a reopen on a fresh browser with
@@ -2105,11 +2235,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       appJotaiStore.set(liveTranscriptsAtom, cleaned);
     }
 
-    // Persist by roomId so the log survives reload.
+    // Persist by roomId so the log survives reload…
     const roomId = this.portal.roomId;
     if (roomId) {
       saveTranscriptLog(roomId, next);
     }
+    // …and mirror to R2 (debounced) so it survives a machine change too.
+    this.persistTranscript();
   };
 
   /** Called by the local STTSession when Deepgram emits a final

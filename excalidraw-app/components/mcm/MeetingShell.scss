@@ -6631,13 +6631,28 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   text-transform: uppercase;
   color: var(--mcm-text-faint);
 }
+// One block per DIVISION — label + a compact 2-col grid of accounts, so 9
+// demo users (incl. the cross-department test trio) fit without scrolling.
+.mcm-login__demo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mcm-login__demo-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mcm-text-faint);
+  opacity: 0.8;
+}
 .mcm-login__demo-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 6px;
 }
 .mcm-login__demo-user {
   appearance: none;
@@ -10113,6 +10128,414 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 }
 
+// ---------------- My Files ("Tài liệu của tôi" personal shelf) -------------
+// Dashboard middle-column panel (MyFilesPanel): upload-once document shelf
+// for internal staff. Upload drop-zone on top, then a quiet row list — same
+// hairline/surface language as the people grid above.
+
+// Sidebar nav icon for the "Tài liệu của tôi" entry (ProjectBrowser) —
+// rides the nav item's currentColor so hover/active states come for free.
+.mcm-nav__item-icon {
+  flex: none;
+  opacity: 0.85;
+}
+
+.mcm-myfiles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 720px;
+
+  &__drop {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 22px 16px;
+    border: 1.5px dashed var(--mcm-hairline-2);
+    border-radius: 12px;
+    background: var(--mcm-surface);
+    color: var(--mcm-text-soft);
+    font: inherit;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms, color 120ms;
+
+    svg {
+      color: var(--mcm-accent);
+    }
+
+    &:hover,
+    &--over {
+      border-color: var(--mcm-accent);
+      background: color-mix(in srgb, var(--mcm-accent) 5%, var(--mcm-surface));
+      color: var(--mcm-text);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+  }
+
+  &__drop-text {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  &__drop-sub {
+    font-size: 11.5px;
+    color: var(--mcm-text-faint);
+  }
+
+  // Visually-hidden file input (click goes through the drop zone button).
+  &__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  &__count {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint);
+  }
+
+  &__hint {
+    padding: 16px 4px;
+    font-size: 13px;
+    color: var(--mcm-text-faint);
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 28px 20px;
+    border: 1px dashed var(--mcm-hairline);
+    border-radius: 12px;
+    text-align: center;
+  }
+
+  &__empty-title {
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--mcm-text);
+  }
+
+  &__empty-desc {
+    max-width: 420px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--mcm-text-soft);
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 10px;
+    background: var(--mcm-surface);
+    transition: border-color 120ms, background 120ms;
+
+    &:hover {
+      border-color: var(--mcm-hairline-2);
+      background: var(--mcm-surface-2);
+    }
+  }
+
+  // Kind accent — the icon tile picks up a per-format hue so a mixed
+  // shelf scans by colour (mirrors the library's type badges).
+  &__row--pdf {
+    --myfile-accent: #dc2626;
+  }
+  &__row--dxf {
+    --myfile-accent: #2563eb;
+  }
+  &__row--ifc {
+    --myfile-accent: #7c3aed;
+  }
+  &__row--image {
+    --myfile-accent: #059669;
+  }
+  &__row--other {
+    --myfile-accent: #6b7280;
+  }
+
+  &__icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    color: var(--myfile-accent, var(--mcm-accent));
+    background: color-mix(
+      in srgb,
+      var(--myfile-accent, var(--mcm-accent)) 10%,
+      var(--mcm-surface)
+    );
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--mcm-text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__kind {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--myfile-accent, var(--mcm-text-faint));
+    background: color-mix(
+      in srgb,
+      var(--myfile-accent, var(--mcm-text-faint)) 10%,
+      transparent
+    );
+  }
+
+  &__delete {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--mcm-text-faint);
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+
+    &:hover {
+      background: color-mix(in srgb, #ef4444 12%, transparent);
+      color: #ef4444;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+  }
+}
+
+// In-meeting shelf picker ("Từ tủ của tôi" in the meeting library): a small
+// inline panel under the upload button listing the user's shelf files;
+// clicking a row copies the document into the meeting via the normal
+// ingest pipeline.
+.mcm-shelfpick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 10px;
+  background: var(--mcm-surface);
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px dashed var(--mcm-hairline-2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms, color 120ms;
+
+    svg {
+      color: var(--mcm-accent);
+    }
+
+    &:hover,
+    &--open {
+      border-color: var(--mcm-accent);
+      background: color-mix(in srgb, var(--mcm-accent) 6%, transparent);
+      color: var(--mcm-text);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+  }
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--mcm-text-soft);
+  }
+
+  &__hint {
+    flex: 1;
+    min-width: 0;
+    font-size: 10.5px;
+    color: var(--mcm-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__close {
+    flex: none;
+    align-self: center;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 5px;
+    background: none;
+    color: var(--mcm-text-faint);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+  }
+
+  &__empty {
+    padding: 8px 2px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--mcm-text-faint);
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 7px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 120ms;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: progress;
+    }
+  }
+
+  &__kind {
+    flex: none;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--mcm-text-faint);
+    background: var(--mcm-surface-2);
+
+    &--pdf {
+      color: #dc2626;
+      background: color-mix(in srgb, #dc2626 10%, transparent);
+    }
+    &--dxf {
+      color: #2563eb;
+      background: color-mix(in srgb, #2563eb 10%, transparent);
+    }
+    &--ifc {
+      color: #7c3aed;
+      background: color-mix(in srgb, #7c3aed 10%, transparent);
+    }
+    &--image {
+      color: #059669;
+      background: color-mix(in srgb, #059669 10%, transparent);
+    }
+  }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--mcm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__size {
+    flex: none;
+    font-size: 10.5px;
+    color: var(--mcm-text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 // ---------------- Meeting-due notice ("meeting tới giờ" toast) -------------
 // Bottom-right toast nudging the user to join a scheduled meeting whose time
 // has arrived (MeetingDueNotice). Shown only OUTSIDE a meeting. z 1200 floats
@@ -10236,6 +10659,80 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+// ---------------- AI summary (MeetingDetailPreview "Tóm tắt AI") -----------
+// The auto-recap written at End-for-all (D1 meeting.ai_summary). Quiet muted
+// card under the hero: sparkles-accented section header, prose clamped to a
+// few lines with an inline expand/collapse toggle. Stays out of the way —
+// the hero keeps the panel's one accent moment.
+.mcm-mdp__ai {
+  &-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    svg {
+      color: var(--mcm-accent);
+      flex: none;
+    }
+  }
+
+  // Generated-at stamp, pushed to the right of the section header.
+  &-at {
+    margin-left: auto;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--mcm-text-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &-card {
+    padding: 10px 12px;
+    background: var(--mcm-surface-2);
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 10px;
+  }
+
+  &-text {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--mcm-text-soft);
+    // The recap is plaintext with bullet lines — keep its line breaks.
+    white-space: pre-line;
+    overflow-wrap: break-word;
+    // Clamped by default; --open lifts the clamp.
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
+
+    &--open {
+      display: block;
+      -webkit-line-clamp: unset;
+      overflow: visible;
+    }
+  }
+
+  // "Xem thêm / Thu gọn" — quiet text button inside the card.
+  &-more {
+    margin-top: 6px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--mcm-accent);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 
@@ -10591,4 +11088,12 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   .mcm-invite__list {
     background: var(--mcm-surface);
   }
+}
+
+// Sidebar project badge for invited-only access ("phòng ban khác mời mình
+// 1 cuộc họp"): warm tint distinguishes it from the neutral stage badge.
+.mcm-nav__item-stage--invited {
+  border-color: color-mix(in srgb, #d97706 35%, transparent);
+  color: #d97706;
+  background: color-mix(in srgb, #d97706 8%, var(--mcm-surface));
 }

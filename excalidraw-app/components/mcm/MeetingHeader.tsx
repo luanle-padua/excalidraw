@@ -22,6 +22,7 @@ import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
+  chatMessagesAtom,
   collabAPIAtom,
   meetingViewOnlyAtom,
   participantsPanelOpenAtom,
@@ -30,11 +31,13 @@ import { clearLastMeeting } from "../../data/lastMeeting";
 import {
   getMeeting,
   registerMeeting,
+  saveMeetingAiSummary,
   updateMeeting,
 } from "../../data/projects";
 import { markReviewRoom } from "../../data/reviewMode";
 import { isInternalEmail, sessionAtom } from "../../data/session";
 import { transcriptionLogAtom } from "../../data/transcription";
+import { preferredLanguageAtom } from "../../data/translation";
 import { hostSocketIdAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
@@ -247,6 +250,71 @@ export const MeetingHeader = ({
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
   const isHost = !!selfSocketId && hostSocketId === selfSocketId;
 
+  // AI summary-first (quyết định 06-10 #4): when the host ends the meeting,
+  // auto-generate a recap from the transcript + chat and store it in D1
+  // (meeting.ai_summary) so the detail panel / search can surface it without
+  // touching the E2E transcript blob. Strictly fire-and-forget — a Gemini
+  // hiccup must never block (or even delay) ending the meeting.
+  const chatMessages = useAtomValue(chatMessagesAtom);
+  const preferredLang = useAtomValue(preferredLanguageAtom);
+  const generateAiSummary = useCallback(
+    async (targetRoomId: string) => {
+      if (log.length === 0 && chatMessages.length === 0) {
+        return; // nothing was said or typed — no recap to make
+      }
+      const res = await fetch("/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          segments: log.map((s) => ({
+            speaker: s.username,
+            text: s.text,
+            lang: s.lang,
+            ts: s.ts,
+          })),
+          chat: chatMessages.map((m) => ({
+            username: m.username,
+            text: m.text,
+          })),
+          language: preferredLang,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`summarize failed: ${res.status}`);
+      }
+      const body = (await res.json()) as {
+        summary?: string;
+        decisions?: string[];
+        actionItems?: { owner: string; task: string; due?: string }[];
+      };
+      // Flatten the structured recap into the single plaintext column the
+      // registry stores (summary prose + decisions + action items).
+      const parts: string[] = [];
+      if (body.summary?.trim()) {
+        parts.push(body.summary.trim());
+      }
+      if (Array.isArray(body.decisions) && body.decisions.length) {
+        parts.push(
+          `${t("log.sectionDecisions")}:\n${body.decisions
+            .map((d) => `• ${d}`)
+            .join("\n")}`,
+        );
+      }
+      if (Array.isArray(body.actionItems) && body.actionItems.length) {
+        parts.push(
+          `${t("log.sectionActionItems")}:\n${body.actionItems
+            .map((a) => `• ${a.owner} — ${a.task}${a.due ? ` (${a.due})` : ""}`)
+            .join("\n")}`,
+        );
+      }
+      const text = parts.join("\n\n").trim();
+      if (text) {
+        await saveMeetingAiSummary(targetRoomId, text);
+      }
+    },
+    [log, chatMessages, preferredLang, t],
+  );
+
   const handleEndMeeting = useCallback(async () => {
     if (!roomId || !isHost) {
       return;
@@ -256,6 +324,10 @@ export const MeetingHeader = ({
     }
     // Mark the meeting finished in the registry (so reopen = read-only review)…
     await updateMeeting(roomId, { status: "finished" });
+    // …kick off the AI recap in the background (never blocks the ending)…
+    void generateAiSummary(roomId).catch((error) => {
+      console.warn("AI summary generation failed (non-blocking):", error);
+    });
     // …drop our own "Resume" pointer right away — a finished meeting must
     // never be offered for resume, and the lobby's status re-check shouldn't
     // be the only line of defense on the ender's own browser…
@@ -265,7 +337,7 @@ export const MeetingHeader = ({
     // …and switch ourselves too.
     markReviewRoom(roomId);
     setViewOnly(true);
-  }, [roomId, isHost, collabAPI, setViewOnly, t]);
+  }, [roomId, isHost, collabAPI, setViewOnly, generateAiSummary, t]);
 
   return (
     <header className="mcm-header">

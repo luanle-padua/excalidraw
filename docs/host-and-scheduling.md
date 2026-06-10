@@ -64,9 +64,9 @@
 
 → **Luật then chốt: là `meeting_invitee` KHÔNG cho quyền gì ở mức project.** Khách mời 1 meeting → chỉ có 1 dòng invitee → **không thấy folder, không thấy meeting/file khác**. Bảo mật đúng "by construction".
 
-### Trả lời 4 câu hỏi
+### Trả lời 4 câu hỏi *(cập nhật 2026-06-10 — đổi từ B sang B+)*
 1. **Mời 1 meeting → thấy cả project?** → **KHÔNG.** Chỉ thấy đúng meeting đó. (Khách tuyệt đối không thấy phần còn lại của dự án.)
-2. **User chưa "có" project đó thì sao? Tự tạo folder?** → **KHÔNG auto-tạo/auto-share folder.** Meeting được mời hiện ở **mục "Sắp tới / Được mời"** riêng (chỉ là các thẻ meeting, KHÔNG lộ folder). *(Team cân 3 phương án: A=share cả project→loại vì lộ bí mật; B=list "Được mời" riêng→**chọn**; C=folder ảo→loại vì rối.)*
+2. **User chưa "có" project đó thì sao?** → **B+ (chốt 06-10)**: với **NỘI BỘ** được mời (case phòng ban A mời phòng ban B), project **hiện trong danh sách dự án của họ với badge "Được mời"** (`access: "invitee"`), nhưng mở vào **chỉ thấy đúng các meeting được mời hoặc đã tham gia** (`projectAccess = "partial"`, server filter theo `meeting_invitee` ∪ `meeting_participant`); không sửa project, không tạo meeting trong đó. **KHÁCH ngoài giữ nguyên B**: chỉ list "Được mời / Sắp tới", không bao giờ thấy folder. *(Lịch sử: A=share cả project→loại; B=list riêng→chọn ban đầu; C=folder ảo→loại; B+ = folder lọc cho nội bộ, thay B từ 06-10.)*
 3. **Add nhầm → thu hồi?** → **Rẻ vì không copy gì.** Xoá (soft) dòng `meeting_invitee` (status=`revoked`+audit). Nếu có dòng `project_member` *auto-tạo từ lời mời này* → gỡ luôn (chỉ khi auto, không gỡ nếu họ vốn là member). Nếu đang LIVE + đang trong phòng → kick + huỷ Daily token. *(Lưu ý: thu hồi chặn tương lai, không lấy lại được dữ liệu họ đã tải.)*
 4. **Nội bộ vs khách?** → **Bất đối xứng nhưng tường minh:** form lên lịch có checkbox **"thêm vào project"** — nội bộ mặc định **BẬT** (được cả invitee + project_member → thấy folder); **khách bị ÉP TẮT** (chỉ invitee → meeting-scoped). Không lỡ tay nâng quyền khách.
 

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 
-import { DEMO_DIVISION, DEMO_USERS, type DemoUser } from "../../data/demoUsers";
+import { DEMO_USERS, type DemoUser } from "../../data/demoUsers";
 import { supabase } from "../../data/supabaseClient";
 import { useT } from "../../i18n/mcm";
 
@@ -138,7 +138,9 @@ export const LoginScreen = () => {
           ) : mode === "password" ? (
             <form className="mcm-login__form" onSubmit={signInPassword}>
               <label className="mcm-login__field">
-                <span className="mcm-login__label">{t("login.emailLabel")}</span>
+                <span className="mcm-login__label">
+                  {t("login.emailLabel")}
+                </span>
                 <input
                   type="email"
                   className={`mcm-login__input${
@@ -195,7 +197,9 @@ export const LoginScreen = () => {
           ) : (
             <form className="mcm-login__form" onSubmit={sendMagicLink}>
               <label className="mcm-login__field">
-                <span className="mcm-login__label">{t("login.emailLabel")}</span>
+                <span className="mcm-login__label">
+                  {t("login.emailLabel")}
+                </span>
                 <input
                   type="email"
                   className={`mcm-login__input${
@@ -237,41 +241,50 @@ export const LoginScreen = () => {
           {!magicSent && (
             <div className="mcm-login__demo">
               <span className="mcm-login__demo-title">
-                {t("login.demoTitle")} · {DEMO_DIVISION}
+                {t("login.demoTitle")}
               </span>
-              <ul className="mcm-login__demo-list">
-                {DEMO_USERS.map((u) => (
-                  <li key={u.email}>
-                    <button
-                      type="button"
-                      className="mcm-login__demo-user"
-                      onClick={() => signInDemo(u)}
-                      title={`${u.title} · ${u.email}`}
-                      disabled={loading}
-                    >
-                      <span className="mcm-login__demo-avatar">
-                        {u.name.charAt(0)}
-                      </span>
-                      <span className="mcm-login__demo-info">
-                        <span className="mcm-login__demo-name">
-                          {u.name}
-                          {u.isHost && (
-                            <span className="mcm-login__demo-host">
-                              <Crown size={11} /> {t("login.host")}
+              {/* Grouped by DIVISION (a compact 2-col grid per group) so the
+                  cross-department test accounts read as separate teams. */}
+              {[...new Set(DEMO_USERS.map((u) => u.division))].map((div) => (
+                <div key={div} className="mcm-login__demo-group">
+                  <span className="mcm-login__demo-group-label">{div}</span>
+                  <ul className="mcm-login__demo-list">
+                    {DEMO_USERS.filter((u) => u.division === div).map((u) => (
+                      <li key={u.email}>
+                        <button
+                          type="button"
+                          className="mcm-login__demo-user"
+                          onClick={() => signInDemo(u)}
+                          title={`${u.title} · ${u.email}`}
+                          disabled={loading}
+                        >
+                          <span className="mcm-login__demo-avatar">
+                            {u.name.charAt(0)}
+                          </span>
+                          <span className="mcm-login__demo-info">
+                            <span className="mcm-login__demo-name">
+                              {u.name}
+                              {u.isHost && (
+                                <span className="mcm-login__demo-host">
+                                  <Crown size={11} /> {t("login.host")}
+                                </span>
+                              )}
+                              {u.isAdmin && (
+                                <span className="mcm-login__demo-host">
+                                  <ShieldCheck size={11} /> Admin
+                                </span>
+                              )}
                             </span>
-                          )}
-                          {u.isAdmin && (
-                            <span className="mcm-login__demo-host">
-                              <ShieldCheck size={11} /> Admin
+                            <span className="mcm-login__demo-meta">
+                              {u.title}
                             </span>
-                          )}
-                        </span>
-                        <span className="mcm-login__demo-meta">{u.title}</span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           )}
 

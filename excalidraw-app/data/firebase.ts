@@ -20,4 +20,6 @@ export {
   loadChatFromStorage as loadChatFromFirebase,
   saveLibraryToStorage as saveLibraryToFirebase,
   loadLibraryFromStorage as loadLibraryFromFirebase,
+  saveTranscriptToStorage as saveTranscriptToFirebase,
+  loadTranscriptFromStorage as loadTranscriptFromFirebase,
 } from "./storage";

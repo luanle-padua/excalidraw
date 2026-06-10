@@ -2,6 +2,7 @@ import {
   ArrowUpDown,
   Check,
   Eye,
+  FolderHeart,
   LayoutGrid,
   List as ListIcon,
   Palette,
@@ -44,13 +45,15 @@ import {
   meetingStatusLabel,
 } from "./meetingStatus";
 import { MetadataEditor } from "./MetadataEditor";
+import { MyFilesPanel } from "./MyFilesPanel";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
 
-// "all" = my whole calendar · "invited" = invitations · else a project id.
-type View = "all" | "invited" | string;
+// "all" = my whole calendar · "invited" = invitations · "myfiles" = the
+// personal document shelf (internal only) · else a project id.
+type View = "all" | "invited" | "myfiles" | string;
 
 // Middle-column presentation controls (persisted in component state).
 type ViewMode = "grid" | "list";
@@ -169,7 +172,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const refreshCards = useCallback(async () => {
     setLoadingCards(true);
     try {
-      if (view === "all") {
+      if (view === "myfiles") {
+        // The shelf panel self-fetches — no meeting cards in this view.
+        setCards([]);
+      } else if (view === "all") {
         setCards((await getMyMeetings()).map(calToSummary));
       } else if (view === "invited") {
         setCards((await getMyInvitations()).map(invToSummary));
@@ -193,17 +199,28 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     return null;
   }
 
+  const isInternal = isInternalEmail(session?.email);
+
   const selectedProject =
-    view === "all" || view === "invited"
+    view === "all" || view === "invited" || view === "myfiles"
       ? null
       : projects.find((p) => p.id === view) ?? null;
-  // The project a new meeting attaches to (the open one, else the first).
-  const targetProject = selectedProject ?? projects[0] ?? null;
+  // True membership only — an "invitee" folder (mời vào 1 cuộc họp của phòng
+  // ban khác) is browse-filtered, not ours to create meetings in or edit.
+  const isMemberProject = (p: Project | null): boolean =>
+    !!p && p.access !== "invitee";
+  // The project a new meeting attaches to: the open one if we're a member,
+  // else the first project we actually belong to.
+  const targetProject = isMemberProject(selectedProject)
+    ? selectedProject
+    : projects.find((p) => isMemberProject(p)) ?? null;
 
   const contextLabel = selectedProject
     ? selectedProject.name
     : view === "invited"
     ? t("invited.title")
+    : view === "myfiles"
+    ? t("myfiles.title")
     : t("cal.upcoming");
 
   const enterRoom = async (
@@ -259,7 +276,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     }
     setBusy(true);
     try {
-      const project = await createProject(name, session?.email);
+      const project = await createProject(name);
       setNewProjectName("");
       await refreshProjects();
       if (project) {
@@ -413,6 +430,25 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-nav__section">
           {navItem("all", t("cal.title"))}
           {navItem("invited", t("invited.title"))}
+          {/* Personal document shelf — internal staff only (the Worker
+              also gates /v1/me/files to internal accounts). */}
+          {isInternal && (
+            <button
+              type="button"
+              className={`mcm-nav__item${
+                view === "myfiles" ? " mcm-nav__item--active" : ""
+              }`}
+              onClick={() => {
+                setView("myfiles");
+                setDetailRoomId(null);
+                setMeetingFormOpen(null);
+                setEditRoomId(null);
+              }}
+            >
+              <FolderHeart size={14} className="mcm-nav__item-icon" />
+              <span className="mcm-nav__item-label">{t("myfiles.title")}</span>
+            </button>
+          )}
         </div>
         <div className="mcm-nav__section">
           <h3 className="mcm-nav__section-label">{t("header.projects")}</h3>
@@ -435,8 +471,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                   }}
                 >
                   <span className="mcm-nav__item-label">{p.name}</span>
-                  {p.stage && (
-                    <span className="mcm-nav__item-stage">{p.stage}</span>
+                  {/* Invited-only access (no membership): badge instead of
+                      the stage — the folder shows just their meetings. */}
+                  {p.access === "invitee" ? (
+                    <span className="mcm-nav__item-stage mcm-nav__item-stage--invited">
+                      {t("folder.invitedBadge")}
+                    </span>
+                  ) : (
+                    p.stage && (
+                      <span className="mcm-nav__item-stage">{p.stage}</span>
+                    )
                   )}
                 </button>
               </li>
@@ -468,7 +512,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-3col__middle-head">
           <div className="mcm-3col__middle-titlebox">
             <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
-            {selectedProject && (
+            {selectedProject && isMemberProject(selectedProject) && (
               <button
                 type="button"
                 className="mcm-icon-btn mcm-icon-btn--sm"
@@ -482,66 +526,76 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           </div>
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
               so it hides while a detail/create/edit form occupies the column. */}
-          {!detailRoomId && !meetingFormOpen && !editRoomId && (
-            <div className="mcm-toolbar">
-              <div
-                className="mcm-segmented"
-                role="group"
-                aria-label={t("view.label")}
-              >
-                <button
-                  type="button"
-                  className={`mcm-segmented__btn${
-                    viewMode === "grid" ? " mcm-segmented__btn--active" : ""
-                  }`}
-                  onClick={() => setViewMode("grid")}
-                  title={t("view.grid")}
-                  aria-label={t("view.grid")}
-                  aria-pressed={viewMode === "grid" ? "true" : "false"}
+          {view !== "myfiles" &&
+            !detailRoomId &&
+            !meetingFormOpen &&
+            !editRoomId && (
+              <div className="mcm-toolbar">
+                <div
+                  className="mcm-segmented"
+                  role="group"
+                  aria-label={t("view.label")}
                 >
-                  <LayoutGrid size={14} />
-                </button>
-                <button
-                  type="button"
-                  className={`mcm-segmented__btn${
-                    viewMode === "list" ? " mcm-segmented__btn--active" : ""
-                  }`}
-                  onClick={() => setViewMode("list")}
-                  title={t("view.list")}
-                  aria-label={t("view.list")}
-                  aria-pressed={viewMode === "list" ? "true" : "false"}
-                >
-                  <ListIcon size={14} />
-                </button>
+                  <button
+                    type="button"
+                    className={`mcm-segmented__btn${
+                      viewMode === "grid" ? " mcm-segmented__btn--active" : ""
+                    }`}
+                    onClick={() => setViewMode("grid")}
+                    title={t("view.grid")}
+                    aria-label={t("view.grid")}
+                    aria-pressed={viewMode === "grid" ? "true" : "false"}
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`mcm-segmented__btn${
+                      viewMode === "list" ? " mcm-segmented__btn--active" : ""
+                    }`}
+                    onClick={() => setViewMode("list")}
+                    title={t("view.list")}
+                    aria-label={t("view.list")}
+                    aria-pressed={viewMode === "list" ? "true" : "false"}
+                  >
+                    <ListIcon size={14} />
+                  </button>
+                </div>
+                <label className="mcm-select" title={t("sort.label")}>
+                  <ArrowUpDown size={13} className="mcm-select__icon" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortBy)}
+                    aria-label={t("sort.label")}
+                  >
+                    <option value="time">{t("sort.time")}</option>
+                    <option value="title">{t("sort.title")}</option>
+                    <option value="status">{t("sort.status")}</option>
+                  </select>
+                </label>
               </div>
-              <label className="mcm-select" title={t("sort.label")}>
-                <ArrowUpDown size={13} className="mcm-select__icon" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortBy)}
-                  aria-label={t("sort.label")}
-                >
-                  <option value="time">{t("sort.time")}</option>
-                  <option value="title">{t("sort.title")}</option>
-                  <option value="status">{t("sort.status")}</option>
-                </select>
-              </label>
-            </div>
-          )}
-          {view !== "invited" && targetProject && !detailRoomId && !editRoomId && (
-            <button
-              type="button"
-              className="mcm-btn mcm-btn--primary mcm-btn--sm"
-              onClick={() => setMeetingFormOpen("now")}
-              disabled={busy}
-            >
-              <Plus size={15} /> {t("folder.newMeetingInProject")}
-            </button>
-          )}
+            )}
+          {view !== "invited" &&
+            view !== "myfiles" &&
+            targetProject &&
+            !detailRoomId &&
+            !editRoomId &&
+            (!selectedProject || isMemberProject(selectedProject)) && (
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--primary mcm-btn--sm"
+                onClick={() => setMeetingFormOpen("now")}
+                disabled={busy}
+              >
+                <Plus size={15} /> {t("folder.newMeetingInProject")}
+              </button>
+            )}
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
-          {editRoomId ? (
+          {view === "myfiles" ? (
+            <MyFilesPanel />
+          ) : editRoomId ? (
             <EditMeetingForm
               roomId={editRoomId}
               onClose={() => setEditRoomId(null)}
@@ -626,125 +680,125 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                         } as React.CSSProperties
                       }
                     >
-                    <span className="mcm-mcard__stripe" aria-hidden="true" />
-                    <button
-                      type="button"
-                      className="mcm-mcard__main"
-                      onClick={() => handleReopen(m)}
-                      disabled={busy}
-                      title={t("folder.reopen")}
-                    >
-                      <span className="mcm-mcard__title">
-                        {m.title || t("folder.meetingFallbackTitle")}
-                      </span>
-                      {m.topic && (
-                        <span className="mcm-mcard__topic">{m.topic}</span>
-                      )}
-                      <span className="mcm-mcard__when">
-                        <span className="mcm-mcard__date">
-                          {fmtDateOnly(when)}
-                        </span>
-                        {fmtTimeOnly(when) && (
-                          <span className="mcm-mcard__time">
-                            {fmtTimeOnly(when)}
-                          </span>
-                        )}
-                      </span>
-                      {/* Creator — always visible on the card so ownership
-                          ("ai tạo cuộc họp này") reads at a glance. */}
-                      {(m.created_by || m.organizer_email) && (
-                        <span
-                          className="mcm-mcard__creator"
-                          style={
-                            {
-                              ["--pa" as string]: personColor(
-                                m.organizer_email || m.created_by,
-                              ),
-                            } as React.CSSProperties
-                          }
-                          title={m.organizer_email ?? undefined}
-                        >
-                          <span
-                            className="mcm-mcard__creator-ava"
-                            aria-hidden="true"
-                          >
-                            {(m.created_by || m.organizer_email)!
-                              .trim()[0]
-                              ?.toUpperCase()}
-                          </span>
-                          <span className="mcm-mcard__creator-name">
-                            {m.created_by || m.organizer_email!.split("@")[0]}
-                          </span>
-                        </span>
-                      )}
-                      <span className="mcm-mcard__foot">
-                        {m.status && (
-                          <span
-                            className={`mcm-pill mcm-pill--${statusBucket(
-                              m.status,
-                            )}`}
-                          >
-                            {meetingStatusLabel(t, m.status)}
-                          </span>
-                        )}
-                        {projectName && (
-                          <span className="mcm-mcard__project">
-                            {projectName}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                    <div className="mcm-mcard__actions">
-                      <div className="mcm-mcard__color">
-                        <button
-                          type="button"
-                          className="mcm-icon-btn mcm-icon-btn--sm"
-                          onClick={(e) => {
-                            if (colorMenuFor === m.id) {
-                              setColorMenuFor(null);
-                            } else {
-                              setColorMenuAnchor(
-                                e.currentTarget.getBoundingClientRect(),
-                              );
-                              setColorMenuFor(m.id);
-                            }
-                          }}
-                          title={t("color.label")}
-                          aria-label={t("color.label")}
-                        >
-                          <Palette size={14} />
-                        </button>
-                        {colorMenuFor === m.id && colorMenuAnchor && (
-                          <ColorMenu
-                            anchor={colorMenuAnchor}
-                            current={m.color ?? null}
-                            onPick={(c) => void assignColor(m.id, c)}
-                            onClose={() => setColorMenuFor(null)}
-                            clearLabel={t("color.none")}
-                          />
-                        )}
-                      </div>
+                      <span className="mcm-mcard__stripe" aria-hidden="true" />
                       <button
                         type="button"
-                        className="mcm-icon-btn mcm-icon-btn--sm"
-                        onClick={() => setDetailRoomId(m.id)}
-                        title={t("folder.detail")}
-                        aria-label={t("folder.detail")}
+                        className="mcm-mcard__main"
+                        onClick={() => handleReopen(m)}
+                        disabled={busy}
+                        title={t("folder.reopen")}
                       >
-                        <Eye size={14} />
+                        <span className="mcm-mcard__title">
+                          {m.title || t("folder.meetingFallbackTitle")}
+                        </span>
+                        {m.topic && (
+                          <span className="mcm-mcard__topic">{m.topic}</span>
+                        )}
+                        <span className="mcm-mcard__when">
+                          <span className="mcm-mcard__date">
+                            {fmtDateOnly(when)}
+                          </span>
+                          {fmtTimeOnly(when) && (
+                            <span className="mcm-mcard__time">
+                              {fmtTimeOnly(when)}
+                            </span>
+                          )}
+                        </span>
+                        {/* Creator — always visible on the card so ownership
+                          ("ai tạo cuộc họp này") reads at a glance. */}
+                        {(m.created_by || m.organizer_email) && (
+                          <span
+                            className="mcm-mcard__creator"
+                            style={
+                              {
+                                ["--pa" as string]: personColor(
+                                  m.organizer_email || m.created_by,
+                                ),
+                              } as React.CSSProperties
+                            }
+                            title={m.organizer_email ?? undefined}
+                          >
+                            <span
+                              className="mcm-mcard__creator-ava"
+                              aria-hidden="true"
+                            >
+                              {(m.created_by || m.organizer_email)!
+                                .trim()[0]
+                                ?.toUpperCase()}
+                            </span>
+                            <span className="mcm-mcard__creator-name">
+                              {m.created_by || m.organizer_email!.split("@")[0]}
+                            </span>
+                          </span>
+                        )}
+                        <span className="mcm-mcard__foot">
+                          {m.status && (
+                            <span
+                              className={`mcm-pill mcm-pill--${statusBucket(
+                                m.status,
+                              )}`}
+                            >
+                              {meetingStatusLabel(t, m.status)}
+                            </span>
+                          )}
+                          {projectName && (
+                            <span className="mcm-mcard__project">
+                              {projectName}
+                            </span>
+                          )}
+                        </span>
                       </button>
-                      {canEditCard(m) && (
+                      <div className="mcm-mcard__actions">
+                        <div className="mcm-mcard__color">
+                          <button
+                            type="button"
+                            className="mcm-icon-btn mcm-icon-btn--sm"
+                            onClick={(e) => {
+                              if (colorMenuFor === m.id) {
+                                setColorMenuFor(null);
+                              } else {
+                                setColorMenuAnchor(
+                                  e.currentTarget.getBoundingClientRect(),
+                                );
+                                setColorMenuFor(m.id);
+                              }
+                            }}
+                            title={t("color.label")}
+                            aria-label={t("color.label")}
+                          >
+                            <Palette size={14} />
+                          </button>
+                          {colorMenuFor === m.id && colorMenuAnchor && (
+                            <ColorMenu
+                              anchor={colorMenuAnchor}
+                              current={m.color ?? null}
+                              onPick={(c) => void assignColor(m.id, c)}
+                              onClose={() => setColorMenuFor(null)}
+                              clearLabel={t("color.none")}
+                            />
+                          )}
+                        </div>
                         <button
                           type="button"
                           className="mcm-icon-btn mcm-icon-btn--sm"
-                          onClick={() => openMeetingEditor(m)}
-                          title={t("folder.editMeeting")}
-                          aria-label={t("folder.editMeeting")}
+                          onClick={() => setDetailRoomId(m.id)}
+                          title={t("folder.detail")}
+                          aria-label={t("folder.detail")}
                         >
-                          <Pencil size={14} />
+                          <Eye size={14} />
                         </button>
-                      )}
-                    </div>
+                        {canEditCard(m) && (
+                          <button
+                            type="button"
+                            className="mcm-icon-btn mcm-icon-btn--sm"
+                            onClick={() => openMeetingEditor(m)}
+                            title={t("folder.editMeeting")}
+                            aria-label={t("folder.editMeeting")}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
+                      </div>
                     </li>
                   </Fragment>
                 );

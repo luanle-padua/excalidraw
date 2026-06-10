@@ -34,6 +34,11 @@ export const en: Widened<typeof vi> = {
     join: "Join now",
     dismiss: "Later",
   },
+  ai: {
+    summaryTitle: "AI summary",
+    showMore: "Show more",
+    showLess: "Show less",
+  },
   cal: {
     title: "Calendar",
     upcoming: "Upcoming",
@@ -236,6 +241,38 @@ export const en: Widened<typeof vi> = {
     setRetention: "Data retention (days)",
     securityNote:
       "Failed-login tracking needs log drains (later). Below is the recent admin action log.",
+    // ---- Projects back-office + compliance access (06-10 #1) ----
+    tabProjects: "Projects",
+    colOwner: "Owner",
+    colStage: "Stage",
+    colMembers: "Members",
+    colUpdated: "Updated",
+    secMembers: "Project members",
+    membersPlaceholder: "internal emails, comma-separated…",
+    addMembers: "Add",
+    membersHint: "Internal emails only — others are silently skipped.",
+    removeMember: "Remove",
+    lastOwnerError: "Cannot remove the project's last owner.",
+    deleteProject: "Delete project",
+    confirmDeleteProject:
+      'PERMANENTLY delete project "{name}"?\n\nAll {count} meetings (canvas, files, chat) and the member list will be deleted with it — this cannot be undone.\n\nType the exact project name to confirm:',
+    deleteProjectMismatch: "Project name did not match — cancelled.",
+    noMembers: "No members yet",
+    mOrganizer: "Organizer",
+    mHost: "Host",
+    secAiSummary: "AI summary",
+    secInvitees: "Invitees",
+    invKind: "Kind",
+    invStatus: "Status",
+    invitedBy: "Invited by",
+    invitedAt: "Invited at",
+    noInvitees: "No invitees",
+    openContent: "Open content (compliance)",
+    openContentConfirm:
+      "Open this meeting's content in READ-ONLY, fully INVISIBLE mode (compliance)?\n\nYou view the latest saved state without joining the room — participants cannot see you. This access will be permanently recorded in the audit log (admin.open_content).",
+    openContentNoKey:
+      "This meeting has no stored key — content cannot be opened.",
+    openContentFailed: "Could not open the meeting content.",
   },
 
   clients: {
@@ -316,6 +353,7 @@ export const en: Widened<typeof vi> = {
       "PERMANENTLY delete this meeting? Canvas, files and all history will be erased — this cannot be undone.",
     host: "Host",
     noCohost: "— None —",
+    invitedBadge: "Invited",
     waitingRoom: "Waiting room for guests",
     recordingOn: "Record the meeting",
     // Zone headers of the redesigned create/schedule form (small-caps).
@@ -331,6 +369,32 @@ export const en: Widened<typeof vi> = {
     internalCount: "Internal ({count})",
     guestCount: "Clients ({count})",
     noGroup: "Other",
+  },
+
+  // ---------------- My Files (personal document shelf) --------------
+  myfiles: {
+    title: "My Files",
+    subtitle: "Upload once, drop into any meeting",
+    emptyTitle: "Your personal document shelf",
+    emptyDesc:
+      "Upload once, drop into any meeting. Adding a file to a meeting makes a copy — deleting it here never affects any meeting.",
+    dropHint: "Drag files here or click to choose",
+    dropActive: "Drop files to upload",
+    uploading: "Uploading…",
+    uploadFailed: "Upload failed: {name}",
+    tooLarge: "File too large (max 50MB): {name}",
+    deleteConfirm:
+      'Delete "{name}" from your shelf?\n\nMeetings that already copied this file are unaffected.',
+    delete: "Delete",
+    count: "{count} documents",
+    fromShelf: "From my shelf",
+    pickerTitle: "My Files",
+    pickerHint: "Click to copy into this meeting",
+    pickerEmpty:
+      "Your shelf is empty — upload from the home page, under “My Files”.",
+    copying: "Copying into the meeting…",
+    copyFailed: "Couldn't load the file from your shelf: {name}",
+    close: "Close",
   },
 
   // ---------------- Meeting status (canonical lifecycle) ------------

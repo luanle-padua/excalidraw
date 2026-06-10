@@ -1,3 +1,4 @@
+import { FolderHeart, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
@@ -24,6 +25,14 @@ import {
   meetingFilesAtom,
   probeImageDimensions,
 } from "../data/meetingLibrary";
+import { isInternalEmail, sessionAtom } from "../data/session";
+import {
+  getMyFileContent,
+  listMyFiles,
+  type UserFile,
+  type UserFileKind,
+} from "../data/userFiles";
+import { useT } from "../i18n/mcm";
 
 import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
 import { IFC_ANCHOR_KIND } from "./mcm/ifc/ifcAnchor";
@@ -210,15 +219,50 @@ const TYPE_SECTION_ORDER: { type: FileType; title: string }[] = [
   { type: "other", title: "Other files" },
 ];
 
+/** Fallback mime when the shelf blob arrives untyped — keeps the
+ *  reconstructed `File` indistinguishable from a local pick (ingest
+ *  detection is name-based for dxf/ifc anyway). */
+const SHELF_MIME_FALLBACK: Record<UserFileKind, string> = {
+  pdf: "application/pdf",
+  dxf: "image/vnd.dxf",
+  ifc: "application/octet-stream",
+  image: "image/png",
+  other: "application/octet-stream",
+};
+
+const shelfHumanSize = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "—";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${Math.round(bytes / 1024)} KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
 export const MeetingLibrary = () => {
+  const t = useT();
   const items = useAtomValue(meetingFilesAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const excalidrawAPI = useExcalidrawAPI();
+  const session = useAtomValue(sessionAtom);
+  const isInternal = isInternalEmail(session?.email);
 
   const roomId = extractRoomId(collabAPI?.getActiveRoomLink() ?? null);
 
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // "Từ tủ của tôi" — the personal-shelf picker (internal users only).
+  // Selecting a file downloads its raw bytes and pushes them through
+  // `ingestFiles`, i.e. EXACTLY the local-upload path, so the meeting
+  // gets its own baked + encrypted snapshot copy of the document.
+  const [shelfOpen, setShelfOpen] = useState(false);
+  const [shelfFiles, setShelfFiles] = useState<UserFile[] | null>(null);
+  const [shelfCopyingId, setShelfCopyingId] = useState<string | null>(null);
 
   // Toolbar state — search query, type filter chip, sort key, grid vs
   // list view, optional group-by-type sectioning. All session-scoped
@@ -499,6 +543,44 @@ export const MeetingLibrary = () => {
   );
 
   const handlePickFiles = () => fileInputRef.current?.click();
+
+  const toggleShelf = () => {
+    if (shelfOpen) {
+      setShelfOpen(false);
+      return;
+    }
+    setShelfOpen(true);
+    setShelfFiles(null); // show the loading hint while we (re)fetch
+    void listMyFiles().then(setShelfFiles);
+  };
+
+  const handleCopyFromShelf = useCallback(
+    async (shelfFile: UserFile) => {
+      if (shelfCopyingId) {
+        return;
+      }
+      setShelfCopyingId(shelfFile.id);
+      try {
+        const blob = await getMyFileContent(shelfFile.id);
+        if (!blob) {
+          window.alert(t("myfiles.copyFailed", { name: shelfFile.name }));
+          return;
+        }
+        // Rewrap the bytes as a `File` carrying the ORIGINAL name (ingest
+        // detection for DXF/IFC/PDF is extension-based) and feed it through
+        // the exact local-upload pipeline — bake, per-meeting encryption and
+        // snapshot-copy semantics all come for free.
+        const file = new File([blob], shelfFile.name, {
+          type: blob.type || SHELF_MIME_FALLBACK[shelfFile.kind],
+        });
+        await ingestFiles([file]);
+        setShelfOpen(false);
+      } finally {
+        setShelfCopyingId(null);
+      }
+    },
+    [shelfCopyingId, ingestFiles, t],
+  );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -1379,6 +1461,79 @@ export const MeetingLibrary = () => {
           className="MeetingLibrary__file-input"
           onChange={handleFileInputChange}
         />
+        {isInternal && (
+          <button
+            type="button"
+            className={`mcm-shelfpick__toggle${
+              shelfOpen ? " mcm-shelfpick__toggle--open" : ""
+            }`}
+            onClick={toggleShelf}
+            disabled={!excalidrawAPI}
+            aria-expanded={shelfOpen ? "true" : "false"}
+          >
+            <FolderHeart size={14} aria-hidden="true" />
+            {t("myfiles.fromShelf")}
+          </button>
+        )}
+        {isInternal && shelfOpen && (
+          <div
+            className="mcm-shelfpick"
+            role="dialog"
+            aria-label={t("myfiles.pickerTitle")}
+          >
+            <div className="mcm-shelfpick__head">
+              <span className="mcm-shelfpick__title">
+                {t("myfiles.pickerTitle")}
+              </span>
+              <span className="mcm-shelfpick__hint">
+                {t("myfiles.pickerHint")}
+              </span>
+              <button
+                type="button"
+                className="mcm-shelfpick__close"
+                onClick={() => setShelfOpen(false)}
+                title={t("myfiles.close")}
+                aria-label={t("myfiles.close")}
+              >
+                <X size={13} />
+              </button>
+            </div>
+            {shelfFiles === null ? (
+              <div className="mcm-shelfpick__empty">…</div>
+            ) : shelfFiles.length === 0 ? (
+              <div className="mcm-shelfpick__empty">
+                {t("myfiles.pickerEmpty")}
+              </div>
+            ) : (
+              <ul className="mcm-shelfpick__list">
+                {shelfFiles.map((sf) => (
+                  <li key={sf.id}>
+                    <button
+                      type="button"
+                      className="mcm-shelfpick__row"
+                      onClick={() => void handleCopyFromShelf(sf)}
+                      disabled={!!shelfCopyingId}
+                    >
+                      <span
+                        className={`mcm-shelfpick__kind mcm-shelfpick__kind--${sf.kind}`}
+                      >
+                        {sf.kind.toUpperCase()}
+                      </span>
+                      <span className="mcm-shelfpick__name" title={sf.name}>
+                        {sf.name}
+                      </span>
+                      <span className="mcm-shelfpick__size">
+                        {shelfCopyingId === sf.id
+                          ? t("myfiles.copying")
+                          : shelfHumanSize(sf.size)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
         {items.length > 0 && (
           <>
             <input

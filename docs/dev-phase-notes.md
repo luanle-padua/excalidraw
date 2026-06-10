@@ -5,12 +5,15 @@
 ## 🔴 Bảo mật / Auth (làm trước khi production)
 - [x] **API mở toang**: ĐÃ có per-meeting/project authz (`canSeeMeeting`/`canSeeProject` + roomGate, commit `6d860a69`/`997a09ea` 06-09). Lưu ý dev rule còn lại: **nội bộ pass mọi meeting** — siết về project_member trước prod.
 - [x] **Daily-token mint** ĐÃ check membership (`canSeeMeeting` trong `/v1/daily/token`, 06-09).
+- [x] **PATCH `/v1/projects/:id` ĐÃ authz** (06-10): chỉ project owner (`project_member.role='owner'`) hoặc admin — đóng finding #4 audit. POST project: internal-only, owner stamp từ JWT + tự insert member row (fix "tạo project xong biến mất", backfill `0014`).
+- [x] **canSeeMeeting = invited-only** (06-10): bỏ internal-allow — chỉ organizer/host, invitee active, project_member, admin. Project visibility 3 mức qua `projectAccess`: full (member) / partial (nội bộ được mời ≥1 meeting → folder lọc) / null.
 - [x] **PATCH `/v1/meetings/:id` ĐÃ guard state machine** (06-10): value whitelist (400), transition hợp lệ scheduled→live|cancelled · live→finished · cancelled→scheduled (409 nếu sai), **`finished` = immutable** (admin bypass cho ops), huỷ/khôi phục = **organizer-only** (403; legacy không organizer → internal). Organizer/host_email giờ stamp từ **JWT** lúc POST tạo meeting — client không gửi/đổi identity được. *(Còn soft: `scheduled_at` PATCH chưa check organizer — chỉ status được guard.)*
 - [ ] **CORS** Worker `origin:"*"` → khoá về origin thật.
 - [ ] **Chưa rate-limit** (Worker + room server).
 - [ ] **Mật khẩu mặc định hardcode** (`MapMeet@2026`, `MapAdmin@2026`) + **auto-login 1-click** → bỏ + bắt đổi mật khẩu lần đầu trước prod. (Secrets thật: KHÔNG lộ git, đã verify.)
 - [ ] **`room_key` lưu D1** (server đọc được) — chưa E2E thật.
-- [ ] **Internal domain hardcode** `@mapgroup.co.kr` (`session.ts`, `AdminConsole.tsx`) → đọc từ `system_settings.internal_domains`.
+- [x] **Internal domain — WORKER đã đọc `system_settings.internal_domains`** (06-10 P0.2): cache per-isolate 60s, fallback hardcode khi bảng trống — setting admin sửa giờ có hiệu lực THẬT với authz. *(Client `session.ts`/`AdminConsole.tsx` vẫn hardcode cho display — chỉ cosmetic, authz là server; đồng bộ client sau.)*
+- [ ] **Compliance open meeting LIVE = admin tàng hình** (chốt 06-10): hiện admin mở nội dung qua snapshot R2 không join socket (không hiện presence). Nếu sau này cần xem realtime live thì phải làm silent-observer ở room server.
 
 ## 🟠 Host control (Phase 4 — hiện là SOFT enforcement)
 - [ ] **HOST_COMMAND tin thẳng** (không validate host election) — peer giả mạo về lý thuyết gửi được lệnh. Prod: server-side validate/enforce.
@@ -21,7 +24,8 @@
 - [ ] **Remote mute icon**: cần test 2 máy có **mic thật** (chưa verify).
 
 ## 🟡 Data / Migrations
-- [ ] **Migrations chưa chạy trên REMOTE D1**: `0005`…`0013` (remote D1 CHƯA TỒN TẠI — `database_id` còn placeholder trong wrangler.jsonc). Khi tạo remote: `npx wrangler d1 create mcm-db` → dán id → chạy lần lượt `npx wrangler d1 execute mcm-db --remote --file=./schema/000N_*.sql` (0001→0013).
+- [x] **Migration tracking ĐÃ có** (06-10 P0.1): bảng `schema_version` + **`worker/migrate.mjs`** — `node migrate.mjs` (local) / `--remote` / `--status`; KHÔNG execute file tay nữa. Remote D1 vẫn chưa tạo (`database_id` placeholder) — khi tạo: `npx wrangler d1 create mcm-db` → dán id → `node migrate.mjs --remote` chạy đủ 0001→hiện tại.
+- [x] **Wrangler 3 → 4.99** (06-10, lệnh anh Luân) — d1/r2/dev đều OK trên state local cũ; tiến trình `wrangler dev` đang chạy cần restart để dùng bản mới.
 - [x] **`meeting.status` ĐÃ chuẩn hoá** (06-10): 1 bộ `scheduled|live|finished|cancelled` — migration `0013_status_canonical.sql` (đã chạy local) + client ghi giá trị chuẩn, đọc tolerant qua `components/mcm/meetingStatus.ts`.
 - [ ] **D1 backup + R2 versioning** chưa có.
 

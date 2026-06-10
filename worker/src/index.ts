@@ -115,6 +115,8 @@ app.use("/v1/*", async (c, next) => {
       "role",
       typeof appMeta?.role === "string" ? appMeta.role : undefined,
     );
+    // Keep the internal-domain list warm — authz below depends on it.
+    await refreshInternalDomains(c.env.DB);
     return next();
   } catch {
     return c.json({ error: "invalid token" }, 401);
@@ -136,12 +138,49 @@ const sceneKey = (roomId: string) => `scenes/${roomId}/current`;
 const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
 const chatKey = (roomId: string) => `chats/${roomId}/current`;
 const libraryKey = (roomId: string) => `library/${roomId}/current`;
+const transcriptKey = (roomId: string) => `transcripts/${roomId}/current`;
+const userFileKey = (email: string, fileId: string) =>
+  `userfiles/${email}/${fileId}`;
 
-// DEV NOTE: internal domain hardcoded (mirrors the client). Move to
-// system_settings.internal_domains before production. See dev-phase-notes.md.
-const INTERNAL_DOMAIN = "@mapgroup.co.kr";
+// Internal domains come from system_settings.internal_domains (comma-separated,
+// admin-editable — P0.2: the setting is now REAL, no more hardcode). Cached
+// per-isolate for 60s so the synchronous isInternalEmail() checks sprinkled
+// through authz stay cheap; the hardcoded list is only the cold-start /
+// empty-table fallback. Refreshed by the JWT middleware on every request.
+let internalDomains = ["mapgroup.co.kr"];
+let internalDomainsAt = 0;
+const refreshInternalDomains = async (db: D1Database) => {
+  if (Date.now() - internalDomainsAt < 60_000) {
+    return;
+  }
+  internalDomainsAt = Date.now();
+  try {
+    const row = await db
+      .prepare(`SELECT value FROM system_settings WHERE key = 'internal_domains'`)
+      .first<{ value: string }>();
+    const list = (row?.value ?? "")
+      .split(",")
+      .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+      .filter(Boolean);
+    if (list.length) {
+      internalDomains = list;
+    }
+  } catch {
+    // settings table missing (pre-0007 DB) — keep the fallback list
+  }
+};
 const isInternalEmail = (email?: string) =>
-  !!email && email.toLowerCase().endsWith(INTERNAL_DOMAIN);
+  !!email &&
+  internalDomains.some((d) => email.toLowerCase().endsWith(`@${d}`));
+
+// Tombstone check (P0.5): a permanently deleted meeting must STAY deleted — a
+// client still holding the room open could otherwise re-create the registry
+// row / re-upload blobs through the upsert PUT routes.
+const isDeletedMeeting = async (db: D1Database, roomId: string) =>
+  !!(await db
+    .prepare(`SELECT 1 FROM deleted_meeting WHERE id = ?1`)
+    .bind(roomId)
+    .first());
 
 // ---- Meeting lifecycle (Phase 4.5 state machine) ---------------------------
 // One canonical status vocabulary. Mirrors components/mcm/meetingStatus.ts:
@@ -194,6 +233,7 @@ const canSeeMeeting = async (
     .prepare(
       `SELECT
          (SELECT 1 FROM meeting WHERE id = ?1) AS registered,
+         (SELECT confidentiality FROM meeting WHERE id = ?1) AS conf,
          (SELECT 1 FROM meeting
             WHERE id = ?1
               AND (lower(organizer_email) = ?2 OR lower(host_email) = ?2))
@@ -208,6 +248,7 @@ const canSeeMeeting = async (
     .bind(roomId, e)
     .first<{
       registered: number | null;
+      conf: string | null;
       owner: number | null;
       invited: number | null;
       member: number | null;
@@ -216,35 +257,65 @@ const canSeeMeeting = async (
     // Ad-hoc room without a registry row — nothing to gate against.
     return true;
   }
+  // Confidential meetings are INVITEE-ONLY (quyết định 06-10 #3): project
+  // membership alone is not enough — the field is enforced, not decorative.
+  if ((row.conf ?? "").toLowerCase() === "confidential") {
+    return !!(row.owner || row.invited);
+  }
   return !!(row.owner || row.invited || row.member);
 };
 
-// Per-project authz. can-see = admin OR a member of the project. Unlike
-// canSeeMeeting this does NOT internal-allow: project folders (and the whole
-// meeting list inside them) are visible only to people explicitly added as a
-// project_member (0008 backfilled each owner as a member, so owners keep their
-// own projects). A client invited to a single meeting still reaches it via
-// /v1/me/invitations — they just don't get the project folder.
-const canSeeProject = async (
+// Per-project access LEVEL (case "phòng ban này mời phòng ban khác"):
+//   "full"    — admin or project_member: the whole folder.
+//   "partial" — INTERNAL user who isn't a member but was invited to (or
+//               actually attended) ≥1 meeting of the project: the folder
+//               appears in their list, filtered down to just those meetings.
+//   null      — no access. Guests NEVER reach partial (folders stay
+//               confidential by construction); their only surface remains
+//               /v1/me/invitations.
+type ProjectAccess = "full" | "partial" | null;
+
+const projectAccess = async (
   db: D1Database,
   email: string | undefined,
   role: string | undefined,
   projectId: string,
-): Promise<boolean> => {
+): Promise<ProjectAccess> => {
   if (role === "admin") {
-    return true;
+    return "full";
   }
   if (!email) {
-    return false;
+    return null;
   }
+  const e = email.toLowerCase();
   const member = await db
     .prepare(
       `SELECT 1 FROM project_member
        WHERE project_id = ?1 AND email = ?2 LIMIT 1`,
     )
-    .bind(projectId, email.toLowerCase())
+    .bind(projectId, e)
     .first();
-  return !!member;
+  if (member) {
+    return "full";
+  }
+  if (!isInternalEmail(e)) {
+    return null;
+  }
+  const touched = await db
+    .prepare(
+      `SELECT 1 FROM meeting m
+       WHERE m.project_id = ?1
+         AND (EXISTS (SELECT 1 FROM meeting_invitee mi
+                      WHERE mi.meeting_id = m.id AND mi.email = ?2
+                        AND mi.status <> 'revoked')
+              OR EXISTS (SELECT 1 FROM meeting_participant mp
+                         WHERE mp.meeting_id = m.id
+                           AND lower(mp.user_email) = ?2))
+       LIMIT 1`,
+    )
+    .bind(projectId, e)
+    .first();
+  return touched ? "partial" : null;
 };
 
 // Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
@@ -269,6 +340,7 @@ app.use("/v1/scenes/*", roomGate);
 app.use("/v1/chats/*", roomGate);
 app.use("/v1/library/*", roomGate);
 app.use("/v1/files/*", roomGate);
+app.use("/v1/transcripts/*", roomGate);
 app.use("/v1/meetings/:roomId", roomGate);
 app.use("/v1/meetings/:roomId/*", roomGate);
 
@@ -278,6 +350,11 @@ app.get("/v1/health", (c) => c.json({ ok: true }));
 
 app.put("/v1/scenes/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
+  // A deleted meeting stays deleted — without this, a client still holding
+  // the room open re-creates the registry row via the upsert below (P0.5).
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
@@ -323,12 +400,45 @@ app.get("/v1/scenes/:roomId", async (c) => {
 
 app.put("/v1/chats/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
   }
   await c.env.BUCKET.put(chatKey(roomId), body);
   return c.json({ ok: true });
+});
+
+// ---- Transcript blob (P0.3 — quyết định 06-10 #4) -------------------------
+// The full STT transcript, E2E-encrypted with the room key exactly like the
+// chat log (server relays bytes, never reads them). Previously localStorage-
+// only — outside the server/admin boundary, lost on browser wipe. The
+// QUERYABLE artifact is the AI summary (D1 `meeting.ai_summary`, see the
+// summary route); this blob is the detail layer opened from review mode.
+
+app.put("/v1/transcripts/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  await c.env.BUCKET.put(transcriptKey(roomId), body);
+  return c.json({ ok: true });
+});
+
+app.get("/v1/transcripts/:roomId", async (c) => {
+  const obj = await c.env.BUCKET.get(transcriptKey(c.req.param("roomId")));
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+  });
 });
 
 app.get("/v1/chats/:roomId", async (c) => {
@@ -348,6 +458,9 @@ app.get("/v1/chats/:roomId", async (c) => {
 
 app.put("/v1/library/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
@@ -371,6 +484,9 @@ app.get("/v1/library/:roomId", async (c) => {
 app.put("/v1/files/:roomId/:fileId", async (c) => {
   const roomId = c.req.param("roomId");
   const fileId = c.req.param("fileId");
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
@@ -408,37 +524,54 @@ app.get("/v1/files/:roomId/:fileId", async (c) => {
 
 // ---- Projects (folders) --------------------------------------------------
 
+// Create a project. INTERNAL action (guests never own folders); the owner is
+// the verified JWT email — and they get a project_member row IN THE SAME
+// REQUEST. Without that row the membership-scoped GET /v1/projects can't see
+// the project the user just created (the "tạo project xong biến mất" bug:
+// migration 0008 only backfilled owners for projects existing at the time).
 app.post("/v1/projects", async (c) => {
-  const { name, hostEmail } = await c.req.json<{
-    name: string;
-    hostEmail?: string;
-  }>();
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(role === "admin" || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { name } = await c.req.json<{ name: string }>();
   if (!name?.trim()) {
     return c.json({ error: "name required" }, 400);
   }
+  const owner = email?.toLowerCase() ?? null;
   const id = crypto.randomUUID();
   const ts = now();
   await c.env.DB.prepare(
     `INSERT INTO project (id, name, host_email, created_at, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?4)`,
   )
-    .bind(id, name.trim(), hostEmail ?? null, ts)
+    .bind(id, name.trim(), owner, ts)
     .run();
-  return c.json({ id, name: name.trim(), hostEmail: hostEmail ?? null });
+  if (owner) {
+    await c.env.DB.prepare(
+      `INSERT OR IGNORE INTO project_member
+         (project_id, email, role, added_by, added_at)
+       VALUES (?1, ?2, 'owner', ?2, ?3)`,
+    )
+      .bind(id, owner, ts)
+      .run();
+  }
+  return c.json({ id, name: name.trim(), hostEmail: owner });
 });
 
-// Visibility: admins see ALL projects; everyone else sees ONLY projects they
-// are a project_member of (0008 backfilled each owner as a member, so owners
-// keep their own folders). The optional ?host= filter still works and is
-// further intersected with the caller's membership for non-admins. A client
-// invited to a single meeting reaches it via /v1/me/invitations instead.
+// Visibility: admins see ALL projects. Everyone else sees the projects they
+// are a project_member of (access:"member") PLUS — internal users only — the
+// projects where they were invited to / attended at least one meeting
+// (access:"invitee", the "phòng ban khác mời mình 1 cuộc họp" case; the
+// folder then shows ONLY those meetings, enforced by the meetings route).
+// Guests never get folders; their surface stays /v1/me/invitations.
 app.get("/v1/projects", async (c) => {
   const host = c.req.query("host");
   const isAdmin = c.get("role") === "admin";
   const cols = `id, name, host_email, code, client, location, stage, type, branch, cover, description, created_at, updated_at`;
-  let stmt: D1PreparedStatement;
   if (isAdmin) {
-    stmt = host
+    const stmt = host
       ? c.env.DB.prepare(
           `SELECT ${cols} FROM project
            WHERE host_email = ?1 ORDER BY updated_at DESC`,
@@ -446,36 +579,78 @@ app.get("/v1/projects", async (c) => {
       : c.env.DB.prepare(
           `SELECT ${cols} FROM project ORDER BY updated_at DESC LIMIT 200`,
         );
-  } else {
-    const email = c.get("email");
-    if (!email) {
-      return c.json({ projects: [] });
-    }
-    const e = email.toLowerCase();
-    // Non-admins: restrict to projects they're a member of (qualify columns so
-    // the JOIN onto project_member is unambiguous).
-    const mcols = cols
-      .split(", ")
-      .map((col) => `p.${col}`)
-      .join(", ");
-    stmt = host
-      ? c.env.DB.prepare(
-          `SELECT ${mcols} FROM project p
-           JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
-           WHERE p.host_email = ?2 ORDER BY p.updated_at DESC`,
-        ).bind(e, host)
-      : c.env.DB.prepare(
-          `SELECT ${mcols} FROM project p
-           JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
-           ORDER BY p.updated_at DESC LIMIT 200`,
-        ).bind(e);
+    const { results } = await stmt.all();
+    return c.json({ projects: results });
   }
-  const { results } = await stmt.all();
-  return c.json({ projects: results });
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ projects: [] });
+  }
+  const e = email.toLowerCase();
+  const mcols = cols
+    .split(", ")
+    .map((col) => `p.${col}`)
+    .join(", ");
+  const memberStmt = host
+    ? c.env.DB.prepare(
+        `SELECT ${mcols} FROM project p
+         JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+         WHERE p.host_email = ?2 ORDER BY p.updated_at DESC`,
+      ).bind(e, host)
+    : c.env.DB.prepare(
+        `SELECT ${mcols} FROM project p
+         JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+         ORDER BY p.updated_at DESC LIMIT 200`,
+      ).bind(e);
+  const { results: memberRows } = await memberStmt.all<
+    Record<string, unknown>
+  >();
+  const projects: Record<string, unknown>[] = memberRows.map((p) => ({
+    ...p,
+    access: "member",
+  }));
+  if (isInternalEmail(e) && !host) {
+    const memberIds = new Set(projects.map((p) => p.id as string));
+    const { results: invitedRows } = await c.env.DB.prepare(
+      `SELECT DISTINCT ${mcols} FROM project p
+       JOIN meeting m ON m.project_id = p.id
+       WHERE EXISTS (SELECT 1 FROM meeting_invitee mi
+                     WHERE mi.meeting_id = m.id AND mi.email = ?1
+                       AND mi.status <> 'revoked')
+          OR EXISTS (SELECT 1 FROM meeting_participant mp
+                     WHERE mp.meeting_id = m.id AND lower(mp.user_email) = ?1)
+       ORDER BY p.updated_at DESC LIMIT 200`,
+    )
+      .bind(e)
+      .all<Record<string, unknown>>();
+    for (const p of invitedRows) {
+      if (!memberIds.has(p.id as string)) {
+        projects.push({ ...p, access: "invitee" });
+      }
+    }
+  }
+  return c.json({ projects });
 });
 
+// Editing a project's metadata is an OWNER privilege (admin bypasses).
+// Members browse + create meetings; only the owner reshapes the folder.
+// Closes audit finding #4 (any valid JWT could PATCH any project).
 app.patch("/v1/projects/:id", async (c) => {
   const id = c.req.param("id");
+  if (c.get("role") !== "admin") {
+    const me = c.get("email")?.toLowerCase();
+    const owner =
+      me &&
+      (await c.env.DB.prepare(
+        `SELECT 1 FROM project_member
+         WHERE project_id = ?1 AND email = ?2 AND role = 'owner' LIMIT 1`,
+      )
+        .bind(id, me)
+        .first());
+    if (!owner) {
+      return c.json({ error: "owner only" }, 403);
+    }
+  }
   const b = await c.req.json<{
     name?: string;
     code?: string;
@@ -518,25 +693,200 @@ app.patch("/v1/projects/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-// Visibility: only an admin OR a member of this project may list its meetings
-// (the per-meeting roomGate/canSeeMeeting still gate the actual blobs). A client
-// invited to a single meeting reaches it via /v1/me/invitations, not here.
-app.get("/v1/projects/:projectId/meetings", async (c) => {
-  const projectId = c.req.param("projectId");
-  if (
-    !(await canSeeProject(c.env.DB, c.get("email"), c.get("role"), projectId))
-  ) {
+// Shared owner check for the project-mutation routes below (admin bypasses).
+const isProjectOwner = async (
+  db: D1Database,
+  projectId: string,
+  email: string | undefined,
+): Promise<boolean> => {
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM project_member
+       WHERE project_id = ?1 AND email = ?2 AND role = 'owner' LIMIT 1`,
+    )
+    .bind(projectId, me)
+    .first());
+};
+
+// Delete a project (owner or admin). An owner can only delete an EMPTY
+// project — its meetings must be disposed of first through the meeting
+// lifecycle (cancel → delete), so a folder delete can never silently take
+// finished meetings with it. Admins may force-cascade (ops/repair).
+app.delete("/v1/projects/:id", async (c) => {
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const isAdmin = c.get("role") === "admin";
+  if (!isAdmin && !(await isProjectOwner(c.env.DB, id, email))) {
+    return c.json({ error: "owner only" }, 403);
+  }
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
+    .bind(id)
+    .first();
+  if (!exists) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const { results: meetings } = await c.env.DB.prepare(
+    `SELECT id FROM meeting WHERE project_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string }>();
+  if (meetings.length && !isAdmin) {
+    return c.json(
+      { error: "project has meetings — delete them first", count: meetings.length },
+      409,
+    );
+  }
+  for (const m of meetings) {
+    await deleteMeetingCascade(c.env, m.id, email);
+  }
+  await c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`)
+    .bind(id)
+    .run();
+  await c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id).run();
+  await logAudit(c.env.DB, email, "project.delete", id, {
+    meetings: meetings.length,
+  });
+  return c.json({ ok: true, deleted: id });
+});
+
+// Member roster — anyone with FULL access (members see who shares the folder).
+app.get("/v1/projects/:id/members", async (c) => {
+  const id = c.req.param("id");
+  const access = await projectAccess(c.env.DB, c.get("email"), c.get("role"), id);
+  if (access !== "full") {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, title, topic, type, status, created_by, organizer_email,
-            thumbnail, participant_count, duration_s, scene_updated_at,
-            updated_at, last_opened_at, discipline, priority, confidentiality,
-            scheduled_at, color
-     FROM meeting WHERE project_id = ?1 ORDER BY updated_at DESC`,
+    `SELECT email, role, added_by, added_at FROM project_member
+     WHERE project_id = ?1 ORDER BY role DESC, added_at ASC`,
   )
-    .bind(projectId)
+    .bind(id)
     .all();
+  return c.json({ members: results });
+});
+
+// Add members (owner/admin; INTERNAL emails only — a client is never a
+// project member, confidentiality by construction).
+app.post("/v1/projects/:id/members", async (c) => {
+  const id = c.req.param("id");
+  const email = c.get("email");
+  if (c.get("role") !== "admin" && !(await isProjectOwner(c.env.DB, id, email))) {
+    return c.json({ error: "owner only" }, 403);
+  }
+  const b = await c.req.json<{ emails?: string[] }>();
+  const t = now();
+  let added = 0;
+  for (const raw of b.emails ?? []) {
+    const m = (raw || "").trim().toLowerCase();
+    if (!isInternalEmail(m)) {
+      continue;
+    }
+    await c.env.DB.prepare(
+      `INSERT OR IGNORE INTO project_member
+         (project_id, email, role, added_by, added_at)
+       VALUES (?1, ?2, 'member', ?3, ?4)`,
+    )
+      .bind(id, m, email ?? null, t)
+      .run();
+    added++;
+  }
+  await logAudit(c.env.DB, email, "project.member.add", id, { added });
+  return c.json({ ok: true, added });
+});
+
+// Remove a member (owner/admin). The LAST owner is unremovable — a project
+// must never become ownerless.
+app.delete("/v1/projects/:id/members/:email", async (c) => {
+  const id = c.req.param("id");
+  const target = decodeURIComponent(c.req.param("email")).toLowerCase();
+  const email = c.get("email");
+  if (c.get("role") !== "admin" && !(await isProjectOwner(c.env.DB, id, email))) {
+    return c.json({ error: "owner only" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT role FROM project_member WHERE project_id = ?1 AND email = ?2`,
+  )
+    .bind(id, target)
+    .first<{ role: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (row.role === "owner") {
+    const owners = await c.env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM project_member
+       WHERE project_id = ?1 AND role = 'owner'`,
+    )
+      .bind(id)
+      .first<{ n: number }>();
+    if ((owners?.n ?? 0) <= 1) {
+      return c.json({ error: "cannot remove the last owner" }, 409);
+    }
+  }
+  await c.env.DB.prepare(
+    `DELETE FROM project_member WHERE project_id = ?1 AND email = ?2`,
+  )
+    .bind(id, target)
+    .run();
+  await logAudit(c.env.DB, email, "project.member.remove", id, { email: target });
+  return c.json({ ok: true });
+});
+
+// Meetings of a project, scoped by access level: "full" (member/admin) sees
+// everything; "partial" (internal user invited to / attended some meetings)
+// sees ONLY those meetings — the rest of the project stays invisible. The
+// per-meeting roomGate still guards the actual blobs.
+app.get("/v1/projects/:projectId/meetings", async (c) => {
+  const projectId = c.req.param("projectId");
+  const access = await projectAccess(
+    c.env.DB,
+    c.get("email"),
+    c.get("role"),
+    projectId,
+  );
+  if (!access) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const cols = `m.id, m.title, m.topic, m.type, m.status, m.created_by,
+            m.organizer_email, m.thumbnail, m.participant_count, m.duration_s,
+            m.scene_updated_at, m.updated_at, m.last_opened_at, m.discipline,
+            m.priority, m.confidentiality, m.scheduled_at, m.color`;
+  // Confidential meetings stay invisible to plain project members in the
+  // folder list too — only organizer/host/invitee (and admins) see the card.
+  // Mirrors the canSeeMeeting enforcement (quyết định 06-10 #3).
+  const confFilter = `(lower(COALESCE(m.confidentiality,'')) <> 'confidential'
+             OR lower(COALESCE(m.organizer_email,'')) = ?2
+             OR lower(COALESCE(m.host_email,'')) = ?2
+             OR EXISTS (SELECT 1 FROM meeting_invitee mi
+                        WHERE mi.meeting_id = m.id AND mi.email = ?2
+                          AND mi.status <> 'revoked'))`;
+  const stmt =
+    access === "full"
+      ? c.get("role") === "admin"
+        ? c.env.DB.prepare(
+            `SELECT ${cols} FROM meeting m
+             WHERE m.project_id = ?1 ORDER BY m.updated_at DESC`,
+          ).bind(projectId)
+        : c.env.DB.prepare(
+            `SELECT ${cols} FROM meeting m
+             WHERE m.project_id = ?1 AND ${confFilter}
+             ORDER BY m.updated_at DESC`,
+          ).bind(projectId, c.get("email")?.toLowerCase() ?? "")
+      : c.env.DB.prepare(
+          `SELECT ${cols} FROM meeting m
+           WHERE m.project_id = ?1
+             AND (EXISTS (SELECT 1 FROM meeting_invitee mi
+                          WHERE mi.meeting_id = m.id AND mi.email = ?2
+                            AND mi.status <> 'revoked')
+                  OR EXISTS (SELECT 1 FROM meeting_participant mp
+                             WHERE mp.meeting_id = m.id
+                               AND lower(mp.user_email) = ?2))
+           ORDER BY m.updated_at DESC`,
+        ).bind(projectId, c.get("email")?.toLowerCase() ?? "");
+  const { results } = await stmt.all();
   return c.json({ meetings: results });
 });
 
@@ -579,6 +929,9 @@ app.post("/v1/meetings", async (c) => {
   }>();
   if (!b.roomId) {
     return c.json({ error: "roomId required" }, 400);
+  }
+  if (await isDeletedMeeting(c.env.DB, b.roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
   }
   // A meeting is only ever BORN scheduled or live — terminal states are
   // reached through the PATCH state machine, never at create.
@@ -664,6 +1017,7 @@ app.get("/v1/meetings/:roomId", async (c) => {
             m.scheduled_at, m.duration_min, m.organizer_email, m.host_email,
             m.created_by, m.room_key, m.scene_r2_key,
             m.scene_updated_at, m.thumbnail, m.participant_count, m.duration_s,
+            m.ai_summary, m.ai_summary_at,
             m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.stage AS project_stage
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
@@ -828,6 +1182,32 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       b.color ?? null,
     )
     .run();
+  return c.json({ ok: true });
+});
+
+// AI summary (quyết định 06-10 #4 — summary-first): written once at End-for-all
+// (client calls the room server's /summarize, then stores the text here), kept
+// in D1 — server-readable and QUERYABLE, the foundation for cross-meeting AI
+// questions. Deliberately a SEPARATE route from PATCH: the meeting is finished
+// (immutable) by the time the summary lands, and the summary is derived data,
+// not meeting content. Internal-only; roomGate already vetted visibility.
+app.post("/v1/meetings/:roomId/summary", async (c) => {
+  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const roomId = c.req.param("roomId");
+  const { summary } = await c.req.json<{ summary?: string }>();
+  if (!summary?.trim()) {
+    return c.json({ error: "summary required" }, 400);
+  }
+  const res = await c.env.DB.prepare(
+    `UPDATE meeting SET ai_summary = ?2, ai_summary_at = ?3 WHERE id = ?1`,
+  )
+    .bind(roomId, summary.trim().slice(0, 20_000), now())
+    .run();
+  if (!res.meta.changes) {
+    return c.json({ error: "not found" }, 404);
+  }
   return c.json({ ok: true });
 });
 
@@ -1022,7 +1402,7 @@ app.delete("/v1/meetings/:roomId", async (c) => {
       return c.json({ error: "organizer only" }, 403);
     }
   }
-  await deleteMeetingCascade(c.env, roomId);
+  await deleteMeetingCascade(c.env, roomId, email);
   await logAudit(c.env.DB, email, "meeting.delete", roomId);
   return c.json({ ok: true, deleted: roomId });
 });
@@ -1278,6 +1658,9 @@ app.get("/v1/me/meetings", async (c) => {
        SELECT mm.id FROM meeting mm
          JOIN project_member pm ON pm.project_id = mm.project_id
          WHERE pm.email = ?1
+           -- Confidential = invitee-only: plain project membership doesn't
+           -- surface it (the organizer/invitee arms above still do).
+           AND lower(COALESCE(mm.confidentiality, '')) <> 'confidential'
      )
      ${order}`,
   )
@@ -1334,6 +1717,110 @@ app.put("/v1/notes", async (c) => {
        body = excluded.body, updated_at = excluded.updated_at`,
   )
     .bind(b.scope, ref, email.toLowerCase(), b.body ?? "", now())
+    .run();
+  return c.json({ ok: true });
+});
+
+// ---- My Files — "Tài liệu của tôi" (quyết định 06-10 #2) -------------------
+// A personal document shelf for INTERNAL users: upload once on the dashboard,
+// bake once, then COPY into any meeting (the client pulls the bytes and runs
+// them through the normal ingest/encrypt pipeline — the meeting keeps its
+// snapshot; deleting a shelf file never punches a hole in an old meeting).
+// Bytes live SERVER-READABLE at userfiles/<email>/<fileId> (no room key exists
+// outside a meeting); the index row is the user_file table (rule: every new
+// prefix gets a D1 index). Strictly owner-scoped via the JWT email.
+
+const MAX_USER_FILE_BYTES = 50 * 1024 * 1024;
+
+app.get("/v1/me/files", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email || !(c.get("role") === "admin" || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, name, kind, size, created_at FROM user_file
+     WHERE owner_email = ?1 ORDER BY created_at DESC LIMIT 500`,
+  )
+    .bind(email)
+    .all();
+  return c.json({ files: results });
+});
+
+app.put("/v1/me/files/:fileId", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email || !(c.get("role") === "admin" || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (body.byteLength > MAX_USER_FILE_BYTES) {
+    return c.json({ error: "file too large (max 50MB)" }, 413);
+  }
+  const key = userFileKey(email, fileId);
+  await c.env.BUCKET.put(key, body);
+  await c.env.DB.prepare(
+    `INSERT INTO user_file (id, owner_email, name, kind, size, r2_key, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name, kind = excluded.kind,
+       size = excluded.size, r2_key = excluded.r2_key`,
+  )
+    .bind(
+      fileId,
+      email,
+      c.req.header("x-name") ?? null,
+      c.req.header("x-kind") ?? null,
+      body.byteLength,
+      key,
+      now(),
+    )
+    .run();
+  return c.json({ ok: true, id: fileId });
+});
+
+app.get("/v1/me/files/:fileId/content", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // Ownership via the row (not just the key) so a forged fileId can't probe
+  // someone else's prefix.
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+  )
+    .bind(c.req.param("fileId"), email)
+    .first<{ r2_key: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+  });
+});
+
+app.delete("/v1/me/files/:fileId", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+  )
+    .bind(c.req.param("fileId"), email)
+    .first<{ r2_key: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await c.env.BUCKET.delete(row.r2_key);
+  await c.env.DB.prepare(`DELETE FROM user_file WHERE id = ?1`)
+    .bind(c.req.param("fileId"))
     .run();
   return c.json({ ok: true });
 });
@@ -1639,7 +2126,8 @@ app.get("/v1/admin/meetings/:roomId", async (c) => {
   const meeting = await c.env.DB.prepare(
     `SELECT m.id, m.project_id, m.title, m.topic, m.description, m.type,
             m.status, m.discipline, m.priority, m.confidentiality,
-            m.scheduled_at, m.created_by, m.participant_count, m.duration_s,
+            m.scheduled_at, m.created_by, m.organizer_email, m.host_email,
+            m.participant_count, m.duration_s, m.ai_summary, m.ai_summary_at,
             m.thumbnail, m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.code AS project_code, p.stage AS project_stage
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
@@ -1662,7 +2150,104 @@ app.get("/v1/admin/meetings/:roomId", async (c) => {
   )
     .bind(roomId)
     .all();
-  return c.json({ meeting, files, participants });
+  const { results: invitees } = await c.env.DB.prepare(
+    `SELECT email, kind, role, status, invited_by, invited_at
+     FROM meeting_invitee WHERE meeting_id = ?1 ORDER BY invited_at ASC`,
+  )
+    .bind(roomId)
+    .all();
+  return c.json({ meeting, files, participants, invitees });
+});
+
+// COMPLIANCE ACCESS (quyết định 06-10 #1): the admin may open ANY meeting's
+// CONTENT in read-only review — risk management is part of the admin mandate.
+// This is the ONLY route that hands the admin a room_key, and it NEVER
+// returns one without an audit_log row landing first: unlike logAudit
+// (best-effort), a failed audit insert here aborts the request. Users are not
+// notified; the immutable trail is what keeps this power accountable.
+app.post("/v1/admin/meetings/:roomId/open", async (c) => {
+  const roomId = c.req.param("roomId");
+  const meeting = await c.env.DB.prepare(
+    `SELECT id, title, status, room_key FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{
+      id: string;
+      title: string | null;
+      status: string | null;
+      room_key: string | null;
+    }>();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (!meeting.room_key) {
+    return c.json({ error: "meeting has no stored key" }, 409);
+  }
+  try {
+    await c.env.DB.prepare(
+      `INSERT INTO audit_log (id, actor_email, action, target, meta, ts)
+       VALUES (?1, ?2, 'admin.open_content', ?3, ?4, ?5)`,
+    )
+      .bind(
+        crypto.randomUUID(),
+        c.get("email") ?? null,
+        roomId,
+        JSON.stringify({ title: meeting.title, status: meeting.status }),
+        now(),
+      )
+      .run();
+  } catch {
+    return c.json({ error: "audit log unavailable — access denied" }, 500);
+  }
+  return c.json({
+    roomId,
+    roomKey: meeting.room_key,
+    title: meeting.title,
+    status: normalizeStatus(meeting.status),
+  });
+});
+
+// ---- Admin: projects (full back-office view) ------------------------------
+
+app.get("/v1/admin/projects", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.id, p.name, p.host_email, p.code, p.client, p.stage,
+            p.created_at, p.updated_at,
+            (SELECT COUNT(*) FROM meeting m WHERE m.project_id = p.id)
+              AS meeting_count,
+            (SELECT COUNT(*) FROM project_member pm WHERE pm.project_id = p.id)
+              AS member_count
+     FROM project p ORDER BY p.updated_at DESC LIMIT 500`,
+  ).all();
+  return c.json({ projects: results });
+});
+
+// Admin force-delete: cascades every meeting (tombstoned), members, the row.
+app.delete("/v1/admin/projects/:id", async (c) => {
+  const id = c.req.param("id");
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
+    .bind(id)
+    .first();
+  if (!exists) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const { results: meetings } = await c.env.DB.prepare(
+    `SELECT id FROM meeting WHERE project_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string }>();
+  for (const m of meetings) {
+    await deleteMeetingCascade(c.env, m.id, c.get("email"));
+  }
+  await c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`)
+    .bind(id)
+    .run();
+  await c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id).run();
+  await logAudit(c.env.DB, c.get("email"), "project.delete", id, {
+    meetings: meetings.length,
+    forced: true,
+  });
+  return c.json({ ok: true, deleted: id });
 });
 
 // Full cascade delete of one meeting: every R2 blob under its per-room
@@ -1673,12 +2258,14 @@ app.get("/v1/admin/meetings/:roomId", async (c) => {
 const deleteMeetingCascade = async (
   env: Bindings,
   roomId: string,
+  actor?: string,
 ): Promise<void> => {
   for (const prefix of [
     `scenes/${roomId}`,
     `files/${roomId}`,
     `chats/${roomId}`,
     `library/${roomId}`,
+    `transcripts/${roomId}`,
   ]) {
     let cursor: string | undefined;
     do {
@@ -1702,6 +2289,14 @@ const deleteMeetingCascade = async (
     .bind(roomId)
     .run();
   await env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId).run();
+  // Tombstone: deleted stays deleted — the upsert PUT/POST routes check this
+  // so a client still holding the room open can't resurrect the meeting.
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO deleted_meeting (id, deleted_by, deleted_at)
+     VALUES (?1, ?2, ?3)`,
+  )
+    .bind(roomId, actor ?? null, now())
+    .run();
 };
 
 // Delete a meeting + cascade (admin — any meeting, any state).
@@ -1715,7 +2310,7 @@ app.delete("/v1/admin/meetings/:roomId", async (c) => {
   if (!meeting) {
     return c.json({ error: "not found" }, 404);
   }
-  await deleteMeetingCascade(c.env, roomId);
+  await deleteMeetingCascade(c.env, roomId, c.get("email"));
   await logAudit(c.env.DB, c.get("email"), "meeting.delete", roomId);
   return c.json({ ok: true, deleted: roomId });
 });

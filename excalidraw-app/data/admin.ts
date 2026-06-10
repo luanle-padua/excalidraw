@@ -54,7 +54,9 @@ export type AdminStats = {
 
 export const listAdminUsers = async (): Promise<AdminUser[]> => {
   try {
-    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/users?perPage=200`);
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/admin/users?perPage=200`,
+    );
     if (!res.ok) {
       return [];
     }
@@ -244,6 +246,15 @@ export type AdminParticipant = {
   last_seen_at: number;
 };
 
+export type AdminInvitee = {
+  email: string;
+  kind: string | null;
+  role: string | null;
+  status: string | null;
+  invited_by: string | null;
+  invited_at: number | null;
+};
+
 export type AdminMeetingDetail = {
   meeting: AdminMeeting & {
     description: string | null;
@@ -255,9 +266,14 @@ export type AdminMeetingDetail = {
     updated_at: number | null;
     project_code: string | null;
     project_stage: string | null;
+    organizer_email: string | null;
+    host_email: string | null;
+    ai_summary: string | null;
+    ai_summary_at: number | null;
   };
   files: AdminMeetingFile[];
   participants: AdminParticipant[];
+  invitees: AdminInvitee[];
 };
 
 export const getAdminMeetingDetail = async (
@@ -270,6 +286,126 @@ export const getAdminMeetingDetail = async (
     return res.ok ? await res.json() : null;
   } catch {
     return null;
+  }
+};
+
+// ---- Projects back-office + compliance content access (06-10 #1) ---------
+
+export type AdminProject = {
+  id: string;
+  name: string | null;
+  host_email: string | null;
+  code: string | null;
+  client: string | null;
+  stage: string | null;
+  created_at: number | null;
+  updated_at: number | null;
+  meeting_count: number;
+  member_count: number;
+};
+
+export type AdminProjectMember = {
+  email: string;
+  role: string | null;
+  added_by: string | null;
+  added_at: number | null;
+};
+
+export const listAdminProjects = async (): Promise<AdminProject[]> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/projects`);
+    return res.ok ? (await res.json()).projects ?? [] : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Force-delete: cascades EVERY meeting (canvas/files/chat blobs) + members. */
+export const deleteAdminProject = async (id: string): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/admin/projects/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Member roster reuses the regular /v1/projects routes — the Worker lets the
+// admin role through its owner gate.
+export const getAdminProjectMembers = async (
+  projectId: string,
+): Promise<AdminProjectMember[]> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/members`,
+    );
+    return res.ok ? (await res.json()).members ?? [] : [];
+  } catch {
+    return [];
+  }
+};
+
+export const addAdminProjectMembers = async (
+  projectId: string,
+  emails: string[],
+): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/members`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ emails }),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Remove a member. 409 = removing the last owner (surfaced to the UI). */
+export const removeAdminProjectMember = async (
+  projectId: string,
+  email: string,
+): Promise<{ ok: boolean; status: number }> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/members/${encodeURIComponent(email)}`,
+      { method: "DELETE" },
+    );
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+};
+
+/** COMPLIANCE: ask the Worker for the room key to open a meeting's content
+ *  read-only. The Worker writes a MANDATORY `admin.open_content` audit row
+ *  before returning the key (409 = no stored key). */
+export const openAdminMeetingContent = async (
+  roomId: string,
+): Promise<
+  | { ok: true; roomId: string; roomKey: string; title: string | null }
+  | { ok: false; status: number }
+> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/admin/meetings/${encodeURIComponent(roomId)}/open`,
+      { method: "POST" },
+    );
+    if (!res.ok) {
+      return { ok: false, status: res.status };
+    }
+    const j = await res.json();
+    return { ok: true, roomId: j.roomId, roomKey: j.roomKey, title: j.title };
+  } catch {
+    return { ok: false, status: 0 };
   }
 };
 

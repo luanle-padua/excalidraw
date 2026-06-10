@@ -14,6 +14,7 @@ import {
   type LastMeeting,
 } from "../../data/lastMeeting";
 import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
+import { isReviewRoom } from "../../data/reviewMode";
 import { authReadyAtom, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
@@ -128,7 +129,18 @@ export const MeetingLobby = () => {
 
   // Admin = pure back-office: the admin account ONLY administers, it never
   // joins meetings — so the console always takes over (no exit to the app).
+  // SOLE exception (quyết định 06-10 #1): COMPLIANCE REVIEW. When the admin
+  // opened a meeting's content from the console, the #room hash AND the
+  // per-tab review mark (markReviewRoom, set before joining) are both
+  // present — let the read-only canvas show through. Leaving the meeting
+  // clears the hash, so the console takes over again. A raw #room link
+  // WITHOUT the review mark never bypasses the console.
+  const adminReviewRoomId =
+    window.location.hash.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
   if (session.isAdmin) {
+    if (adminReviewRoomId && isReviewRoom(adminReviewRoomId)) {
+      return null;
+    }
     return <AdminConsole />;
   }
 

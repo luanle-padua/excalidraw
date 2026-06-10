@@ -9,6 +9,7 @@ import {
   DollarSign,
   Eye,
   FileText,
+  FolderKanban,
   HardDrive,
   LayoutDashboard,
   Lock,
@@ -17,6 +18,7 @@ import {
   ScrollText,
   Settings,
   ShieldAlert,
+  ShieldCheck,
   Trash2,
   UserPlus,
   Users,
@@ -24,21 +26,30 @@ import {
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 
+import { useAtomValue } from "../../app-jotai";
+import { collabAPIAtom } from "../../collab/Collab";
+import { getCollaborationLink } from "../../data";
 import {
+  addAdminProjectMembers,
   createAdminUser,
   deleteAdminMeeting,
+  deleteAdminProject,
   deleteAdminUser,
   getAdminAnalytics,
   getAdminAudit,
   getAdminCost,
   getAdminIntegrations,
   getAdminMeetingDetail,
+  getAdminProjectMembers,
   getAdminSettings,
   getAdminStats,
   getAdminStorage,
   listAdminMeetings,
+  listAdminProjects,
   listAdminUsers,
+  openAdminMeetingContent,
   putAdminSettings,
+  removeAdminProjectMember,
   updateAdminUser,
   type AdminAnalytics,
   type AdminAuditEntry,
@@ -46,10 +57,13 @@ import {
   type AdminIntegration,
   type AdminMeeting,
   type AdminMeetingDetail,
+  type AdminProject,
+  type AdminProjectMember,
   type AdminStats,
   type AdminStorage,
   type AdminUser,
 } from "../../data/admin";
+import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
 import { signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
@@ -64,6 +78,7 @@ type Tab =
   | "dashboard"
   | "users"
   | "clients"
+  | "projects"
   | "meetings"
   | "analytics"
   | "cost"
@@ -85,8 +100,7 @@ const SETTING_DEFAULTS: Record<string, string> = {
 const INTERNAL_DOMAIN = "@mapgroup.co.kr";
 const isInternal = (email: string): boolean =>
   email.toLowerCase().endsWith(INTERNAL_DOMAIN);
-const isAdminUser = (u: AdminUser): boolean =>
-  u.app_metadata?.role === "admin";
+const isAdminUser = (u: AdminUser): boolean => u.app_metadata?.role === "admin";
 
 // Korean corporate rank order (직급), most senior first — drives the default
 // sort inside each department group. Unknown titles sort last.
@@ -134,7 +148,10 @@ const fmtBytes = (b: number | null | undefined): string => {
 // below is derived from our own usage × published rates.
 const BILLING_LINKS: { name: string; url: string }[] = [
   { name: "Daily.co", url: "https://dashboard.daily.co/billing" },
-  { name: "Supabase", url: "https://supabase.com/dashboard/project/_/settings/billing" },
+  {
+    name: "Supabase",
+    url: "https://supabase.com/dashboard/project/_/settings/billing",
+  },
   { name: "Cloudflare (R2/Workers)", url: "https://dash.cloudflare.com/" },
   { name: "Google (Gemini)", url: "https://console.cloud.google.com/billing" },
   { name: "Deepgram", url: "https://console.deepgram.com/" },
@@ -181,6 +198,147 @@ export const AdminConsole = () => {
     }
   };
 
+  // ---- Projects back-office (06-10 #1) ----------------------------------
+  const [projects, setProjects] = useState<AdminProject[]>([]);
+  const [projectDetail, setProjectDetail] = useState<AdminProject | null>(null);
+  const [members, setMembers] = useState<AdminProjectMember[]>([]);
+  const [memberInput, setMemberInput] = useState("");
+  // Compliance open joins the meeting through the SAME collab API the app
+  // uses — markReviewRoom + viewOnly keep the canvas/chat/library read-only.
+  const collabAPI = useAtomValue(collabAPIAtom);
+
+  const refreshProjects = useCallback(async () => {
+    setLoading(true);
+    try {
+      setProjects(await listAdminProjects());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openProjectDetail = async (p: AdminProject) => {
+    setProjectDetail(p);
+    setMemberInput("");
+    setLoading(true);
+    try {
+      setMembers(await getAdminProjectMembers(p.id));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddMembers = async () => {
+    if (!projectDetail || busy) {
+      return;
+    }
+    const emails = memberInput
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    if (!emails.length) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await addAdminProjectMembers(projectDetail.id, emails);
+      setMemberInput("");
+      setMembers(await getAdminProjectMembers(projectDetail.id));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemoveMember = async (m: AdminProjectMember) => {
+    if (!projectDetail || busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await removeAdminProjectMember(projectDetail.id, m.email);
+      if (!res.ok && res.status === 409) {
+        // Server refuses to orphan the project (last owner).
+        window.alert(t("admin.lastOwnerError"));
+      }
+      setMembers(await getAdminProjectMembers(projectDetail.id));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Force-delete cascades EVERY meeting + blobs + members — typed
+  // confirmation (re-enter the project name) so it can't happen by reflex.
+  const handleDeleteProject = async (p: AdminProject) => {
+    if (busy) {
+      return;
+    }
+    const typed = window.prompt(
+      t("admin.confirmDeleteProject", {
+        name: p.name ?? p.id,
+        count: p.meeting_count,
+      }),
+    );
+    if (typed === null) {
+      return;
+    }
+    if (typed.trim() !== (p.name ?? p.id)) {
+      window.alert(t("admin.deleteProjectMismatch"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteAdminProject(p.id);
+      setProjectDetail(null);
+      await refreshProjects();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // COMPLIANCE OPEN: the Worker audit-logs the access (mandatory) and hands
+  // back the room key; we then enter in STEALTH review ("ẩn hoàn toàn",
+  // quyết định 06-10) — read-only AND no socket join, so the admin is never
+  // visible to the people in the meeting (no presence, no participant row;
+  // the audit_log entry is the only trace). Marks set BEFORE joining so a
+  // reload re-enters stealth. A live meeting shows its last autosaved state.
+  const handleComplianceOpen = async () => {
+    if (!detail || busy) {
+      return;
+    }
+    if (!window.confirm(t("admin.openContentConfirm"))) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await openAdminMeetingContent(detail.meeting.id);
+      if (!res.ok) {
+        window.alert(
+          res.status === 409
+            ? t("admin.openContentNoKey")
+            : t("admin.openContentFailed"),
+        );
+        return;
+      }
+      markReviewRoom(res.roomId);
+      markStealthRoom(res.roomId);
+      window.history.pushState(
+        {},
+        "",
+        getCollaborationLink({ roomId: res.roomId, roomKey: res.roomKey }),
+      );
+      if (collabAPI) {
+        if (collabAPI.isCollaborating()) {
+          collabAPI.stopCollaboration(false);
+        }
+        await collabAPI.startCollaboration(
+          { roomId: res.roomId, roomKey: res.roomKey },
+          { viewOnly: true, stealth: true },
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // New-user form
   const [nuEmail, setNuEmail] = useState("");
   const [nuPassword, setNuPassword] = useState("");
@@ -223,8 +381,11 @@ export const AdminConsole = () => {
 
   useEffect(() => {
     setDetail(null);
+    setProjectDetail(null);
     if (tab === "users" || tab === "clients") {
       void refreshUsers();
+    } else if (tab === "projects") {
+      void refreshProjects();
     } else if (tab === "meetings") {
       void refreshMeetings();
     } else if (tab === "cost") {
@@ -246,7 +407,7 @@ export const AdminConsole = () => {
       void refreshUsers();
       void getAdminAudit().then(setAudit);
     }
-  }, [tab, refreshUsers, refreshMeetings]);
+  }, [tab, refreshUsers, refreshMeetings, refreshProjects]);
 
   const setSetting = (key: string, value: string) => {
     setSettings((s) => ({ ...s, [key]: value }));
@@ -258,7 +419,8 @@ export const AdminConsole = () => {
     setBusy(false);
     setSettingsDirty(false);
   };
-  const settingOf = (key: string) => settings[key] ?? SETTING_DEFAULTS[key] ?? "";
+  const settingOf = (key: string) =>
+    settings[key] ?? SETTING_DEFAULTS[key] ?? "";
 
   const handleCreate = async () => {
     if (!nuEmail.trim() || !nuPassword || busy) {
@@ -438,7 +600,9 @@ export const AdminConsole = () => {
         <nav className="mcm-admin__tabs">
           <button
             type="button"
-            className={`mcm-admin__tab${tab === "dashboard" ? " --active" : ""}`}
+            className={`mcm-admin__tab${
+              tab === "dashboard" ? " --active" : ""
+            }`}
             onClick={() => setTab("dashboard")}
           >
             <LayoutDashboard size={16} /> {t("admin.tabDashboard")}
@@ -459,6 +623,13 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
+            className={`mcm-admin__tab${tab === "projects" ? " --active" : ""}`}
+            onClick={() => setTab("projects")}
+          >
+            <FolderKanban size={16} /> {t("admin.tabProjects")}
+          </button>
+          <button
+            type="button"
             className={`mcm-admin__tab${tab === "meetings" ? " --active" : ""}`}
             onClick={() => setTab("meetings")}
           >
@@ -466,7 +637,9 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
-            className={`mcm-admin__tab${tab === "analytics" ? " --active" : ""}`}
+            className={`mcm-admin__tab${
+              tab === "analytics" ? " --active" : ""
+            }`}
             onClick={() => setTab("analytics")}
           >
             <BarChart3 size={16} /> {t("admin.tabAnalytics")}
@@ -480,7 +653,9 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
-            className={`mcm-admin__tab${tab === "integrations" ? " --active" : ""}`}
+            className={`mcm-admin__tab${
+              tab === "integrations" ? " --active" : ""
+            }`}
             onClick={() => setTab("integrations")}
           >
             <Plug size={16} /> {t("admin.tabApi")}
@@ -515,7 +690,9 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
-            className={`mcm-admin__tab${tab === "recordings" ? " --active" : ""}`}
+            className={`mcm-admin__tab${
+              tab === "recordings" ? " --active" : ""
+            }`}
             onClick={() => setTab("recordings")}
           >
             <Video size={16} /> {t("admin.tabRecordings")}
@@ -709,6 +886,227 @@ export const AdminConsole = () => {
           </div>
         )}
 
+        {tab === "projects" && !projectDetail && (
+          <div className="mcm-tablecard">
+            <table className="mcm-table">
+              <thead>
+                <tr>
+                  <th>{t("admin.colProject")}</th>
+                  <th>{t("admin.colOwner")}</th>
+                  <th>{t("admin.colStage")}</th>
+                  <th>{t("admin.tabMeetings")}</th>
+                  <th>{t("admin.colMembers")}</th>
+                  <th>{t("admin.colUpdated")}</th>
+                  <th>{t("admin.colActions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={7}>{t("admin.loading")}</td>
+                  </tr>
+                )}
+                {!loading && projects.length === 0 && (
+                  <tr>
+                    <td colSpan={7}>{t("admin.empty")}</td>
+                  </tr>
+                )}
+                {!loading &&
+                  projects.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <button
+                          type="button"
+                          className="mcm-table__link"
+                          onClick={() => void openProjectDetail(p)}
+                        >
+                          {p.name || p.id}
+                        </button>
+                        {(p.code || p.client) && (
+                          <span className="mcm-table__sub">
+                            {[p.code, p.client].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
+                      </td>
+                      <td>{p.host_email || "—"}</td>
+                      <td>{p.stage || "—"}</td>
+                      <td>{p.meeting_count}</td>
+                      <td>{p.member_count}</td>
+                      <td>{fmtDate(p.updated_at)}</td>
+                      <td className="mcm-table__actions">
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--outline"
+                          title={t("admin.secMeta")}
+                          aria-label={t("admin.secMeta")}
+                          onClick={() => void openProjectDetail(p)}
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
+                          title={t("admin.deleteProject")}
+                          aria-label={t("admin.deleteProject")}
+                          onClick={() => void handleDeleteProject(p)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === "projects" && projectDetail && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__detail-head">
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                onClick={() => setProjectDetail(null)}
+              >
+                <ArrowLeft size={15} /> {t("admin.detailBack")}
+              </button>
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--danger mcm-btn--sm"
+                disabled={busy}
+                onClick={() => void handleDeleteProject(projectDetail)}
+              >
+                <Trash2 size={14} /> {t("admin.deleteProject")}
+              </button>
+            </div>
+
+            <h2 className="mcm-admin__detail-title">
+              {projectDetail.name || projectDetail.id}
+              {projectDetail.stage && (
+                <span className="mcm-pill mcm-pill--accent">
+                  {projectDetail.stage}
+                </span>
+              )}
+            </h2>
+
+            <h4 className="mcm-admin__h4">{t("admin.secMeta")}</h4>
+            <dl className="mcm-admin__dl">
+              <div>
+                <dt>{t("admin.colOwner")}</dt>
+                <dd>{projectDetail.host_email || "—"}</dd>
+              </div>
+              {projectDetail.code && (
+                <div>
+                  <dt>Code</dt>
+                  <dd>{projectDetail.code}</dd>
+                </div>
+              )}
+              {projectDetail.client && (
+                <div>
+                  <dt>{t("admin.tabClients")}</dt>
+                  <dd>{projectDetail.client}</dd>
+                </div>
+              )}
+              <div>
+                <dt>{t("admin.tabMeetings")}</dt>
+                <dd>{projectDetail.meeting_count}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.colCreated")}</dt>
+                <dd>{fmtDate(projectDetail.created_at)}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.colUpdated")}</dt>
+                <dd>{fmtDate(projectDetail.updated_at)}</dd>
+              </div>
+            </dl>
+
+            <h4 className="mcm-admin__h4">
+              {t("admin.secMembers")} ({members.length})
+            </h4>
+            <div className="mcm-tablecard">
+              <div className="mcm-admin__newuser">
+                <UserPlus size={16} />
+                <input
+                  placeholder={t("admin.membersPlaceholder")}
+                  value={memberInput}
+                  onChange={(e) => setMemberInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      void handleAddMembers();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--primary mcm-btn--sm"
+                  onClick={() => void handleAddMembers()}
+                  disabled={busy || !memberInput.trim()}
+                >
+                  {t("admin.addMembers")}
+                </button>
+                <span className="mcm-admin__count">
+                  {t("admin.membersHint")}
+                </span>
+              </div>
+              <table className="mcm-table">
+                <thead>
+                  <tr>
+                    <th>{t("admin.email")}</th>
+                    <th>{t("admin.colRole")}</th>
+                    <th>{t("clients.colAddedBy")}</th>
+                    <th>{t("clients.colAdded")}</th>
+                    <th>{t("admin.colActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && (
+                    <tr>
+                      <td colSpan={5}>{t("admin.loading")}</td>
+                    </tr>
+                  )}
+                  {!loading && members.length === 0 && (
+                    <tr>
+                      <td colSpan={5}>{t("admin.noMembers")}</td>
+                    </tr>
+                  )}
+                  {!loading &&
+                    members.map((m) => (
+                      <tr key={m.email}>
+                        <td>
+                          <strong>{m.email}</strong>
+                        </td>
+                        <td>
+                          <span
+                            className={`mcm-pill ${
+                              m.role === "owner"
+                                ? "mcm-pill--accent"
+                                : "mcm-pill--neutral"
+                            }`}
+                          >
+                            {m.role || "member"}
+                          </span>
+                        </td>
+                        <td>{m.added_by || "—"}</td>
+                        <td>{fmtDate(m.added_at)}</td>
+                        <td className="mcm-table__actions">
+                          <button
+                            type="button"
+                            className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                            disabled={busy}
+                            onClick={() => void handleRemoveMember(m)}
+                          >
+                            {t("admin.removeMember")}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {tab === "meetings" && !detail && (
           <div className="mcm-tablecard">
             <table className="mcm-table">
@@ -744,7 +1142,9 @@ export const AdminConsole = () => {
                       >
                         {m.title || m.id}
                       </button>
-                      {m.topic && <span className="mcm-table__sub">{m.topic}</span>}
+                      {m.topic && (
+                        <span className="mcm-table__sub">{m.topic}</span>
+                      )}
                     </td>
                     <td>{m.project_name || "—"}</td>
                     <td>{m.created_by || "—"}</td>
@@ -788,21 +1188,34 @@ export const AdminConsole = () => {
               >
                 <ArrowLeft size={15} /> {t("admin.detailBack")}
               </button>
-              <button
-                type="button"
-                className="mcm-btn mcm-btn--danger mcm-btn--sm"
-                onClick={() =>
-                  void (async () => {
-                    if (window.confirm(t("admin.confirmDeleteMeeting"))) {
-                      await deleteAdminMeeting(detail.meeting.id);
-                      setDetail(null);
-                      void refreshMeetings();
-                    }
-                  })()
-                }
-              >
-                <Trash2 size={14} /> {t("admin.delete")}
-              </button>
+              <div className="mcm-admin__detail-actions">
+                {/* COMPLIANCE: read-only content access, audit-logged
+                    server-side before the key is released. */}
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                  disabled={busy}
+                  title={t("admin.openContentConfirm")}
+                  onClick={() => void handleComplianceOpen()}
+                >
+                  <ShieldCheck size={14} /> {t("admin.openContent")}
+                </button>
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--danger mcm-btn--sm"
+                  onClick={() =>
+                    void (async () => {
+                      if (window.confirm(t("admin.confirmDeleteMeeting"))) {
+                        await deleteAdminMeeting(detail.meeting.id);
+                        setDetail(null);
+                        void refreshMeetings();
+                      }
+                    })()
+                  }
+                >
+                  <Trash2 size={14} /> {t("admin.delete")}
+                </button>
+              </div>
             </div>
 
             <h2 className="mcm-admin__detail-title">
@@ -835,6 +1248,14 @@ export const AdminConsole = () => {
               <div>
                 <dt>{t("admin.colHost")}</dt>
                 <dd>{detail.meeting.created_by || "—"}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.mOrganizer")}</dt>
+                <dd>{detail.meeting.organizer_email || "—"}</dd>
+              </div>
+              <div>
+                <dt>{t("admin.mHost")}</dt>
+                <dd>{detail.meeting.host_email || "—"}</dd>
               </div>
             </dl>
 
@@ -900,6 +1321,20 @@ export const AdminConsole = () => {
               </div>
             </dl>
 
+            {detail.meeting.ai_summary && (
+              <>
+                <h4 className="mcm-admin__h4">{t("admin.secAiSummary")}</h4>
+                <div className="mcm-admin__summary">
+                  {detail.meeting.ai_summary}
+                  {detail.meeting.ai_summary_at && (
+                    <span className="mcm-admin__summary-when">
+                      {fmtDate(detail.meeting.ai_summary_at)}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+
             <h4 className="mcm-admin__h4">
               {t("admin.secParticipants")} ({detail.participants.length})
             </h4>
@@ -926,6 +1361,53 @@ export const AdminConsole = () => {
                       </td>
                       <td>{fmtDate(p.joined_at)}</td>
                       <td>{fmtDate(p.last_seen_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mcm-admin__h4">
+              {t("admin.secInvitees")} ({(detail.invitees ?? []).length})
+            </h4>
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
+                <thead>
+                  <tr>
+                    <th>{t("admin.email")}</th>
+                    <th>{t("admin.invKind")}</th>
+                    <th>{t("admin.colRole")}</th>
+                    <th>{t("admin.invStatus")}</th>
+                    <th>{t("admin.invitedBy")}</th>
+                    <th>{t("admin.invitedAt")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(detail.invitees ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={6}>{t("admin.noInvitees")}</td>
+                    </tr>
+                  )}
+                  {(detail.invitees ?? []).map((inv) => (
+                    <tr key={inv.email}>
+                      <td>
+                        <strong>{inv.email}</strong>
+                      </td>
+                      <td>{inv.kind || "—"}</td>
+                      <td>{inv.role || "—"}</td>
+                      <td>
+                        <span
+                          className={`mcm-pill ${
+                            inv.status === "revoked"
+                              ? "mcm-pill--off"
+                              : "mcm-pill--neutral"
+                          }`}
+                        >
+                          {inv.status || "—"}
+                        </span>
+                      </td>
+                      <td>{inv.invited_by || "—"}</td>
+                      <td>{fmtDate(inv.invited_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1137,6 +1619,14 @@ export const AdminConsole = () => {
                     <td>{e.actor_email || "—"}</td>
                     <td>
                       <code>{e.action}</code>
+                      {/* Compliance content access stands out in the trail —
+                          it's the accountability for the admin's open power. */}
+                      {e.action === "admin.open_content" && (
+                        <span className="mcm-pill mcm-pill--accent mcm-pill--tag">
+                          <ShieldCheck size={10} style={{ marginRight: 3 }} />
+                          compliance
+                        </span>
+                      )}
                     </td>
                     <td className="mcm-table__sub">{e.target || "—"}</td>
                   </tr>

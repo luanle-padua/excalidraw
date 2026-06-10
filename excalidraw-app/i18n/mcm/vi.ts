@@ -44,6 +44,12 @@ export const vi = {
     join: "Vào họp",
     dismiss: "Để sau",
   },
+  // ---------------- AI summary (auto-recap at End-for-all) ----------
+  ai: {
+    summaryTitle: "Tóm tắt AI",
+    showMore: "Xem thêm",
+    showLess: "Thu gọn",
+  },
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",
@@ -251,6 +257,37 @@ export const vi = {
     setRetention: "Giữ dữ liệu (ngày)",
     securityNote:
       "Theo dõi đăng nhập sai cần log-drains (làm sau). Dưới là nhật ký thao tác admin gần đây.",
+    // ---- Projects back-office + compliance access (06-10 #1) ----
+    tabProjects: "Dự án",
+    colOwner: "Chủ dự án",
+    colStage: "Giai đoạn",
+    colMembers: "Thành viên",
+    colUpdated: "Cập nhật",
+    secMembers: "Thành viên dự án",
+    membersPlaceholder: "email nội bộ, cách nhau bằng dấu phẩy…",
+    addMembers: "Thêm",
+    membersHint: "Chỉ email nội bộ — email ngoài sẽ bị bỏ qua.",
+    removeMember: "Gỡ",
+    lastOwnerError: "Không thể gỡ owner cuối cùng của dự án.",
+    deleteProject: "Xoá dự án",
+    confirmDeleteProject:
+      'XOÁ VĨNH VIỄN dự án "{name}"?\n\nToàn bộ {count} cuộc họp (canvas, file, chat) và danh sách thành viên sẽ bị xoá theo — không khôi phục được.\n\nGõ đúng tên dự án để xác nhận:',
+    deleteProjectMismatch: "Tên dự án không khớp — đã huỷ.",
+    noMembers: "Chưa có thành viên",
+    mOrganizer: "Người tổ chức",
+    mHost: "Host",
+    secAiSummary: "Tóm tắt AI",
+    secInvitees: "Khách mời",
+    invKind: "Loại",
+    invStatus: "Trạng thái",
+    invitedBy: "Người mời",
+    invitedAt: "Mời lúc",
+    noInvitees: "Không có khách mời",
+    openContent: "Mở nội dung (compliance)",
+    openContentConfirm:
+      "Mở nội dung cuộc họp này ở chế độ CHỈ XEM, ẨN HOÀN TOÀN (compliance)?\n\nBạn xem bản lưu mới nhất, KHÔNG vào phòng — người trong họp không thấy bạn. Lượt truy cập sẽ được ghi vĩnh viễn vào nhật ký kiểm toán (admin.open_content).",
+    openContentNoKey: "Cuộc họp không có khoá lưu trữ — không thể mở nội dung.",
+    openContentFailed: "Không mở được nội dung cuộc họp.",
   },
 
   // ---------------- Client list (CRM-lite contact book) ------------
@@ -336,6 +373,7 @@ export const vi = {
       "Xoá VĨNH VIỄN cuộc họp này? Canvas, file và toàn bộ lịch sử sẽ bị xoá — không khôi phục được.",
     host: "Chủ trì (Host)",
     noCohost: "— Không —",
+    invitedBadge: "Được mời",
     waitingRoom: "Phòng chờ cho khách",
     recordingOn: "Ghi hình cuộc họp",
     // Zone headers of the redesigned create/schedule form (small-caps).
@@ -351,6 +389,32 @@ export const vi = {
     internalCount: "Nội bộ ({count})",
     guestCount: "Khách ({count})",
     noGroup: "Khác",
+  },
+
+  // ---------------- Tài liệu của tôi (personal document shelf) ------
+  myfiles: {
+    title: "Tài liệu của tôi",
+    subtitle: "Upload 1 lần, kéo vào mọi cuộc họp",
+    emptyTitle: "Tủ tài liệu cá nhân",
+    emptyDesc:
+      "Upload 1 lần, kéo vào mọi cuộc họp. Khi đưa vào cuộc họp, một bản sao được tạo — xoá ở đây không ảnh hưởng cuộc họp nào.",
+    dropHint: "Kéo thả file vào đây hoặc bấm để chọn",
+    dropActive: "Thả file để tải lên",
+    uploading: "Đang tải lên…",
+    uploadFailed: "Tải lên không thành công: {name}",
+    tooLarge: "File quá lớn (tối đa 50MB): {name}",
+    deleteConfirm:
+      'Xoá "{name}" khỏi tủ tài liệu?\n\nCác cuộc họp đã sao chép file này không bị ảnh hưởng.',
+    delete: "Xoá",
+    count: "{count} tài liệu",
+    fromShelf: "Từ tủ của tôi",
+    pickerTitle: "Tài liệu của tôi",
+    pickerHint: "Bấm để sao chép vào cuộc họp này",
+    pickerEmpty:
+      "Tủ của bạn đang trống — upload ở trang chính, mục “Tài liệu của tôi”.",
+    copying: "Đang sao chép vào cuộc họp…",
+    copyFailed: "Không tải được file từ tủ: {name}",
+    close: "Đóng",
   },
 
   // ---------------- Meeting status (vòng đời chuẩn) -----------------
