@@ -138,11 +138,12 @@ const SegmentRow = ({
   const speakerName = speakerProfile?.username || seg.username;
   // Always render an img — `resolveAvatarUrlWithDefault` falls back
   // to a deterministic library image when the speaker hasn't picked
-  // an avatar, so the transcript never reverts to a plain unicode
-  // emoji.
+  // an avatar (keyed off their EMAIL when logged in, socketId only
+  // for anonymous peers), so the transcript never reverts to a plain
+  // unicode emoji.
   const avatarUrl = resolveAvatarUrlWithDefault(
     speakerProfile?.avatar,
-    seg.socketId,
+    speakerProfile?.email ?? seg.socketId,
   );
   const shortName = shortDisplayName(speakerName);
   return (
@@ -193,9 +194,10 @@ const InterimLine = ({
       ? myProfile ?? undefined
       : peerProfiles.get(entry.socketId);
   const name = speakerProfile?.username || entry.username;
+  // Same EMAIL-first default key as SegmentRow above.
   const avatarUrl = resolveAvatarUrlWithDefault(
     speakerProfile?.avatar,
-    entry.socketId,
+    speakerProfile?.email ?? entry.socketId,
   );
   return (
     <div className="mcm-stt__line mcm-stt__line--interim">

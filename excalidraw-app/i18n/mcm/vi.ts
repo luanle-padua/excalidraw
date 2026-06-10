@@ -24,19 +24,32 @@ export const vi = {
     send: "Gửi lời mời",
     sent: "Đã gửi ✓",
     empty: "Không có ai",
-    pickMembers: "Thêm thành viên",
+    pickMembers: "Thành viên",
     pickTitle: "Chọn thành viên",
-    addSelected: "Thêm {count} người",
+    addSelected: "Xong · {count} người",
+    currentInvitees: "Đã mời ({count})",
+    revoked: "Đã thu hồi",
+    cohost: "Đồng chủ trì",
   },
   invited: {
     title: "Được mời / Sắp tới",
     join: "Vào họp",
+  },
+  // ---------------- Meeting-due notice (toast "đến giờ họp") --------
+  due: {
+    // Eyebrow when the scheduled time is still (just) ahead…
+    title: "Cuộc họp sắp bắt đầu",
+    // …and when it has already arrived / passed.
+    now: "Đến giờ họp",
+    join: "Vào họp",
+    dismiss: "Để sau",
   },
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",
     upcoming: "Sắp tới",
     today: "Hôm nay",
+    tomorrow: "Ngày mai",
     month: "Tháng",
     day: "Ngày",
     createOnDay: "+ Tạo cuộc họp ngày này",
@@ -304,6 +317,61 @@ export const vi = {
     removeImage: "Xoá",
     optionOther: "Khác…",
     otherPlaceholder: "Nhập giá trị khác…",
+    reschedule: "Dời lịch",
+    rescheduleSave: "Lưu lịch mới",
+    cancelMeeting: "Huỷ cuộc họp",
+    cancelConfirm:
+      "Huỷ cuộc họp này? Người được mời sẽ thấy nó ở trạng thái đã huỷ.",
+    restoreMeeting: "Khôi phục cuộc họp",
+    scheduleLockedLive: "Cuộc họp đã bắt đầu — không sửa được ngày giờ.",
+    organizer: "Người tổ chức",
+    // Detail panel — people-section header (count rendered as a badge).
+    invited: "Đã mời",
+    // Detail hero when the meeting has no parseable schedule (legacy/ad-hoc).
+    noSchedule: "Chưa lên lịch",
+    // Short duration unit in the hero time line: "14:00 – 15:00 · 60 phút".
+    minutesShort: "phút",
+    deleteMeeting: "Xoá vĩnh viễn",
+    deleteConfirm:
+      "Xoá VĨNH VIỄN cuộc họp này? Canvas, file và toàn bộ lịch sử sẽ bị xoá — không khôi phục được.",
+    host: "Chủ trì (Host)",
+    noCohost: "— Không —",
+    waitingRoom: "Phòng chờ cho khách",
+    recordingOn: "Ghi hình cuộc họp",
+    // Zone headers of the redesigned create/schedule form (small-caps).
+    secAgenda: "Nội dung",
+    secRoles: "Vai trò & thiết lập",
+    secPeople: "Người tham gia",
+    saveFailed:
+      "Lưu không thành công — kiểm tra quyền (chỉ người tổ chức) hoặc trạng thái cuộc họp.",
+  },
+
+  // ---------------- People grid (nhóm người trên meeting) -----------
+  people: {
+    internalCount: "Nội bộ ({count})",
+    guestCount: "Khách ({count})",
+    noGroup: "Khác",
+  },
+
+  // ---------------- Meeting status (vòng đời chuẩn) -----------------
+  // scheduled → live → finished | cancelled (host-and-scheduling.md)
+  status: {
+    scheduled: "Đã lên lịch",
+    live: "Đang họp",
+    finished: "Đã kết thúc",
+    cancelled: "Đã huỷ",
+  },
+
+  // ---------------- Start gate (mở link khi họp chưa bắt đầu) -------
+  gate: {
+    notStarted: "Cuộc họp chưa bắt đầu",
+    scheduledFor: "Lên lịch lúc {when}",
+    waitingHost: "Đang chờ chủ trì bắt đầu cuộc họp…",
+    startNow: "Bắt đầu cuộc họp",
+    starting: "Đang bắt đầu…",
+    cancelledTitle: "Cuộc họp đã bị huỷ",
+    cancelledDesc: "Người tổ chức đã huỷ cuộc họp này.",
+    back: "Về trang chính",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -365,6 +433,13 @@ export const vi = {
     cancel: "Huỷ",
     save: "Lưu",
     openSettings: "Hồ sơ của bạn",
+  },
+
+  // ---------------- Current-user chip / account menu ----------------
+  user: {
+    menuAria: "Tài khoản của bạn",
+    signedInAs: "Đang đăng nhập",
+    profile: "Hồ sơ & avatar",
   },
 
   // ---------------- Audio call controls ----------------------------

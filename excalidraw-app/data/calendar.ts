@@ -20,6 +20,8 @@ export type CalMeeting = {
   project_id: string;
   project_name: string | null;
   created_by: string | null;
+  /** Who scheduled it (lower-cased email) — gates the Edit affordance. */
+  organizer_email: string | null;
   duration_min: number | null;
   /** User-assigned accent colour (hex). When set, the calendar event uses
    *  it instead of the status palette so card + calendar colours match. */

@@ -227,7 +227,10 @@ export default defineConfig(({ mode }) => {
             : { lintCommand: 'eslint "./**/*.{js,ts,tsx}"' },
         overlay: {
           initialIsOpen: envVars.VITE_APP_COLLAPSE_OVERLAY === "false",
-          badgeStyle: "margin-bottom: 4rem; margin-left: 1rem",
+          // Badge hidden — it floated over the MCM home (bottom-left) and
+          // blocked the UI underneath. Type/lint errors still surface in the
+          // terminal and in the full-screen overlay on build errors.
+          badgeStyle: "display: none",
         },
       }),
       svgrPlugin(),

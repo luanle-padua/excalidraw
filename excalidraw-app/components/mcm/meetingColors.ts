@@ -22,7 +22,7 @@ export const statusBucket = (
   if (s === "in progress" || s === "in_progress" || s === "live") {
     return "in-progress";
   }
-  if (s === "completed" || s === "done") {
+  if (s === "completed" || s === "done" || s === "finished") {
     return "completed";
   }
   if (s === "cancelled" || s === "canceled") {
@@ -65,3 +65,15 @@ export const meetingColor = (
   color: string | null | undefined,
   status: string | null | undefined,
 ): string => color || STATUS_COLOR[statusBucket(status)];
+
+/** Deterministic identity colour for a person (avatar-initial badges in the
+ *  cards / detail / edit surfaces): same email → same hue everywhere. Muted
+ *  saturation + fixed lightness so every hue reads calmly on both themes. */
+export const personColor = (key: string | null | undefined): string => {
+  let h = 0;
+  const s = key ?? "";
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return `hsl(${Math.abs(h) % 360} 42% 46%)`;
+};

@@ -1,10 +1,11 @@
 # Dev-phase notes — provisional, finalize later
 
-> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](host-and-scheduling.md), [admin-console.md](admin-console.md). Cập nhật 2026-06-09.
+> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](host-and-scheduling.md), [admin-console.md](admin-console.md). Cập nhật 2026-06-10.
 
 ## 🔴 Bảo mật / Auth (làm trước khi production)
-- [ ] **API mở toang**: `GET /v1/projects` trả MỌI project; **chưa có per-meeting/project authz** → làm cùng **Phase 4.5** (middleware `can_see_project/meeting/file`).
-- [ ] **Daily-token mint chưa check membership** — ai có JWT cũng mint token mọi room.
+- [x] **API mở toang**: ĐÃ có per-meeting/project authz (`canSeeMeeting`/`canSeeProject` + roomGate, commit `6d860a69`/`997a09ea` 06-09). Lưu ý dev rule còn lại: **nội bộ pass mọi meeting** — siết về project_member trước prod.
+- [x] **Daily-token mint** ĐÃ check membership (`canSeeMeeting` trong `/v1/daily/token`, 06-09).
+- [x] **PATCH `/v1/meetings/:id` ĐÃ guard state machine** (06-10): value whitelist (400), transition hợp lệ scheduled→live|cancelled · live→finished · cancelled→scheduled (409 nếu sai), **`finished` = immutable** (admin bypass cho ops), huỷ/khôi phục = **organizer-only** (403; legacy không organizer → internal). Organizer/host_email giờ stamp từ **JWT** lúc POST tạo meeting — client không gửi/đổi identity được. *(Còn soft: `scheduled_at` PATCH chưa check organizer — chỉ status được guard.)*
 - [ ] **CORS** Worker `origin:"*"` → khoá về origin thật.
 - [ ] **Chưa rate-limit** (Worker + room server).
 - [ ] **Mật khẩu mặc định hardcode** (`MapMeet@2026`, `MapAdmin@2026`) + **auto-login 1-click** → bỏ + bắt đổi mật khẩu lần đầu trước prod. (Secrets thật: KHÔNG lộ git, đã verify.)
@@ -20,8 +21,8 @@
 - [ ] **Remote mute icon**: cần test 2 máy có **mic thật** (chưa verify).
 
 ## 🟡 Data / Migrations
-- [ ] **Migrations chưa chạy trên REMOTE D1**: `0005_audit`, `0006_participants`, `0007_settings` (+ `0008/0009` Phase 4.5). Chạy trước deploy prod.
-- [ ] **`meeting.status` chưa chuẩn hoá**: DB dùng `Completed/Cancelled`, doc dùng `finished/cancelled` → thống nhất 1 bộ (gắn Phase 4.5).
+- [ ] **Migrations chưa chạy trên REMOTE D1**: `0005`…`0013` (remote D1 CHƯA TỒN TẠI — `database_id` còn placeholder trong wrangler.jsonc). Khi tạo remote: `npx wrangler d1 create mcm-db` → dán id → chạy lần lượt `npx wrangler d1 execute mcm-db --remote --file=./schema/000N_*.sql` (0001→0013).
+- [x] **`meeting.status` ĐÃ chuẩn hoá** (06-10): 1 bộ `scheduled|live|finished|cancelled` — migration `0013_status_canonical.sql` (đã chạy local) + client ghi giá trị chuẩn, đọc tolerant qua `components/mcm/meetingStatus.ts`.
 - [ ] **D1 backup + R2 versioning** chưa có.
 
 ## 🟢 Admin console (A1-A3 xong, vài chỗ tạm)

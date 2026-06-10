@@ -25,18 +25,28 @@ export const ko: Widened<typeof vi> = {
     send: "초대 보내기",
     sent: "보냄 ✓",
     empty: "결과 없음",
-    pickMembers: "멤버 추가",
+    pickMembers: "멤버",
     pickTitle: "멤버 선택",
-    addSelected: "{count}명 추가",
+    addSelected: "완료 · {count}명",
+    currentInvitees: "초대됨 ({count})",
+    revoked: "철회됨",
+    cohost: "공동 호스트",
   },
   invited: {
     title: "초대됨 / 예정",
     join: "참가",
   },
+  due: {
+    title: "회의가 곧 시작됩니다",
+    now: "회의 시간입니다",
+    join: "지금 참가",
+    dismiss: "나중에",
+  },
   cal: {
     title: "일정",
     upcoming: "예정",
     today: "오늘",
+    tomorrow: "내일",
     month: "월",
     day: "일",
     createOnDay: "+ 이 날에 회의 만들기",
@@ -50,7 +60,8 @@ export const ko: Widened<typeof vi> = {
     invite: "초대",
     inviteCopied: "링크 복사됨!",
     endMeeting: "회의 종료",
-    endConfirm: "모두에 대해 회의를 종료할까요? 모든 참가자가 읽기 전용 검토로 전환됩니다.",
+    endConfirm:
+      "모두에 대해 회의를 종료할까요? 모든 참가자가 읽기 전용 검토로 전환됩니다.",
     leave: "나가기",
     share: "공유",
     transcript: "회의록",
@@ -108,7 +119,8 @@ export const ko: Widened<typeof vi> = {
     guestToggle: "게스트? 이메일로 로그인 링크 받기",
     usePassword: "← 비밀번호로 로그인",
     sendMagicLink: "로그인 링크 보내기",
-    magicSent: "{email}(으)로 로그인 링크를 보냈습니다. 이메일을 열어 참여하세요.",
+    magicSent:
+      "{email}(으)로 로그인 링크를 보냈습니다. 이메일을 열어 참여하세요.",
     signOut: "로그아웃",
     demoTitle: "빠른 로그인 (데모)",
     host: "호스트",
@@ -175,7 +187,8 @@ export const ko: Widened<typeof vi> = {
     costUsage: "사용량",
     costEstimate: "예상 비용",
     costBilling: "공급자 청구(실제)",
-    billingNote: "실제 금액은 각 공급자 대시보드 참고; 아래는 사용량 기반 추정치.",
+    billingNote:
+      "실제 금액은 각 공급자 대시보드 참고; 아래는 사용량 기반 추정치.",
     storageTotal: "총 저장 용량",
     storageByKind: "파일 종류별",
     storageTopMeetings: "용량 큰 회의",
@@ -295,6 +308,57 @@ export const ko: Widened<typeof vi> = {
     removeImage: "제거",
     optionOther: "기타…",
     otherPlaceholder: "직접 입력…",
+    reschedule: "일정 변경",
+    rescheduleSave: "새 일정 저장",
+    cancelMeeting: "회의 취소",
+    cancelConfirm:
+      "이 회의를 취소할까요? 초대된 사람에게 취소됨으로 표시됩니다.",
+    restoreMeeting: "회의 복원",
+    scheduleLockedLive: "회의가 이미 시작되어 날짜·시간은 변경할 수 없습니다.",
+    organizer: "주최자",
+    invited: "초대됨",
+    noSchedule: "일정 미정",
+    minutesShort: "분",
+    deleteMeeting: "영구 삭제",
+    deleteConfirm:
+      "이 회의를 영구 삭제할까요? 캔버스, 파일, 모든 기록이 삭제되며 복구할 수 없습니다.",
+    host: "호스트",
+    noCohost: "— 없음 —",
+    waitingRoom: "게스트 대기실",
+    recordingOn: "회의 녹화",
+    // Zone headers of the redesigned create/schedule form (small-caps).
+    secAgenda: "회의 안건",
+    secRoles: "역할 및 설정",
+    secPeople: "참석자",
+    saveFailed:
+      "저장에 실패했습니다 — 권한(주최자 전용) 또는 회의 상태를 확인하세요.",
+  },
+
+  // ---------------- People grid ---------------------------------------
+  people: {
+    internalCount: "내부 ({count})",
+    guestCount: "고객 ({count})",
+    noGroup: "기타",
+  },
+
+  // ---------------- Meeting status (canonical lifecycle) ------------
+  status: {
+    scheduled: "예정됨",
+    live: "진행 중",
+    finished: "종료됨",
+    cancelled: "취소됨",
+  },
+
+  // ---------------- Start gate (시작 전 링크 접속) -------------------
+  gate: {
+    notStarted: "회의가 아직 시작되지 않았습니다",
+    scheduledFor: "예정 시각: {when}",
+    waitingHost: "호스트가 회의를 시작할 때까지 기다리는 중…",
+    startNow: "회의 시작",
+    starting: "시작 중…",
+    cancelledTitle: "회의가 취소되었습니다",
+    cancelledDesc: "주최자가 이 회의를 취소했습니다.",
+    back: "홈으로",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -355,6 +419,12 @@ export const ko: Widened<typeof vi> = {
     cancel: "취소",
     save: "저장",
     openSettings: "내 프로필",
+  },
+
+  user: {
+    menuAria: "내 계정",
+    signedInAs: "로그인 계정",
+    profile: "프로필 & 아바타",
   },
 
   callControls: {

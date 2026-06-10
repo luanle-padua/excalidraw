@@ -19,17 +19,23 @@ Bỏ audio mesh P2P (không scale) → audio chạy **Daily SFU** (scale N ngư�
 
 ## ⏳ Tiếp theo
 
-### Phase 4 — Host control + per-meeting membership ⭐ NEXT
+### Phase 4 — Host control + per-meeting membership (gần xong)
 Vai trò host (chốt 2026-06-05) — **gắn với recording bảo mật** (chỉ host + người được duyệt mới tải được). Thiết kế đầy đủ (organizer vs host, acting-host, lifecycle, **lên lịch họp**): **[host-and-scheduling.md](host-and-scheduling.md)** (bàn 2026-06-08).
-- [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng.
-- [ ] **Mời theo LINK** (mở link + login). *(Mời theo email cụ thể = sau.)*
-- [ ] **End meeting for all** — host kết thúc → meeting thành *finished* cho cả phòng.
-- [ ] **Co-host** + chuyển host khi host rời.
-- [ ] **Kick / mute** participant (host + co-host).
-- [ ] **Membership** (D1): ai được vào meeting nào → Worker check `userId`/email → nền cho tải recording bảo mật.
+- [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng. *(Khác màn "chờ Start" đã có ở 4.5 — waiting room là duyệt TỪNG khách khi meeting ĐANG live.)*
+- [x] **Mời theo LINK** (mở link + login) *(06-09)*. *(Mời theo email cụ thể = sau.)*
+- [x] **End meeting for all** — host kết thúc → meeting thành *finished* cho cả phòng *(06-08; ghi `status='finished'` chuẩn từ 06-10)*.
+- [ ] **Co-host** + chuyển host khi host rời. *(Acting-host runtime election đã có; co-host chỉ định trước = chưa.)*
+- [x] **Kick / mute** participant *(06-08 — soft enforcement, xem dev-phase-notes)*.
+- [x] **Membership** (D1): `project_member` + `meeting_invitee` (0008) → Worker authz per-meeting/project + Daily-token check *(06-09)*.
 
-### Phase 4.5 — Scheduling (lên lịch họp)
-Chốt 2026-06-08: **mọi user nội bộ** tạo/lên lịch được; **in-app "Sắp tới" + link mời** (email/calendar sau); **host vắng → nội bộ đầu tiên = acting host**; lifecycle `scheduled→live→finished/cancelled`. Cần bảng `meeting_invitee` (= membership) + `meeting.status`/`host_email`. → [host-and-scheduling.md](host-and-scheduling.md).
+### Phase 4.5 — Scheduling (lên lịch họp) ✅ (06-09 → 06-10)
+Chốt 2026-06-08, ship xong 2026-06-10:
+- [x] **Form lên lịch + mời** (ngày/giờ/thời lượng, picker nội bộ + client list) + **mục "Sắp tới/Được mời"** *(06-09)*.
+- [x] **Home 3 cột Notion + calendar Schedule-X** (màu sync, holidays, day panel) *(06-09)*.
+- [x] **State machine `scheduled→live→finished/cancelled`** + **chuẩn hoá `meeting.status`** (migration `0013`, client đọc tolerant qua `meetingStatus.ts`) *(06-10)*.
+- [x] **Màn "chờ host Start"** (`WaitingForStart` + gate trong `startCollaboration`): mở link khi chưa Start → nội bộ thấy nút **Bắt đầu** (luật acting-host), khách **poll 5s** tới khi live thì tự vào; meeting huỷ → thông báo *(06-10)*.
+- [x] **Dời lịch / Huỷ** (organizer, trong detail panel; legacy meeting không có organizer → nội bộ được phép) *(06-10)*.
+- Để sau: email mời tự động · calendar sync (.ics) · recurring · waiting room per-guest (Phase 4).
 
 ### Phase 5 — Recording → R2 (auth-gated)
 - [ ] **Daily cloud recording** (audio+screen đều trên Daily) → webhook `recording.ready` → **Worker copy về R2 private** (Daily không ghi thẳng R2 — chỉ AWS S3).

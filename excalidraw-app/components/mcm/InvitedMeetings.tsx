@@ -8,6 +8,8 @@ import { getMyInvitations, type MyInvitation } from "../../data/invite";
 import { getMeeting } from "../../data/projects";
 import { useT } from "../../i18n/mcm";
 
+import { isFinishedStatus, meetingStatusLabel } from "./meetingStatus";
+
 const fmtWhen = (s: string | null): string => {
   if (!s) {
     return "";
@@ -43,7 +45,7 @@ export const InvitedMeetings = () => {
       if (!m?.room_key) {
         return;
       }
-      const finished = m.status === "Completed" || m.status === "Cancelled";
+      const finished = isFinishedStatus(m.status);
       // Mirror ProjectBrowser.enterRoom: tear down the current room first so
       // startCollaboration actually switches, then enter (review if finished).
       collabAPI.stopCollaboration(false);
@@ -75,7 +77,7 @@ export const InvitedMeetings = () => {
                 {[
                   iv.project_name,
                   fmtWhen(iv.scheduled_at),
-                  iv.status,
+                  meetingStatusLabel(t, iv.status),
                   iv.created_by ? `· ${iv.created_by}` : "",
                 ]
                   .filter(Boolean)

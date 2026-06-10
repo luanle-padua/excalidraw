@@ -20,6 +20,13 @@ export type Session = {
   email: string;
   company?: string;
   branch?: string;
+  /** Account-level avatar from Supabase `user_metadata.avatar`. ONLY
+   *  `"lib:NN.png"` library refs live at the account (kept tiny on purpose —
+   *  uploaded data-URL avatars stay browser-local; see
+   *  `syncAvatarToAccount` in userProfile.ts). This is what makes the avatar
+   *  follow the LOGIN across browsers/devices instead of leaking between
+   *  accounts that share one machine's localStorage. */
+  avatar?: string;
   /** true when app_metadata.role === "admin" — gates the admin console.
    *  (The Worker independently re-checks the role on /v1/admin/*.) */
   isAdmin: boolean;
@@ -61,11 +68,19 @@ export const deriveSession = (user: User): Session => {
     (typeof md.name === "string" && md.name) ||
     (typeof md.display_name === "string" && md.display_name) ||
     nameFromEmail(email);
+  // Only accept "lib:NN.png" library refs from the account — anything else
+  // (junk, an accidentally-synced data URL) is ignored so a corrupt
+  // user_metadata value can never break every avatar surface at once.
+  const avatar =
+    typeof md.avatar === "string" && md.avatar.startsWith("lib:")
+      ? md.avatar
+      : undefined;
   return {
     name: display,
     email,
     company: typeof md.company === "string" ? md.company : undefined,
     branch: typeof md.division === "string" ? md.division : undefined,
+    avatar,
     isAdmin: appMd.role === "admin",
   };
 };

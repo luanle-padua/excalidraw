@@ -18,9 +18,11 @@
 2. **Lên lịch (bản đầu):** **in-app + mục "Sắp tới" + link mời**. Email mời tự động làm sau (khớp [[mcm-access-model]] "mời theo link, email sau").
 3. **Ai lên lịch:** **mọi user nội bộ** (@mapgroup) đều tạo/lên lịch được.
 
-## Hai kiểu tạo họp
-- **Họp ngay (instant):** tạo + vào liền (như hiện tại). Organizer = host = người tạo. `status = live`.
-- **Họp đã lên lịch (scheduled):** chọn giờ + mời người → `status = scheduled` → hiện ở "Sắp tới" → tới giờ vào.
+## Hai kiểu tạo họp — *implemented 2026-06-10*
+- **Họp ngay (instant):** tạo + vào liền. Organizer = host = người tạo. `status = live`.
+- **Họp đã lên lịch (scheduled):** chọn giờ + mời người → `status = scheduled` → hiện ở "Sắp tới" → tới giờ vào (qua màn "chờ Start").
+- **Ad-hoc (share dialog / side path):** cũng được register với owner + `status = live` từ lúc sinh ra — KHÔNG còn meeting "vô chủ".
+- Tạo là **1 call nguyên tử** (`POST /v1/meetings` mang đủ status/giờ/thời lượng); `organizer_email`/`host_email` do server stamp từ **JWT** — client không tự khai được. Lifecycle chỉ đi qua action (Start / End-for-all / Huỷ / Khôi phục), `status` đã bỏ khỏi metadata editor; server guard transition (finished = immutable).
 
 ## Vòng đời (state machine)
 ```
@@ -45,11 +47,10 @@
 4. **Trong họp**: host control (mute/kick/admit/present/co-host/transfer).
 5. **Host End for all** → `finished` → review read-only.
 
-## Acting-host (luật chi tiết)
-- Host election hiện tại: host = `created_by` (qua `meetingCreatorAtom`). Bổ sung: nếu **creator/host/co-host chưa có mặt**, **nội bộ đầu tiên** join → **acting host** (đủ quyền live).
-- Real host/organizer vào → **quyền tự trả về**; acting host về attendee.
-- Guest KHÔNG bao giờ thành acting host (phải nội bộ).
-- Acting host được End-for-all (cần có người kết thúc được); huỷ/sửa lịch thì chỉ organizer.
+## Acting-host (luật chi tiết) — *implemented 2026-06-10*
+- **Host election theo EMAIL** (`hostSocketIdAtom`): (1) participant có email khớp `host_email`/`organizer_email` của registry — danh tính = login email đã verify, KHÔNG phải display name (tên trùng nhau được; `created_by` name chỉ còn là fallback cho meeting cũ trước Phase 4.5); (2) host vắng → **nội bộ đầu tiên** theo join order = **acting host**; (3) phòng toàn khách = **HOSTLESS** (controls khoá) — guest không bao giờ cầm quyền; fallback joinedAt chỉ còn cho môi trường không auth (dev/test).
+- Real host/organizer vào → **quyền tự trả về** (rule 1 thắng rule 2); acting host về attendee.
+- Acting host được Start + End-for-all; **huỷ/khôi phục lịch chỉ organizer** (server enforce 403).
 
 ## Membership & Mời (invite) — chốt 2026-06-08 (team phân tích)
 

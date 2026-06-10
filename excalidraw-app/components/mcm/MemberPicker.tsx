@@ -14,19 +14,21 @@ const norm = (s: string) =>
  *  team at once instead of clicking people one by one. */
 export const MemberPicker = ({
   directory,
-  disabledEmails,
+  selectedEmails,
   onConfirm,
   onClose,
 }: {
   directory: DirectoryUser[];
-  /** Emails already invited — shown checked + disabled. */
-  disabledEmails: Set<string>;
+  /** Currently-selected emails — pre-checked; you can add OR remove here. */
+  selectedEmails: Set<string>;
   onConfirm: (emails: string[]) => void;
   onClose: () => void;
 }) => {
   const t = useT();
   const [q, setQ] = useState("");
-  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [picked, setPicked] = useState<Set<string>>(
+    () => new Set(selectedEmails),
+  );
 
   // Group the (search-filtered) directory by division, divisions sorted.
   const groups = useMemo(() => {
@@ -65,9 +67,7 @@ export const MemberPicker = ({
     });
 
   const toggleDivision = (members: DirectoryUser[]) => {
-    const emails = members
-      .map((m) => m.email)
-      .filter((e) => !disabledEmails.has(e));
+    const emails = members.map((m) => m.email);
     const allOn = emails.length > 0 && emails.every((e) => picked.has(e));
     setPicked((p) => {
       const next = new Set(p);
@@ -114,9 +114,8 @@ export const MemberPicker = ({
             <p className="mcm-mpick__empty">{t("invite.empty")}</p>
           )}
           {groups.map(([div, members]) => {
-            const pickable = members.filter((m) => !disabledEmails.has(m.email));
-            const onCount = pickable.filter((m) => picked.has(m.email)).length;
-            const allOn = pickable.length > 0 && onCount === pickable.length;
+            const onCount = members.filter((m) => picked.has(m.email)).length;
+            const allOn = members.length > 0 && onCount === members.length;
             return (
               <div className="mcm-mpick__group" key={div}>
                 <button
@@ -138,14 +137,12 @@ export const MemberPicker = ({
                   </span>
                 </button>
                 {members.map((u) => {
-                  const disabled = disabledEmails.has(u.email);
-                  const on = disabled || picked.has(u.email);
+                  const on = picked.has(u.email);
                   return (
                     <button
                       type="button"
                       key={u.email}
                       className="mcm-mpick__row"
-                      disabled={disabled}
                       onClick={() => toggle(u.email)}
                     >
                       <span

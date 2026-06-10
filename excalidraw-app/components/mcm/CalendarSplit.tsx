@@ -15,7 +15,12 @@ const statusKind = (status: string | null): "scheduled" | "live" | "muted" => {
   if (s === "in progress" || s === "in_progress" || s === "live") {
     return "live";
   }
-  if (s === "completed" || s === "cancelled" || s === "canceled") {
+  if (
+    s === "completed" ||
+    s === "finished" ||
+    s === "cancelled" ||
+    s === "canceled"
+  ) {
     return "muted";
   }
   return "scheduled";

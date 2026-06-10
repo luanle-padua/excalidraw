@@ -20,7 +20,9 @@ const PRJ_TYPE = [
   "Industrial",
   "Other",
 ];
-const MTG_TYPE = [
+// Exported: the meeting edit form (EditMeetingForm) renders these same
+// vocabularies so create/edit/metadata stay one consistent data set.
+export const MTG_TYPE = [
   "",
   "Design review",
   "Kickoff",
@@ -30,8 +32,12 @@ const MTG_TYPE = [
   "QA-QC",
   "Other",
 ];
-const STATUS = ["", "Scheduled", "In progress", "Completed", "Cancelled"];
-const DISCIPLINE = [
+// NOTE: meeting `status` is deliberately NOT an editor field — the lifecycle
+// (scheduled → live → finished | cancelled) only moves through its actions
+// (Start / End-for-all / Cancel / Restore) and is guarded server-side. A
+// free-text dropdown here let users jump states arbitrarily (even out of the
+// immutable `finished`).
+export const DISCIPLINE = [
   "",
   "Architecture",
   "Structure",
@@ -41,12 +47,17 @@ const DISCIPLINE = [
   "Landscape",
   "General",
 ];
-const PRIORITY = ["", "Low", "Normal", "High"];
-const CONFIDENTIALITY = ["", "Internal", "Client-shared", "Confidential"];
+export const PRIORITY = ["", "Low", "Normal", "High"];
+export const CONFIDENTIALITY = [
+  "",
+  "Internal",
+  "Client-shared",
+  "Confidential",
+];
 
 // Keep a legacy/free-text value (e.g. an older "Thiet ke co so" stage)
 // selectable: prepend it if it isn't already a canonical option.
-const withLegacy = (opts: string[], current: string): string[] =>
+export const withLegacy = (opts: string[], current: string): string[] =>
   current && !opts.includes(current) ? [current, ...opts] : opts;
 
 /** Shape the meeting editor passes (a merged getMeeting / draft object). */
@@ -63,7 +74,13 @@ export type MeetingFieldsInput = {
 };
 
 export const buildProjectFields = (p: Project): EditorField[] => [
-  { key: "name", label: "Name", value: p.name, required: true, fullWidth: true },
+  {
+    key: "name",
+    label: "Name",
+    value: p.name,
+    required: true,
+    fullWidth: true,
+  },
   {
     key: "cover",
     label: "Cover image",
@@ -138,13 +155,6 @@ export const buildMeetingFields = (m: MeetingFieldsInput): EditorField[] => [
     value: m.type ?? "",
     type: "select",
     options: withLegacy(MTG_TYPE, m.type ?? ""),
-  },
-  {
-    key: "status",
-    label: "Status",
-    value: m.status ?? "",
-    type: "select",
-    options: withLegacy(STATUS, m.status ?? ""),
   },
   {
     key: "discipline",

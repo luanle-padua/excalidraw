@@ -19,10 +19,20 @@ import {
   ensureMyJoinedAt,
   hostSocketIdAtom,
   meetingCreatorAtom,
+  meetingHostEmailAtom,
   mySocketIdAtom,
   saveUserProfile,
   userProfileAtom,
 } from "../../data/userProfile";
+
+import { ScreenShareController } from "../../screenshare/ScreenShareController";
+
+import { ScreenSharePane } from "../../screenshare/ScreenSharePane";
+
+import {
+  screenShareInstanceAtom,
+  screenShareMediaAtom,
+} from "../../screenshare/screenShareState";
 
 import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
 import { CADViewPane } from "./cad/CADViewPane";
@@ -35,6 +45,7 @@ import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
 import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
 import { MeetingCallControls } from "./MeetingCallControls";
+import { MeetingDueNotice } from "./MeetingDueNotice";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
@@ -46,13 +57,8 @@ import { ParticipantsBar } from "./ParticipantsBar";
 import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
 import { UserProfileModal } from "./UserProfileModal";
+import { WaitingForStart } from "./WaitingForStart";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
-import { ScreenShareController } from "../../screenshare/ScreenShareController";
-import { ScreenSharePane } from "../../screenshare/ScreenSharePane";
-import {
-  screenShareInstanceAtom,
-  screenShareMediaAtom,
-} from "../../screenshare/screenShareState";
 
 import "./MeetingShell.scss";
 
@@ -192,24 +198,31 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     void hydrateMeetingFiles(roomId);
   }, [roomId]);
 
-  // Resolve the meeting's creator → drives host election (host = creator,
-  // consistent for everyone). Cleared when leaving / between rooms.
+  // Resolve the meeting's rightful host identity → drives host election.
+  // Primary key is the registry host/organizer EMAIL (verified login
+  // identity); the creator display NAME is kept only for legacy rows that
+  // predate host_email. Cleared when leaving / between rooms.
   const setMeetingCreator = useSetAtom(meetingCreatorAtom);
+  const setMeetingHostEmail = useSetAtom(meetingHostEmailAtom);
   useEffect(() => {
     if (!roomId) {
       setMeetingCreator(null);
+      setMeetingHostEmail(null);
       return;
     }
     let cancelled = false;
     void getMeeting(roomId).then((m) => {
       if (!cancelled) {
         setMeetingCreator(m?.created_by ?? null);
+        setMeetingHostEmail(
+          (m?.host_email ?? m?.organizer_email)?.toLowerCase() ?? null,
+        );
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [roomId, setMeetingCreator]);
+  }, [roomId, setMeetingCreator, setMeetingHostEmail]);
 
   // Record WHO joined this meeting (for the admin meeting-detail view). Only
   // logged-in users; the authoritative email is taken from the JWT server-side,
@@ -222,26 +235,48 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
 
   // Logged-in users get their identity from the account (session). The
   // display name everywhere — participant tile, chat sender, on-canvas cursor
-  // — must ALWAYS reflect the login, overwriting any stale profile/username
-  // a PREVIOUS user left in this browser's localStorage (the "name doesn't
-  // match who logged in" bug, incl. two logged-in users showing each other's
-  // / wrong names). We keep the user's chosen avatar but force username (and
-  // company) from the session, and keep the collab username — which drives
-  // the Excalidraw collaborator name + chat sender — in lockstep. Only
+  // — must ALWAYS reflect the login, overwriting any stale profile a PREVIOUS
+  // user left in this browser's localStorage (`mcm:userProfile:v1` is ONE key
+  // per browser, not per account — the root cause of both the "name doesn't
+  // match who logged in" bug AND the "every account shows the same avatar"
+  // bug on shared demo machines). Username/company are forced from the
+  // session; the avatar hydrates FROM the account (user_metadata.avatar) and
+  // any cached avatar that belongs to a DIFFERENT email is dropped, so user
+  // A's avatar can never show on user B. The collab username — which drives
+  // the Excalidraw collaborator name + chat sender — stays in lockstep. Only
   // anonymous (link-join, NO session) users still get the fake-name prompt.
   useEffect(() => {
     if (session) {
+      // The cached profile is OURS only when its email matches the login (or
+      // it never carried one — a fresh/anon profile made by the person now
+      // logging in). A different email = a previous user's leftovers.
+      const cachedIsMine =
+        !userProfile?.email ||
+        userProfile.email.toLowerCase() === session.email.toLowerCase();
+      // Avatar precedence: a local data-URL upload wins on this device (it's
+      // intentionally NOT in user_metadata — see syncAvatarToAccount), then
+      // the account avatar, then a same-account local "lib:" pick that
+      // hasn't roamed yet. A stale other-account avatar never survives.
+      const localAvatar = cachedIsMine ? userProfile?.avatar : undefined;
+      const nextAvatar = localAvatar?.startsWith("data:")
+        ? localAvatar
+        : session.avatar ?? localAvatar;
+      const nextCompany =
+        session.company ?? (cachedIsMine ? userProfile?.company : undefined);
       const needsProfileSync =
         !userProfile ||
         userProfile.username !== session.name ||
         userProfile.email !== session.email ||
-        (!!session.company && userProfile.company !== session.company);
+        userProfile.avatar !== nextAvatar ||
+        userProfile.company !== nextCompany;
       if (needsProfileSync) {
+        // Rebuilt EXPLICITLY (no `...userProfile` spread) so no stale field
+        // from a previous login can survive an account switch.
         saveUserProfile({
-          ...userProfile,
           username: session.name,
           email: session.email,
-          company: session.company ?? userProfile?.company,
+          ...(nextCompany ? { company: nextCompany } : {}),
+          ...(nextAvatar ? { avatar: nextAvatar } : {}),
         });
       }
       if (collabAPI && collabAPI.getUsername() !== session.name) {
@@ -310,6 +345,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
       <MeetingLobby />
+      {/* Renders above the lobby when a join is parked on a not-yet-started
+          (or cancelled) meeting — the Phase 4.5 start gate. */}
+      <WaitingForStart />
+      {/* "Meeting tới giờ" toast — nudges the user to join a scheduled
+          meeting whose time has arrived. Hides itself while collaborating
+          so the in-meeting canvas stays clean. */}
+      <MeetingDueNotice />
       <ProjectFolder />
     </div>
   );

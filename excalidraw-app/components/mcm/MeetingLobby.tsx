@@ -2,7 +2,11 @@ import { PlayCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
-import { collabAPIAtom, isCollaboratingAtom } from "../../collab/Collab";
+import {
+  collabAPIAtom,
+  isCollaboratingAtom,
+  startGateAtom,
+} from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import {
   clearLastMeeting,
@@ -10,13 +14,16 @@ import {
   type LastMeeting,
 } from "../../data/lastMeeting";
 import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
-import { authReadyAtom, sessionAtom, signOut } from "../../data/session";
+import { authReadyAtom, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { AdminConsole } from "./AdminConsole";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
+import { isFinishedStatus, normalizeMeetingStatus } from "./meetingStatus";
 import { ProjectBrowser } from "./ProjectBrowser";
+import { UserMenu } from "./UserMenu";
+import { UserProfileModal } from "./UserProfileModal";
 
 /**
  * Project-first home for MAP CanvasMeet.
@@ -50,8 +57,16 @@ export const MeetingLobby = () => {
   const isCollaborating = useAtomValue(isCollaboratingAtom);
   const session = useAtomValue(sessionAtom);
   const authReady = useAtomValue(authReadyAtom);
+  // Subscribing matters even though the WaitingForStart overlay covers us:
+  // when the user backs out of the start gate (clearing the #room hash), this
+  // re-render is what re-evaluates hasRoomInUrl below so the home reappears.
+  const startGate = useAtomValue(startGateAtom);
 
   const [dismissed, setDismissed] = useState(false);
+  // "Hồ sơ & avatar" from the user chip — the modal is shared with the
+  // in-meeting shell but gets its own open state here so the dashboard
+  // can edit the profile without entering a meeting.
+  const [profileOpen, setProfileOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const [joinValue, setJoinValue] = useState("");
   const [joinError, setJoinError] = useState(false);
@@ -62,8 +77,16 @@ export const MeetingLobby = () => {
   } | null>(null);
 
   // Offer "Resume" if the user left a meeting open (saved in localStorage)
-  // and reopened the app on a clean URL. Drops the offer if that meeting
-  // no longer exists in the registry.
+  // and reopened the app on a clean URL. Resume is ONLY for meetings that are
+  // actually resumable — `live`, or a legacy/ad-hoc row with no status:
+  //   • missing row            → stale pointer, clear it.
+  //   • finished / cancelled   → terminal (review-only lifecycle): the pointer
+  //     outlived "End meeting for all" — the ender's clearLastMeeting() can't
+  //     reach OTHER participants' localStorage, so every browser must re-check
+  //     the registry status here and drop the dead pointer itself.
+  //   • scheduled              → not started yet; joining goes through the
+  //     start gate (WaitingForStart), never a "Resume" shortcut. Keep the
+  //     pointer (it becomes resumable once the host Starts) but don't offer.
   useEffect(() => {
     const last = getLastMeeting();
     if (!session || !last) {
@@ -75,8 +98,10 @@ export const MeetingLobby = () => {
       if (cancelled) {
         return;
       }
-      if (!m) {
+      if (!m || isFinishedStatus(m.status)) {
         clearLastMeeting();
+        setResume(null);
+      } else if (normalizeMeetingStatus(m.status) === "scheduled") {
         setResume(null);
       } else {
         setResume({ room: last, title: m.title ?? "" });
@@ -111,7 +136,7 @@ export const MeetingLobby = () => {
   // from a link, gone solo, or before collab is ready. Live (NOT memoized) hash
   // check so leaving a meeting re-shows the home.
   const hasRoomInUrl = /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash);
-  if (isCollaborating || hasRoomInUrl || dismissed || !collabAPI) {
+  if (isCollaborating || hasRoomInUrl || startGate || dismissed || !collabAPI) {
     return null;
   }
 
@@ -183,14 +208,12 @@ export const MeetingLobby = () => {
             >
               {t("lobby.joinByLink")}
             </button>
-            <button
-              type="button"
-              className="mcm-lobby__join-toggle"
-              onClick={() => void signOut()}
-              title={`${session.name} · ${session.email}`}
-            >
-              {t("login.signOut")}
-            </button>
+            {/* Signed-in identity: avatar + name chip → account menu
+                (read-only info, profile editor, sign out). */}
+            <UserMenu
+              session={session}
+              onOpenProfile={() => setProfileOpen(true)}
+            />
           </div>
         </header>
 
@@ -239,7 +262,9 @@ export const MeetingLobby = () => {
             </button>
           </div>
         )}
-        {joinError && <p className="mcm-lobby__error">{t("lobby.joinError")}</p>}
+        {joinError && (
+          <p className="mcm-lobby__error">{t("lobby.joinError")}</p>
+        )}
 
         {IS_PROJECTS_CONFIGURED ? (
           <ProjectBrowser />
@@ -256,8 +281,15 @@ export const MeetingLobby = () => {
             </button>
           </div>
         )}
-
       </div>
+
+      {/* Profile editor reached from the user chip. The login name
+          pre-fills the username on first open (no saved profile yet). */}
+      <UserProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        defaultUsername={session.name}
+      />
     </div>
   );
 };

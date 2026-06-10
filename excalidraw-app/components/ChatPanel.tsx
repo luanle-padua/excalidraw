@@ -519,11 +519,13 @@ const GroupRow = ({
     : shortDisplayName(resolvedName) || t("participants.guest");
   // ALWAYS a real image URL — when the sender hasn't picked an
   // avatar, `resolveAvatarUrlWithDefault` falls back to a
-  // deterministic library image keyed off socketId, so the chat
-  // never reverts to a plain unicode emoji "animal" face.
+  // deterministic library image keyed off the sender's EMAIL (stable
+  // identity — same default face in every session/surface), or off
+  // socketId for anonymous peers, so the chat never reverts to a
+  // plain unicode emoji "animal" face.
   const avatarImageUrl = resolveAvatarUrlWithDefault(
     senderProfile?.avatar,
-    group.socketId,
+    senderProfile?.email ?? group.socketId,
   );
 
   return (

@@ -10,7 +10,9 @@
 // atom keyed by socketId.
 
 import { atom, appJotaiStore } from "../app-jotai";
+
 import { isInternalEmail } from "./session";
+import { supabase } from "./supabaseClient";
 
 const STORAGE_KEY = "mcm:userProfile:v1";
 
@@ -47,11 +49,17 @@ export const resolveAvatarUrl = (
 /** Like `resolveAvatarUrl` but ALWAYS returns a usable URL. When the
  *  user hasn't picked an avatar yet (or hasn't set up their profile
  *  at all), we deterministically map a library image from
- *  `fallbackKey` (socketId, username, etc) — that way every avatar
- *  surface in the app (chat, transcript, participant tile, on-canvas
- *  cursor) shows a real "character image" instead of an unstyled
- *  unicode emoji, with the same key resolving to the same picture
- *  everywhere. */
+ *  `fallbackKey` — that way every avatar surface in the app (chat,
+ *  transcript, participant tile, on-canvas cursor) shows a real
+ *  "character image" instead of an unstyled unicode emoji, with the
+ *  same key resolving to the same picture everywhere.
+ *
+ *  `fallbackKey` should be the user's EMAIL whenever it is known —
+ *  it's the stable login identity, so the same person gets the same
+ *  default face across sessions, devices, and every surface. Fall
+ *  back to socketId ONLY for anonymous link-join peers who carry no
+ *  email (their default face is then per-session, which is the best
+ *  we can do without an identity). */
 export const resolveAvatarUrlWithDefault = (
   avatar: string | null | undefined,
   fallbackKey: string,
@@ -237,80 +245,118 @@ export const removePeerJoinedAt = (socketId: string): void => {
 };
 
 /** The meeting's CREATOR (its `created_by` display name from the registry),
- *  set on join. Host is the creator, so this is the primary input to the
- *  host election. Null for ad-hoc rooms with no registry entry. */
+ *  set on join. LEGACY tie-breaker only — meetings now carry host/organizer
+ *  EMAILS and the election matches those first (names collide; emails are the
+ *  verified login identity). Null for ad-hoc rooms with no registry entry. */
 export const meetingCreatorAtom = atom<string | null>(null);
 
-/** Socket id of the current MCM "host". The host is the meeting CREATOR:
- *  the participant whose display name matches `meetingCreatorAtom`. Because
- *  every client sees the same set of participant names and the same creator,
- *  this resolves to the SAME socketId for everyone — fixing the bug where the
- *  old smallest-`joinedAt` election made each user elect THEMSELVES (both got
- *  the "first-in-room" sentinel, or peer joinedAts hadn't synced yet).
+/** The meeting's rightful host IDENTITY from the registry — `host_email`
+ *  (current host, defaults to the organizer) with `organizer_email` as the
+ *  fallback. Lower-cased email. This is the PRIMARY input to the host
+ *  election: identity = verified login email, never a display name. Null for
+ *  legacy/ad-hoc rows that predate Phase 4.5. */
+export const meetingHostEmailAtom = atom<string | null>(null);
+
+/** Socket id of the current MCM "host" — the live referee for host-only
+ *  controls (End-for-all, kick, mute, recording, folder).
  *
- *  Falls back to the smallest-joinedAt election when the creator isn't known
- *  or isn't currently present, so the meeting is never hostless (host-only
- *  controls — recording, etc. — still have an owner). Lexicographic socketId
- *  breaks ties deterministically.
+ *  Election order (docs/host-and-scheduling.md):
+ *  1. The participant whose EMAIL matches the registry host/organizer —
+ *     deterministic for every client, and the reason the real host
+ *     automatically reclaims control the moment they join.
+ *  2. Legacy: match the creator's display NAME (rows predating host_email).
+ *  3. ACTING HOST: first INTERNAL participant by join order — the meeting is
+ *     never stuck waiting for an absent host, and a guest never runs it.
+ *  4. Smallest joinedAt — ONLY when no participant carries any email at all
+ *     (dev/tests without auth). In a real room a guests-only floor stays
+ *     HOSTLESS (controls locked) until an internal user arrives; the old
+ *     unconditional fallback let an early-joining guest grab kick/mute/End.
  *
- *  Returns null when there's no active room (no peers + no joinedAt captured
- *  yet) so callers can render the inert "Join a room to enable recording"
- *  state. */
+ *  Returns null when there's no active room (or a hostless guests-only one)
+ *  so callers render the inert/locked state. Lexicographic socketId breaks
+ *  joinedAt ties deterministically. */
 export const hostSocketIdAtom = atom<string | null>((get) => {
   const mySocketId = get(mySocketIdAtom);
+  const myProfile = get(userProfileAtom);
+  const peerProfiles = get(peerProfilesAtom);
 
-  // Primary: host = the participant whose name matches the meeting creator.
+  // 1) Primary: host = the participant whose verified email matches the
+  //    registry host/organizer email.
+  const hostEmail = get(meetingHostEmailAtom);
+  if (hostEmail) {
+    if (mySocketId && myProfile?.email?.toLowerCase() === hostEmail) {
+      return mySocketId;
+    }
+    for (const [socketId, profile] of peerProfiles) {
+      if (profile.email?.toLowerCase() === hostEmail) {
+        return socketId;
+      }
+    }
+    // Host not present → acting-host election below.
+  }
+
+  // 2) Legacy: meetings registered before host_email existed — match the
+  //    creator's display name. Skipped when an email match was possible.
   const creator = get(meetingCreatorAtom);
-  if (creator) {
-    const myProfile = get(userProfileAtom);
+  if (!hostEmail && creator) {
     if (mySocketId && myProfile?.username === creator) {
       return mySocketId;
     }
-    for (const [socketId, profile] of get(peerProfilesAtom)) {
+    for (const [socketId, profile] of peerProfiles) {
       if (profile.username === creator) {
         return socketId;
       }
     }
-    // Creator not present → fall through to the acting-host election.
   }
 
-  // Acting host: creator absent → the first INTERNAL (@mapgroup) participant by
-  // join order takes over, so the meeting isn't stuck and a guest never runs it.
-  {
-    const joined = get(peerJoinedAtAtom);
-    const myProfile = get(userProfileAtom);
-    type C = { socketId: string; joinedAt: number };
-    const internal: C[] = [];
-    if (mySocketId && MY_JOINED_AT != null && isInternalEmail(myProfile?.email)) {
+  // 3) Acting host: rightful host absent → the first INTERNAL (@mapgroup)
+  //    participant by join order takes over; control returns automatically
+  //    when the real host joins (rule 1 outranks this).
+  const joined = get(peerJoinedAtAtom);
+  type Candidate = { socketId: string; joinedAt: number };
+  const internal: Candidate[] = [];
+  let anyEmailKnown = false;
+  if (mySocketId && MY_JOINED_AT != null) {
+    if (myProfile?.email) {
+      anyEmailKnown = true;
+    }
+    if (isInternalEmail(myProfile?.email)) {
       internal.push({ socketId: mySocketId, joinedAt: MY_JOINED_AT });
     }
-    for (const [socketId, profile] of get(peerProfilesAtom)) {
-      if (isInternalEmail(profile.email)) {
-        internal.push({ socketId, joinedAt: joined.get(socketId) ?? Infinity });
-      }
+  }
+  for (const [socketId, profile] of peerProfiles) {
+    if (profile.email) {
+      anyEmailKnown = true;
     }
-    if (internal.length > 0) {
-      internal.sort((a, b) =>
-        a.joinedAt !== b.joinedAt
-          ? a.joinedAt - b.joinedAt
-          : a.socketId < b.socketId
-          ? -1
-          : 1,
-      );
-      return internal[0].socketId;
+    if (isInternalEmail(profile.email)) {
+      internal.push({ socketId, joinedAt: joined.get(socketId) ?? Infinity });
     }
+  }
+  if (internal.length > 0) {
+    internal.sort((a, b) =>
+      a.joinedAt !== b.joinedAt
+        ? a.joinedAt - b.joinedAt
+        : a.socketId < b.socketId
+        ? -1
+        : 1,
+    );
+    return internal[0].socketId;
   }
 
-  // Fallback: smallest joinedAt across self + peers (link-sharer heuristic).
-  const peers = get(peerJoinedAtAtom);
-  const myJoinedAt = MY_JOINED_AT;
-  type Candidate = { socketId: string; joinedAt: number };
+  // Guests-only room: identities are known and none is internal → HOSTLESS.
+  // A guest must never hold host controls (host-and-scheduling.md).
+  if (anyEmailKnown) {
+    return null;
+  }
+
+  // 4) No identity info at all (auth-less dev/tests) — smallest joinedAt
+  //    (link-sharer heuristic) so host-gated features stay usable there.
   const candidates: Candidate[] = [];
-  for (const [socketId, joinedAt] of peers) {
+  for (const [socketId, joinedAt] of joined) {
     candidates.push({ socketId, joinedAt });
   }
-  if (mySocketId && myJoinedAt != null) {
-    candidates.push({ socketId: mySocketId, joinedAt: myJoinedAt });
+  if (mySocketId && MY_JOINED_AT != null) {
+    candidates.push({ socketId: mySocketId, joinedAt: MY_JOINED_AT });
   }
   if (candidates.length === 0) {
     return null;
@@ -374,6 +420,48 @@ export const saveUserProfile = (profile: UserProfile): UserProfile => {
   return profile;
 };
 
+/** Push the chosen avatar to the ACCOUNT — Supabase `user_metadata.avatar` —
+ *  so it follows the LOGIN across browsers/devices. localStorage stays the
+ *  offline cache, but the account is the system of record: without this,
+ *  every account that logs in on the same machine inherits whatever avatar
+ *  the previous user left in the shared `mcm:userProfile:v1` key (the
+ *  "everyone has the same avatar" bug; docs/user-data-model.md).
+ *
+ *  user_metadata must stay SMALL, so only `"lib:NN.png"` refs are synced:
+ *  - `"lib:NN.png"`  → stored as-is (a few bytes);
+ *  - `"data:image…"` → SKIPPED — an uploaded avatar can be ~100KB, which has
+ *    no business inside a JWT-adjacent metadata blob. It stays local-only.
+ *    TODO(production): upload to R2 under `avatars/<user_id>` via the Worker
+ *    and store that URL in user_metadata instead (docs/user-data-model.md).
+ *  - `undefined`     → clears the account avatar (user pressed "clear").
+ *
+ *  No-op when auth isn't configured or nobody is signed in (anonymous
+ *  link-join keeps its purely-local profile). Fire-and-forget: a failure
+ *  only means the avatar doesn't roam — the local save already happened. */
+export const syncAvatarToAccount = async (
+  avatar: string | undefined,
+): Promise<void> => {
+  if (!supabase || avatar?.startsWith("data:")) {
+    return;
+  }
+  try {
+    const { data } = await supabase.auth.getSession();
+    const user = data.session?.user;
+    if (!user) {
+      return;
+    }
+    const current = (user.user_metadata as Record<string, unknown> | undefined)
+      ?.avatar;
+    const next = avatar ?? null;
+    if ((typeof current === "string" ? current : null) === next) {
+      return; // already in sync — skip the USER_UPDATED round-trip
+    }
+    await supabase.auth.updateUser({ data: { avatar: next } });
+  } catch (err) {
+    console.warn("[userProfile] failed to sync avatar to account", err);
+  }
+};
+
 /** Merge an incoming peer profile into the peerProfilesAtom. Called
  *  from the WS handler when a USER_PROFILE message arrives. */
 export const upsertPeerProfile = (
@@ -386,7 +474,8 @@ export const upsertPeerProfile = (
     existing &&
     existing.username === profile.username &&
     existing.company === profile.company &&
-    existing.avatar === profile.avatar
+    existing.avatar === profile.avatar &&
+    existing.email === profile.email
   ) {
     return;
   }

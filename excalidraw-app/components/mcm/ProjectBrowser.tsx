@@ -8,7 +8,7 @@ import {
   Pencil,
   Plus,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import { createPortal } from "react-dom";
 
@@ -25,24 +25,29 @@ import {
   updateMeeting,
   updateProject,
 } from "../../data/projects";
-import { sessionAtom } from "../../data/session";
+import { isInternalEmail, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { CalendarX } from "./CalendarX";
+import { EditMeetingForm } from "./EditMeetingForm";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
 import {
   MEETING_COLOR_PRESETS,
   meetingColor,
+  personColor,
   statusBucket,
 } from "./meetingColors";
+import {
+  canManageMeeting,
+  isEditableMeetingStatus,
+  isFinishedStatus,
+  meetingStatusLabel,
+} from "./meetingStatus";
 import { MetadataEditor } from "./MetadataEditor";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
-import { buildMeetingFields, buildProjectFields } from "./metadataFields";
+import { buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
-import type { MeetingFieldsInput } from "./metadataFields";
-
-type MeetingDraft = { id: string } & MeetingFieldsInput;
 
 // "all" = my whole calendar · "invited" = invitations · else a project id.
 type View = "all" | "invited" | string;
@@ -89,6 +94,7 @@ const calToSummary = (c: CalMeeting): MeetingSummary => ({
   type: null,
   status: c.status,
   created_by: c.created_by,
+  organizer_email: c.organizer_email,
   thumbnail: null,
   participant_count: null,
   duration_s: null,
@@ -135,9 +141,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [newProjectName, setNewProjectName] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [editingMeeting, setEditingMeeting] = useState<MeetingDraft | null>(
-    null,
-  );
+  /** Meeting being edited in the middle column (full organizer editor). */
+  const [editRoomId, setEditRoomId] = useState<string | null>(null);
   const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
   const [meetingFormOpen, setMeetingFormOpen] = useState<
     "now" | "schedule" | null
@@ -219,7 +224,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     if (!m?.room_key) {
       return;
     }
-    const finished = m.status === "Completed" || m.status === "Cancelled";
+    const finished = isFinishedStatus(m.status);
     await enterRoom(roomId, m.room_key, finished);
   };
 
@@ -273,8 +278,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     try {
       const meeting = await getMeeting(m.id);
       if (meeting?.room_key) {
-        const finished =
-          meeting.status === "Completed" || meeting.status === "Cancelled";
+        const finished = isFinishedStatus(meeting.status);
         await enterRoom(m.id, meeting.room_key, finished);
       }
     } finally {
@@ -282,20 +286,24 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     }
   };
 
-  const openMeetingEditor = async (m: MeetingSummary) => {
-    const full = await getMeeting(m.id);
-    setEditingMeeting({
-      id: m.id,
-      title: full?.title ?? m.title ?? "",
-      topic: full?.topic ?? m.topic ?? "",
-      description: full?.description ?? "",
-      type: full?.type ?? m.type ?? "",
-      status: full?.status ?? m.status ?? "",
-      discipline: full?.discipline ?? "",
-      priority: full?.priority ?? "",
-      confidentiality: full?.confidentiality ?? "",
-      scheduled_at: full?.scheduled_at ?? "",
-    });
+  // "User tạo meeting mới edit được meeting" — the Edit affordance only shows
+  // for the organizer (legacy rows without one: any internal), and only while
+  // the meeting still takes edits (scheduled/live — never finished/cancelled).
+  // The "invited" view never shows Edit: its adapter has no organizer data,
+  // and you don't edit a meeting you were merely invited to.
+  const canEditCard = (m: MeetingSummary): boolean =>
+    view !== "invited" &&
+    canManageMeeting(
+      session?.email,
+      m.organizer_email ?? null,
+      isInternalEmail(session?.email),
+    ) &&
+    isEditableMeetingStatus(m.status);
+
+  const openMeetingEditor = (m: MeetingSummary) => {
+    setDetailRoomId(null);
+    setMeetingFormOpen(null);
+    setEditRoomId(m.id);
   };
 
   // Assign (or clear) a meeting's colour, then refresh so the card stripe and
@@ -326,28 +334,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     await refreshProjects();
   };
 
-  const saveMeeting = async (values: Record<string, string>) => {
-    if (!editingMeeting) {
-      return;
-    }
-    await updateMeeting(editingMeeting.id, {
-      title: values.title,
-      topic: values.topic,
-      description: values.description,
-      type: values.type,
-      status: values.status,
-      discipline: values.discipline,
-      priority: values.priority,
-      confidentiality: values.confidentiality,
-      scheduled_at: values.scheduled_at,
-    });
-    setEditingMeeting(null);
-    await refreshCards();
-    setCalRefresh((k) => k + 1);
+  // Apply the chosen sort. "By time" is CALENDAR logic, not a flat list:
+  // today/future days first (nearest day first), each day's meetings in
+  // chronological order; past days follow, most recent past day first. The
+  // renderer inserts a day separator whenever the day changes.
+  const dayKeyOf = (ms: number): string => {
+    const d = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   };
-
-  // Apply the chosen sort. Time = upcoming/most-recent first (descending),
-  // which doubles as the "View theo thời gian" time-ordered list.
+  const todayKey = dayKeyOf(Date.now());
   const sortedCards = [...cards].sort((a, b) => {
     if (sortBy === "title") {
       return (a.title || "").localeCompare(b.title || "");
@@ -355,8 +351,38 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     if (sortBy === "status") {
       return (a.status || "").localeCompare(b.status || "");
     }
-    return meetingWhenMs(b) - meetingWhenMs(a);
+    const aMs = meetingWhenMs(a);
+    const bMs = meetingWhenMs(b);
+    const aDay = dayKeyOf(aMs);
+    const bDay = dayKeyOf(bMs);
+    const aPast = aDay < todayKey;
+    const bPast = bDay < todayKey;
+    if (aPast !== bPast) {
+      return aPast ? 1 : -1; // upcoming block before the past block
+    }
+    if (aDay !== bDay) {
+      // Upcoming: nearest day first (asc). Past: most recent day first (desc).
+      return aPast ? bDay.localeCompare(aDay) : aDay.localeCompare(bDay);
+    }
+    return aMs - bMs; // within a day: chronological
   });
+
+  // Human day label for the separators: Hôm nay / Ngày mai / locale date.
+  const dayLabelOf = (ms: number): string => {
+    const key = dayKeyOf(ms);
+    if (key === todayKey) {
+      return t("cal.today");
+    }
+    if (key === dayKeyOf(Date.now() + 86400000)) {
+      return t("cal.tomorrow");
+    }
+    return new Date(ms).toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   const navItem = (key: View, label: string) => (
     <button
@@ -366,6 +392,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         setView(key);
         setDetailRoomId(null);
         setMeetingFormOpen(null);
+        setEditRoomId(null);
       }}
     >
       <span className="mcm-nav__item-label">{label}</span>
@@ -404,6 +431,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                     setView(p.id);
                     setDetailRoomId(null);
                     setMeetingFormOpen(null);
+                    setEditRoomId(null);
                   }}
                 >
                   <span className="mcm-nav__item-label">{p.name}</span>
@@ -453,8 +481,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             )}
           </div>
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
-              so it hides while a detail/create form occupies the column. */}
-          {!detailRoomId && !meetingFormOpen && (
+              so it hides while a detail/create/edit form occupies the column. */}
+          {!detailRoomId && !meetingFormOpen && !editRoomId && (
             <div className="mcm-toolbar">
               <div
                 className="mcm-segmented"
@@ -500,7 +528,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               </label>
             </div>
           )}
-          {view !== "invited" && targetProject && !detailRoomId && (
+          {view !== "invited" && targetProject && !detailRoomId && !editRoomId && (
             <button
               type="button"
               className="mcm-btn mcm-btn--primary mcm-btn--sm"
@@ -513,15 +541,29 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
-          {detailRoomId ? (
+          {editRoomId ? (
+            <EditMeetingForm
+              roomId={editRoomId}
+              onClose={() => setEditRoomId(null)}
+              onSaved={() => {
+                setEditRoomId(null);
+                void refreshCards();
+                setCalRefresh((k) => k + 1);
+              }}
+            />
+          ) : detailRoomId ? (
             <MeetingDetailPreview
               roomId={detailRoomId}
               onClose={() => setDetailRoomId(null)}
+              onChanged={() => {
+                void refreshCards();
+                setCalRefresh((k) => k + 1);
+              }}
               onEdit={() => {
                 const m = cards.find((x) => x.id === detailRoomId);
                 setDetailRoomId(null);
                 if (m) {
-                  void openMeetingEditor(m);
+                  openMeetingEditor(m);
                 }
               }}
             />
@@ -554,20 +596,36 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               className={`mcm-mcards mcm-mcards--${viewMode}`}
               data-sort={sortBy}
             >
-              {sortedCards.map((m) => {
+              {sortedCards.map((m, idx) => {
                 const when = meetingWhenMs(m);
                 const stripe = meetingColor(m.color, m.status);
                 const projectName = selectedProject?.name ?? m.project_name;
+                // "By time" groups by DAY: emit a separator whenever this
+                // card's day differs from the previous card's.
+                const daySep =
+                  sortBy === "time" &&
+                  (idx === 0 ||
+                    dayKeyOf(meetingWhenMs(sortedCards[idx - 1])) !==
+                      dayKeyOf(when)) ? (
+                    <li
+                      key={`day-${dayKeyOf(when)}`}
+                      className="mcm-mcards__daysep"
+                      aria-hidden="true"
+                    >
+                      {dayLabelOf(when)}
+                    </li>
+                  ) : null;
                 return (
-                  <li
-                    key={m.id}
-                    className="mcm-mcard"
-                    style={
-                      {
-                        ["--mcard-color" as string]: stripe,
-                      } as React.CSSProperties
-                    }
-                  >
+                  <Fragment key={m.id}>
+                    {daySep}
+                    <li
+                      className="mcm-mcard"
+                      style={
+                        {
+                          ["--mcard-color" as string]: stripe,
+                        } as React.CSSProperties
+                      }
+                    >
                     <span className="mcm-mcard__stripe" aria-hidden="true" />
                     <button
                       type="button"
@@ -592,6 +650,33 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                           </span>
                         )}
                       </span>
+                      {/* Creator — always visible on the card so ownership
+                          ("ai tạo cuộc họp này") reads at a glance. */}
+                      {(m.created_by || m.organizer_email) && (
+                        <span
+                          className="mcm-mcard__creator"
+                          style={
+                            {
+                              ["--pa" as string]: personColor(
+                                m.organizer_email || m.created_by,
+                              ),
+                            } as React.CSSProperties
+                          }
+                          title={m.organizer_email ?? undefined}
+                        >
+                          <span
+                            className="mcm-mcard__creator-ava"
+                            aria-hidden="true"
+                          >
+                            {(m.created_by || m.organizer_email)!
+                              .trim()[0]
+                              ?.toUpperCase()}
+                          </span>
+                          <span className="mcm-mcard__creator-name">
+                            {m.created_by || m.organizer_email!.split("@")[0]}
+                          </span>
+                        </span>
+                      )}
                       <span className="mcm-mcard__foot">
                         {m.status && (
                           <span
@@ -599,7 +684,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                               m.status,
                             )}`}
                           >
-                            {m.status}
+                            {meetingStatusLabel(t, m.status)}
                           </span>
                         )}
                         {projectName && (
@@ -648,17 +733,20 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                       >
                         <Eye size={14} />
                       </button>
-                      <button
-                        type="button"
-                        className="mcm-icon-btn mcm-icon-btn--sm"
-                        onClick={() => void openMeetingEditor(m)}
-                        title={t("folder.editMeeting")}
-                        aria-label={t("folder.editMeeting")}
-                      >
-                        <Pencil size={14} />
-                      </button>
+                      {canEditCard(m) && (
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm"
+                          onClick={() => openMeetingEditor(m)}
+                          title={t("folder.editMeeting")}
+                          aria-label={t("folder.editMeeting")}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
                     </div>
-                  </li>
+                    </li>
+                  </Fragment>
                 );
               })}
             </ul>
@@ -689,14 +777,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           fields={buildProjectFields(editingProject)}
           onSave={saveProject}
           onClose={() => setEditingProject(null)}
-        />
-      )}
-      {editingMeeting && (
-        <MetadataEditor
-          title={t("folder.editMeeting")}
-          fields={buildMeetingFields(editingMeeting)}
-          onSave={saveMeeting}
-          onClose={() => setEditingMeeting(null)}
         />
       )}
     </div>

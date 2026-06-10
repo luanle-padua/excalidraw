@@ -255,7 +255,12 @@ export const AuthorBadgeOverlay = () => {
     const rawName = author.name || profile?.username || t("participants.guest");
     return {
       name: shortDisplayName(rawName) || rawName,
-      avatar: resolveAvatarUrlWithDefault(profile?.avatar, author.id),
+      // EMAIL-keyed default for logged-in authors (stable identity →
+      // same default face everywhere); socketId for anonymous peers.
+      avatar: resolveAvatarUrlWithDefault(
+        profile?.avatar,
+        profile?.email ?? author.id,
+      ),
       isBot: false,
     };
   };

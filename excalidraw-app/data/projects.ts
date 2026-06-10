@@ -42,6 +42,9 @@ export type MeetingSummary = {
   type: string | null;
   status: string | null;
   created_by: string | null;
+  /** Who scheduled it (lower-cased email) — gates the Edit affordance.
+   *  Optional: some adapters (invitations) don't carry it. */
+  organizer_email?: string | null;
   thumbnail: string | null;
   participant_count: number | null;
   duration_s: number | null;
@@ -182,6 +185,9 @@ export const listMeetings = async (
   }
 };
 
+// Create/upsert a meeting in ONE call — lifecycle fields included, so a
+// scheduled meeting can never exist half-registered. The organizer/host
+// emails are stamped SERVER-side from the verified JWT (not passed here).
 export const registerMeeting = async (m: {
   roomId: string;
   roomKey?: string;
@@ -189,6 +195,21 @@ export const registerMeeting = async (m: {
   title?: string;
   createdBy?: string;
   thumbnail?: string;
+  /** Lifecycle at birth: "live" (instant/ad-hoc) | "scheduled". */
+  status?: "live" | "scheduled";
+  scheduledAt?: string;
+  durationMin?: number;
+  // Full create payload — form tạo = form edit (agenda metadata), plus a
+  // designated host (internal email, defaults to organizer) and policies.
+  topic?: string;
+  description?: string;
+  type?: string;
+  discipline?: string;
+  priority?: string;
+  confidentiality?: string;
+  hostEmail?: string;
+  waitingRoom?: boolean;
+  recordingEnabled?: boolean;
 }): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED) {
     return false;
@@ -219,6 +240,12 @@ export const getMeeting = async (
   priority: string | null;
   confidentiality: string | null;
   scheduled_at: string | null;
+  /** Planned length (minutes) — Phase 4.5 scheduling. */
+  duration_min: number | null;
+  /** Who scheduled it (lower-cased email). Gates reschedule/cancel. */
+  organizer_email: string | null;
+  /** Current host (defaults to the organizer). */
+  host_email: string | null;
   created_by: string | null;
   /** ms-since-epoch the meeting row was created = when the host started it;
    *  the shared, objective anchor for the meeting timer. */
@@ -240,6 +267,23 @@ export const getMeeting = async (
     return (await res.json()).meeting ?? null;
   } catch {
     return null;
+  }
+};
+
+/** Permanently delete a CANCELLED meeting (organizer/admin; worker enforces
+ *  the cancelled-only rule and cascades R2 blobs + every related D1 row). */
+export const deleteMeeting = async (roomId: string): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 };
 

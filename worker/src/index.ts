@@ -143,43 +143,80 @@ const INTERNAL_DOMAIN = "@mapgroup.co.kr";
 const isInternalEmail = (email?: string) =>
   !!email && email.toLowerCase().endsWith(INTERNAL_DOMAIN);
 
-// Per-meeting authz (Phase 4.5). can-see = admin OR internal staff OR an active
-// meeting_invitee OR a member of the meeting's project. Internal-allow keeps the
-// open dev flow working; the security win is that EXTERNAL guests are now gated
-// (a client can only reach a meeting they were invited to). Tighten internal →
-// project_member only before production (dev-phase-notes.md).
+// ---- Meeting lifecycle (Phase 4.5 state machine) ---------------------------
+// One canonical status vocabulary. Mirrors components/mcm/meetingStatus.ts:
+//   scheduled ──Start──> live ──End for all──> finished   (terminal, immutable)
+//       └──cancel──> cancelled ──restore──> scheduled
+const MEETING_STATUSES = ["scheduled", "live", "finished", "cancelled"];
+
+/** Tolerant read of any historical status value onto the canonical set. */
+const normalizeStatus = (s: string | null | undefined): string | null => {
+  const v = (s ?? "").trim().toLowerCase();
+  if (!v) {
+    return null;
+  }
+  if (v === "live" || v === "in progress" || v === "in_progress") {
+    return "live";
+  }
+  if (v === "finished" || v === "completed" || v === "done") {
+    return "finished";
+  }
+  if (v === "cancelled" || v === "canceled") {
+    return "cancelled";
+  }
+  if (v === "scheduled") {
+    return "scheduled";
+  }
+  return null;
+};
+
+// Per-meeting authz (Phase 4.5, tightened 06-10 — "chỉ những người được mời
+// mới join được, kể cả nội bộ"). can-see = admin OR the meeting's
+// organizer/host OR an active meeting_invitee OR a member of the meeting's
+// project. There is NO blanket internal-allow anymore: an internal user who
+// wasn't invited (and isn't in the project) cannot see or join the meeting.
+// Unregistered ad-hoc rooms (no D1 row) stay open to any authenticated user —
+// they have no invite list to enforce.
 const canSeeMeeting = async (
   db: D1Database,
   email: string | undefined,
   role: string | undefined,
   roomId: string,
 ): Promise<boolean> => {
-  if (role === "admin" || isInternalEmail(email)) {
+  if (role === "admin") {
     return true;
   }
   if (!email) {
     return false;
   }
   const e = email.toLowerCase();
-  const invite = await db
+  const row = await db
     .prepare(
-      `SELECT 1 FROM meeting_invitee
-       WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked' LIMIT 1`,
+      `SELECT
+         (SELECT 1 FROM meeting WHERE id = ?1) AS registered,
+         (SELECT 1 FROM meeting
+            WHERE id = ?1
+              AND (lower(organizer_email) = ?2 OR lower(host_email) = ?2))
+           AS owner,
+         (SELECT 1 FROM meeting_invitee
+            WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked')
+           AS invited,
+         (SELECT 1 FROM project_member pm
+            JOIN meeting m ON m.project_id = pm.project_id
+            WHERE m.id = ?1 AND pm.email = ?2) AS member`,
     )
     .bind(roomId, e)
-    .first();
-  if (invite) {
+    .first<{
+      registered: number | null;
+      owner: number | null;
+      invited: number | null;
+      member: number | null;
+    }>();
+  if (!row?.registered) {
+    // Ad-hoc room without a registry row — nothing to gate against.
     return true;
   }
-  const member = await db
-    .prepare(
-      `SELECT 1 FROM project_member pm
-       JOIN meeting m ON m.project_id = pm.project_id
-       WHERE m.id = ?1 AND pm.email = ?2 LIMIT 1`,
-    )
-    .bind(roomId, e)
-    .first();
-  return !!member;
+  return !!(row.owner || row.invited || row.member);
 };
 
 // Per-project authz. can-see = admin OR a member of the project. Unlike
@@ -492,10 +529,10 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, title, topic, type, status, created_by, thumbnail,
-            participant_count, duration_s, scene_updated_at, updated_at,
-            last_opened_at, discipline, priority, confidentiality, scheduled_at,
-            color
+    `SELECT id, title, topic, type, status, created_by, organizer_email,
+            thumbnail, participant_count, duration_s, scene_updated_at,
+            updated_at, last_opened_at, discipline, priority, confidentiality,
+            scheduled_at, color
      FROM meeting WHERE project_id = ?1 ORDER BY updated_at DESC`,
   )
     .bind(projectId)
@@ -505,7 +542,18 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
 
 // ---- Meetings (registry) -------------------------------------------------
 
+// Create/upsert a meeting in ONE atomic call — including its lifecycle fields,
+// so a scheduled meeting can never exist half-registered (the old flow was
+// register → separate PATCH for organizer/status; if the PATCH failed the
+// meeting had no owner). The ORGANIZER is the verified JWT email, never a
+// client-supplied value; host_email starts as the organizer (the design's
+// default — acting-host is runtime-only and never persisted).
 app.post("/v1/meetings", async (c) => {
+  // Creating meetings is an INTERNAL action (mọi user nội bộ tạo được —
+  // guests never create; they only join what they're invited to).
+  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
   const b = await c.req.json<{
     roomId: string;
     roomKey?: string;
@@ -513,19 +561,74 @@ app.post("/v1/meetings", async (c) => {
     title?: string;
     createdBy?: string;
     thumbnail?: string;
+    status?: string;
+    scheduledAt?: string;
+    durationMin?: number;
+    // Full create payload (form tạo = form edit): agenda metadata, a
+    // designated HOST (internal email — defaults to the organizer), and the
+    // per-meeting policies.
+    topic?: string;
+    description?: string;
+    type?: string;
+    discipline?: string;
+    priority?: string;
+    confidentiality?: string;
+    hostEmail?: string;
+    waitingRoom?: boolean;
+    recordingEnabled?: boolean;
   }>();
   if (!b.roomId) {
     return c.json({ error: "roomId required" }, 400);
   }
+  // A meeting is only ever BORN scheduled or live — terminal states are
+  // reached through the PATCH state machine, never at create.
+  const status = b.status === undefined ? null : normalizeStatus(b.status);
+  if (
+    b.status !== undefined &&
+    status !== "scheduled" &&
+    status !== "live"
+  ) {
+    return c.json({ error: "invalid status" }, 400);
+  }
+  const organizer = c.get("email")?.toLowerCase() ?? null;
+  // Host must be INTERNAL (a guest never hosts); anything else falls back to
+  // the organizer — the design default.
+  const hostEmail =
+    b.hostEmail && isInternalEmail(b.hostEmail)
+      ? b.hostEmail.toLowerCase()
+      : organizer;
   const ts = now();
+  // ON CONFLICT this is a RE-REGISTER of an existing meeting: only fill gaps
+  // (NULL columns), NEVER overwrite — lifecycle (status/schedule) and
+  // ownership (organizer/host) on an existing row move exclusively through
+  // the guarded PATCH. Without meeting-first COALESCE here, one POST at an
+  // existing id could rewrite a finished meeting or steal its room_key.
   await c.env.DB.prepare(
-    `INSERT INTO meeting (id, project_id, title, created_by, room_key, thumbnail, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+    `INSERT INTO meeting (id, project_id, title, created_by, room_key, thumbnail,
+                          organizer_email, host_email, status, scheduled_at,
+                          duration_min, topic, description, type, discipline,
+                          priority, confidentiality, waiting_room,
+                          recording_enabled, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
+             ?16, ?17, ?18, ?19, ?20, ?20)
      ON CONFLICT(id) DO UPDATE SET
-       project_id = COALESCE(excluded.project_id, meeting.project_id),
-       title      = COALESCE(excluded.title, meeting.title),
-       room_key   = COALESCE(excluded.room_key, meeting.room_key),
-       thumbnail  = COALESCE(excluded.thumbnail, meeting.thumbnail),
+       project_id = COALESCE(meeting.project_id, excluded.project_id),
+       title      = COALESCE(meeting.title, excluded.title),
+       room_key   = COALESCE(meeting.room_key, excluded.room_key),
+       thumbnail  = COALESCE(meeting.thumbnail, excluded.thumbnail),
+       organizer_email = COALESCE(meeting.organizer_email, excluded.organizer_email),
+       host_email      = COALESCE(meeting.host_email, excluded.host_email),
+       status          = COALESCE(meeting.status, excluded.status),
+       scheduled_at    = COALESCE(meeting.scheduled_at, excluded.scheduled_at),
+       duration_min    = COALESCE(meeting.duration_min, excluded.duration_min),
+       topic           = COALESCE(meeting.topic, excluded.topic),
+       description     = COALESCE(meeting.description, excluded.description),
+       type            = COALESCE(meeting.type, excluded.type),
+       discipline      = COALESCE(meeting.discipline, excluded.discipline),
+       priority        = COALESCE(meeting.priority, excluded.priority),
+       confidentiality = COALESCE(meeting.confidentiality, excluded.confidentiality),
+       waiting_room      = COALESCE(meeting.waiting_room, excluded.waiting_room),
+       recording_enabled = COALESCE(meeting.recording_enabled, excluded.recording_enabled),
        updated_at = excluded.updated_at`,
   )
     .bind(
@@ -535,6 +638,19 @@ app.post("/v1/meetings", async (c) => {
       b.createdBy ?? null,
       b.roomKey ?? null,
       b.thumbnail ?? null,
+      organizer,
+      hostEmail,
+      status,
+      b.scheduledAt ?? null,
+      b.durationMin ?? null,
+      b.topic || null,
+      b.description || null,
+      b.type || null,
+      b.discipline || null,
+      b.priority || null,
+      b.confidentiality || null,
+      b.waitingRoom === undefined ? null : b.waitingRoom ? 1 : 0,
+      b.recordingEnabled === undefined ? null : b.recordingEnabled ? 1 : 0,
       ts,
     )
     .run();
@@ -545,7 +661,8 @@ app.get("/v1/meetings/:roomId", async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT m.id, m.project_id, m.title, m.topic, m.description, m.type,
             m.status, m.discipline, m.priority, m.confidentiality,
-            m.scheduled_at, m.created_by, m.room_key, m.scene_r2_key,
+            m.scheduled_at, m.duration_min, m.organizer_email, m.host_email,
+            m.created_by, m.room_key, m.scene_r2_key,
             m.scene_updated_at, m.thumbnail, m.participant_count, m.duration_s,
             m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.stage AS project_stage
@@ -579,6 +696,102 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     // omit to keep the current colour; the calendar + cards read it back.
     color?: string;
   }>();
+
+  // ---- Edit + lifecycle guard ---------------------------------------------
+  // WHO may edit: meeting CONTENT (title/topic/schedule/metadata/host fields)
+  // belongs to the ORGANIZER — "user tạo meeting mới edit được meeting".
+  // Legacy rows without an organizer fall back to internal-allow. `color` is
+  // deliberately exempt (cosmetic, shared calendar tint).
+  // WHAT may change by state: finished = IMMUTABLE (every field — the review
+  // invariant); cancelled = frozen except restore; status transitions follow
+  // the state machine: scheduled→live (Start, any internal — acting-host) ·
+  // live→finished (End for all) · scheduled→cancelled / cancelled→scheduled
+  // (organizer). Admins bypass for ops/repair.
+  const touchesContent =
+    b.title !== undefined ||
+    b.topic !== undefined ||
+    b.description !== undefined ||
+    b.type !== undefined ||
+    b.discipline !== undefined ||
+    b.priority !== undefined ||
+    b.confidentiality !== undefined ||
+    b.scheduled_at !== undefined ||
+    b.duration_min !== undefined ||
+    b.organizer_email !== undefined ||
+    b.host_email !== undefined;
+  if (b.status !== undefined || touchesContent || b.color !== undefined) {
+    let next: string | null = null;
+    if (b.status !== undefined) {
+      next = normalizeStatus(b.status);
+      if (!next) {
+        return c.json({ error: "invalid status" }, 400);
+      }
+      b.status = next;
+    }
+    const role = c.get("role");
+    if (role !== "admin") {
+      const row = await c.env.DB.prepare(
+        `SELECT status, organizer_email FROM meeting WHERE id = ?1`,
+      )
+        .bind(roomId)
+        .first<{ status: string | null; organizer_email: string | null }>();
+      if (!row) {
+        return c.json({ error: "not found" }, 404);
+      }
+      const cur = normalizeStatus(row.status);
+      const me = c.get("email")?.toLowerCase();
+      const isOrganizer = row.organizer_email
+        ? row.organizer_email.toLowerCase() === me
+        : isInternalEmail(me);
+      if (cur === "finished") {
+        return c.json({ error: "meeting is finished (immutable)" }, 409);
+      }
+      if (touchesContent) {
+        if (cur === "cancelled") {
+          return c.json({ error: "cancelled — restore it first" }, 409);
+        }
+        if (!isOrganizer) {
+          return c.json({ error: "organizer only" }, 403);
+        }
+      }
+      if (next && cur !== next) {
+        // Lifecycle moves are an INTERNAL privilege across the board (Start =
+        // acting-host rule, End = host, cancel/restore = organizer) — a guest
+        // invitee passes roomGate but must never drive the state machine.
+        if (!isInternalEmail(me)) {
+          return c.json({ error: "internal only" }, 403);
+        }
+        const allowed =
+          cur === null ||
+          (cur === "scheduled" && (next === "live" || next === "cancelled")) ||
+          (cur === "live" && next === "finished") ||
+          (cur === "cancelled" && next === "scheduled");
+        if (!allowed) {
+          return c.json({ error: `cannot go ${cur} → ${next}` }, 409);
+        }
+        if (next === "cancelled" || cur === "cancelled") {
+          if (!isOrganizer) {
+            return c.json({ error: "organizer only" }, 403);
+          }
+        }
+        // Commit the transition CONDITIONALLY on the status we just validated
+        // — two concurrent transitions (Start vs Cancel) can't both win; the
+        // loser sees 0 changed rows and 409s instead of silently overwriting.
+        const res = await c.env.DB.prepare(
+          `UPDATE meeting SET status = ?3, updated_at = ?4
+           WHERE id = ?1 AND status IS ?2`,
+        )
+          .bind(roomId, row.status, next, now())
+          .run();
+        if (!res.meta.changes) {
+          return c.json({ error: "status changed concurrently — retry" }, 409);
+        }
+        // Already written — keep the main UPDATE below status-neutral.
+        b.status = undefined;
+      }
+    }
+  }
+
   await c.env.DB.prepare(
     `UPDATE meeting SET
        title = COALESCE(?2, title),
@@ -659,16 +872,31 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
   if (!(role === "admin" || isInternalEmail(email))) {
     return c.json({ error: "forbidden" }, 403);
   }
+  // The inviter must be able to SEE the meeting themselves — without this,
+  // any internal user could invite themselves into any meeting and the
+  // invited-only rule above would be decorative.
+  if (!(await canSeeMeeting(c.env.DB, email, role, roomId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
   const b = await c.req.json<{
     invitees?: { email: string; role?: string }[];
     addToProject?: string[];
   }>();
   const list = b.invitees ?? [];
   const meeting = await c.env.DB.prepare(
-    `SELECT project_id FROM meeting WHERE id = ?1`,
+    `SELECT project_id, status FROM meeting WHERE id = ?1`,
   )
     .bind(roomId)
-    .first<{ project_id: string | null }>();
+    .first<{ project_id: string | null; status: string | null }>();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  // No invites into a terminal meeting — finished is immutable, a cancelled
+  // one must be restored first.
+  const mStatus = normalizeStatus(meeting.status);
+  if (mStatus === "finished" || mStatus === "cancelled") {
+    return c.json({ error: `meeting is ${mStatus}` }, 409);
+  }
   const t = now();
   for (const inv of list) {
     const ie = (inv.email || "").trim().toLowerCase();
@@ -685,6 +913,25 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
     )
       .bind(roomId, ie, kind, inv.role ?? "attendee", email ?? null, t)
       .run();
+    // Keep the shared client list DB-synced: a GUEST email typed by hand in
+    // an invite becomes a contact card automatically (name = email local
+    // part until someone edits it), so every internal user + the admin see
+    // the same available clients instead of each person retyping addresses.
+    if (kind === "guest") {
+      const existing = await c.env.DB.prepare(
+        `SELECT 1 FROM client WHERE email = ?1 LIMIT 1`,
+      )
+        .bind(ie)
+        .first();
+      if (!existing) {
+        await c.env.DB.prepare(
+          `INSERT INTO client (id, name, company, email, note, created_by, created_at)
+           VALUES (?1, ?2, NULL, ?3, NULL, ?4, ?5)`,
+        )
+          .bind(crypto.randomUUID(), ie.split("@")[0] || ie, ie, email ?? null, t)
+          .run();
+      }
+    }
   }
   // addToProject: grant project membership — internal only, never a client.
   if (meeting?.project_id && b.addToProject?.length) {
@@ -709,6 +956,9 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
 });
 
 // Revoke an invite (soft — keep the row for audit, treated as no-access).
+// ORGANIZER-only (taking someone's access away is an edit of the meeting,
+// same rule as content edits); legacy rows without an organizer fall back to
+// internal-allow. Finished meetings are immutable.
 app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
   const roomId = c.req.param("roomId");
   const target = decodeURIComponent(c.req.param("email")).toLowerCase();
@@ -716,6 +966,25 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
   const role = c.get("role");
   if (!(role === "admin" || isInternalEmail(email))) {
     return c.json({ error: "forbidden" }, 403);
+  }
+  const meeting = await c.env.DB.prepare(
+    `SELECT status, organizer_email FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{ status: string | null; organizer_email: string | null }>();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (role !== "admin") {
+    if (normalizeStatus(meeting.status) === "finished") {
+      return c.json({ error: "meeting is finished (immutable)" }, 409);
+    }
+    const isOrganizer = meeting.organizer_email
+      ? meeting.organizer_email.toLowerCase() === email?.toLowerCase()
+      : isInternalEmail(email);
+    if (!isOrganizer) {
+      return c.json({ error: "organizer only" }, 403);
+    }
   }
   await c.env.DB.prepare(
     `UPDATE meeting_invitee SET status = 'revoked', revoked_at = ?3
@@ -725,6 +994,68 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
     .run();
   await logAudit(c.env.DB, email, "meeting.revoke", roomId, { email: target });
   return c.json({ ok: true });
+});
+
+// ORGANIZER delete — only a CANCELLED meeting may be deleted (the lifecycle's
+// one disposal path: cancel first, then delete; finished stays immutable
+// forever, live/scheduled must be cancelled/ended first). Full cascade.
+app.delete("/v1/meetings/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  const role = c.get("role");
+  const meeting = await c.env.DB.prepare(
+    `SELECT status, organizer_email FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{ status: string | null; organizer_email: string | null }>();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (role !== "admin") {
+    if (normalizeStatus(meeting.status) !== "cancelled") {
+      return c.json({ error: "only a cancelled meeting can be deleted" }, 409);
+    }
+    const isOrganizer = meeting.organizer_email
+      ? meeting.organizer_email.toLowerCase() === email?.toLowerCase()
+      : isInternalEmail(email);
+    if (!isOrganizer) {
+      return c.json({ error: "organizer only" }, 403);
+    }
+  }
+  await deleteMeetingCascade(c.env, roomId);
+  await logAudit(c.env.DB, email, "meeting.delete", roomId);
+  return c.json({ ok: true, deleted: roomId });
+});
+
+// List a meeting's invitees (active + revoked, for the organizer's edit form —
+// revoked rows render struck-through/auditable rather than vanishing).
+// Internal staff + admins (same visibility rule as inviting).
+app.get("/v1/meetings/:roomId/invitees", async (c) => {
+  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT email, kind, role, status, invited_by, invited_at
+     FROM meeting_invitee WHERE meeting_id = ?1
+     ORDER BY invited_at ASC`,
+  )
+    .bind(c.req.param("roomId"))
+    .all();
+  return c.json({ invitees: results });
+});
+
+// Who ACTUALLY joined this meeting (vs invitees = who was asked). Same
+// per-meeting visibility as the rest of the room routes (roomGate) — an
+// invited guest may see who attended the meeting they were part of.
+app.get("/v1/meetings/:roomId/participants", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT user_email, name, joined_at, last_seen_at
+     FROM meeting_participant WHERE meeting_id = ?1
+     ORDER BY joined_at ASC`,
+  )
+    .bind(c.req.param("roomId"))
+    .all();
+  return c.json({ participants: results });
 });
 
 // The current user's invited / upcoming meetings — the ONLY surface a client
@@ -766,6 +1097,7 @@ app.get("/v1/directory", async (c) => {
     name: string;
     title?: string;
     division?: string;
+    avatar?: string;
   }[] = [];
   for (let page = 1; page <= 5; page++) {
     const res = await supaAdmin(
@@ -780,7 +1112,12 @@ app.get("/v1/directory", async (c) => {
     const { users } = (await res.json()) as {
       users: {
         email?: string;
-        user_metadata?: { name?: string; title?: string; division?: string };
+        user_metadata?: {
+          name?: string;
+          title?: string;
+          division?: string;
+          avatar?: string;
+        };
         app_metadata?: { role?: string };
       }[];
     };
@@ -789,11 +1126,18 @@ app.get("/v1/directory", async (c) => {
       if (!isInternalEmail(u.email) || u.app_metadata?.role === "admin") {
         continue;
       }
+      // Avatar: only the small "lib:NN.png" gallery refs ride along (that's
+      // all the client syncs to user_metadata) — never inline data URLs.
+      const avatar = u.user_metadata?.avatar;
       people.push({
         email: u.email!.toLowerCase(),
         name: u.user_metadata?.name || u.email!,
         title: u.user_metadata?.title,
         division: u.user_metadata?.division,
+        avatar:
+          typeof avatar === "string" && avatar.startsWith("lib:")
+            ? avatar
+            : undefined,
       });
     }
     if (users.length < 200) {
@@ -908,7 +1252,7 @@ app.get("/v1/me/meetings", async (c) => {
   }
   const cols = `m.id, m.title, m.status, m.scheduled_at, m.created_at,
                 m.project_id, p.name AS project_name, m.created_by,
-                m.duration_min, m.color`;
+                m.organizer_email, m.duration_min, m.color`;
   const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
   if (isAdmin) {
     const { results } = await c.env.DB.prepare(
@@ -919,12 +1263,14 @@ app.get("/v1/me/meetings", async (c) => {
     return c.json({ meetings: results });
   }
   const e = (email as string).toLowerCase();
+  // NOTE: identity is the verified EMAIL — created_by is only a display name
+  // (never compared against emails; meetings now always carry organizer_email).
   const { results } = await c.env.DB.prepare(
     `SELECT ${cols}
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
      WHERE m.id IN (
        SELECT id FROM meeting
-         WHERE lower(created_by) = ?1 OR lower(organizer_email) = ?1
+         WHERE lower(organizer_email) = ?1 OR lower(host_email) = ?1
        UNION
        SELECT meeting_id FROM meeting_invitee
          WHERE email = ?1 AND status <> 'revoked'
@@ -1319,7 +1665,46 @@ app.get("/v1/admin/meetings/:roomId", async (c) => {
   return c.json({ meeting, files, participants });
 });
 
-// Delete a meeting + cascade: its R2 blobs (scene/files/chats/library) + file rows.
+// Full cascade delete of one meeting: every R2 blob under its per-room
+// prefixes + every D1 row that references it (file index, invitees,
+// participants, per-meeting notes), then the meeting row itself. Shared by
+// the admin route and the organizer's delete-cancelled route so neither
+// leaves orphans behind.
+const deleteMeetingCascade = async (
+  env: Bindings,
+  roomId: string,
+): Promise<void> => {
+  for (const prefix of [
+    `scenes/${roomId}`,
+    `files/${roomId}`,
+    `chats/${roomId}`,
+    `library/${roomId}`,
+  ]) {
+    let cursor: string | undefined;
+    do {
+      const listed = await env.BUCKET.list({ prefix, cursor });
+      for (const obj of listed.objects) {
+        await env.BUCKET.delete(obj.key);
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+  }
+  await env.DB.prepare(`DELETE FROM file WHERE meeting_id = ?1`)
+    .bind(roomId)
+    .run();
+  await env.DB.prepare(`DELETE FROM meeting_invitee WHERE meeting_id = ?1`)
+    .bind(roomId)
+    .run();
+  await env.DB.prepare(`DELETE FROM meeting_participant WHERE meeting_id = ?1`)
+    .bind(roomId)
+    .run();
+  await env.DB.prepare(`DELETE FROM note WHERE scope = 'meeting' AND ref = ?1`)
+    .bind(roomId)
+    .run();
+  await env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId).run();
+};
+
+// Delete a meeting + cascade (admin — any meeting, any state).
 app.delete("/v1/admin/meetings/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
   const meeting = await c.env.DB.prepare(
@@ -1330,28 +1715,7 @@ app.delete("/v1/admin/meetings/:roomId", async (c) => {
   if (!meeting) {
     return c.json({ error: "not found" }, 404);
   }
-  // R2: delete everything under each per-room prefix.
-  for (const prefix of [
-    `scenes/${roomId}`,
-    `files/${roomId}`,
-    `chats/${roomId}`,
-    `library/${roomId}`,
-  ]) {
-    let cursor: string | undefined;
-    do {
-      const listed = await c.env.BUCKET.list({ prefix, cursor });
-      for (const obj of listed.objects) {
-        await c.env.BUCKET.delete(obj.key);
-      }
-      cursor = listed.truncated ? listed.cursor : undefined;
-    } while (cursor);
-  }
-  await c.env.DB.prepare(`DELETE FROM file WHERE meeting_id = ?1`)
-    .bind(roomId)
-    .run();
-  await c.env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`)
-    .bind(roomId)
-    .run();
+  await deleteMeetingCascade(c.env, roomId);
   await logAudit(c.env.DB, c.get("email"), "meeting.delete", roomId);
   return c.json({ ok: true, deleted: roomId });
 });

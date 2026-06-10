@@ -377,8 +377,10 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                   // Same profile-aware resolution as STT + chat: the
                   // log shows the user's chosen avatar + display name,
                   // falling back to a deterministic library image
-                  // keyed off socketId (so a transcript before profile
-                  // setup still shows a real face, not a placeholder).
+                  // keyed off the speaker's EMAIL when logged in
+                  // (socketId only for anonymous peers), so a
+                  // transcript before profile setup still shows a
+                  // real face, not a placeholder.
                   const speakerProfile =
                     run.socketId === selfSocketId
                       ? myProfile ?? undefined
@@ -386,7 +388,7 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                   const speakerName = speakerProfile?.username || run.username;
                   const avatarUrl = resolveAvatarUrlWithDefault(
                     speakerProfile?.avatar,
-                    run.socketId,
+                    speakerProfile?.email ?? run.socketId,
                   );
                   return (
                     <div

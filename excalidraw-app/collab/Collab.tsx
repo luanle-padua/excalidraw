@@ -116,6 +116,9 @@ import {
 import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache";
 import { clearIfcSnapshotsForFile } from "../components/mcm/ifc/ifcSnapshotCache";
 import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
+import { normalizeMeetingStatus } from "../components/mcm/meetingStatus";
+import { getMeeting, registerMeeting } from "../data/projects";
+import { sessionAtom } from "../data/session";
 
 import {
   ensureMyJoinedAt,
@@ -164,6 +167,20 @@ export const meetingViewOnlyAtom = atom(false);
 /** Set true when the host KICKs the local user out of the meeting. MeetingShell
  *  watches this, shows a notice, and leaves the room. */
 export const kickedAtom = atom(false);
+
+/** START GATE (Phase 4.5 state machine). Set when a join hits a meeting that
+ *  is still `scheduled` (host hasn't pressed Start) or was `cancelled` —
+ *  instead of connecting, `startCollaboration` parks the room here and the
+ *  WaitingForStart overlay takes over: internal staff get a Start button
+ *  (acting-host rule), guests poll until the meeting goes live. */
+export type StartGate = {
+  roomId: string;
+  roomKey: string;
+  title: string | null;
+  scheduledAt: string | null;
+  status: "scheduled" | "cancelled";
+};
+export const startGateAtom = atom<StartGate | null>(null);
 
 /** Open state of the Zoom-style participants management panel. Lifted to an
  *  atom so both the toolbar button (MeetingHeader) and the bar chip can open it
@@ -805,6 +822,38 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
     if (existingRoomLinkData) {
       ({ roomId, roomKey } = existingRoomLinkData);
+
+      // START GATE (Phase 4.5 state machine): joining a registered meeting
+      // that is still `scheduled` (host hasn't pressed Start) or `cancelled`
+      // parks the room in startGateAtom instead of connecting — the
+      // WaitingForStart overlay then offers Start (internal staff =
+      // acting-host rule) or polls until live (guests). `live`, `finished`,
+      // unregistered ad-hoc rooms, and explicit review opens pass through.
+      if (!viewOnly) {
+        const reg = await getMeeting(roomId);
+        const gateStatus = normalizeMeetingStatus(reg?.status);
+        if (gateStatus === "scheduled" || gateStatus === "cancelled") {
+          appJotaiStore.set(startGateAtom, {
+            roomId,
+            roomKey,
+            title: reg?.title ?? null,
+            scheduledAt: reg?.scheduled_at ?? null,
+            status: gateStatus,
+          });
+          return null;
+        }
+        if (gateStatus === "finished") {
+          // Finished = immutable review on EVERY entry path — raw #room link,
+          // stale resume, reload in a fresh tab. The registry status is the
+          // single source of truth now, so the old "review only when opened
+          // from the folder tile" carve-out is gone: an editable canvas on a
+          // finished meeting just produced doomed writes (the worker 409s
+          // every PATCH) and host controls that can't work.
+          appJotaiStore.set(meetingViewOnlyAtom, true);
+          markReviewRoom(roomId);
+        }
+      }
+      appJotaiStore.set(startGateAtom, null);
     } else {
       ({ roomId, roomKey } = await generateCollaborationLinkData());
       window.history.pushState(
@@ -812,6 +861,20 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         APP_NAME,
         getCollaborationLink({ roomId, roomKey }),
       );
+      // Ad-hoc room (share dialog / lobby side paths): register it with an
+      // OWNER and a lifecycle from birth, like every other meeting — the
+      // organizer email is stamped server-side from the verified JWT, status
+      // goes straight to `live` (nobody schedules an ad-hoc room), and the
+      // creator can later End-for-all / find it on their calendar. Best-effort:
+      // when storage/auth isn't configured the call no-ops and the room works
+      // exactly as before (just unregistered).
+      const session = appJotaiStore.get(sessionAtom);
+      void registerMeeting({
+        roomId,
+        roomKey,
+        createdBy: session?.name,
+        status: "live",
+      });
     }
 
     // TODO: `ImportedDataState` type here seems abused

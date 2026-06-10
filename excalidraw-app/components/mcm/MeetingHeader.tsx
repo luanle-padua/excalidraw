@@ -26,8 +26,14 @@ import {
   meetingViewOnlyAtom,
   participantsPanelOpenAtom,
 } from "../../collab/Collab";
-import { getMeeting, registerMeeting, updateMeeting } from "../../data/projects";
+import { clearLastMeeting } from "../../data/lastMeeting";
+import {
+  getMeeting,
+  registerMeeting,
+  updateMeeting,
+} from "../../data/projects";
 import { markReviewRoom } from "../../data/reviewMode";
+import { isInternalEmail, sessionAtom } from "../../data/session";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { hostSocketIdAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
@@ -36,6 +42,7 @@ import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
+import { canManageMeeting, isEditableMeetingStatus } from "./meetingStatus";
 
 const fmt = (s: number) =>
   [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60]
@@ -99,13 +106,13 @@ export const MeetingHeader = ({
     priority: string | null;
     confidentiality: string | null;
     scheduled_at: string | null;
+    organizerEmail: string | null;
     createdAt: number | null;
     projectName: string | null;
   } | null>(null);
   const [editing, setEditing] = useState(false);
 
-  const roomId =
-    activeRoomLink?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
+  const roomId = activeRoomLink?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
   const roomKey =
     activeRoomLink?.match(/#room=[^,]+,([a-zA-Z0-9_-]+)/)?.[1] ?? undefined;
 
@@ -127,6 +134,7 @@ export const MeetingHeader = ({
             priority: m.priority,
             confidentiality: m.confidentiality,
             scheduled_at: m.scheduled_at,
+            organizerEmail: m.organizer_email,
             createdAt: m.created_at,
             projectName: m.project_name,
           }
@@ -147,12 +155,13 @@ export const MeetingHeader = ({
     if (!meetingInfo) {
       await registerMeeting({ roomId, roomKey, title: values.title });
     }
+    // `status` is intentionally absent — the lifecycle only moves through its
+    // actions (Start / End-for-all / Cancel / Restore), never an editor.
     await updateMeeting(roomId, {
       title: values.title,
       topic: values.topic,
       description: values.description,
       type: values.type,
-      status: values.status,
       discipline: values.discipline,
       priority: values.priority,
       confidentiality: values.confidentiality,
@@ -218,6 +227,18 @@ export const MeetingHeader = ({
     return () => window.clearInterval(id);
   }, [activeRoomLink, meetingStartMs]);
 
+  // Edit rights: the ORGANIZER owns meeting edits (title/agenda/metadata) —
+  // server-enforced; this just hides the affordance from everyone else.
+  // Unregistered ad-hoc rooms (no registry row yet) stay editable by any
+  // internal user — registering on first save claims them properly. Review
+  // mode (finished) never edits.
+  const session = useAtomValue(sessionAtom);
+  const canEditMeeting =
+    canManageMeeting(
+      session?.email,
+      meetingInfo?.organizerEmail ?? null,
+      isInternalEmail(session?.email),
+    ) && isEditableMeetingStatus(meetingInfo?.status);
 
   // Host control: only the elected host sees the "End meeting" button.
   const hostSocketId = useAtomValue(hostSocketIdAtom);
@@ -234,7 +255,11 @@ export const MeetingHeader = ({
       return;
     }
     // Mark the meeting finished in the registry (so reopen = read-only review)…
-    await updateMeeting(roomId, { status: "Completed" });
+    await updateMeeting(roomId, { status: "finished" });
+    // …drop our own "Resume" pointer right away — a finished meeting must
+    // never be offered for resume, and the lobby's status re-check shouldn't
+    // be the only line of defense on the ender's own browser…
+    clearLastMeeting();
     // …tell everyone in the room to switch to review…
     collabAPI?.portal?.broadcastHostCommand({ action: "END_MEETING" });
     // …and switch ourselves too.
@@ -254,12 +279,17 @@ export const MeetingHeader = ({
 
       <div className="mcm-header__divider" />
 
+      {/* Editing is an ORGANIZER affordance (and never in read-only review) —
+          everyone else just sees the title as static text. */}
       <button
         type="button"
         className="mcm-header__title"
-        onClick={() => setEditing(true)}
+        onClick={() => canEditMeeting && !viewOnly && setEditing(true)}
+        disabled={!canEditMeeting || viewOnly}
         aria-label={t("header.meetingMenu")}
-        title={t("header.editMeetingTitle")}
+        title={
+          canEditMeeting && !viewOnly ? t("header.editMeetingTitle") : undefined
+        }
       >
         <span className="mcm-header__title-stack">
           {meetingInfo?.projectName && (
@@ -271,7 +301,7 @@ export const MeetingHeader = ({
             {meetingInfo?.title || t("header.untitledMeeting")}
           </span>
         </span>
-        <ChevronDown size={18} />
+        {canEditMeeting && !viewOnly && <ChevronDown size={18} />}
       </button>
 
       <div className="mcm-header__stat" title="Recording">

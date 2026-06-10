@@ -54,7 +54,9 @@ import {
   MEETING_COLOR_PRESETS,
   meetingColor,
   STATUS_COLOR,
+  statusBucket,
 } from "./meetingColors";
+import { meetingStatusLabel } from "./meetingStatus";
 
 import "./CalendarX.scss";
 
@@ -275,56 +277,54 @@ export const CalendarX = ({
       .map(toEvent);
   }, [meetings]);
 
-  const calendar = useCalendarApp(
-    {
-      views: [
-        createViewMonthGrid(),
-        createViewWeek(),
-        createViewDay(),
-        createViewMonthAgenda(),
-      ],
-      defaultView: createViewMonthGrid().name,
-      events,
-      calendars: ALL_CALENDARS,
-      plugins: [eventsService],
-      isDark,
-      locale: LOCALE_MAP[lang] ?? "en-US",
-      selectedDate: dayKey(new Date()),
-      callbacks: {
-        // Open the meeting detail when an event pill is clicked.
-        onEventClick: (event) => {
-          onOpenRef.current(String(event.id));
-        },
-        // Clicking a day FOCUSES it — the day panel below then shows that day's
-        // meetings + notes, with a "+" to create (no longer create-on-click).
-        onClickDate: (date) => {
-          setFocusedDay(date);
-        },
-        onClickDateTime: (dateTime) => {
-          setFocusedDay(dateTime.slice(0, 10));
-        },
-        // Navigating / selecting a date (without creating) re-points the notes.
-        onSelectedDateUpdate: (date) => {
-          setFocusedDay(date.slice(0, 10));
-        },
-        // Month-agenda day click → just focus the notes for that day.
-        onClickAgendaDate: (date) => {
-          setFocusedDay(date.slice(0, 10));
-        },
-        // Whenever the visible range changes (navigation / view switch / first
-        // render), make sure holidays for every year it spans are loaded so the
-        // red/blue tinting is robust across month navigation and year edges.
-        onRangeUpdate: (range) => {
-          const startYear = Number(String(range.start).slice(0, 4));
-          const endYear = Number(String(range.end).slice(0, 4));
-          ensureHolidaysForYear(startYear);
-          if (endYear !== startYear) {
-            ensureHolidaysForYear(endYear);
-          }
-        },
+  const calendar = useCalendarApp({
+    views: [
+      createViewMonthGrid(),
+      createViewWeek(),
+      createViewDay(),
+      createViewMonthAgenda(),
+    ],
+    defaultView: createViewMonthGrid().name,
+    events,
+    calendars: ALL_CALENDARS,
+    plugins: [eventsService],
+    isDark,
+    locale: LOCALE_MAP[lang] ?? "en-US",
+    selectedDate: dayKey(new Date()),
+    callbacks: {
+      // Open the meeting detail when an event pill is clicked.
+      onEventClick: (event) => {
+        onOpenRef.current(String(event.id));
+      },
+      // Clicking a day FOCUSES it — the day panel below then shows that day's
+      // meetings + notes, with a "+" to create (no longer create-on-click).
+      onClickDate: (date) => {
+        setFocusedDay(date);
+      },
+      onClickDateTime: (dateTime) => {
+        setFocusedDay(dateTime.slice(0, 10));
+      },
+      // Navigating / selecting a date (without creating) re-points the notes.
+      onSelectedDateUpdate: (date) => {
+        setFocusedDay(date.slice(0, 10));
+      },
+      // Month-agenda day click → just focus the notes for that day.
+      onClickAgendaDate: (date) => {
+        setFocusedDay(date.slice(0, 10));
+      },
+      // Whenever the visible range changes (navigation / view switch / first
+      // render), make sure holidays for every year it spans are loaded so the
+      // red/blue tinting is robust across month navigation and year edges.
+      onRangeUpdate: (range) => {
+        const startYear = Number(String(range.start).slice(0, 4));
+        const endYear = Number(String(range.end).slice(0, 4));
+        ensureHolidaysForYear(startYear);
+        if (endYear !== startYear) {
+          ensureHolidaysForYear(endYear);
+        }
       },
     },
-  );
+  });
 
   // Keep Schedule-X's events in sync with our meeting list. Seeding via config
   // covers first render; this covers later fetches / prop updates.
@@ -438,8 +438,12 @@ const DayPanel = ({
                 </span>
                 <span className="mcm-calx__day-title">{m.title || m.id}</span>
                 {m.status && (
-                  <span className="mcm-pill mcm-pill--scheduled mcm-calx__day-status">
-                    {m.status}
+                  <span
+                    className={`mcm-pill mcm-pill--${statusBucket(
+                      m.status,
+                    )} mcm-calx__day-status`}
+                  >
+                    {meetingStatusLabel(t, m.status)}
                   </span>
                 )}
               </button>
@@ -503,9 +507,16 @@ const MonthGridDate = ({
   const name = holidaysRef.current.get(dayKey(jd));
   const tone =
     name || weekday === 0 ? "holiday" : weekday === 6 ? "saturday" : "weekday";
+  // Schedule-X (v2) has no usable "today" class on the cell — compute it here so
+  // CSS can ring today's cell + fill its number.
+  const isToday = dayKey(jd) === dayKey(new Date());
 
   return (
-    <div className="mcm-calx__date" data-tone={tone}>
+    <div
+      className="mcm-calx__date"
+      data-tone={tone}
+      data-today={isToday ? "1" : undefined}
+    >
       <span className="mcm-calx__date-num">{jd.getDate()}</span>
       {name ? (
         <span className="mcm-calx__date-holiday" title={name}>

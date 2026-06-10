@@ -350,10 +350,14 @@ const Person = ({
               type="button"
               className="mcm-person__ha-btn"
               title={
-                hostMuted ? t("participants.unmute") : t("participants.muteHint")
+                hostMuted
+                  ? t("participants.unmute")
+                  : t("participants.muteHint")
               }
               aria-label={
-                hostMuted ? t("participants.unmute") : t("participants.muteHint")
+                hostMuted
+                  ? t("participants.unmute")
+                  : t("participants.muteHint")
               }
               onClick={(e) => {
                 e.stopPropagation();
@@ -416,11 +420,7 @@ const ParticipantsPanel = ({
 }) => {
   const t = useT();
   return createPortal(
-    <div
-      className="mcm-pp-overlay"
-      onClick={onClose}
-      role="presentation"
-    >
+    <div className="mcm-pp-overlay" onClick={onClose} role="presentation">
       <aside
         className="mcm-pp"
         onClick={(e) => e.stopPropagation()}
@@ -465,7 +465,9 @@ const ParticipantsPanel = ({
                     {fullName}
                     {p.isMe && ` (${t("participants.you")})`}
                     {p.isHost && (
-                      <span className="mcm-pp__tag">{t("participants.host")}</span>
+                      <span className="mcm-pp__tag">
+                        {t("participants.host")}
+                      </span>
                     )}
                   </span>
                   {p.company && (
@@ -710,7 +712,12 @@ export const ParticipantsBar = ({
     handRaised: raisedHands.has(selfSocketId),
     reactions: reactionsBySocket.get(selfSocketId) ?? [],
     company: myProfile?.company,
-    avatarUrl: resolveAvatarUrlWithDefault(myProfile?.avatar, selfSocketId),
+    // Default-avatar key: EMAIL when logged in (stable identity → same
+    // default face every session/device); socketId only for anonymous.
+    avatarUrl: resolveAvatarUrlWithDefault(
+      myProfile?.avatar,
+      myProfile?.email ?? selfSocketId,
+    ),
     isHost: !!hostSocketId && hostSocketId === selfSocketId,
     sharingScreen: screenSharePresence.has(selfSocketId),
   });
@@ -749,7 +756,11 @@ export const ParticipantsBar = ({
       reactions: reactionsBySocket.get(socketId) ?? [],
       isFollowed,
       company: peerProfile?.company,
-      avatarUrl: resolveAvatarUrlWithDefault(peerProfile?.avatar, socketId),
+      // EMAIL-keyed default for logged-in peers; socketId for anonymous.
+      avatarUrl: resolveAvatarUrlWithDefault(
+        peerProfile?.avatar,
+        peerProfile?.email ?? socketId,
+      ),
       isHost: !!hostSocketId && hostSocketId === socketId,
       sharingScreen: screenSharePresence.has(socketId),
     });

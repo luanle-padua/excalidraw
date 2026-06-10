@@ -24,6 +24,7 @@ import {
   AVATAR_LIBRARY,
   resolveAvatarUrl,
   saveUserProfile,
+  syncAvatarToAccount,
   userProfileAtom,
 } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
@@ -129,8 +130,18 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
       username: trimmedName,
       ...(company.trim() ? { company: company.trim() } : {}),
       ...(avatar ? { avatar } : {}),
+      // Carry the session email through — it's the login identity that
+      // drives the host election + internal checks. Dropping it here used
+      // to leave a window where the profile looked anonymous until the
+      // MeetingShell session-sync re-added it.
+      ...(profile?.email ? { email: profile.email } : {}),
     };
     saveUserProfile(next);
+    // The ACCOUNT (Supabase user_metadata.avatar) is the system of record
+    // for the avatar: persist "lib:" picks so the choice follows the login
+    // to other browsers/devices. Uploaded data URLs stay local-only and
+    // anonymous users are a no-op — see syncAvatarToAccount.
+    void syncAvatarToAccount(avatar);
     // Keep Excalidraw's Collaborator.username in sync so the built-in
     // avatar list / mouse-pointer labels also reflect the new name.
     if (collabAPI) {

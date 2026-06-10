@@ -65,7 +65,12 @@ const statusKind = (status: string | null): StatusKind => {
   if (s === "in progress" || s === "in_progress" || s === "live") {
     return "live";
   }
-  if (s === "completed" || s === "cancelled" || s === "canceled") {
+  if (
+    s === "completed" ||
+    s === "finished" ||
+    s === "cancelled" ||
+    s === "canceled"
+  ) {
     return "muted";
   }
   return "scheduled";
@@ -177,23 +182,21 @@ export const CalendarView = ({
           >
             <ChevronRight size={18} />
           </button>
-          <button
-            type="button"
-            className="mcm-cal__today"
-            onClick={goToday}
-          >
+          <button type="button" className="mcm-cal__today" onClick={goToday}>
             {t("cal.today")}
           </button>
         </div>
 
-        <div className="mcm-cal__seg" role="tablist" aria-label={t("cal.title")}>
+        <div
+          className="mcm-cal__seg"
+          role="tablist"
+          aria-label={t("cal.title")}
+        >
           <button
             type="button"
             role="tab"
             aria-selected={view === "month"}
-            className={`mcm-cal__seg-btn${
-              view === "month" ? " --on" : ""
-            }`}
+            className={`mcm-cal__seg-btn${view === "month" ? " --on" : ""}`}
             onClick={() => setView("month")}
           >
             {t("cal.month")}
@@ -294,9 +297,7 @@ const MonthGrid = ({
               role="gridcell"
             >
               <div className="mcm-cal__cell-head">
-                <span
-                  className={`mcm-cal__daynum${isToday ? " --today" : ""}`}
-                >
+                <span className={`mcm-cal__daynum${isToday ? " --today" : ""}`}>
                   {d.getDate()}
                 </span>
                 <button
@@ -473,9 +474,7 @@ const AgendaRow = ({
           </button>
         </div>
       </div>
-      {open && (
-        <MeetingNotes roomId={meeting.id} />
-      )}
+      {open && <MeetingNotes roomId={meeting.id} />}
     </li>
   );
 };
@@ -568,7 +567,12 @@ const NotesEditor = ({
 const DayNotes = ({ dayKeyStr }: { dayKeyStr: string }) => {
   const t = useT();
   return (
-    <NotesEditor scope="day" refKey={dayKeyStr} label={t("cal.notes")} rows={4} />
+    <NotesEditor
+      scope="day"
+      refKey={dayKeyStr}
+      label={t("cal.notes")}
+      rows={4}
+    />
   );
 };
 

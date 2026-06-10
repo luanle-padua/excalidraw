@@ -17,18 +17,28 @@ export const en: Widened<typeof vi> = {
     send: "Send invites",
     sent: "Sent ✓",
     empty: "No one found",
-    pickMembers: "Add members",
+    pickMembers: "Members",
     pickTitle: "Select members",
-    addSelected: "Add {count}",
+    addSelected: "Done · {count}",
+    currentInvitees: "Invited ({count})",
+    revoked: "Revoked",
+    cohost: "Co-host",
   },
   invited: {
     title: "Invited / Upcoming",
     join: "Join",
   },
+  due: {
+    title: "Meeting starting soon",
+    now: "It's meeting time",
+    join: "Join now",
+    dismiss: "Later",
+  },
   cal: {
     title: "Calendar",
     upcoming: "Upcoming",
     today: "Today",
+    tomorrow: "Tomorrow",
     month: "Month",
     day: "Day",
     createOnDay: "+ Create meeting on this day",
@@ -150,7 +160,8 @@ export const en: Widened<typeof vi> = {
     reset: "Reset password",
     resetPrompt: "New password:",
     confirmDeleteUser: "Delete this user?",
-    confirmDeleteMeeting: "Delete this meeting? (also deletes its canvas/files)",
+    confirmDeleteMeeting:
+      "Delete this meeting? (also deletes its canvas/files)",
     colMeeting: "Meeting",
     colProject: "Project",
     colHost: "Created by",
@@ -289,6 +300,57 @@ export const en: Widened<typeof vi> = {
     removeImage: "Remove",
     optionOther: "Other…",
     otherPlaceholder: "Type a custom value…",
+    reschedule: "Reschedule",
+    rescheduleSave: "Save new time",
+    cancelMeeting: "Cancel meeting",
+    cancelConfirm: "Cancel this meeting? Invitees will see it as cancelled.",
+    restoreMeeting: "Restore meeting",
+    scheduleLockedLive:
+      "Meeting has started — date & time can no longer change.",
+    organizer: "Organizer",
+    invited: "Invited",
+    noSchedule: "Not scheduled",
+    minutesShort: "min",
+    deleteMeeting: "Delete forever",
+    deleteConfirm:
+      "PERMANENTLY delete this meeting? Canvas, files and all history will be erased — this cannot be undone.",
+    host: "Host",
+    noCohost: "— None —",
+    waitingRoom: "Waiting room for guests",
+    recordingOn: "Record the meeting",
+    // Zone headers of the redesigned create/schedule form (small-caps).
+    secAgenda: "Agenda",
+    secRoles: "Roles & settings",
+    secPeople: "People",
+    saveFailed:
+      "Save failed — check your permission (organizer only) or the meeting state.",
+  },
+
+  // ---------------- People grid ---------------------------------------
+  people: {
+    internalCount: "Internal ({count})",
+    guestCount: "Clients ({count})",
+    noGroup: "Other",
+  },
+
+  // ---------------- Meeting status (canonical lifecycle) ------------
+  status: {
+    scheduled: "Scheduled",
+    live: "Live",
+    finished: "Finished",
+    cancelled: "Cancelled",
+  },
+
+  // ---------------- Start gate (link opened before Start) -----------
+  gate: {
+    notStarted: "Meeting hasn't started yet",
+    scheduledFor: "Scheduled for {when}",
+    waitingHost: "Waiting for the host to start the meeting…",
+    startNow: "Start meeting",
+    starting: "Starting…",
+    cancelledTitle: "Meeting cancelled",
+    cancelledDesc: "The organizer cancelled this meeting.",
+    back: "Back to home",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -349,6 +411,12 @@ export const en: Widened<typeof vi> = {
     cancel: "Cancel",
     save: "Save",
     openSettings: "Your profile",
+  },
+
+  user: {
+    menuAria: "Your account",
+    signedInAs: "Signed in as",
+    profile: "Profile & avatar",
   },
 
   callControls: {

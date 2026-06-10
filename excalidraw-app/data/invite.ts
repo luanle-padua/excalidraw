@@ -14,6 +14,8 @@ export type DirectoryUser = {
   name: string;
   title?: string;
   division?: string;
+  /** "lib:NN.png" gallery ref from the account (user_metadata.avatar). */
+  avatar?: string;
 };
 
 export type MyInvitation = {
@@ -57,6 +59,52 @@ export const inviteToMeeting = async (
     return res.ok;
   } catch {
     return false;
+  }
+};
+
+export type MeetingInvitee = {
+  email: string;
+  kind: "internal" | "guest";
+  role: string;
+  status: "invited" | "accepted" | "declined" | "revoked";
+  invited_by: string | null;
+  invited_at: number;
+};
+
+/** A meeting's invitee list (active + revoked) — powers the organizer's
+ *  edit form. Internal staff + admins only (worker-enforced). */
+export const listInvitees = async (
+  roomId: string,
+): Promise<MeetingInvitee[]> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/invitees`,
+    );
+    return res.ok ? (await res.json()).invitees ?? [] : [];
+  } catch {
+    return [];
+  }
+};
+
+export type MeetingParticipant = {
+  user_email: string;
+  name: string | null;
+  joined_at: number;
+  last_seen_at: number;
+};
+
+/** Who ACTUALLY joined the meeting (vs invitees = who was asked). Visible to
+ *  anyone who can see the meeting (worker roomGate). */
+export const listParticipants = async (
+  roomId: string,
+): Promise<MeetingParticipant[]> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/participants`,
+    );
+    return res.ok ? (await res.json()).participants ?? [] : [];
+  } catch {
+    return [];
   }
 };
 
