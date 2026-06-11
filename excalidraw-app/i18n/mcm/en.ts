@@ -39,6 +39,10 @@ export const en: Widened<typeof vi> = {
     decline: "Decline",
     live: "LIVE NOW",
     declinedDone: "Invitation declined",
+    history: "History",
+    stateAccepted: "Accepted",
+    stateDeclined: "Declined",
+    stateAttended: "Attended",
   },
   due: {
     title: "Meeting starting soon",

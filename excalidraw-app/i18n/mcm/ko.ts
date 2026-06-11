@@ -47,6 +47,10 @@ export const ko: Widened<typeof vi> = {
     decline: "거절",
     live: "진행 중",
     declinedDone: "초대를 거절했습니다",
+    history: "기록",
+    stateAccepted: "수락함",
+    stateDeclined: "거절함",
+    stateAttended: "참가함",
   },
   due: {
     title: "회의가 곧 시작됩니다",

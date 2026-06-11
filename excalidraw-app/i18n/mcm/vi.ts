@@ -47,6 +47,10 @@ export const vi = {
     decline: "Từ chối",
     live: "ĐANG DIỄN RA",
     declinedDone: "Đã từ chối lời mời",
+    history: "Lịch sử",
+    stateAccepted: "Đã chấp nhận",
+    stateDeclined: "Đã từ chối",
+    stateAttended: "Đã tham gia",
   },
   // ---------------- Meeting-due notice (toast "đến giờ họp") --------
   due: {

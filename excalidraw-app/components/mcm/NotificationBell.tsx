@@ -47,6 +47,47 @@ const findPending = (meetings: PendingInvite[]): PendingInvite[] =>
     );
   });
 
+const HISTORY_LIMIT = 20;
+
+/** Invitations I already dealt with — answered (accepted/declined) or simply
+ *  joined. They stay in the bell as HISTORY (yêu cầu anh Luân 06-11: thông
+ *  báo/lời mời phải giữ lại, không biến mất sau khi xử). Derived straight
+ *  from the invite rows — no extra notification table to run. Revoked
+ *  invites don't appear: the meeting itself is hidden from this user. */
+const findHistory = (meetings: PendingInvite[]): PendingInvite[] =>
+  meetings
+    .filter(
+      (m) =>
+        !!m.invited_direct &&
+        (m.my_invite_status === "accepted" ||
+          m.my_invite_status === "declined" ||
+          !!m.attended),
+    )
+    .sort((a, b) => {
+      const ta = a.scheduled_at
+        ? new Date(a.scheduled_at).getTime()
+        : a.created_at;
+      const tb = b.scheduled_at
+        ? new Date(b.scheduled_at).getTime()
+        : b.created_at;
+      return tb - ta;
+    })
+    .slice(0, HISTORY_LIMIT);
+
+/** One-word answer state for a history row. Joining without ever pressing
+ *  Accept still reads as "attended" — the most truthful label. */
+const historyState = (
+  m: PendingInvite,
+): "accepted" | "declined" | "attended" => {
+  if (m.my_invite_status === "declined") {
+    return "declined";
+  }
+  if (m.attended) {
+    return "attended";
+  }
+  return "accepted";
+};
+
 /** "11/06 14:05" — unlike the due toast, an invitation can point days ahead,
  *  so time-of-day alone isn't enough. */
 const fmtWhen = (s: string): string => {
@@ -67,6 +108,7 @@ export const NotificationBell = () => {
   const session = useAtomValue(sessionAtom);
 
   const [items, setItems] = useState<PendingInvite[]>([]);
+  const [history, setHistory] = useState<PendingInvite[]>([]);
   const [open, setOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -76,6 +118,7 @@ export const NotificationBell = () => {
   useEffect(() => {
     if (!session) {
       setItems([]);
+      setHistory([]);
       return;
     }
     let cancelled = false;
@@ -83,6 +126,7 @@ export const NotificationBell = () => {
       const list = await getMyMeetings();
       if (!cancelled) {
         setItems(findPending(list as PendingInvite[]));
+        setHistory(findHistory(list as PendingInvite[]));
       }
     };
     void check();
@@ -111,6 +155,43 @@ export const NotificationBell = () => {
     return null;
   }
 
+  /** Move an answered invite from the pending list into history right away —
+   *  the next poll would do it too, but the bell should reflect the click. */
+  const moveToHistory = (m: PendingInvite, answer: "accepted" | "declined") => {
+    setItems((prev) => prev.filter((x) => x.id !== m.id));
+    setHistory((prev) =>
+      [
+        { ...m, my_invite_status: answer },
+        ...prev.filter((x) => x.id !== m.id),
+      ].slice(0, HISTORY_LIMIT),
+    );
+  };
+
+  // Join a live meeting — same flow as MeetingDueNotice: resolve the room
+  // key, tear down any current room so startCollaboration actually switches,
+  // then enter.
+  const joinLive = async (m: PendingInvite) => {
+    if (!collabAPI) {
+      return;
+    }
+    const full = await getMeeting(m.id);
+    if (!full?.room_key) {
+      showAppToast(t("errors.openMeetingFailed"));
+      return;
+    }
+    setOpen(false);
+    collabAPI.stopCollaboration(false);
+    window.history.pushState(
+      {},
+      "",
+      getCollaborationLink({ roomId: m.id, roomKey: full.room_key }),
+    );
+    await collabAPI.startCollaboration({
+      roomId: m.id,
+      roomKey: full.room_key,
+    });
+  };
+
   const accept = async (m: PendingInvite) => {
     if (busyId) {
       return;
@@ -120,27 +201,10 @@ export const NotificationBell = () => {
       if (!(await respondInvitation(m.id, "accepted"))) {
         return;
       }
-      setItems((prev) => prev.filter((x) => x.id !== m.id));
-      // A live meeting accepted = "I'm coming" — join right away, same flow
-      // as MeetingDueNotice: resolve the room key, tear down any current
-      // room so startCollaboration actually switches, then enter.
-      if (normalizeMeetingStatus(m.status) === "live" && collabAPI) {
-        const full = await getMeeting(m.id);
-        if (!full?.room_key) {
-          showAppToast(t("errors.openMeetingFailed"));
-          return;
-        }
-        setOpen(false);
-        collabAPI.stopCollaboration(false);
-        window.history.pushState(
-          {},
-          "",
-          getCollaborationLink({ roomId: m.id, roomKey: full.room_key }),
-        );
-        await collabAPI.startCollaboration({
-          roomId: m.id,
-          roomKey: full.room_key,
-        });
+      moveToHistory(m, "accepted");
+      // A live meeting accepted = "I'm coming" — join right away.
+      if (normalizeMeetingStatus(m.status) === "live") {
+        await joinLive(m);
       }
     } finally {
       setBusyId(null);
@@ -154,7 +218,7 @@ export const NotificationBell = () => {
     setBusyId(m.id);
     try {
       if (await respondInvitation(m.id, "declined")) {
-        setItems((prev) => prev.filter((x) => x.id !== m.id));
+        moveToHistory(m, "declined");
         showAppToast(t("notif.declinedDone"));
       }
     } finally {
@@ -185,9 +249,9 @@ export const NotificationBell = () => {
           aria-label={t("notif.title")}
         >
           <div className="mcm-bell__head">{t("notif.title")}</div>
-          {items.length === 0 ? (
+          {items.length === 0 && history.length === 0 ? (
             <div className="mcm-bell__empty">{t("notif.empty")}</div>
-          ) : (
+          ) : items.length === 0 ? null : (
             <ul className="mcm-bell__list">
               {items.map((m) => {
                 const live = normalizeMeetingStatus(m.status) === "live";
@@ -230,6 +294,59 @@ export const NotificationBell = () => {
                 );
               })}
             </ul>
+          )}
+
+          {history.length > 0 && (
+            <>
+              <div className="mcm-bell__section">{t("notif.history")}</div>
+              <ul className="mcm-bell__list mcm-bell__list--history">
+                {history.map((m) => {
+                  const state = historyState(m);
+                  const live = normalizeMeetingStatus(m.status) === "live";
+                  return (
+                    <li
+                      key={m.id}
+                      className="mcm-bell__item mcm-bell__item--past"
+                    >
+                      <div className="mcm-bell__info">
+                        <strong className="mcm-bell__title">
+                          {m.title || t("folder.meetingFallbackTitle")}
+                        </strong>
+                        <span className="mcm-bell__meta">
+                          {m.scheduled_at && (
+                            <span>{fmtWhen(m.scheduled_at)}</span>
+                          )}
+                          {m.project_name && <span>{m.project_name}</span>}
+                        </span>
+                      </div>
+                      <div className="mcm-bell__actions">
+                        {/* Answered yes (or already a participant) and the
+                            room is still going → offer the shortcut in. */}
+                        {live && state !== "declined" && (
+                          <button
+                            type="button"
+                            className="mcm-bell__accept"
+                            onClick={() => void joinLive(m)}
+                            disabled={!!busyId}
+                          >
+                            {t("due.join")}
+                          </button>
+                        )}
+                        <span
+                          className={`mcm-bell__state mcm-bell__state--${state}`}
+                        >
+                          {state === "declined"
+                            ? t("notif.stateDeclined")
+                            : state === "attended"
+                            ? t("notif.stateAttended")
+                            : t("notif.stateAccepted")}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
         </div>
       )}
