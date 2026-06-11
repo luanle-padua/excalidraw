@@ -1,5 +1,6 @@
 # Khảo sát tính năng người dùng MAP CanvasMeet — 2026-06-11
 
+> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`).
 > Tổng hợp từ 6 báo cáo khảo sát theo hành trình (login-home, meeting-mgmt, in-room-collab, in-room-media-ai, documents, guest-xp), đọc code thật tại commit 2026-06-11. Bối cảnh: **polish "chuẩn chỉnh" trước, cutover lên remote sau** (P1 worker remote đã live, DB trống, dev vẫn local).
 >
 > Chú giải độ chín: 🟢 chín (dùng được, tin được) · 🟡 chạy nhưng thô (thiếu i18n / lỗi im lặng / cạnh sắc) · 🔴 placebo hoặc hỏng làm mất niềm tin / mất dữ liệu · ⚪ dead code / không có UI (người dùng không chạm tới).

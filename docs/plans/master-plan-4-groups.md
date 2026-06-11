@@ -1,12 +1,12 @@
 # Master plan — 4 nhóm việc (chốt với anh Luân 2026-06-11)
 
-> **Chiến lược: chuẩn chỉnh mọi thứ TRƯỚC, dọn lên remote SAU CÙNG** ("chuyển nhà một lần, sạch sẽ"). Thay thế bảng thứ tự cũ trong phase-review-2026-06-11.md §d. Nguồn: 3 đội rà soát 06-11 — [phase-review](phase-review-2026-06-11.md) · [admin-feature-proposals](admin-feature-proposals-2026-06-11.md) · [user-feature-audit](user-feature-audit-2026-06-11.md).
+> **Chiến lược: chuẩn chỉnh mọi thứ TRƯỚC, dọn lên remote SAU CÙNG** ("chuyển nhà một lần, sạch sẽ"). Thay thế bảng thứ tự cũ trong phase-review-2026-06-11.md §d. Nguồn: 3 đội rà soát 06-11 — [phase-review](../audits/2026-06-11-phase-review.md) · [admin-feature-proposals](../audits/2026-06-11-admin-feature-proposals.md) · [user-feature-audit](../audits/2026-06-11-user-feature-audit.md).
 >
 > Thứ tự tổng: **G4 (chặn lỗ hổng) + G1 chạy trước → G2 xen kẽ → G3 chốt hạ.** Mục ⚡ trong G3 (backup) là ngoại lệ làm sớm được ngay.
 
 ## GROUP 1 — APP + TÍNH NĂNG USER (chuẩn chỉnh)
 
-> Audit 06-11 ([user-feature-audit-2026-06-11.md](user-feature-audit-2026-06-11.md)): **96 tính năng — 41 🟢 / 43 🟡 / 8 🔴 / 4 ⚪** (≈87% dùng được). Nợ tụ ở 2 pattern: lỗi bị nuốt im lặng (`data/*.ts` trả `[]/null/false`) và ~40 chuỗi hardcode né hệ i18n.
+> Audit 06-11 ([user-feature-audit-2026-06-11.md](../audits/2026-06-11-user-feature-audit.md)): **96 tính năng — 41 🟢 / 43 🟡 / 8 🔴 / 4 ⚪** (≈87% dùng được). Nợ tụ ở 2 pattern: lỗi bị nuốt im lặng (`data/*.ts` trả `[]/null/false`) và ~40 chuỗi hardcode né hệ i18n.
 
 **🔴 Phải xử (mất niềm tin / mất dữ liệu):**
 - [ ] **Tạo meeting fail im lặng** — `registerMeeting` không check kết quả (`ScheduleMeetingForm.tsx:174`) → form đóng "thành công" mà meeting không tồn tại.
@@ -29,7 +29,8 @@
 - [ ] (sau demo) P5 recording: Daily cloud recording → webhook → R2 auth-gated.
 
 **Bổ sung 06-11 chiều (yêu cầu anh Luân khi test):**
-- [ ] **Chuông mời vào họp LIVE** — mở rộng MeetingDueNotice (poll 60s sẵn): meeting live mình được mời nhưng chưa join → toast + "Vào ngay". (Invite hiện chỉ cấp quyền + copy link, không ai được báo.)
+- [x] **Chuông mời vào họp LIVE** (06-11) — MeetingDueNotice ưu tiên meeting live mình được mời trực tiếp chưa join (invited_direct/attended từ /v1/me/meetings).
+- [ ] **Notification center ở dashboard** (chốt thêm 06-11) — icon chuông + badge số, panel gom mọi lời mời (lỡ nhiều cái), từng cái **Accept** (vào họp/ghi nhận) / **Deny** (decline) — dựa trên meeting_invitee.status sẵn có ('accepted'/'declined') + route respond mới; toast giữ cho việc khẩn, chuông là nơi gom.
 - [ ] **Bug: invite trong meeting không thêm invitee** — phòng test có 0 row trong D1; đang truy (POST đi đâu / fail chỗ nào).
 - [ ] **Bug review mode: đóng chat là mất** — icon chat bị ẩn ở review nên panel đóng rồi không mở lại được; giữ icon (chat read-only).
 - [ ] **Modal "Dự án" trong meeting**: resize được + mặc định to hơn (đang cắt nội dung).

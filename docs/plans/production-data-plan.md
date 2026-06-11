@@ -1,6 +1,6 @@
 # Kế hoạch dữ liệu production — "local GIỐNG HỆT production"
 
-_Lập 2026-06-10. Nền tảng: [data-architecture-audit.md](data-architecture-audit.md) (bản đồ dữ liệu + lỗ hổng — KHÔNG lặp lại ở đây) và [user-data-model.md](user-data-model.md) (định danh user). Mục tiêu: dù đang chạy local, CẤU TRÚC dữ liệu (schema, key-scheme, secret names, ranh giới D1/R2/Supabase) phải y hệt khi lên production — đổi môi trường chỉ là đổi binding target._
+_Lập 2026-06-10. Nền tảng: [data-architecture-audit.md](../audits/2026-06-10-data-architecture-audit.md) (bản đồ dữ liệu + lỗ hổng — KHÔNG lặp lại ở đây) và [user-data-model.md](../specs/user-data-model.md) (định danh user). Mục tiêu: dù đang chạy local, CẤU TRÚC dữ liệu (schema, key-scheme, secret names, ranh giới D1/R2/Supabase) phải y hệt khi lên production — đổi môi trường chỉ là đổi binding target._
 
 ## ✅ QUYẾT ĐỊNH CHỐT (buổi bàn 2026-06-10 chiều — anh Luân duyệt)
 

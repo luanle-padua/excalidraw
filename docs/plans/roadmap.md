@@ -1,6 +1,6 @@
 # MCM Roadmap — các Phase đang follow
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: 2026-06-10 (Phase 4.5 ✅ + hardening — xem `2026-06-10.md`; kế tiếp: production data theo `production-data-plan.md`).
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: 2026-06-10 (Phase 4.5 ✅ + hardening — xem `logs/2026-06-10.md`; kế tiếp: production data theo `production-data-plan.md`).
 
 ## ✅ Đã xong
 
@@ -11,7 +11,7 @@
 Bỏ audio mesh P2P (không scale) → audio chạy **Daily SFU** (scale N người). `DailyAudio` drop-in cho `AudioRoom` → STT/recorder/UI **không đổi**. *(Code + screen-audio verified; còn test nghe mic khi có máy có micro.)*
 
 ### Phase 3 — Supabase Auth ✅
-Đóng lỗ **Worker no-auth**: Worker verify Supabase JWT (jose/JWKS) chặn mọi `/v1` trừ health. Login bắt buộc cho tất cả (nội bộ email/pw 1-click, **khách magic-link**). 5 user nội bộ seed sẵn. *(Verified live: token thật→200, không/sai→401.)* → setup ở [supabase-setup.md](supabase-setup.md).
+Đóng lỗ **Worker no-auth**: Worker verify Supabase JWT (jose/JWKS) chặn mọi `/v1` trừ health. Login bắt buộc cho tất cả (nội bộ email/pw 1-click, **khách magic-link**). 5 user nội bộ seed sẵn. *(Verified live: token thật→200, không/sai→401.)* → setup ở [supabase-setup.md](../specs/supabase-setup.md).
 
 **Kèm theo:** timer họp **khách quan** (đếm từ host start, ai vào sau cùng số); nút **Invite** copy link.
 
@@ -20,7 +20,7 @@ Bỏ audio mesh P2P (không scale) → audio chạy **Daily SFU** (scale N ngư�
 ## ⏳ Tiếp theo
 
 ### Phase 4 — Host control + per-meeting membership (gần xong)
-Vai trò host (chốt 2026-06-05) — **gắn với recording bảo mật** (chỉ host + người được duyệt mới tải được). Thiết kế đầy đủ (organizer vs host, acting-host, lifecycle, **lên lịch họp**): **[host-and-scheduling.md](host-and-scheduling.md)** (bàn 2026-06-08).
+Vai trò host (chốt 2026-06-05) — **gắn với recording bảo mật** (chỉ host + người được duyệt mới tải được). Thiết kế đầy đủ (organizer vs host, acting-host, lifecycle, **lên lịch họp**): **[host-and-scheduling.md](../specs/host-and-scheduling.md)** (bàn 2026-06-08).
 - [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng. *(Khác màn "chờ Start" đã có ở 4.5 — waiting room là duyệt TỪNG khách khi meeting ĐANG live.)*
 - [x] **Mời theo LINK** (mở link + login) *(06-09)*. *(Mời theo email cụ thể = sau.)*
 - [x] **End meeting for all** — host kết thúc → meeting thành *finished* cho cả phòng *(06-08; ghi `status='finished'` chuẩn từ 06-10)*.
@@ -46,7 +46,7 @@ Chốt 2026-06-08, ship xong 2026-06-10:
 ---
 
 ### Phase A — Admin Console (track riêng)
-Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = account RIÊNG** (`admin@mapgroup.co.kr`, role qua Supabase `app_metadata`); **không meeting host nào là admin**. Module: Dashboard · Users&Roles · Meetings · Recordings · Cost&Usage · API/Integrations · Storage · Audit log · Security · Settings · Analytics · Compliance/GDPR · Announcements. → spec đầy đủ: **[admin-console.md](admin-console.md)**. Build: A1 (role+gate+/admin+Dashboard+Users+Meetings) → A2 (Cost+API+Recordings+Storage+Audit) → A3 (Security+Settings+Analytics+Compliance).
+Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = account RIÊNG** (`admin@mapgroup.co.kr`, role qua Supabase `app_metadata`); **không meeting host nào là admin**. Module: Dashboard · Users&Roles · Meetings · Recordings · Cost&Usage · API/Integrations · Storage · Audit log · Security · Settings · Analytics · Compliance/GDPR · Announcements. → spec đầy đủ: **[admin-console.md](../specs/admin-console.md)**. Build: A1 (role+gate+/admin+Dashboard+Users+Meetings) → A2 (Cost+API+Recordings+Storage+Audit) → A3 (Security+Settings+Analytics+Compliance).
 
 ---
 

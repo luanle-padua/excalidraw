@@ -1,6 +1,6 @@
 # MCM Admin Console — spec
 
-> Lớp **back-office** quản trị toàn hệ thống. KHÁC với **Host** (quyền trong 1 cuộc họp — Phase 4). Bàn 2026-06-05. Đây là một track riêng (**Phase A**) trong [roadmap.md](roadmap.md).
+> Lớp **back-office** quản trị toàn hệ thống. KHÁC với **Host** (quyền trong 1 cuộc họp — Phase 4). Bàn 2026-06-05. Đây là một track riêng (**Phase A**) trong [roadmap.md](../plans/roadmap.md).
 
 ## Nguyên tắc
 - **Admin = ROLE, account RIÊNG** (không phải meeting user). Account hệ thống: `admin@mapgroup.co.kr` (tạo bằng `scripts/create-admin.mjs`). **Không meeting host nào là admin** (Luan = host, KHÔNG admin).

@@ -1,5 +1,5 @@
 // Canonical meeting lifecycle — ONE status vocabulary for DB + UI
-// (docs/host-and-scheduling.md state machine):
+// (docs/specs/host-and-scheduling.md state machine):
 //
 //   scheduled ──(host/acting-host Starts)──> live ──(End for all)──> finished
 //       └───────────(organizer cancels)────────────────────────────> cancelled

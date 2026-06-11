@@ -13,7 +13,7 @@ const POLL_MS = 5000;
 
 /**
  * Full-screen "the meeting hasn't started yet" overlay — the UX half of the
- * Phase 4.5 state machine (docs/host-and-scheduling.md). Shown when a join
+ * Phase 4.5 state machine (docs/specs/host-and-scheduling.md). Shown when a join
  * lands on a `scheduled` meeting (startGateAtom, set by startCollaboration):
  *
  *   • internal staff get a Start button — the acting-host rule says ANY

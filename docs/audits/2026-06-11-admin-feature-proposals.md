@@ -1,5 +1,7 @@
 # Đề xuất tính năng Admin Console — chốt 2026-06-11
 
+> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`).
+
 Tổng hợp từ 4 báo cáo (hiện trạng, data-hygiene, statistics, benchmark), đã đối chiếu code
 (`worker/src/index.ts`, `worker/schema/0001→0016.sql`, `AdminConsole.tsx`).
 

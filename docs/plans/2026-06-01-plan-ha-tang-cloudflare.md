@@ -1,5 +1,7 @@
 # 2026-06-01 — Kế hoạch hạ tầng tháng 6: migrate sang Cloudflare serverless
 
+> ⚠️ **Plan gốc 06-01 — phần lớn đã thực thi (P1 remote LIVE 06-11).** Một số chi tiết (Cloudflare Access, task theo tuần) đã bị thay bằng quyết định mới (Supabase Auth, [master-plan-4-groups.md](master-plan-4-groups.md)). Giữ làm tư liệu "vì sao chọn Cloudflare" — trạng thái sống xem [roadmap.md](roadmap.md) track I + [production-data-plan.md](production-data-plan.md) §5.
+>
 > Mục tiêu: tháng 6/2026 hoàn thiện **phần hạ tầng** của MAP CanvasMeet để demo.
 > Phần tính năng (collab, audio, STT/dịch, viewer DXF/PDF/IFC, AI bot) coi như xong —
 > đây là kế hoạch chuyển từ mô hình *"máy dev + quick tunnel"* sang **Cloudflare serverless**.
@@ -42,11 +44,11 @@ giữ nguyên; `roomKey` là AES-GCM key, server (DO + R2) chỉ thấy cipherte
 
 ## 3. Insight then chốt khiến DO khả thi
 
-Relay hiện tại ([room/src/index.ts](../room/src/index.ts), socket.io) **chỉ xử lý ~7 event transport** —
+Relay hiện tại ([room/src/index.ts](../../room/src/index.ts), socket.io) **chỉ xử lý ~7 event transport** —
 toàn bộ message phong phú (`WS_SUBTYPES` UPDATE / MOUSE_LOCATION / CHAT / STT / LIBRARY / …) nằm
 **bên trong blob mã hoá E2E**, relay không decode. Vậy DO **không** phải reimplement 20+ subtype, chỉ relay lại blob.
 
-Event transport cần port (xem [app_constants.ts](../excalidraw-app/app_constants.ts) + [room/src/index.ts](../room/src/index.ts):904–1038):
+Event transport cần port (xem [app_constants.ts](../../excalidraw-app/app_constants.ts) + [room/src/index.ts](../../room/src/index.ts):904–1038):
 
 | Event (server) | Hành vi | Phía DO |
 | --- | --- | --- |
@@ -68,7 +70,7 @@ DO phải tự **mint connection-id ổn định** mỗi WS và gắn vào `ws.s
 
 ## 4. Chiến lược giảm sửa client: adapter `RoomSocket`
 
-Thay vì sửa khắp [Collab.tsx](../excalidraw-app/collab/Collab.tsx) + [Portal.tsx](../excalidraw-app/collab/Portal.tsx),
+Thay vì sửa khắp [Collab.tsx](../../excalidraw-app/collab/Collab.tsx) + [Portal.tsx](../../excalidraw-app/collab/Portal.tsx),
 viết **một adapter** `RoomSocket` phơi đúng subset API của `socket.io-client` mà code đang dùng:
 
 ```
@@ -80,8 +82,8 @@ sự kiện nội bộ: "connect", "connect_error"
 ```
 
 Backing bằng raw `WebSocket` tới DO. Điểm chạm tối thiểu:
-- [Collab.tsx](../excalidraw-app/collab/Collab.tsx):690–715 — thay `import socketIOClient` + `socketIOClient(...)` bằng `new RoomSocket(wsUrl, roomId)`.
-- [Portal.tsx](../excalidraw-app/collab/Portal.tsx):27 `socket: Socket` → `socket: RoomSocket`. Phần còn lại của Portal/Collab gần như giữ nguyên vì API trùng.
+- [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):690–715 — thay `import socketIOClient` + `socketIOClient(...)` bằng `new RoomSocket(wsUrl, roomId)`.
+- [Portal.tsx](../../excalidraw-app/collab/Portal.tsx):27 `socket: Socket` → `socket: RoomSocket`. Phần còn lại của Portal/Collab gần như giữ nguyên vì API trùng.
 
 ### Wire format (envelope qua raw WS)
 
@@ -102,12 +104,12 @@ payload (khi bin=true) = [iv 12 byte][ciphertext...]   // chính là encryptedDa
 - Dùng **WebSocket Hibernation API** của DO (`state.acceptWebSocket(ws)`, handler `webSocketMessage/Close/Error`)
   → DO ngủ khi không có message, không tính tiền wall-clock khi idle.
 - `RoomSocket` tự reconnect (backoff) khi WS rớt; re-`join-room`. Lưu ý `socketInitialized`
-  ([Portal.tsx](../excalidraw-app/collab/Portal.tsx):28) reset đúng như flow `first-in-room` cũ.
+  ([Portal.tsx](../../excalidraw-app/collab/Portal.tsx):28) reset đúng như flow `first-in-room` cũ.
 
 ## 5. Persist scene — thay lớp Firebase
 
-Interface persist gói gọn **6 hàm** trong [data/firebase.ts](../excalidraw-app/data/firebase.ts), gọi tại
-[Collab.tsx](../excalidraw-app/collab/Collab.tsx):279/287/474/495/1044, [App.tsx](../excalidraw-app/App.tsx):470, [data/index.ts](../excalidraw-app/data/index.ts):425:
+Interface persist gói gọn **6 hàm** trong [data/firebase.ts](../../excalidraw-app/data/firebase.ts), gọi tại
+[Collab.tsx](../../excalidraw-app/collab/Collab.tsx):279/287/474/495/1044, [App.tsx](../../excalidraw-app/App.tsx):470, [data/index.ts](../../excalidraw-app/data/index.ts):425:
 
 | Hàm | Vai trò | Map sang Cloudflare |
 | --- | --- | --- |
@@ -163,12 +165,12 @@ nút *Vào*. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
 **Tuần 1 (02–08/06) · Deploy nền tảng + URL ổn định**
 - [ ] `wrangler` project; build `excalidraw-app` → Cloudflare Pages; gắn custom domain.
 - [ ] Worker router khung; port `/chatbot` `/translate` `/translate-batch` `/summarize` `/turn-credentials`
-      từ [room/src/index.ts](../room/src/index.ts) sang Worker `fetch` (Gemini key = Worker secret).
+      từ [room/src/index.ts](../../room/src/index.ts) sang Worker `fetch` (Gemini key = Worker secret).
 - [ ] *Mốc:* mở app qua domain thật, AI/dịch chạy; collab tạm vẫn dùng relay cũ.
 
 **Tuần 2 (09–15/06) · Realtime → Durable Objects** ⭐ lõi
 - [ ] DO `MeetingRoom`: Hibernation API, mint connection-id, relay 7 event + presence + follow + rtc-signal.
-- [ ] `RoomSocket` adapter (client) + envelope wire format; thay socketIOClient ở [Collab.tsx](../excalidraw-app/collab/Collab.tsx):690–715.
+- [ ] `RoomSocket` adapter (client) + envelope wire format; thay socketIOClient ở [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):690–715.
 - [ ] Reconnect/backoff; verify cursor + follow-view + audio signaling.
 - [ ] *Mốc:* 2–3 máy collab realtime qua DO, gỡ hẳn room server Node.
 
@@ -178,7 +180,7 @@ nút *Vào*. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
 
 **Tuần 4 (23–29/06) · Auth + hoàn thiện**
 - [ ] Bật Cloudflare Access; Worker verify Access JWT → email; gắn host/permission.
-- [ ] Dọn debug (Eruda, `console.log` [App.tsx](../excalidraw-app/App.tsx):328 & [Collab.tsx](../excalidraw-app/collab/Collab.tsx):524, `DEBUG=*` ở room cũ).
+- [ ] Dọn debug (Eruda, `console.log` [App.tsx](../../excalidraw-app/App.tsx):328 & [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):524, `DEBUG=*` ở room cũ).
 - [ ] Test end-to-end + kịch bản demo.
 
 ## 9. Rủi ro & giảm thiểu
@@ -207,6 +209,6 @@ nút *Vào*. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
 ## Tham khảo nhanh
 
 - Quyết định & lý do: memory `project_mcm-june-infra` (tóm tắt kiến trúc), `mcm-overview` (feature layer).
-- Protocol transport: [room/src/index.ts](../room/src/index.ts):904–1038; constants [app_constants.ts](../excalidraw-app/app_constants.ts):16–58.
-- Client transport: [Collab.tsx](../excalidraw-app/collab/Collab.tsx):690–715, [Portal.tsx](../excalidraw-app/collab/Portal.tsx).
-- Persist interface: [data/firebase.ts](../excalidraw-app/data/firebase.ts) (6 hàm), callers ở §5.
+- Protocol transport: [room/src/index.ts](../../room/src/index.ts):904–1038; constants [app_constants.ts](../../excalidraw-app/app_constants.ts):16–58.
+- Client transport: [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):690–715, [Portal.tsx](../../excalidraw-app/collab/Portal.tsx).
+- Persist interface: [data/firebase.ts](../../excalidraw-app/data/firebase.ts) (6 hàm), callers ở §5.

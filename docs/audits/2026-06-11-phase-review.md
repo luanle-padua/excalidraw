@@ -1,5 +1,6 @@
 # Phase Review — Tổng hợp rà soát toàn bộ kế hoạch (2026-06-11)
 
+> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`).
 > Tổng hợp từ 5 báo cáo audit cùng ngày: **roadmap-tracks**, **production-data**, **dev-phase-notes**, **feature-phases**, **admin-ops**.
 > Bối cảnh: P1 (hạ tầng remote Cloudflare) vừa xong sáng nay → unlock cutover client + Pages + backup thật.
 > File này KHÔNG sửa doc nào khác — chỉ liệt kê chỗ cần sửa để người/phiên sau quyết.

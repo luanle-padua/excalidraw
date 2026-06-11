@@ -1,8 +1,10 @@
 # Audit kiến trúc dữ liệu — single source of truth & admin coverage
 
+> ⚠️ **Snapshot sáng 2026-06-10 — nhiều finding (§2, §3, §4, §5) đã được fix trong P0+P1.** Trạng thái sống xem [production-data-plan.md](../plans/production-data-plan.md) §5. Đường dẫn `docs/...` trong file là vị trí cũ trước reorg 06-11.
+
 _Cập nhật 2026-06-10. Trả lời câu hỏi: "dữ liệu đã được tổ chức chuẩn production chưa, admin có xem/quản lý được toàn bộ chưa, đâu là single source of truth?"_
 
-Liên quan: [user-data-model.md](user-data-model.md) (phần định danh user — KHÔNG lặp lại ở đây), [host-and-scheduling.md](host-and-scheduling.md) (thiết kế invitee vs member), [dev-phase-notes.md](dev-phase-notes.md) (các mục tạm), [admin-console.md](admin-console.md).
+Liên quan: [user-data-model.md](../specs/user-data-model.md) (phần định danh user — KHÔNG lặp lại ở đây), [host-and-scheduling.md](../specs/host-and-scheduling.md) (thiết kế invitee vs member), [dev-phase-notes.md](../plans/dev-phase-notes.md) (các mục tạm), [admin-console.md](../specs/admin-console.md).
 
 **Kết luận nhanh:** Khung dữ liệu (D1 + R2 + Supabase) đã đúng hướng và hierarchy project → meeting → file là hợp lý, NHƯNG (a) toàn bộ "database" hiện chỉ là **miniflare local trên 1 máy dev** (`worker/.wrangler/state/v3/…`), chưa có D1/R2 remote; (b) một số dữ liệu nghiệp vụ quan trọng (transcript STT, AI summary, recording, avatar upload) **chỉ tồn tại trong trình duyệt của từng người**; (c) xoá meeting để lại **rác mồ côi** ở 3 bảng; (d) admin console **không thấy** project/membership/invitee/notes và không dọn được R2 mồ côi.
 
@@ -42,7 +44,7 @@ Ngoài 4 prefix trên R2 **không có gì khác** (chưa có `avatars/` — vẫ
 
 ### 1.3 Supabase Auth
 
-Identity + profile HR (`user_metadata`: name/title/division/company/emp_no/avatar-ref; `app_metadata.role`) — chi tiết & lộ trình UUID-hoá ở [user-data-model.md](user-data-model.md). Worker chỉ verify JWT qua JWKS và proxy Admin REST bằng `SUPABASE_SERVICE_API_KEY`.
+Identity + profile HR (`user_metadata`: name/title/division/company/emp_no/avatar-ref; `app_metadata.role`) — chi tiết & lộ trình UUID-hoá ở [user-data-model.md](../specs/user-data-model.md). Worker chỉ verify JWT qua JWKS và proxy Admin REST bằng `SUPABASE_SERVICE_API_KEY`.
 
 ### 1.4 Trình duyệt (localStorage / sessionStorage / IndexedDB) — đây là chỗ "để ở local" nhiều nhất
 
@@ -99,7 +101,7 @@ Daily.co giữ state riêng: room `<roomId>` + `<roomId>-audio` được tạo o
 4. **`PATCH /v1/projects/:id` không có authz** (index.ts:467-509) — bất kỳ JWT hợp lệ nào (kể cả GUEST ngoài công ty có tài khoản) sửa được tên/cover/metadata của MỌI project nếu đoán/biết id. `POST /v1/projects` (index.ts:401) cũng không giới hạn internal.
 5. **`project_member` chỉ ghi-thêm** — insert tại index.ts:890 (INSERT OR IGNORE) + backfill 0008; **không tồn tại endpoint list/remove** → không thu hồi được quyền browse cả folder của một người; admin cũng không nhìn thấy bảng này.
 6. **Không xoá được project** — không có `DELETE /v1/projects` ở bất kỳ tầng nào → folder rác tồn tại mãi; nếu sau này thêm xoá mà quên cascade thì meeting/file/member mồ côi (bài học mục 1).
-7. **Email là khoá định danh** toàn bộ D1 — đổi email = mất quyền + lịch sử. Chi tiết & lộ trình UUID: [user-data-model.md](user-data-model.md) §2.3, §3.
+7. **Email là khoá định danh** toàn bộ D1 — đổi email = mất quyền + lịch sử. Chi tiết & lộ trình UUID: [user-data-model.md](../specs/user-data-model.md) §2.3, §3.
 8. **R2 mồ côi vô hình** — `scenes/chats/library` không có row D1 (by design, index.ts:312, 337), nên: (a) admin storage stats (index.ts:1646-1661) **đếm thiếu** (chỉ SUM từ bảng `file`); (b) không có job/endpoint nào liệt kê-đối chiếu R2 ↔ D1 để phát hiện blob mồ côi (vd blob sinh lại bởi mục 2).
 9. **Chưa có D1 backup / R2 versioning** (dev-phase-notes 🟡) — một lệnh xoá nhầm là mất thật.
 

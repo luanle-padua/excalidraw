@@ -260,7 +260,7 @@ export const meetingHostEmailAtom = atom<string | null>(null);
 /** Socket id of the current MCM "host" — the live referee for host-only
  *  controls (End-for-all, kick, mute, recording, folder).
  *
- *  Election order (docs/host-and-scheduling.md):
+ *  Election order (docs/specs/host-and-scheduling.md):
  *  1. The participant whose EMAIL matches the registry host/organizer —
  *     deterministic for every client, and the reason the real host
  *     automatically reclaims control the moment they join.
@@ -425,14 +425,14 @@ export const saveUserProfile = (profile: UserProfile): UserProfile => {
  *  offline cache, but the account is the system of record: without this,
  *  every account that logs in on the same machine inherits whatever avatar
  *  the previous user left in the shared `mcm:userProfile:v1` key (the
- *  "everyone has the same avatar" bug; docs/user-data-model.md).
+ *  "everyone has the same avatar" bug; docs/specs/user-data-model.md).
  *
  *  user_metadata must stay SMALL, so only `"lib:NN.png"` refs are synced:
  *  - `"lib:NN.png"`  → stored as-is (a few bytes);
  *  - `"data:image…"` → SKIPPED — an uploaded avatar can be ~100KB, which has
  *    no business inside a JWT-adjacent metadata blob. It stays local-only.
  *    TODO(production): upload to R2 under `avatars/<user_id>` via the Worker
- *    and store that URL in user_metadata instead (docs/user-data-model.md).
+ *    and store that URL in user_metadata instead (docs/specs/user-data-model.md).
  *  - `undefined`     → clears the account avatar (user pressed "clear").
  *
  *  No-op when auth isn't configured or nobody is signed in (anonymous

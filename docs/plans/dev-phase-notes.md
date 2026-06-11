@@ -1,6 +1,6 @@
 # Dev-phase notes — provisional, finalize later
 
-> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](host-and-scheduling.md), [admin-console.md](admin-console.md). Cập nhật 2026-06-10.
+> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](../specs/host-and-scheduling.md), [admin-console.md](../specs/admin-console.md). Cập nhật 2026-06-10.
 
 ## 🔴 Bảo mật / Auth (làm trước khi production)
 - [x] **API mở toang**: ĐÃ có per-meeting/project authz (`canSeeMeeting`/`canSeeProject` + roomGate, commit `6d860a69`/`997a09ea` 06-09). Lưu ý dev rule còn lại: **nội bộ pass mọi meeting** — siết về project_member trước prod.
