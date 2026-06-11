@@ -2474,6 +2474,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   };
 
   toggleChatReaction = (messageId: string, emoji: string) => {
+    // Review = display-only: a reaction is a chat WRITE (broadcast + would
+    // desync from the immutable stored log). UI hides the buttons; this is
+    // the backstop.
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     if (!this.portal.socket?.id) {
       return;
     }

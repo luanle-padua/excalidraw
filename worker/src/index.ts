@@ -1346,6 +1346,13 @@ app.post("/v1/meetings/:roomId/participant", async (c) => {
   if (!email) {
     return c.json({ error: "no email" }, 400);
   }
+  // Reviewing a finished meeting is NOT attending it — without this check a
+  // reviewer minted a participant row, polluting "attended" (history, the
+  // activity log, partial project access). Grace window keeps the END-time
+  // last_seen updates from peers still in the room.
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
   let name: string | undefined;
   try {
     name = (await c.req.json<{ name?: string }>()).name;
@@ -2100,6 +2107,12 @@ app.get("/v1/daily/token", async (c) => {
   // any room's token" hole noted in roadmap/dev-phase-notes.
   if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
     return c.json({ error: "not invited to this meeting" }, 403);
+  }
+  // No media in a finished meeting — review is look-only, so there is no
+  // legitimate audio/screen-share session to token. (UI hides the buttons;
+  // this is the server backstop.)
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
   }
   const userName = (c.req.query("name") || "Guest").slice(0, 64);
   // Optional stable identity (we pass the socket.id) — baked into the token as

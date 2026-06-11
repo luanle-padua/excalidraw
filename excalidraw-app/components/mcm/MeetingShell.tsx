@@ -249,10 +249,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   // (admin, "ẩn hoàn toàn") leaves no participant row — the audit_log entry
   // is its only trace.
   useEffect(() => {
-    if (roomId && session && !isStealthRoom(roomId)) {
+    // Reviewing ≠ attending: a review open must not mint a participant row
+    // (it pollutes "attended" history + the activity log). The worker also
+    // 409s this for finished meetings — the skip avoids the doomed call.
+    if (roomId && session && !isStealthRoom(roomId) && !viewOnly) {
       void logParticipation(roomId, session.name);
     }
-  }, [roomId, session]);
+  }, [roomId, session, viewOnly]);
 
   // Logged-in users get their identity from the account (session). The
   // display name everywhere — participant tile, chat sender, on-canvas cursor
@@ -351,7 +354,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <ScreenSharePane />
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
-          <TextTranslateOverlay />
+          {/* Translating canvas text WRITES translated child elements — a
+              review canvas takes no writes. */}
+          {!viewOnly && <TextTranslateOverlay />}
           <AuthorBadgeOverlay />
         </div>
         <CADViewPane />

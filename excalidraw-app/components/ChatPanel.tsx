@@ -280,6 +280,7 @@ const MessageBubble = ({
   mySocketId,
   isBot,
   isMine,
+  readOnly,
   onMentionClick,
   onReact,
   onReply,
@@ -289,6 +290,8 @@ const MessageBubble = ({
   mySocketId: string | null;
   isBot: boolean;
   isMine: boolean;
+  /** Review mode: history is display-only — no reacting, no replying. */
+  readOnly: boolean;
   onMentionClick: (fileId: string) => void;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (msg: ChatMessage) => void;
@@ -426,7 +429,10 @@ const MessageBubble = ({
                 className={`ChatView__reaction${
                   reacted ? " ChatView__reaction--mine" : ""
                 }`}
-                onClick={() => onReact(message.id, emoji)}
+                onClick={
+                  readOnly ? undefined : () => onReact(message.id, emoji)
+                }
+                disabled={readOnly}
                 title={t("chat.reactionTooltip", { count: reactors.length })}
               >
                 <span className="ChatView__reaction-emoji">{emoji}</span>
@@ -439,7 +445,7 @@ const MessageBubble = ({
         </div>
       )}
 
-      {!isBot && hovered && (
+      {!isBot && hovered && !readOnly && (
         <div
           className={`ChatView__react-popover ChatView__react-popover--${popoverSide}`}
           role="toolbar"
@@ -483,6 +489,7 @@ const MessageBubble = ({
 const GroupRow = ({
   group,
   mySocketId,
+  readOnly,
   onMentionClick,
   onReact,
   onReply,
@@ -490,6 +497,7 @@ const GroupRow = ({
 }: {
   group: MessageGroup;
   mySocketId: string | null;
+  readOnly: boolean;
   onMentionClick: (fileId: string) => void;
   onReact: (messageId: string, emoji: string) => void;
   onReply: (msg: ChatMessage) => void;
@@ -564,6 +572,7 @@ const GroupRow = ({
             mySocketId={mySocketId}
             isBot={group.isBot}
             isMine={group.isMine}
+            readOnly={readOnly}
             onMentionClick={onMentionClick}
             onReact={onReact}
             onReply={onReply}
@@ -1116,6 +1125,7 @@ export const ChatView = () => {
                 key={`${g.socketId}-${g.startTs}-${idx}`}
                 group={g}
                 mySocketId={mySocketId}
+                readOnly={viewOnly}
                 onMentionClick={handleMentionClick}
                 onReact={handleReact}
                 onReply={startReply}

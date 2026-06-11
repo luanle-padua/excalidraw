@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
-import { collabAPIAtom } from "../../collab/Collab";
+import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
 import {
   clearTranscriptLog,
   meetingSummaryAtom,
@@ -194,6 +194,10 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const [tab, setTab] = useState<Tab>("transcript");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Review = read the record, don't rewrite it: no clearing the cached log,
+  // no regenerating the stored AI summary. Download/export stays — that's
+  // the "extract-only" half of the review contract.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
 
   const roomId = collabAPI?.portal.roomId ?? null;
   const meetingTitle = useMemo(() => {
@@ -525,16 +529,18 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         <div className="mcm-log-modal__footer">
-          <button
-            type="button"
-            className="mcm-log-modal__btn mcm-log-modal__btn--ghost"
-            onClick={handleClear}
-            disabled={log.length === 0 && !summary}
-          >
-            {t("log.buttonClear")}
-          </button>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="mcm-log-modal__btn mcm-log-modal__btn--ghost"
+              onClick={handleClear}
+              disabled={log.length === 0 && !summary}
+            >
+              {t("log.buttonClear")}
+            </button>
+          )}
           <div className="mcm-log-modal__footer-spacer" />
-          {tab === "summary" && (
+          {tab === "summary" && !viewOnly && (
             <button
               type="button"
               className="mcm-log-modal__btn mcm-log-modal__btn--accent"

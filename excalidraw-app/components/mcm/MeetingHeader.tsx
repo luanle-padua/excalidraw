@@ -523,15 +523,19 @@ export const MeetingHeader = ({
         >
           <Settings size={18} />
         </button>
-        <button
-          type="button"
-          className="mcm-header__btn mcm-header__btn--primary"
-          onClick={() => setInviteOpen(true)}
-          title={t("header.invite")}
-        >
-          <UserPlus size={18} />
-          {t("header.invite")}
-        </button>
+        {/* No inviting into a finished meeting — the worker 409s it anyway;
+            don't offer a doomed panel in review. */}
+        {!viewOnly && (
+          <button
+            type="button"
+            className="mcm-header__btn mcm-header__btn--primary"
+            onClick={() => setInviteOpen(true)}
+            title={t("header.invite")}
+          >
+            <UserPlus size={18} />
+            {t("header.invite")}
+          </button>
+        )}
         {canEndMeeting && !viewOnly && (
           <button
             type="button"

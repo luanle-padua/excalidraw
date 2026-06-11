@@ -18,7 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtom, useAtomValue } from "../../app-jotai";
 import { STTSession } from "../../audio/sttSession";
-import { collabAPIAtom } from "../../collab/Collab";
+import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
 import {
   liveTranscriptsAtom,
   setSttEnabled,
@@ -236,6 +236,7 @@ export const SpeechToTextPanel = () => {
   const log = useAtomValue(transcriptionLogAtom);
   const interims = useAtomValue(liveTranscriptsAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // Combined feed: finalized segments + per-speaker interim lines
@@ -759,25 +760,31 @@ export const SpeechToTextPanel = () => {
         </button>
       </div>
 
-      {/* Row 2 — controls. Wraps to 2 lines on very narrow widths. */}
+      {/* Row 2 — controls. Wraps to 2 lines on very narrow widths.
+          In review the transcript is a HISTORY view: no live-STT toggle, no
+          test-file ingest — those produce new segments in an immutable log. */}
       <div className="mcm-stt__controls">
-        <button
-          type="button"
-          className={`mcm-stt__toggle${
-            sttEnabled ? " mcm-stt__toggle--on" : ""
-          }`}
-          onClick={() => {
-            const next = !sttEnabled;
-            setSttEnabledState(next);
-            setSttEnabled(next);
-          }}
-          title={
-            sttEnabled ? t("stt.sttToggleOnTitle") : t("stt.sttToggleOffTitle")
-          }
-        >
-          <Icon d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z M19 10v2a7 7 0 01-14 0v-2 M12 19v4 M8 23h8" />
-          {sttEnabled ? t("stt.sttOn") : t("stt.sttOff")}
-        </button>
+        {!viewOnly && (
+          <button
+            type="button"
+            className={`mcm-stt__toggle${
+              sttEnabled ? " mcm-stt__toggle--on" : ""
+            }`}
+            onClick={() => {
+              const next = !sttEnabled;
+              setSttEnabledState(next);
+              setSttEnabled(next);
+            }}
+            title={
+              sttEnabled
+                ? t("stt.sttToggleOnTitle")
+                : t("stt.sttToggleOffTitle")
+            }
+          >
+            <Icon d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z M19 10v2a7 7 0 01-14 0v-2 M12 19v4 M8 23h8" />
+            {sttEnabled ? t("stt.sttOn") : t("stt.sttOff")}
+          </button>
+        )}
 
         <button
           type="button"
@@ -801,15 +808,19 @@ export const SpeechToTextPanel = () => {
 
         <div className="mcm-stt__controls-spacer" />
 
-        <button
-          type="button"
-          className="mcm-stt__test"
-          onClick={() => fileInputRef.current?.click()}
-          title={t("stt.testFileTitle")}
-        >
-          <Icon d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
-          {testStatus === "running" ? t("stt.testRunning") : t("stt.testFile")}
-        </button>
+        {!viewOnly && (
+          <button
+            type="button"
+            className="mcm-stt__test"
+            onClick={() => fileInputRef.current?.click()}
+            title={t("stt.testFileTitle")}
+          >
+            <Icon d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
+            {testStatus === "running"
+              ? t("stt.testRunning")
+              : t("stt.testFile")}
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
