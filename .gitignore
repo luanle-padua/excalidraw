@@ -20,6 +20,10 @@ build
 dist
 firebase
 logs
+# mcm: the daily-log folder docs/logs/ (06-11 docs reorg) must NOT be caught
+# by the generic "logs" rule above — new daily logs would silently never be
+# committed. Existing files stayed tracked; this unignores new ones too.
+!docs/logs/
 node_modules
 npm-debug.log*
 package-lock.json
