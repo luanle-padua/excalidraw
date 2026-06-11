@@ -31,11 +31,10 @@
     {
       "binding": "DB",
       "database_name": "mcm-db",
-      // LOCAL DEV: any placeholder works — `wrangler dev` / `--local`
-      // keys the local SQLite by binding name and ignores this id.
-      // When going remote: run `wrangler d1 create mcm-db` and paste
-      // the printed UUID here.
-      "database_id": "local-dev-placeholder"
+      // Remote DB created 2026-06-11 (region APAC, account rnd_ai). Local
+      // dev is unaffected: `wrangler dev` keys its SQLite by binding name
+      // and ignores this id — only `--remote` commands and `deploy` use it.
+      "database_id": "70c15c3f-6dc5-4dbf-bc9e-e011728c7c18"
     }
   ]
 }

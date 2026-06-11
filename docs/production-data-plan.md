@@ -99,13 +99,13 @@ Hiện trạng: 0001–0014 chạy tay, `package.json` chỉ có script cho 0001
 
 (P0 structure parity coi như XONG trừ P0.4 recording: local đã vận hành đúng mô hình đích, lên remote không đổi gì ngoài binding.)
 
-### P1 — Tạo hạ tầng remote (chi tiết lệnh đã có ở audit §5 — tóm tắt)
+### P1 — Tạo hạ tầng remote — ✅ XONG 2026-06-11 (account `rnd_ai@mapgroup.co.kr`)
 
-1. `npx wrangler login` → `npx wrangler r2 bucket create mcm-storage` → `npx wrangler d1 create mcm-db` → dán `database_id` vào `wrangler.jsonc:38`.
-2. `npm run db:migrate:remote` (script P0.1 — KHÔNG chạy tay từng file nữa).
-3. Secrets đúng tên §1.3: `npx wrangler secret put DAILY_API_KEY` / `SUPABASE_SERVICE_API_KEY`; `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `DAILY_DOMAIN` → `vars` trong wrangler.jsonc.
-4. `npx wrangler deploy`; client build `VITE_APP_STORAGE_URL=<worker URL>`; Pages cho app. Migrate dữ liệu local nếu cần giữ: audit §5.5.
-5. Khoá: CORS origin thật (index.ts:70), bỏ default password, rate-limit (audit §5.6).
+1. ✅ R2 bucket `mcm-storage` + D1 `mcm-db` (region APAC, `database_id: 70c15c3f-6dc5-4dbf-bc9e-e011728c7c18` đã dán vào wrangler.jsonc). Local dev KHÔNG đổi — `wrangler dev` vẫn dùng SQLite local theo binding name, chỉ `--remote`/`deploy` đụng remote.
+2. ✅ `node migrate.mjs --remote` — 16/16 applied, verify `--status` sạch.
+3. ✅ Secrets: cả 4 (`DAILY_API_KEY`, `DAILY_DOMAIN`, `SUPABASE_URL`, `SUPABASE_SERVICE_API_KEY`) đẩy bằng `wrangler secret put` — chọn secret cho TẤT CẢ thay vì vars để không commit giá trị account-specific vào git (đổi nhỏ so với plan; `SUPABASE_ANON_KEY` worker không đọc nên bỏ).
+4. ✅ `npx wrangler deploy` → **`https://mcm-storage.rnd-ai.workers.dev`** — smoke test: `/v1/health` 200, route cần JWT trả 401 đúng. Remote DB đang TRỐNG (fresh) — migrate dữ liệu local nếu cần giữ: audit §5.5.
+5. **Cutover client (khi muốn):** build với `VITE_APP_STORAGE_URL=https://mcm-storage.rnd-ai.workers.dev`; Pages cho app = bước riêng (I-tracks roadmap). CHƯA làm (chủ động): CORS vẫn `*` (tiện dev — khoá khi có origin thật), default password, rate-limit (audit §5.6).
 
 ### P2 — Identity UUID + avatar (theo §3, sau khi remote ổn định; mỗi bước một migration, rollback = bỏ qua cột mới)
 
