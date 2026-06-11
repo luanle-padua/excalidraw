@@ -415,6 +415,34 @@ export const vi = {
     comingSoon: "(sắp có)",
   },
 
+  // ---------------- Project overview / management ------------------
+  proj: {
+    overview: "Tổng quan",
+    stats: {
+      total: "cuộc họp",
+      upcoming: "sắp tới",
+      live: "đang diễn ra",
+    },
+    members: "Thành viên",
+    addMember: "Thêm thành viên",
+    removeMember: "Gỡ",
+    removeMemberConfirm: "Gỡ {email} khỏi dự án?",
+    noMembers: "Chưa có thành viên",
+    owner: "Chủ dự án",
+    delete: "Xóa dự án",
+    deleteConfirm:
+      'Xóa dự án "{name}"? Hành động này không thể hoàn tác.',
+    deleteNotEmpty:
+      "Phải xóa hết cuộc họp trong dự án trước khi xóa dự án.",
+    deleteFailed: "Không xóa được dự án.",
+    filterAll: "Tất cả",
+    filterLive: "Đang diễn ra",
+    filterUpcoming: "Sắp tới",
+    filterDone: "Đã xong",
+    filterCancelled: "Đã hủy",
+    memberAddFailed: "Không thêm được thành viên (chỉ email nội bộ).",
+  },
+
   // ---------------- People grid (nhóm người trên meeting) -----------
   people: {
     internalCount: "Nội bộ ({count})",

@@ -21,6 +21,7 @@ import { getMyMeetings, type CalMeeting } from "../../data/calendar";
 import { getMyInvitations, type MyInvitation } from "../../data/invite";
 import {
   createProject,
+  deleteProject,
   getMeeting,
   listMeetings,
   listProjects,
@@ -44,9 +45,12 @@ import {
   isEditableMeetingStatus,
   isFinishedStatus,
   meetingStatusLabel,
+  normalizeMeetingStatus,
 } from "./meetingStatus";
 import { MetadataEditor } from "./MetadataEditor";
 import { MyFilesPanel } from "./MyFilesPanel";
+import { ProjectMemberRoster } from "./ProjectMemberRoster";
+import { ProjectOverviewHeader } from "./ProjectOverviewHeader";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { buildProjectFields } from "./metadataFields";
 
@@ -158,6 +162,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // Middle-column presentation (persisted in component state for the session).
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortBy, setSortBy] = useState<SortBy>("time");
+  // Status filter chips for the card list (overview + project views).
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "live" | "upcoming" | "done" | "cancelled"
+  >("all");
   // The card whose colour-swatch menu is open (one at a time), by room id.
   const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
   const [colorMenuAnchor, setColorMenuAnchor] = useState<DOMRect | null>(null);
@@ -332,8 +340,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setEditRoomId(m.id);
   };
 
-  // Assign (or clear) a meeting's colour, then refresh so the card stripe and
-  // the calendar event (which reads meeting.color) update together.
+  // Assign (or clear) a meeting's colour. Patch ONLY the one card in place —
+  // a full refreshCards() re-fetched and re-rendered the whole list, which
+  // flashed the entire meeting viewer. The calendar self-refetches via
+  // calRefresh so its event tint stays in sync.
   const assignColor = async (id: string, color: string | null) => {
     setColorMenuFor(null);
     const ok = await updateMeeting(id, { color });
@@ -341,7 +351,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       showAppToast(t("errors.colorFailed"));
       return;
     }
-    await refreshCards();
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, color } : c)));
     setCalRefresh((k) => k + 1);
   };
 
@@ -367,6 +377,39 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     }
     setEditingProject(null);
     await refreshProjects();
+  };
+
+  // The selected project's owner (or an admin) gets the overview Edit/Delete
+  // affordances + the roster's add/remove controls.
+  const isOwnerOfSelected =
+    !!selectedProject &&
+    (selectedProject.host_email?.toLowerCase() ===
+      session?.email?.toLowerCase() ||
+      !!session?.isAdmin);
+
+  // Delete the selected project (owner/admin). The worker rejects a non-empty
+  // project with 409 — surface that as a "remove the meetings first" hint
+  // rather than a generic failure.
+  const handleDeleteProject = async () => {
+    if (!selectedProject) {
+      return;
+    }
+    if (
+      !window.confirm(t("proj.deleteConfirm", { name: selectedProject.name }))
+    ) {
+      return;
+    }
+    const { ok, status } = await deleteProject(selectedProject.id);
+    if (ok) {
+      setView("all");
+      await refreshProjects();
+      return;
+    }
+    if (status === 409) {
+      window.alert(t("proj.deleteNotEmpty"));
+      return;
+    }
+    showAppToast(t("proj.deleteFailed"));
   };
 
   // Apply the chosen sort. "By time" is CALENDAR logic, not a flat list:
@@ -401,6 +444,23 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     }
     return aMs - bMs; // within a day: chronological
   });
+
+  // Status filter chips narrow the (already-sorted) card list before render.
+  // Map the normalized lifecycle to the chip buckets: live→live,
+  // scheduled→upcoming, finished→done, cancelled→cancelled.
+  const filteredCards =
+    statusFilter === "all"
+      ? sortedCards
+      : sortedCards.filter((m) => {
+          const n = normalizeMeetingStatus(m.status);
+          if (statusFilter === "upcoming") {
+            return n === "scheduled";
+          }
+          if (statusFilter === "done") {
+            return n === "finished";
+          }
+          return n === statusFilter; // live | cancelled
+        });
 
   // Human day label for the separators: Hôm nay / Ngày mai / locale date.
   const dayLabelOf = (ms: number): string => {
@@ -533,11 +593,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             {/* Edit only for the project HOST (or an admin) — the Worker
                 rejects the PATCH for anyone else, so don't offer a button
                 that "saves" into a 403. Legacy projects with a null
-                host_email: only admins can edit (accepted trade-off). */}
+                host_email: only admins can edit (accepted trade-off). Hidden
+                in list mode, where the overview header carries its own
+                Edit/Delete; only shown in the detail/edit/form sub-views. */}
             {selectedProject &&
-              (selectedProject.host_email?.toLowerCase() ===
-                session?.email?.toLowerCase() ||
-                session?.isAdmin) && (
+              isOwnerOfSelected &&
+              (detailRoomId || meetingFormOpen || editRoomId) && (
                 <button
                   type="button"
                   className="mcm-icon-btn mcm-icon-btn--sm"
@@ -598,6 +659,34 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                     <option value="status">{t("sort.status")}</option>
                   </select>
                 </label>
+                {/* Status filter chips — narrow the card list by lifecycle. */}
+                <div
+                  className="mcm-chips"
+                  role="group"
+                  aria-label={t("sort.status")}
+                >
+                  {(
+                    [
+                      ["all", t("proj.filterAll")],
+                      ["live", t("proj.filterLive")],
+                      ["upcoming", t("proj.filterUpcoming")],
+                      ["done", t("proj.filterDone")],
+                      ["cancelled", t("proj.filterCancelled")],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`mcm-chip${
+                        statusFilter === key ? " mcm-chip--active" : ""
+                      }`}
+                      onClick={() => setStatusFilter(key)}
+                      aria-pressed={statusFilter === key ? "true" : "false"}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           {view !== "invited" &&
@@ -618,6 +707,26 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
+          {/* COMPACT project context strip (this is a meeting app — quyết
+              định 06-11): one row of identity + counters; description, the
+              member roster and owner actions live behind its expand toggle.
+              Roster only for true membership, never an invitee folder. */}
+          {selectedProject && !detailRoomId && !meetingFormOpen && !editRoomId && (
+            <ProjectOverviewHeader
+              project={selectedProject}
+              meetings={cards}
+              isOwner={isOwnerOfSelected}
+              onEdit={() => setEditingProject(selectedProject)}
+              onDelete={handleDeleteProject}
+            >
+              {isMemberProject(selectedProject) && (
+                <ProjectMemberRoster
+                  projectId={selectedProject.id}
+                  isOwner={isOwnerOfSelected}
+                />
+              )}
+            </ProjectOverviewHeader>
+          )}
           {view === "myfiles" ? (
             <MyFilesPanel />
           ) : editRoomId ? (
@@ -668,175 +777,181 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             />
           ) : loadingCards ? (
             <div className="mcm-3col__hint">…</div>
-          ) : cards.length === 0 ? (
+          ) : filteredCards.length === 0 ? (
             <div className="mcm-3col__hint">{t("folder.noMeetings")}</div>
           ) : (
-            <ul
-              className={`mcm-mcards mcm-mcards--${viewMode}`}
-              data-sort={sortBy}
-            >
-              {sortedCards.map((m, idx) => {
-                const when = meetingWhenMs(m);
-                const stripe = meetingColor(m.color, m.status);
-                const projectName = selectedProject?.name ?? m.project_name;
-                // "By time" groups by DAY: emit a separator whenever this
-                // card's day differs from the previous card's.
-                const daySep =
-                  sortBy === "time" &&
-                  (idx === 0 ||
-                    dayKeyOf(meetingWhenMs(sortedCards[idx - 1])) !==
-                      dayKeyOf(when)) ? (
-                    <li
-                      key={`day-${dayKeyOf(when)}`}
-                      className="mcm-mcards__daysep"
-                      aria-hidden="true"
-                    >
-                      {dayLabelOf(when)}
-                    </li>
-                  ) : null;
-                return (
-                  <Fragment key={m.id}>
-                    {daySep}
-                    <li
-                      className={`mcm-mcard mcm-mcard--${statusBucket(
-                        m.status,
-                      )}`}
-                      style={
-                        {
-                          ["--mcard-color" as string]: stripe,
-                        } as React.CSSProperties
-                      }
-                    >
-                      <span className="mcm-mcard__stripe" aria-hidden="true" />
-                      {statusBucket(m.status) === "in-progress" && (
+            <div className="mcm-mcards-scroll">
+              <ul
+                className={`mcm-mcards mcm-mcards--${viewMode}`}
+                data-sort={sortBy}
+              >
+                {filteredCards.map((m, idx) => {
+                  const when = meetingWhenMs(m);
+                  const stripe = meetingColor(m.color, m.status);
+                  const projectName = selectedProject?.name ?? m.project_name;
+                  // "By time" groups by DAY: emit a separator whenever this
+                  // card's day differs from the previous card's.
+                  const daySep =
+                    sortBy === "time" &&
+                    (idx === 0 ||
+                      dayKeyOf(meetingWhenMs(filteredCards[idx - 1])) !==
+                        dayKeyOf(when)) ? (
+                      <li
+                        key={`day-${dayKeyOf(when)}`}
+                        className="mcm-mcards__daysep"
+                        aria-hidden="true"
+                      >
+                        {dayLabelOf(when)}
+                      </li>
+                    ) : null;
+                  return (
+                    <Fragment key={m.id}>
+                      {daySep}
+                      <li
+                        className={`mcm-mcard mcm-mcard--${statusBucket(
+                          m.status,
+                        )}`}
+                        style={
+                          {
+                            ["--mcard-color" as string]: stripe,
+                          } as React.CSSProperties
+                        }
+                      >
                         <span
-                          className="mcm-mcard__livedot"
+                          className="mcm-mcard__stripe"
                           aria-hidden="true"
                         />
-                      )}
-                      <button
-                        type="button"
-                        className="mcm-mcard__main"
-                        onClick={() => handleReopen(m)}
-                        disabled={busy}
-                        title={t("folder.reopen")}
-                      >
-                        <span className="mcm-mcard__title">
-                          {m.title || t("folder.meetingFallbackTitle")}
-                        </span>
-                        {m.topic && (
-                          <span className="mcm-mcard__topic">{m.topic}</span>
-                        )}
-                        <span className="mcm-mcard__when">
-                          <span className="mcm-mcard__date">
-                            {fmtDateOnly(when)}
-                          </span>
-                          {fmtTimeOnly(when) && (
-                            <span className="mcm-mcard__time">
-                              {fmtTimeOnly(when)}
-                            </span>
-                          )}
-                        </span>
-                        {/* Creator — always visible on the card so ownership
-                          ("ai tạo cuộc họp này") reads at a glance. */}
-                        {(m.created_by || m.organizer_email) && (
+                        {statusBucket(m.status) === "in-progress" && (
                           <span
-                            className="mcm-mcard__creator"
-                            style={
-                              {
-                                ["--pa" as string]: personColor(
-                                  m.organizer_email || m.created_by,
-                                ),
-                              } as React.CSSProperties
-                            }
-                            title={m.organizer_email ?? undefined}
-                          >
-                            <span
-                              className="mcm-mcard__creator-ava"
-                              aria-hidden="true"
-                            >
-                              {(m.created_by || m.organizer_email)!
-                                .trim()[0]
-                                ?.toUpperCase()}
-                            </span>
-                            <span className="mcm-mcard__creator-name">
-                              {m.created_by || m.organizer_email!.split("@")[0]}
-                            </span>
-                          </span>
+                            className="mcm-mcard__livedot"
+                            aria-hidden="true"
+                          />
                         )}
-                        <span className="mcm-mcard__foot">
-                          {m.status && (
-                            <span
-                              className={`mcm-pill mcm-pill--${statusBucket(
-                                m.status,
-                              )}`}
-                            >
-                              {meetingStatusLabel(t, m.status)}
-                            </span>
-                          )}
-                          {projectName && (
-                            <span className="mcm-mcard__project">
-                              {projectName}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                      <div className="mcm-mcard__actions">
-                        <div className="mcm-mcard__color">
-                          <button
-                            type="button"
-                            className="mcm-icon-btn mcm-icon-btn--sm"
-                            onClick={(e) => {
-                              if (colorMenuFor === m.id) {
-                                setColorMenuFor(null);
-                              } else {
-                                setColorMenuAnchor(
-                                  e.currentTarget.getBoundingClientRect(),
-                                );
-                                setColorMenuFor(m.id);
-                              }
-                            }}
-                            title={t("color.label")}
-                            aria-label={t("color.label")}
-                          >
-                            <Palette size={14} />
-                          </button>
-                          {colorMenuFor === m.id && colorMenuAnchor && (
-                            <ColorMenu
-                              anchor={colorMenuAnchor}
-                              current={m.color ?? null}
-                              onPick={(c) => void assignColor(m.id, c)}
-                              onClose={() => setColorMenuFor(null)}
-                              clearLabel={t("color.none")}
-                            />
-                          )}
-                        </div>
                         <button
                           type="button"
-                          className="mcm-icon-btn mcm-icon-btn--sm"
-                          onClick={() => setDetailRoomId(m.id)}
-                          title={t("folder.detail")}
-                          aria-label={t("folder.detail")}
+                          className="mcm-mcard__main"
+                          onClick={() => handleReopen(m)}
+                          disabled={busy}
+                          title={t("folder.reopen")}
                         >
-                          <Eye size={14} />
+                          <span className="mcm-mcard__title">
+                            {m.title || t("folder.meetingFallbackTitle")}
+                          </span>
+                          {m.topic && (
+                            <span className="mcm-mcard__topic">{m.topic}</span>
+                          )}
+                          <span className="mcm-mcard__when">
+                            <span className="mcm-mcard__date">
+                              {fmtDateOnly(when)}
+                            </span>
+                            {fmtTimeOnly(when) && (
+                              <span className="mcm-mcard__time">
+                                {fmtTimeOnly(when)}
+                              </span>
+                            )}
+                          </span>
+                          {/* Creator — always visible on the card so ownership
+                          ("ai tạo cuộc họp này") reads at a glance. */}
+                          {(m.created_by || m.organizer_email) && (
+                            <span
+                              className="mcm-mcard__creator"
+                              style={
+                                {
+                                  ["--pa" as string]: personColor(
+                                    m.organizer_email || m.created_by,
+                                  ),
+                                } as React.CSSProperties
+                              }
+                              title={m.organizer_email ?? undefined}
+                            >
+                              <span
+                                className="mcm-mcard__creator-ava"
+                                aria-hidden="true"
+                              >
+                                {(m.created_by || m.organizer_email)!
+                                  .trim()[0]
+                                  ?.toUpperCase()}
+                              </span>
+                              <span className="mcm-mcard__creator-name">
+                                {m.created_by ||
+                                  m.organizer_email!.split("@")[0]}
+                              </span>
+                            </span>
+                          )}
+                          <span className="mcm-mcard__foot">
+                            {m.status && (
+                              <span
+                                className={`mcm-pill mcm-pill--${statusBucket(
+                                  m.status,
+                                )}`}
+                              >
+                                {meetingStatusLabel(t, m.status)}
+                              </span>
+                            )}
+                            {projectName && (
+                              <span className="mcm-mcard__project">
+                                {projectName}
+                              </span>
+                            )}
+                          </span>
                         </button>
-                        {canEditCard(m) && (
+                        <div className="mcm-mcard__actions">
+                          <div className="mcm-mcard__color">
+                            <button
+                              type="button"
+                              className="mcm-icon-btn mcm-icon-btn--sm"
+                              onClick={(e) => {
+                                if (colorMenuFor === m.id) {
+                                  setColorMenuFor(null);
+                                } else {
+                                  setColorMenuAnchor(
+                                    e.currentTarget.getBoundingClientRect(),
+                                  );
+                                  setColorMenuFor(m.id);
+                                }
+                              }}
+                              title={t("color.label")}
+                              aria-label={t("color.label")}
+                            >
+                              <Palette size={14} />
+                            </button>
+                            {colorMenuFor === m.id && colorMenuAnchor && (
+                              <ColorMenu
+                                anchor={colorMenuAnchor}
+                                current={m.color ?? null}
+                                onPick={(c) => void assignColor(m.id, c)}
+                                onClose={() => setColorMenuFor(null)}
+                                clearLabel={t("color.none")}
+                              />
+                            )}
+                          </div>
                           <button
                             type="button"
                             className="mcm-icon-btn mcm-icon-btn--sm"
-                            onClick={() => openMeetingEditor(m)}
-                            title={t("folder.editMeeting")}
-                            aria-label={t("folder.editMeeting")}
+                            onClick={() => setDetailRoomId(m.id)}
+                            title={t("folder.detail")}
+                            aria-label={t("folder.detail")}
                           >
-                            <Pencil size={14} />
+                            <Eye size={14} />
                           </button>
-                        )}
-                      </div>
-                    </li>
-                  </Fragment>
-                );
-              })}
-            </ul>
+                          {canEditCard(m) && (
+                            <button
+                              type="button"
+                              className="mcm-icon-btn mcm-icon-btn--sm"
+                              onClick={() => openMeetingEditor(m)}
+                              title={t("folder.editMeeting")}
+                              aria-label={t("folder.editMeeting")}
+                            >
+                              <Pencil size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    </Fragment>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       </section>

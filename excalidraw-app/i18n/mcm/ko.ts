@@ -400,6 +400,32 @@ export const ko: Widened<typeof vi> = {
     comingSoon: "(예정)",
   },
 
+  // ---------------- Project overview / management ------------------
+  proj: {
+    overview: "개요",
+    stats: {
+      total: "회의",
+      upcoming: "예정",
+      live: "진행 중",
+    },
+    members: "구성원",
+    addMember: "구성원 추가",
+    removeMember: "제거",
+    removeMemberConfirm: "{email} 님을 프로젝트에서 제거할까요?",
+    noMembers: "아직 구성원이 없습니다",
+    owner: "프로젝트 소유자",
+    delete: "프로젝트 삭제",
+    deleteConfirm: '"{name}" 프로젝트를 삭제할까요? 되돌릴 수 없습니다.',
+    deleteNotEmpty: "프로젝트를 삭제하기 전에 모든 회의를 먼저 삭제하세요.",
+    deleteFailed: "프로젝트를 삭제하지 못했습니다.",
+    filterAll: "전체",
+    filterLive: "진행 중",
+    filterUpcoming: "예정",
+    filterDone: "완료",
+    filterCancelled: "취소됨",
+    memberAddFailed: "구성원을 추가하지 못했습니다 (내부 이메일만 가능).",
+  },
+
   // ---------------- People grid ---------------------------------------
   people: {
     internalCount: "내부 ({count})",

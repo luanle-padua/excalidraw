@@ -9153,6 +9153,67 @@ body:has(.excalidraw.theme--dark) {
 // No thumbnail. A left colour stripe (meeting.color → status fallback) then
 // title / topic / date+time / status pill + project name. Grid = compact
 // cards; list = full-width rows. Hover reveals colour + detail + edit.
+// Status-filter chips (toolbar above the meeting list) — quiet pills, the
+// active one filled with the accent. Wraps on narrow widths.
+.mcm-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mcm-chip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--mcm-hairline);
+  background: var(--mcm-surface);
+  color: var(--mcm-text-soft);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+
+  &:hover {
+    border-color: var(--mcm-accent);
+    color: var(--mcm-accent);
+  }
+
+  &--active {
+    background: var(--mcm-accent);
+    border-color: var(--mcm-accent);
+    color: #fff;
+
+    &:hover {
+      color: #fff;
+    }
+  }
+}
+
+// Scroll wrapper around the meeting list — owns the height bound + scrollbar
+// so the <ul> inside keeps its NATURAL grid/list height (putting flex:1 +
+// overflow directly on the grid <ul> squished the cards flat). Fills the
+// middle frame; a long list scrolls here with a visible thin track.
+.mcm-mcards-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--mcm-text-faint);
+    background-clip: padding-box;
+  }
+}
+
 .mcm-mcards {
   list-style: none;
   margin: 0;

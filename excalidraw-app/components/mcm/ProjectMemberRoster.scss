@@ -1,0 +1,17 @@
+// Project member roster — the badges themselves come from the shared
+// PeopleGrid (.mcm-pgrid/.mcm-pchip, styled in MeetingShell.scss); this file
+// only owns the container + the add-member button.
+
+.mcm-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__add {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+}

@@ -393,6 +393,32 @@ export const en: Widened<typeof vi> = {
     comingSoon: "(coming soon)",
   },
 
+  // ---------------- Project overview / management ------------------
+  proj: {
+    overview: "Overview",
+    stats: {
+      total: "meetings",
+      upcoming: "upcoming",
+      live: "live",
+    },
+    members: "Members",
+    addMember: "Add member",
+    removeMember: "Remove",
+    removeMemberConfirm: "Remove {email} from the project?",
+    noMembers: "No members yet",
+    owner: "Project owner",
+    delete: "Delete project",
+    deleteConfirm: 'Delete project "{name}"? This cannot be undone.',
+    deleteNotEmpty: "Delete all meetings in the project before deleting it.",
+    deleteFailed: "Couldn't delete the project.",
+    filterAll: "All",
+    filterLive: "Live",
+    filterUpcoming: "Upcoming",
+    filterDone: "Done",
+    filterCancelled: "Cancelled",
+    memberAddFailed: "Couldn't add member (internal emails only).",
+  },
+
   // ---------------- People grid ---------------------------------------
   people: {
     internalCount: "Internal ({count})",

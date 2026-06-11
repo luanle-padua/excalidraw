@@ -371,6 +371,95 @@ export const logParticipation = async (
   }
 };
 
+// ---------------- Project members + project deletion ----------------
+// Roster management for the project-overview view. The worker already
+// owns the routes (GET/POST/DELETE /v1/projects/:id/members,
+// DELETE /v1/projects/:id); these are the missing clients.
+
+export type ProjectMember = {
+  email: string;
+  role: string;
+  added_by: string | null;
+  added_at: number;
+};
+
+export const listProjectMembers = async (
+  projectId: string,
+): Promise<ProjectMember[]> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return [];
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/members`,
+    );
+    if (!res.ok) {
+      return [];
+    }
+    return (await res.json()).members ?? [];
+  } catch {
+    return [];
+  }
+};
+
+export const addProjectMembers = async (
+  projectId: string,
+  emails: string[],
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/members`,
+      { method: "POST", headers: json, body: JSON.stringify({ emails }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+export const removeProjectMember = async (
+  projectId: string,
+  email: string,
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/members/${encodeURIComponent(email)}`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Delete an empty project. The worker returns 409 when the project still
+// has meetings — surface the status so the caller can prompt "delete the
+// meetings first" instead of a generic failure.
+export const deleteProject = async (
+  projectId: string,
+): Promise<{ ok: boolean; status: number }> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return { ok: false, status: 0 };
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}`,
+      { method: "DELETE" },
+    );
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+};
+
 // Daily.co screen-share token for a meeting. The worker mints a short-lived
 // token for the Daily room named after `roomId` (creating it on first use)
 // and returns the join URL + token. The API key lives only on the worker.
