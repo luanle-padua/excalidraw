@@ -1326,13 +1326,22 @@ app.post("/v1/meetings/:roomId/summary", async (c) => {
   if (!summary?.trim()) {
     return c.json({ error: "summary required" }, 400);
   }
+  // The auto-summary at End-for-all writes ONCE (ai_summary was NULL). A
+  // reviewer must not regenerate-and-overwrite the stored recap — restrict
+  // the write to the still-empty case. Admin bypasses for ops/repair.
+  const isAdmin = c.get("role") === "admin";
   const res = await c.env.DB.prepare(
-    `UPDATE meeting SET ai_summary = ?2, ai_summary_at = ?3 WHERE id = ?1`,
+    isAdmin
+      ? `UPDATE meeting SET ai_summary = ?2, ai_summary_at = ?3 WHERE id = ?1`
+      : `UPDATE meeting SET ai_summary = ?2, ai_summary_at = ?3
+         WHERE id = ?1 AND (ai_summary IS NULL OR ai_summary = '')`,
   )
     .bind(roomId, summary.trim().slice(0, 20_000), now())
     .run();
   if (!res.meta.changes) {
-    return c.json({ error: "not found" }, 404);
+    // No row changed: either the meeting doesn't exist or a summary already
+    // exists (reviewer overwrite blocked). Both are a no-op for the caller.
+    return c.json({ ok: true, skipped: true });
   }
   return c.json({ ok: true });
 });

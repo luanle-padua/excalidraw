@@ -686,7 +686,11 @@ const ExcalidrawWrapper = () => {
     appState: AppState,
     files: BinaryFiles,
   ) => {
-    if (collabAPI?.isCollaborating()) {
+    // Review = no scene writes. syncElements both broadcasts to peers and
+    // queues the R2 save; the broadcast + save are also sealed centrally
+    // (Portal._broadcastSocketData, saveCollabRoomToFirebase), this is the
+    // cheapest backstop on the hot path so we don't even diff in review.
+    if (collabAPI?.isCollaborating() && !meetingViewOnly) {
       collabAPI.syncElements(elements);
     }
 
@@ -903,7 +907,11 @@ const ExcalidrawWrapper = () => {
           autoFocus={true}
           theme={editorTheme}
           renderTopRightUI={(isMobile) => {
-            if (isMobile || !collabAPI || isCollabDisabled) {
+            // No "Live collaboration" share affordance in review: it opens the
+            // share dialog (Copy link / QR / native share) which would leak
+            // the E2E #room=id,KEY of a finished meeting — the same share-key
+            // family as the (already-removed) header Share button.
+            if (isMobile || !collabAPI || isCollabDisabled || meetingViewOnly) {
               return null;
             }
 
@@ -1098,7 +1106,10 @@ const ExcalidrawWrapper = () => {
         </Excalidraw>
         <MentionOverlay />
         <CanvasMention />
-        <RevisionCloudController />
+        {/* Revision cloud is a drawing tool (writes elements) — viewMode
+            already blocks the toolbar + key, but don't even mount it in
+            review (defense in depth). */}
+        {!meetingViewOnly && <RevisionCloudController />}
         <AudioRoomController />
       </div>
     </MeetingShell>

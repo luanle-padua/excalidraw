@@ -28,8 +28,8 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
-import { useAtomValue } from "../../../app-jotai";
-import { collabAPIAtom } from "../../../collab/Collab";
+import { useAtomValue, appJotaiStore } from "../../../app-jotai";
+import { collabAPIAtom, meetingViewOnlyAtom } from "../../../collab/Collab";
 import { meetingFilesAtom, isIfcModelFile } from "../../../data/meetingLibrary";
 import { openFileInIfcView } from "../../../data/ifcViewState";
 import { useT } from "../../../i18n/mcm";
@@ -218,6 +218,9 @@ export const IFCCanvasOverlay = () => {
    *  together with the persisted ifcView, in a single updateScene that
    *  Excalidraw's onChange broadcasts to peers + round-trips on reload. */
   const captureAndPersistView = async (anchor: AnchorPosition) => {
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     if (!excalidrawAPI) {
       return;
     }

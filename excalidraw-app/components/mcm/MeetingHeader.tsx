@@ -491,16 +491,21 @@ export const MeetingHeader = ({
             <span className="mcm-header__btn-count">{log.length}</span>
           )}
         </button>
-        <button
-          type="button"
-          className="mcm-header__btn mcm-header__btn--ghost"
-          onClick={() => void handleShare()}
-          disabled={!activeRoomLink}
-          title={t("header.share")}
-        >
-          <Share2 size={18} />
-          {t("header.share")}
-        </button>
+        {/* A finished meeting is a CLOSED record — review offers no "share
+            this room" affordance (quyết định anh Luân 06-11). The server
+            already refuses guests; this removes the invitation to leak. */}
+        {!viewOnly && (
+          <button
+            type="button"
+            className="mcm-header__btn mcm-header__btn--ghost"
+            onClick={() => void handleShare()}
+            disabled={!activeRoomLink}
+            title={t("header.share")}
+          >
+            <Share2 size={18} />
+            {t("header.share")}
+          </button>
+        )}
         <button
           type="button"
           className={`mcm-header__icon-btn${

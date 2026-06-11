@@ -20,7 +20,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
-import { useAtomValue } from "../../../app-jotai";
+import { useAtomValue, appJotaiStore } from "../../../app-jotai";
+import { meetingViewOnlyAtom } from "../../../collab/Collab";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
 import { useT } from "../../../i18n/mcm";
 
@@ -277,6 +278,9 @@ export const DXFCanvasOverlay = () => {
    *  (persisting customData triggers a re-render that may unmount
    *  the renderer the moment a cache hit becomes available). */
   const captureAndPersistView = async (anchor: AnchorPosition) => {
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     const controls = controlsRef.current.get(anchor.elementId);
     if (!controls) {
       return;

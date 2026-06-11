@@ -603,6 +603,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   saveCollabRoomToFirebase = async (
     syncableElements: readonly SyncableExcalidrawElement[],
   ) => {
+    // CENTRAL REVIEW SEAL: never write a finished meeting's scene blob —
+    // every scene-PUT path (onChange autosave, stopCollaboration on exit,
+    // beforeunload, flush) funnels through here. Without this the worker's
+    // 10-minute grace window let a reviewer overwrite the stored scene.
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     syncableElements = cloneJSON(syncableElements);
     // Capture which room this save belongs to. If the user switches rooms
     // while this async save is in flight, the success tail below must NOT
@@ -2709,6 +2716,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     fileId: string,
     dataURL: string,
   ): Promise<boolean> => {
+    // Review writes nothing to R2 — anchor snapshots (IFC/DXF/PDF focus bake)
+    // PUT bytes directly, bypassing the scene-save seal.
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return false;
+    }
     const { roomId, roomKey } = this.portal;
     if (!roomId || !roomKey) {
       return false;
@@ -3056,6 +3068,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
    *  emit one broadcast per file so we don't blow past the per-message
    *  byte limit when libraries grow. Receivers de-dupe by fileId. */
   private broadcastLibrarySnapshot = () => {
+    // Broadcasts are sealed centrally in Portal, but broadcastLibraryFileSmart
+    // ALSO PUTs large-file bytes to R2 — short-circuit the whole loop in review
+    // so a peer joining mid-review can't trigger a re-upload.
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     const files = appJotaiStore.get(meetingFilesAtom);
     for (const f of files) {
       void this.broadcastLibraryFileSmart(f);

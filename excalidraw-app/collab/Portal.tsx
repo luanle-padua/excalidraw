@@ -11,8 +11,11 @@ import type {
   SocketId,
 } from "@excalidraw/excalidraw/types";
 
+import { appJotaiStore } from "../app-jotai";
 import { WS_EVENTS, FILE_UPLOAD_TIMEOUT, WS_SUBTYPES } from "../app_constants";
 import { isSyncableElement } from "../data";
+
+import { meetingViewOnlyAtom } from "./Collab";
 
 import type {
   SocketUpdateData,
@@ -87,6 +90,15 @@ class Portal {
     volatile: boolean = false,
     roomId?: string,
   ) {
+    // CENTRAL REVIEW SEAL: a reviewer of a finished meeting emits NOTHING —
+    // scene deltas, cursor, profile, audio state, reactions, library, host
+    // commands all funnel through here. The socket relay never gates server-
+    // side, so an un-gated broadcast desyncs every peer permanently. Read at
+    // call-time (the atom lives in the cyclic Collab module). Stealth review
+    // never opens a socket, so this only ever bites non-stealth review.
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     if (this.isOpen()) {
       const json = JSON.stringify(data);
       const encoded = new TextEncoder().encode(json);

@@ -20,16 +20,19 @@ export const AppMainMenu: React.FC<{
 }> = React.memo((props) => {
   return (
     <MainMenu>
-      <MainMenu.DefaultItems.LoadScene />
-      <MainMenu.DefaultItems.SaveToActiveFile />
+      {/* MCM menu — trimmed from upstream Excalidraw to fit an internal
+          meeting tool (quyết định anh Luân 06-11). Removed:
+          • LiveCollaborationTrigger — Excalidraw's OWN ad-hoc collab room; a
+            second, ungoverned "share by link" path that bypasses the meeting
+            invite/lifecycle model entirely (the share-leak family).
+          • LoadScene — loads a local .excalidraw file that REPLACES the shared
+            meeting canvas; wipes everyone's content, no place in a meeting.
+          • SaveToActiveFile — local .excalidraw round-trip; the meeting scene
+            already persists to R2. Confusing parallel "save" with no role.
+          Kept: Export + SaveAsImage (extract-only — matches review contract),
+          CommandPalette/Search/Help, ClearCanvas, prefs/theme/lang/bg. */}
       <MainMenu.DefaultItems.Export />
       <MainMenu.DefaultItems.SaveAsImage />
-      {props.isCollabEnabled && (
-        <MainMenu.DefaultItems.LiveCollaborationTrigger
-          isCollaborating={props.isCollaborating}
-          onSelect={() => props.onCollabDialogOpen()}
-        />
-      )}
       <MainMenu.DefaultItems.CommandPalette className="highlighted" />
       <MainMenu.DefaultItems.SearchMenu />
       <MainMenu.DefaultItems.Help />

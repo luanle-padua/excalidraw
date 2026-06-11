@@ -23,7 +23,8 @@ import type {
 } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
-import { useAtomValue } from "../../../app-jotai";
+import { appJotaiStore, useAtomValue } from "../../../app-jotai";
+import { meetingViewOnlyAtom } from "../../../collab/Collab";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
 
 import { PDFRenderer } from "./PDFRenderer";
@@ -364,6 +365,9 @@ export const PDFCanvasOverlay = () => {
    *  updateScene. Both Prev and Next buttons funnel through this so
    *  the persist + broadcast logic lives in one place. */
   const persistPage = (elementId: string, nextPage: number) => {
+    if (appJotaiStore.get(meetingViewOnlyAtom)) {
+      return;
+    }
     if (!excalidrawAPI) {
       return;
     }
