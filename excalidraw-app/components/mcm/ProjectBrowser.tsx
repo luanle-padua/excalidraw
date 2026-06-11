@@ -260,7 +260,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const startResize = (e: React.MouseEvent) => {
     e.preventDefault();
     const onMove = (ev: MouseEvent) =>
-      setCalWidth(Math.max(300, Math.min(760, window.innerWidth - ev.clientX)));
+      // Floor 360 matches the calendar column's CSS min so dragging can't
+      // shrink Schedule-X into a cramped/agenda reflow.
+      setCalWidth(Math.max(360, Math.min(760, window.innerWidth - ev.clientX)));
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
@@ -696,7 +698,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                   <Fragment key={m.id}>
                     {daySep}
                     <li
-                      className="mcm-mcard"
+                      className={`mcm-mcard mcm-mcard--${statusBucket(
+                        m.status,
+                      )}`}
                       style={
                         {
                           ["--mcard-color" as string]: stripe,
@@ -704,6 +708,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                       }
                     >
                       <span className="mcm-mcard__stripe" aria-hidden="true" />
+                      {statusBucket(m.status) === "in-progress" && (
+                        <span
+                          className="mcm-mcard__livedot"
+                          aria-hidden="true"
+                        />
+                      )}
                       <button
                         type="button"
                         className="mcm-mcard__main"

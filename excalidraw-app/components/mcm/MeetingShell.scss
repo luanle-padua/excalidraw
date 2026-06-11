@@ -7575,8 +7575,28 @@ body:has(.excalidraw.theme--dark) {
 .mcm-folder__rpanel-body {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  // Always-visible thin scrollbar so a tall meeting detail clearly scrolls
+  // (the meeting viewer was getting clipped with no obvious bar). overflow-y
+  // scroll, not auto, keeps the track present so the affordance reads.
+  overflow-y: scroll;
+  overflow-x: hidden;
   padding: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--mcm-text-faint);
+    background-clip: padding-box;
+  }
 
   > * {
     max-width: 760px;
@@ -8392,12 +8412,15 @@ body:has(.excalidraw.theme--dark) {
   display: grid;
   // Meetings + calendar split 50/50 by default (both 1fr); dragging the
   // divider switches the calendar column to a fixed px width via --cal-w.
-  grid-template-columns: 248px minmax(0, 1fr) var(--cal-w, 1fr);
+  // The calendar column has a 360px FLOOR so Schedule-X always renders a
+  // proper month grid — below that it silently reflowed to a cramped view
+  // when the browser/divider narrowed, which read as "the view changed".
+  grid-template-columns: 248px minmax(0, 1fr) minmax(360px, var(--cal-w, 1fr));
   min-height: 0;
   background: var(--mcm-bg);
 
   @media (max-width: 1180px) {
-    grid-template-columns: 216px minmax(0, 1fr) var(--cal-w, 1fr);
+    grid-template-columns: 216px minmax(0, 1fr) minmax(360px, var(--cal-w, 1fr));
   }
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
@@ -9150,28 +9173,74 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+@keyframes mcm-livepulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-success) 70%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--mcm-success) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-success) 0%, transparent);
+  }
+}
+
 .mcm-mcard {
   position: relative;
   display: flex;
   align-items: stretch;
   overflow: hidden;
-  background: var(--mcm-surface);
-  border: 1px solid var(--mcm-hairline);
+  // The meeting's colour now TINTS the whole card (not just a stripe) — a
+  // soft wash that keeps text legible in both themes while making each
+  // meeting's colour read at a glance. --mcard-color is the user/​status hue.
+  background: color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 12%, var(--mcm-surface));
+  border: 1px solid
+    color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 30%, var(--mcm-hairline));
   border-radius: 12px;
   transition: border-color 200ms ease, box-shadow 200ms ease,
     transform 150ms ease;
 
   &:hover {
-    border-color: var(--mcm-accent);
+    border-color: var(--mcard-color, var(--mcm-accent));
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 16px rgba(0, 0, 0, 0.08);
   }
 
-  // Left colour stripe — the meeting's effective colour.
+  // Left colour stripe — a stronger solid edge of the same hue, bookending
+  // the tinted body.
   &__stripe {
     flex-shrink: 0;
     width: 4px;
     align-self: stretch;
     background: var(--mcard-color, var(--mcm-accent));
+  }
+
+  // LIVE meeting — unmistakable: a green ring + soft glow that overrides the
+  // colour tint, plus a pulsing dot top-right. Catches the eye in a grid of
+  // scheduled/finished cards.
+  &--in-progress {
+    background: color-mix(in srgb, var(--mcm-success) 12%, var(--mcm-surface));
+    border-color: var(--mcm-success);
+    box-shadow: 0 0 0 1px var(--mcm-success),
+      0 4px 14px color-mix(in srgb, var(--mcm-success) 35%, transparent);
+
+    &:hover {
+      border-color: var(--mcm-success);
+    }
+    .mcm-mcard__stripe {
+      background: var(--mcm-success);
+    }
+  }
+
+  &__livedot {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mcm-success);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-success) 70%, transparent);
+    animation: mcm-livepulse 1.8s ease-out infinite;
   }
 
   // Main click target (reopen). Fills the rest of the card.

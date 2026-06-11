@@ -1174,7 +1174,11 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     b.duration_min !== undefined ||
     b.organizer_email !== undefined ||
     b.host_email !== undefined;
-  if (b.status !== undefined || touchesContent || b.color !== undefined) {
+  // NOTE: `color` is NOT in this guard — it's a cosmetic shared accent (the
+  // calendar tint), exempt from the finished-immutable rule, so a colour-only
+  // PATCH falls straight through to the UPDATE below (even on a finished
+  // meeting). Including it here wrongly 409'd "recolour a finished card".
+  if (b.status !== undefined || touchesContent) {
     let next: string | null = null;
     if (b.status !== undefined) {
       next = normalizeStatus(b.status);
@@ -1355,12 +1359,14 @@ app.post("/v1/meetings/:roomId/participant", async (c) => {
   if (!email) {
     return c.json({ error: "no email" }, 400);
   }
-  // Reviewing a finished meeting is NOT attending it — without this check a
-  // reviewer minted a participant row, polluting "attended" (history, the
-  // activity log, partial project access). Grace window keeps the END-time
-  // last_seen updates from peers still in the room.
+  // Reviewing a finished meeting is NOT attending it — skip the row so we
+  // don't pollute "attended" (history, activity log, partial project access).
+  // 200-skip, NOT 409: a client race (the viewOnly atom flips a tick after
+  // mount) can still fire this once, and a finished review is legitimate —
+  // it's just a no-op, so don't paint the console red. Grace window keeps
+  // END-time last_seen updates from peers still in the room.
   if (await isFinishedLocked(c.env.DB, roomId)) {
-    return c.json({ error: "meeting finished (review only)" }, 409);
+    return c.json({ ok: true, skipped: true });
   }
   let name: string | undefined;
   try {
