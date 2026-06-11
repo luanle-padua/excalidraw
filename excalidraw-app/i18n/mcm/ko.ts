@@ -464,6 +464,9 @@ export const ko: Widened<typeof vi> = {
     starting: "시작 중…",
     cancelledTitle: "회의가 취소되었습니다",
     cancelledDesc: "주최자가 이 회의를 취소했습니다.",
+    finishedTitle: "회의가 종료되었습니다",
+    finishedDesc:
+      "이 회의는 종료되었습니다. 주최자가 요약 자료를 별도로 공유할 예정입니다.",
     back: "홈으로",
   },
 

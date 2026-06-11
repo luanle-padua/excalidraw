@@ -457,6 +457,9 @@ export const en: Widened<typeof vi> = {
     starting: "Starting…",
     cancelledTitle: "Meeting cancelled",
     cancelledDesc: "The organizer cancelled this meeting.",
+    finishedTitle: "Meeting has ended",
+    finishedDesc:
+      "This meeting has ended. The organizer will share a recap with you separately.",
     back: "Back to home",
   },
 

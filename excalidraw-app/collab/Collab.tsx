@@ -136,7 +136,7 @@ import {
   getMeetingChecked,
   registerMeeting,
 } from "../data/projects";
-import { sessionAtom } from "../data/session";
+import { isInternalEmail, sessionAtom } from "../data/session";
 
 import {
   ensureMyJoinedAt,
@@ -196,7 +196,9 @@ export type StartGate = {
   roomKey: string;
   title: string | null;
   scheduledAt: string | null;
-  status: "scheduled" | "cancelled";
+  // "finished" only ever parks GUESTS here — review is internal-only
+  // (quyết định 06-11: sau họp host gom nội dung gửi khách dạng khác).
+  status: "scheduled" | "cancelled" | "finished";
 };
 export const startGateAtom = atom<StartGate | null>(null);
 
@@ -978,6 +980,21 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           return null;
         }
         if (gateStatus === "finished") {
+          // Review is INTERNAL-ONLY (quyết định 06-11): guests/clients get a
+          // terminal "meeting đã kết thúc" card instead — the host will share
+          // a packaged recap with them separately (later phase). The worker
+          // re-enforces this (403 on finished rooms for guests).
+          const me = appJotaiStore.get(sessionAtom)?.email;
+          if (!isInternalEmail(me)) {
+            appJotaiStore.set(startGateAtom, {
+              roomId,
+              roomKey,
+              title: reg?.title ?? null,
+              scheduledAt: reg?.scheduled_at ?? null,
+              status: "finished",
+            });
+            return null;
+          }
           // Finished = immutable review on EVERY entry path — raw #room link,
           // stale resume, reload in a fresh tab. The registry status is the
           // single source of truth now, so the old "review only when opened

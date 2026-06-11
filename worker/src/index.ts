@@ -374,6 +374,21 @@ const roomGate: MiddlewareHandler<{
   ) {
     return c.json({ error: "forbidden" }, 403);
   }
+  // Review of a FINISHED meeting is internal-only (quyết định 06-11): guests
+  // lose access once the meeting ends — the host shares a packaged recap
+  // with externals separately (later phase). Checked only for guests so the
+  // common internal path pays no extra query.
+  const email = c.get("email");
+  if (roomId && c.get("role") !== "admin" && !isInternalEmail(email)) {
+    const row = await c.env.DB.prepare(
+      `SELECT status FROM meeting WHERE id = ?1`,
+    )
+      .bind(roomId)
+      .first<{ status: string | null }>();
+    if (normalizeStatus(row?.status) === "finished") {
+      return c.json({ error: "finished — review is internal only" }, 403);
+    }
+  }
   return next();
 };
 app.use("/v1/scenes/*", roomGate);

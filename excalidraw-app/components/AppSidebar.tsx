@@ -119,14 +119,20 @@ export const AppSidebar = () => {
       )}
       <DefaultSidebar docked={ALWAYS_SHOW_SIDEBAR ? true : undefined}>
         <DefaultSidebar.TabTriggers>
-          <Sidebar.TabTrigger
-            tab="meeting-library"
-            style={{
-              opacity: openSidebar?.tab === "meeting-library" ? 1 : 0.4,
-            }}
-          >
-            {meetingLibraryIcon}
-          </Sidebar.TabTrigger>
+          {/* Review = look-don't-touch, CHAT ONLY (quyết định 06-11): the
+              library tab disappears entirely — inserting/copying/uploading
+              material all live there, and a finished meeting accepts none
+              of it. The in-tab guards stay as defense-in-depth. */}
+          {!viewOnly && (
+            <Sidebar.TabTrigger
+              tab="meeting-library"
+              style={{
+                opacity: openSidebar?.tab === "meeting-library" ? 1 : 0.4,
+              }}
+            >
+              {meetingLibraryIcon}
+            </Sidebar.TabTrigger>
+          )}
           <Sidebar.TabTrigger
             tab="comments"
             style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
@@ -134,9 +140,11 @@ export const AppSidebar = () => {
             {messageCircleIcon}
           </Sidebar.TabTrigger>
         </DefaultSidebar.TabTriggers>
-        <Sidebar.Tab tab="meeting-library">
-          <MeetingLibrary />
-        </Sidebar.Tab>
+        {!viewOnly && (
+          <Sidebar.Tab tab="meeting-library">
+            <MeetingLibrary />
+          </Sidebar.Tab>
+        )}
         <Sidebar.Tab tab="comments">
           <ChatView />
         </Sidebar.Tab>

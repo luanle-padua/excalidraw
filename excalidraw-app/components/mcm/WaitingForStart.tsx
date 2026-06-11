@@ -117,7 +117,16 @@ export const WaitingForStart = () => {
   return (
     <div className="mcm-gate" role="dialog" aria-modal="true">
       <div className="mcm-gate__card">
-        {gate.status === "cancelled" ? (
+        {gate.status === "finished" ? (
+          // Guests/clients only — review of a finished meeting is internal;
+          // the host shares a packaged recap with externals separately.
+          <>
+            <CircleSlash size={34} className="mcm-gate__icon --cancelled" />
+            <h2 className="mcm-gate__title">{t("gate.finishedTitle")}</h2>
+            {gate.title && <p className="mcm-gate__meeting">{gate.title}</p>}
+            <p className="mcm-gate__desc">{t("gate.finishedDesc")}</p>
+          </>
+        ) : gate.status === "cancelled" ? (
           <>
             <CircleSlash size={34} className="mcm-gate__icon --cancelled" />
             <h2 className="mcm-gate__title">{t("gate.cancelledTitle")}</h2>

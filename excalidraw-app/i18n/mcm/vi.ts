@@ -480,6 +480,9 @@ export const vi = {
     starting: "Đang bắt đầu…",
     cancelledTitle: "Cuộc họp đã bị huỷ",
     cancelledDesc: "Người tổ chức đã huỷ cuộc họp này.",
+    finishedTitle: "Cuộc họp đã kết thúc",
+    finishedDesc:
+      "Cuộc họp này đã kết thúc. Người tổ chức sẽ gửi tài liệu tổng kết cho bạn sau.",
     back: "Về trang chính",
   },
 
