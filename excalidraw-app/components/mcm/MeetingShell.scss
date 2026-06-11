@@ -13,12 +13,19 @@
 //   - 12px radius standard; 8px for buttons; 999px for pills/avatars.
 //   - 200ms ease transitions universally.
 
-.mcm-shell {
-  // ----- LIGHT MODE TOKENS (default) ---------------------------------
-  // We CAN'T inherit Excalidraw's CSS vars (`--island-bg-color`,
-  // `--text-primary-color`, …) because those are scoped to `.excalidraw`,
-  // which is a DESCENDANT of this shell — variable lookup walks up the
-  // DOM, not down. So the shell needs its own complete theme palette.
+// ----- THEME TOKENS (shared mixins) ------------------------------------
+// We CAN'T inherit Excalidraw's CSS vars (`--island-bg-color`,
+// `--text-primary-color`, …) because those are scoped to `.excalidraw`,
+// which is a DESCENDANT of the shell — variable lookup walks up the
+// DOM, not down. So the shell needs its own complete theme palette.
+//
+// Mixins (not bare declarations on .mcm-shell) because portaled overlays
+// (.mcm-pp-overlay, .mcm-cmodal-ov) render under <body>, OUTSIDE the
+// shell's DOM subtree — they can't inherit these custom properties and
+// need their own copy, otherwise any rule using a var() without a
+// fallback (e.g. .mcm-btn--primary's accent background) computes to
+// nothing and buttons render invisible (white text on no background).
+@mixin mcm-tokens-light {
   --mcm-bg: #f5f5f7;
   --mcm-text: #1b1b1f;
   --mcm-text-soft: rgba(27, 27, 31, 0.6);
@@ -36,6 +43,29 @@
   --mcm-danger-soft: #fef2f2;
   --mcm-warning: #d97706;
   --mcm-warning-soft: #fffbeb;
+}
+@mixin mcm-tokens-dark {
+  --mcm-bg: #121212;
+  --mcm-text: #ebebef;
+  --mcm-text-soft: rgba(235, 235, 239, 0.65);
+  --mcm-text-faint: rgba(235, 235, 239, 0.4);
+  --mcm-surface: #232329;
+  --mcm-surface-2: #2c2c34;
+  --mcm-hairline: rgba(255, 255, 255, 0.12);
+  --mcm-hairline-2: rgba(255, 255, 255, 0.06);
+  --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
+  --mcm-accent: #a8a5ff;
+  --mcm-accent-soft: rgba(168, 165, 255, 0.18);
+  --mcm-success: #22c55e;
+  --mcm-success-soft: rgba(34, 197, 94, 0.12);
+  --mcm-danger-soft: rgba(248, 113, 113, 0.13);
+  --mcm-warning: #fbbf24;
+  --mcm-warning-soft: rgba(251, 191, 36, 0.13);
+}
+
+.mcm-shell {
+  // ----- LIGHT MODE TOKENS (default) ---------------------------------
+  @include mcm-tokens-light;
   // Width Excalidraw reserves for its docked right sidebar. We pin the
   // people bar to stop exactly at the sidebar's left edge — no visible
   // dark strip in between. Falls back to 302px (Excalidraw's default
@@ -47,22 +77,7 @@
   // `.theme--dark` class on its root element). `:has()` lets us
   // detect a descendant from the parent without JS.
   &:has(.excalidraw.theme--dark) {
-    --mcm-bg: #121212;
-    --mcm-text: #ebebef;
-    --mcm-text-soft: rgba(235, 235, 239, 0.65);
-    --mcm-text-faint: rgba(235, 235, 239, 0.4);
-    --mcm-surface: #232329;
-    --mcm-surface-2: #2c2c34;
-    --mcm-hairline: rgba(255, 255, 255, 0.12);
-    --mcm-hairline-2: rgba(255, 255, 255, 0.06);
-    --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
-    --mcm-accent: #a8a5ff;
-    --mcm-accent-soft: rgba(168, 165, 255, 0.18);
-    --mcm-success: #22c55e;
-    --mcm-success-soft: rgba(34, 197, 94, 0.12);
-    --mcm-danger-soft: rgba(248, 113, 113, 0.13);
-    --mcm-warning: #fbbf24;
-    --mcm-warning-soft: rgba(251, 191, 36, 0.13);
+    @include mcm-tokens-dark;
   }
 
   display: flex;
@@ -6805,6 +6820,23 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 }
 
 // ===== Participants management panel (Zoom-style, portaled to <body>) =====
+// Portaled overlays live directly under <body>, outside .mcm-shell, so the
+// theme custom properties don't reach them by inheritance — stamp the token
+// set on each portal root (light by default, dark when Excalidraw is dark).
+// Without this, .mcm-btn--primary inside the invite drawer resolved
+// var(--mcm-accent) to nothing → white label on a transparent background →
+// the "invisible buttons" bug.
+.mcm-pp-overlay,
+.mcm-cmodal-ov {
+  @include mcm-tokens-light;
+}
+body:has(.excalidraw.theme--dark) {
+  .mcm-pp-overlay,
+  .mcm-cmodal-ov {
+    @include mcm-tokens-dark;
+  }
+}
+
 .mcm-pp-overlay {
   position: fixed;
   inset: 0;
@@ -10203,12 +10235,71 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     pointer-events: none;
   }
 
+  // Count + sort dropdown above the kind sections.
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
   &__count {
     font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
     color: var(--mcm-text-faint);
+  }
+
+  &__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mcm-text-faint);
+
+    select {
+      font: inherit;
+      font-size: 11.5px;
+      padding: 2px 6px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: 7px;
+      background: var(--mcm-surface);
+      color: var(--mcm-text-soft);
+      cursor: pointer;
+
+      &:hover {
+        border-color: var(--mcm-hairline-2);
+      }
+    }
+  }
+
+  // Per-kind sections (PDF / DXF / IFC / image / other) — empty ones
+  // are hidden by the component.
+  &__section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__section-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--mcm-text-soft);
+  }
+
+  &__section-count {
+    padding: 0 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    color: var(--mcm-text-faint);
+    background: var(--mcm-surface-2);
   }
 
   &__hint {
@@ -10337,6 +10428,117 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       var(--myfile-accent, var(--mcm-text-faint)) 10%,
       transparent
     );
+  }
+
+  // Tag chips + the inline "add tag" input under the row meta.
+  &__tags {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 4px 1px 7px;
+    border-radius: 99px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--mcm-accent);
+    background: color-mix(in srgb, var(--mcm-accent) 10%, transparent);
+  }
+
+  &__tag-x {
+    display: grid;
+    place-items: center;
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 99px;
+    padding: 0;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.65;
+
+    &:hover {
+      opacity: 1;
+      background: color-mix(in srgb, var(--mcm-accent) 18%, transparent);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: progress;
+    }
+  }
+
+  &__tag-input {
+    width: 86px;
+    padding: 1px 6px;
+    border: 1px dashed var(--mcm-hairline);
+    border-radius: 99px;
+    background: transparent;
+    font: inherit;
+    font-size: 10.5px;
+    color: var(--mcm-text-soft);
+
+    &::placeholder {
+      color: var(--mcm-text-faint);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mcm-accent);
+      border-style: solid;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+    }
+  }
+
+  // Visibility toggle — a clickable badge: Private (locked, danger-soft)
+  // ↔ Sharable (success tone).
+  &__vis {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 99px;
+    background: none;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms;
+
+    &--private {
+      color: #dc2626;
+      background: color-mix(in srgb, #dc2626 9%, transparent);
+
+      &:hover {
+        border-color: color-mix(in srgb, #dc2626 35%, transparent);
+      }
+    }
+
+    &--sharable {
+      color: #059669;
+      background: color-mix(in srgb, #059669 10%, transparent);
+
+      &:hover {
+        border-color: color-mix(in srgb, #059669 35%, transparent);
+      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
   }
 
   &__delete {
@@ -10533,6 +10735,27 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  // Visibility badge mirrored from the dashboard shelf (read-only here —
+  // private files confirm before copying into the meeting).
+  &__vis {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 99px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+
+    &--private {
+      color: #dc2626;
+      background: color-mix(in srgb, #dc2626 9%, transparent);
+    }
+
+    &--sharable {
+      color: #059669;
+      background: color-mix(in srgb, #059669 10%, transparent);
+    }
   }
 
   &__size {

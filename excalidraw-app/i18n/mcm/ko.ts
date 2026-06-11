@@ -39,6 +39,15 @@ export const ko: Widened<typeof vi> = {
     title: "초대됨 / 예정",
     join: "참가",
   },
+  notif: {
+    bellAria: "알림",
+    title: "알림 및 초대",
+    empty: "알림이 없습니다",
+    accept: "수락",
+    decline: "거절",
+    live: "진행 중",
+    declinedDone: "초대를 거절했습니다",
+  },
   due: {
     title: "회의가 곧 시작됩니다",
     now: "회의 시간입니다",
@@ -410,6 +419,20 @@ export const ko: Widened<typeof vi> = {
     copying: "회의로 복사 중…",
     copyFailed: "문서함에서 파일을 불러오지 못했습니다: {name}",
     close: "닫기",
+    sortLabel: "정렬",
+    sortDate: "최신순",
+    sortName: "이름",
+    sortSize: "용량",
+    tagsPlaceholder: "태그 추가…",
+    visPrivate: "비공개",
+    visSharable: "공유 가능",
+    copyPrivateConfirm:
+      '"{name}" 파일은 비공개로 표시되어 있습니다 — 그래도 회의에 복사하여 모두에게 보이게 할까요?',
+    kindPdf: "PDF",
+    kindDxf: "DXF",
+    kindIfc: "IFC",
+    kindImage: "이미지",
+    kindOther: "기타",
   },
 
   // ---------------- Meeting status (canonical lifecycle) ------------

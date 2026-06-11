@@ -268,6 +268,10 @@ export type Meeting = {
 export type MeetingFetch =
   | { kind: "found"; meeting: Meeting }
   | { kind: "not-found" }
+  // roomGate said no — this user is not (or no longer) allowed to see the
+  // meeting. Distinct from "error": it's an ANSWER, not an outage. The
+  // in-room access re-check kicks on it; the start gate blocks on it.
+  | { kind: "forbidden" }
   | { kind: "error" };
 
 export const getMeetingChecked = async (
@@ -283,6 +287,9 @@ export const getMeetingChecked = async (
     );
     if (res.status === 404) {
       return { kind: "not-found" };
+    }
+    if (res.status === 403) {
+      return { kind: "forbidden" };
     }
     if (!res.ok) {
       return { kind: "error" };

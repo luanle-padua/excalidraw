@@ -31,6 +31,15 @@ export const en: Widened<typeof vi> = {
     title: "Invited / Upcoming",
     join: "Join",
   },
+  notif: {
+    bellAria: "Notifications",
+    title: "Notifications & invitations",
+    empty: "No notifications",
+    accept: "Accept",
+    decline: "Decline",
+    live: "LIVE NOW",
+    declinedDone: "Invitation declined",
+  },
   due: {
     title: "Meeting starting soon",
     now: "It's meeting time",
@@ -403,6 +412,20 @@ export const en: Widened<typeof vi> = {
     copying: "Copying into the meeting…",
     copyFailed: "Couldn't load the file from your shelf: {name}",
     close: "Close",
+    sortLabel: "Sort",
+    sortDate: "Newest",
+    sortName: "Name",
+    sortSize: "Size",
+    tagsPlaceholder: "Add a tag…",
+    visPrivate: "Private",
+    visSharable: "Sharable",
+    copyPrivateConfirm:
+      '"{name}" is marked Private — copy it into the meeting anyway, where everyone can see it?',
+    kindPdf: "PDF",
+    kindDxf: "DXF",
+    kindIfc: "IFC",
+    kindImage: "Image",
+    kindOther: "Other",
   },
 
   // ---------------- Meeting status (canonical lifecycle) ------------

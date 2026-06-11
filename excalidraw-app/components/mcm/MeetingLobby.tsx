@@ -22,6 +22,7 @@ import { AdminConsole } from "./AdminConsole";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
 import { isFinishedStatus, normalizeMeetingStatus } from "./meetingStatus";
+import { NotificationBell } from "./NotificationBell";
 import { ProjectBrowser } from "./ProjectBrowser";
 import { UserMenu } from "./UserMenu";
 import { UserProfileModal } from "./UserProfileModal";
@@ -227,6 +228,9 @@ export const MeetingLobby = () => {
             <span className="mcm-lobby__title">MAP CanvasMeet</span>
           </div>
           <div className="mcm-lobby__top-actions">
+            {/* Pending meeting invitations — accept/decline without leaving
+                the dashboard. */}
+            <NotificationBell />
             <LangThemeSwitcher />
             <button
               type="button"

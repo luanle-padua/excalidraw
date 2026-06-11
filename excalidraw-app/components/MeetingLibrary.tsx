@@ -574,6 +574,16 @@ export const MeetingLibrary = () => {
       if (shelfCopyingId || viewOnly) {
         return;
       }
+      // Private shelf files ask before becoming meeting-visible — copying
+      // puts the document in front of every participant.
+      if (
+        shelfFile.visibility === "private" &&
+        !window.confirm(
+          t("myfiles.copyPrivateConfirm", { name: shelfFile.name }),
+        )
+      ) {
+        return;
+      }
       setShelfCopyingId(shelfFile.id);
       try {
         const blob = await getMyFileContent(shelfFile.id);
@@ -1553,6 +1563,15 @@ export const MeetingLibrary = () => {
                       </span>
                       <span className="mcm-shelfpick__name" title={sf.name}>
                         {sf.name}
+                      </span>
+                      <span
+                        className={`mcm-shelfpick__vis mcm-shelfpick__vis--${sf.visibility}`}
+                      >
+                        {t(
+                          sf.visibility === "private"
+                            ? "myfiles.visPrivate"
+                            : "myfiles.visSharable",
+                        )}
                       </span>
                       <span className="mcm-shelfpick__size">
                         {shelfCopyingId === sf.id

@@ -126,9 +126,16 @@ import {
 import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache";
 import { clearIfcSnapshotsForFile } from "../components/mcm/ifc/ifcSnapshotCache";
 import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
-import { normalizeMeetingStatus } from "../components/mcm/meetingStatus";
+import {
+  isFinishedStatus,
+  normalizeMeetingStatus,
+} from "../components/mcm/meetingStatus";
 import { showAppToast } from "../data/appToast";
-import { getMeetingChecked, registerMeeting } from "../data/projects";
+import {
+  getMeeting,
+  getMeetingChecked,
+  registerMeeting,
+} from "../data/projects";
 import { sessionAtom } from "../data/session";
 
 import {
@@ -721,6 +728,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private destroySocketClient = (opts?: { isUnload: boolean }) => {
     this.lastBroadcastedOrReceivedSceneVersion = -1;
     this.eagerSceneLoaded = false;
+    this.stopAccessRecheck();
     this.flushPendingRoomSaves();
     this.portal.close();
     this.fileManager.reset();
@@ -946,6 +954,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               "errors.joinUnverified",
             ),
           );
+          return null;
+        }
+        if (fetched.kind === "forbidden") {
+          // The server says this user may not see the meeting (revoked /
+          // never invited). Same UX as being kicked — MeetingShell shows
+          // the notice and clears the room hash.
+          appJotaiStore.set(kickedAtom, true);
           return null;
         }
         // `not-found` = genuinely unregistered ad-hoc room → editable
@@ -1359,20 +1374,35 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           case WS_SUBTYPES.HOST_COMMAND: {
             const { hostSocketId, action, target } = decryptedData.payload;
             const mySocketId = this.portal.socket?.id;
-            // Destructive commands (end meeting / kick) must come from the host
-            // we locally elect — blocks a rogue/forked peer from ending the
-            // meeting or kicking someone. If our election is unresolved (null)
+            // KICK must come from the host we locally elect — blocks a rogue
+            // peer from kicking someone. If our election is unresolved (null)
             // we accept (host-only UI in practice). MUTE/UNMUTE stay trusted:
             // they're target-scoped and low-harm.
-            if (action === "END_MEETING" || action === "KICK") {
+            if (action === "KICK") {
               const localHost = appJotaiStore.get(hostSocketIdAtom);
               if (localHost && hostSocketId !== localHost) {
                 break;
               }
             }
             if (action === "END_MEETING") {
-              appJotaiStore.set(meetingViewOnlyAtom, true);
-              markReviewRoom(this.portal.roomId ?? "");
+              // The broadcast is only a HINT — End may legitimately come from
+              // the organizer/co-host (email role, 06-11), who is often NOT
+              // this client's elected host socket, so a socket-id check drops
+              // real Ends. The REGISTRY is the authority: verify finished
+              // there, then flip to review. A spoofed broadcast verifies as
+              // not-finished and does nothing.
+              const endedRoomId = this.portal.roomId;
+              if (endedRoomId) {
+                void getMeeting(endedRoomId).then((m) => {
+                  if (
+                    this.portal.roomId === endedRoomId &&
+                    isFinishedStatus(m?.status ?? null)
+                  ) {
+                    appJotaiStore.set(meetingViewOnlyAtom, true);
+                    markReviewRoom(endedRoomId);
+                  }
+                });
+              }
             } else if (action === "KICK" && target && target === mySocketId) {
               // The host removed me — MeetingShell watches this and leaves.
               appJotaiStore.set(kickedAtom, true);
@@ -1456,7 +1486,41 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
     this.setActiveRoomLink(window.location.href);
 
+    this.startAccessRecheck();
+
     return scenePromise;
+  };
+
+  // --- In-room access re-check (revoke có răng, quyết định 06-11) ----------
+  // The organizer removing someone from the invitee list must EJECT them from
+  // a live room, not just hide future entry — the socket relay has no authz,
+  // so the client re-asks the Worker every minute. 403 = roomGate says we
+  // lost access (revoked) → same UX as a host kick. 404 (ad-hoc room) and
+  // network errors are NOT kicks — fail open here; the start gate already
+  // fails closed where it matters.
+  private accessRecheckInterval: number | null = null;
+  private startAccessRecheck = () => {
+    this.stopAccessRecheck();
+    this.accessRecheckInterval = window.setInterval(() => {
+      const checkingRoomId = this.portal.roomId;
+      if (!checkingRoomId || !this.portal.socketInitialized) {
+        return;
+      }
+      void getMeetingChecked(checkingRoomId).then((fetched) => {
+        if (
+          this.portal.roomId === checkingRoomId &&
+          fetched.kind === "forbidden"
+        ) {
+          appJotaiStore.set(kickedAtom, true);
+        }
+      });
+    }, 60_000);
+  };
+  private stopAccessRecheck = () => {
+    if (this.accessRecheckInterval !== null) {
+      window.clearInterval(this.accessRecheckInterval);
+      this.accessRecheckInterval = null;
+    }
   };
 
   private initializeRoom = async ({

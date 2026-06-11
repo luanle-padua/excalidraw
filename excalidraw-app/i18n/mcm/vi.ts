@@ -38,6 +38,16 @@ export const vi = {
     title: "Được mời / Sắp tới",
     join: "Vào họp",
   },
+  // ---------------- Notification bell (lời mời + RSVP) --------------
+  notif: {
+    bellAria: "Thông báo",
+    title: "Thông báo & lời mời",
+    empty: "Không có thông báo nào",
+    accept: "Chấp nhận",
+    decline: "Từ chối",
+    live: "ĐANG DIỄN RA",
+    declinedDone: "Đã từ chối lời mời",
+  },
   // ---------------- Meeting-due notice (toast "đến giờ họp") --------
   due: {
     // Eyebrow when the scheduled time is still (just) ahead…
@@ -424,6 +434,20 @@ export const vi = {
     copying: "Đang sao chép vào cuộc họp…",
     copyFailed: "Không tải được file từ tủ: {name}",
     close: "Đóng",
+    sortLabel: "Sắp xếp",
+    sortDate: "Mới nhất",
+    sortName: "Tên",
+    sortSize: "Dung lượng",
+    tagsPlaceholder: "Thêm tag…",
+    visPrivate: "Bảo mật",
+    visSharable: "Chia sẻ được",
+    copyPrivateConfirm:
+      '"{name}" đang đánh dấu Bảo mật — vẫn sao chép vào cuộc họp để mọi người thấy?',
+    kindPdf: "PDF",
+    kindDxf: "DXF",
+    kindIfc: "IFC",
+    kindImage: "Hình ảnh",
+    kindOther: "Khác",
   },
 
   // ---------------- Meeting status (vòng đời chuẩn) -----------------

@@ -70,7 +70,14 @@ app.use(
   cors({
     origin: "*",
     allowMethods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "x-kind", "x-name", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "x-kind",
+      "x-name",
+      "x-tags",
+      "x-visibility",
+      "Authorization",
+    ],
   }),
 );
 
@@ -1195,7 +1202,8 @@ app.patch("/v1/meetings/:roomId", async (c) => {
           // the designated host, a co-host invitee, or the organizer may end —
           // a random internal participant must not. Legacy rows without an
           // organizer keep the internal-allow fallback via isOrganizer above.
-          const isHost = !!row.host_email && row.host_email.toLowerCase() === me;
+          const isHost =
+            !!row.host_email && row.host_email.toLowerCase() === me;
           const isCohost = !!(
             me &&
             (await c.env.DB.prepare(
@@ -1553,6 +1561,32 @@ app.get("/v1/me/invitations", async (c) => {
   return c.json({ invitations: results });
 });
 
+// RSVP — the invitee answers their OWN invitation (accept/decline). Strictly
+// self-scoped: the row is matched by the verified JWT email, and a revoked
+// invitation can't be resurrected by answering it. Declining never deletes
+// the row (the organizer's invitee list keeps the audit trail) and the
+// invitee can still change their mind until revoked.
+app.post("/v1/me/invitations/:meetingId/respond", async (c) => {
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ error: "no email" }, 400);
+  }
+  const b = await c.req.json<{ response?: string }>();
+  if (b.response !== "accepted" && b.response !== "declined") {
+    return c.json({ error: "invalid response" }, 400);
+  }
+  const { meta } = await c.env.DB.prepare(
+    `UPDATE meeting_invitee SET status = ?3
+     WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked'`,
+  )
+    .bind(c.req.param("meetingId"), email.toLowerCase(), b.response)
+    .run();
+  if (!meta.changes) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return c.json({ ok: true, status: b.response });
+});
+
 // Internal staff directory for the invite picker (name/email/title/division).
 // Any internal user can read it (to invite colleagues); guests get 403. Uses
 // the Supabase service key server-side; only minimal fields are returned.
@@ -1747,7 +1781,11 @@ app.get("/v1/me/meetings", async (c) => {
                 WHERE mi2.meeting_id = m.id AND mi2.email = ?1
                   AND mi2.status <> 'revoked') AS invited_direct,
        EXISTS(SELECT 1 FROM meeting_participant mp
-                WHERE mp.meeting_id = m.id AND mp.user_email = ?1) AS attended
+                WHERE mp.meeting_id = m.id AND mp.user_email = ?1) AS attended,
+       -- My own RSVP state ('invited'|'accepted'|'declined'|'revoked');
+       -- NULL when I'm not a direct invitee (organizer / project member).
+       (SELECT status FROM meeting_invitee mi3
+          WHERE mi3.meeting_id = m.id AND mi3.email = ?1) AS my_invite_status
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
      WHERE m.id IN (
        SELECT id FROM meeting
@@ -1839,7 +1877,7 @@ app.get("/v1/me/files", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, name, kind, size, created_at FROM user_file
+    `SELECT id, name, kind, size, tags, visibility, created_at FROM user_file
      WHERE owner_email = ?1 ORDER BY created_at DESC LIMIT 500`,
   )
     .bind(email)
@@ -1869,12 +1907,18 @@ app.put("/v1/me/files/:fileId", async (c) => {
       contentType: c.req.header("content-type") ?? "application/octet-stream",
     },
   });
+  // Optional shelf metadata: x-tags is a free-form "a,b,c" string (empty ⇒
+  // untagged), x-visibility gates the copy-into-meeting confirmation.
+  const tags = c.req.header("x-tags")?.trim() || null;
+  const visibility =
+    c.req.header("x-visibility") === "sharable" ? "sharable" : "private";
   await c.env.DB.prepare(
-    `INSERT INTO user_file (id, owner_email, name, kind, size, r2_key, created_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+    `INSERT INTO user_file (id, owner_email, name, kind, size, tags, visibility, r2_key, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name, kind = excluded.kind,
-       size = excluded.size, r2_key = excluded.r2_key`,
+       size = excluded.size, tags = excluded.tags,
+       visibility = excluded.visibility, r2_key = excluded.r2_key`,
   )
     .bind(
       fileId,
@@ -1882,9 +1926,65 @@ app.put("/v1/me/files/:fileId", async (c) => {
       c.req.header("x-name") ?? null,
       c.req.header("x-kind") ?? null,
       body.byteLength,
+      tags,
+      visibility,
       key,
       now(),
     )
+    .run();
+  return c.json({ ok: true, id: fileId });
+});
+
+// Edit shelf metadata in place (tags / visibility / rename) — owner-scoped
+// like DELETE; the bytes and the meetings' snapshots are untouched.
+app.patch("/v1/me/files/:fileId", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const row = await c.env.DB.prepare(
+    `SELECT id FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+  )
+    .bind(fileId, email)
+    .first<{ id: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const b = await c.req.json<{
+    tags?: string | null;
+    visibility?: string;
+    name?: string;
+  }>();
+  const sets: string[] = [];
+  const binds: (string | null)[] = [];
+  if (b.tags !== undefined) {
+    sets.push(`tags = ?${binds.length + 1}`);
+    binds.push((b.tags ?? "").trim() || null);
+  }
+  if (b.visibility !== undefined) {
+    if (b.visibility !== "private" && b.visibility !== "sharable") {
+      return c.json({ error: "invalid visibility" }, 400);
+    }
+    sets.push(`visibility = ?${binds.length + 1}`);
+    binds.push(b.visibility);
+  }
+  if (b.name !== undefined) {
+    const name = (b.name ?? "").trim();
+    if (!name) {
+      return c.json({ error: "name required" }, 400);
+    }
+    sets.push(`name = ?${binds.length + 1}`);
+    binds.push(name);
+  }
+  if (!sets.length) {
+    return c.json({ error: "nothing to update" }, 400);
+  }
+  await c.env.DB.prepare(
+    `UPDATE user_file SET ${sets.join(", ")}
+     WHERE id = ?${binds.length + 1} AND owner_email = ?${binds.length + 2}`,
+  )
+    .bind(...binds, fileId, email)
     .run();
   return c.json({ ok: true, id: fileId });
 });

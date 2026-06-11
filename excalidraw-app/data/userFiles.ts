@@ -18,11 +18,17 @@ const STORAGE_URL =
 
 export type UserFileKind = "pdf" | "dxf" | "ifc" | "image" | "other";
 
+export type UserFileVisibility = "private" | "sharable";
+
 export type UserFile = {
   id: string;
   name: string;
   kind: UserFileKind;
   size: number;
+  /** Free-form "a,b,c" tag string; null when untagged. */
+  tags: string | null;
+  /** 'private' files ask for confirmation before copying into a meeting. */
+  visibility: UserFileVisibility;
   created_at: number;
 };
 
@@ -88,6 +94,10 @@ export const uploadMyFile = async (file: File): Promise<UploadMyFileResult> => {
           "content-type": file.type || "application/octet-stream",
           "x-name": encodeURIComponent(file.name),
           "x-kind": kind,
+          // Shelf metadata defaults: untagged + private (the cautious
+          // default — copying into a meeting asks for confirmation).
+          "x-tags": "",
+          "x-visibility": "private",
         },
         body: file,
       },
@@ -105,11 +115,38 @@ export const uploadMyFile = async (file: File): Promise<UploadMyFileResult> => {
         name: file.name,
         kind,
         size: file.size,
+        tags: null,
+        visibility: "private",
         created_at: Date.now(),
       },
     };
   } catch {
     return { ok: false, reason: "failed" };
+  }
+};
+
+/** Edit shelf metadata (tags / visibility / rename) without re-uploading
+ *  bytes. Owner-scoped server-side like DELETE. */
+export const updateMyFile = async (
+  id: string,
+  patch: {
+    tags?: string | null;
+    visibility?: UserFileVisibility;
+    name?: string;
+  },
+): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/me/files/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(patch),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 };
 
