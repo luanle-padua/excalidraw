@@ -334,6 +334,10 @@ const projectAccess = async (
   if (!isInternalEmail(e)) {
     return null;
   }
+  // "Attended" grants visibility ONLY while the invite wasn't revoked —
+  // a revoked invite is a VETO (quyết định 06-11: "add nhầm → cho ra" must
+  // remove the meeting from their dashboard entirely). Their participant
+  // row / contributions stay in the meeting as historical fact.
   const touched = await db
     .prepare(
       `SELECT 1 FROM meeting m
@@ -341,9 +345,12 @@ const projectAccess = async (
          AND (EXISTS (SELECT 1 FROM meeting_invitee mi
                       WHERE mi.meeting_id = m.id AND mi.email = ?2
                         AND mi.status <> 'revoked')
-              OR EXISTS (SELECT 1 FROM meeting_participant mp
-                         WHERE mp.meeting_id = m.id
-                           AND lower(mp.user_email) = ?2))
+              OR (EXISTS (SELECT 1 FROM meeting_participant mp
+                          WHERE mp.meeting_id = m.id
+                            AND lower(mp.user_email) = ?2)
+                  AND NOT EXISTS (SELECT 1 FROM meeting_invitee mr
+                                  WHERE mr.meeting_id = m.id AND mr.email = ?2
+                                    AND mr.status = 'revoked')))
        LIMIT 1`,
     )
     .bind(projectId, e)
@@ -670,13 +677,17 @@ app.get("/v1/projects", async (c) => {
   if (isInternalEmail(e) && !host) {
     const memberIds = new Set(projects.map((p) => p.id as string));
     const { results: invitedRows } = await c.env.DB.prepare(
+      // Participant arm carries the revoked-invite VETO (see projectAccess).
       `SELECT DISTINCT ${mcols} FROM project p
        JOIN meeting m ON m.project_id = p.id
        WHERE EXISTS (SELECT 1 FROM meeting_invitee mi
                      WHERE mi.meeting_id = m.id AND mi.email = ?1
                        AND mi.status <> 'revoked')
-          OR EXISTS (SELECT 1 FROM meeting_participant mp
-                     WHERE mp.meeting_id = m.id AND lower(mp.user_email) = ?1)
+          OR (EXISTS (SELECT 1 FROM meeting_participant mp
+                      WHERE mp.meeting_id = m.id AND lower(mp.user_email) = ?1)
+              AND NOT EXISTS (SELECT 1 FROM meeting_invitee mr
+                              WHERE mr.meeting_id = m.id AND mr.email = ?1
+                                AND mr.status = 'revoked'))
        ORDER BY p.updated_at DESC LIMIT 200`,
     )
       .bind(e)
@@ -950,14 +961,19 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
              ORDER BY m.updated_at DESC`,
           ).bind(projectId, c.get("email")?.toLowerCase() ?? "")
       : c.env.DB.prepare(
+          // Participant arm carries the revoked-invite VETO (projectAccess).
           `SELECT ${cols} FROM meeting m
            WHERE m.project_id = ?1
              AND (EXISTS (SELECT 1 FROM meeting_invitee mi
                           WHERE mi.meeting_id = m.id AND mi.email = ?2
                             AND mi.status <> 'revoked')
-                  OR EXISTS (SELECT 1 FROM meeting_participant mp
-                             WHERE mp.meeting_id = m.id
-                               AND lower(mp.user_email) = ?2))
+                  OR (EXISTS (SELECT 1 FROM meeting_participant mp
+                              WHERE mp.meeting_id = m.id
+                                AND lower(mp.user_email) = ?2)
+                      AND NOT EXISTS (SELECT 1 FROM meeting_invitee mr
+                                      WHERE mr.meeting_id = m.id
+                                        AND mr.email = ?2
+                                        AND mr.status = 'revoked')))
            ORDER BY m.updated_at DESC`,
         ).bind(projectId, c.get("email")?.toLowerCase() ?? "");
   const { results } = await stmt.all();
