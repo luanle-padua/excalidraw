@@ -13,6 +13,8 @@
 | **Attendee nội bộ** | Được mời, @mapgroup.co.kr | Auto-admit, tự vào |
 | **Guest** (khách/client) | Email ngoài, vào qua link | Vào **phòng chờ** → host duyệt |
 
+*(Phòng chờ → host duyệt: **chưa triển khai** — khách hiện vào thẳng; phòng chờ & duyệt làm ở Phase 4.)*
+
 ## Quyết định đã chốt (2026-06-08)
 1. **Host vắng khi tới giờ → ACTING HOST:** người **nội bộ đầu tiên** vào sẽ tự thành *host tạm* (đủ quyền điều khiển, kể cả Start/End). Khi organizer/host thật vào → quyền **tự trả về** cho họ (acting host nhường lại). Mục đích: buổi họp không bao giờ bị kẹt vì host vắng.
 2. **Lên lịch (bản đầu):** **in-app + mục "Sắp tới" + link mời**. Email mời tự động làm sau (khớp [[mcm-access-model]] "mời theo link, email sau").
