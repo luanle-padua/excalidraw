@@ -10662,6 +10662,63 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 }
 
+// ---------------- App-level error toast (AppToast) -------------------------
+// Same bottom-right slot and z-tier as .mcm-due, but in the danger tone —
+// it carries failure messages (showAppToast), not invitations.
+.mcm-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 340px;
+  max-width: calc(100vw - 32px);
+  padding: 12px 12px 12px 14px;
+  background: var(--mcm-danger-soft);
+  border: 1px solid color-mix(in srgb, var(--mcm-danger) 35%, transparent);
+  border-radius: 14px;
+  box-shadow: var(--mcm-elev);
+  animation: mcm-due-in 220ms ease;
+
+  &__icon {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--mcm-danger);
+  }
+
+  &__message {
+    flex: 1;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 550;
+    line-height: 1.4;
+    color: var(--mcm-text);
+  }
+
+  &__close {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin: -2px -2px 0 0;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mcm-text-faint);
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-danger) 12%, transparent);
+      color: var(--mcm-danger);
+    }
+  }
+}
+
 // ---------------- AI summary (MeetingDetailPreview "Tóm tắt AI") -----------
 // The auto-recap written at End-for-all (D1 meeting.ai_summary). Quiet muted
 // card under the hero: sparkles-accented section header, prose clamped to a

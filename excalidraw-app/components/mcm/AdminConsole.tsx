@@ -64,7 +64,7 @@ import {
   type AdminUser,
 } from "../../data/admin";
 import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
-import { signOut } from "../../data/session";
+import { isInternalEmail as isInternal, signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { statusBucket } from "./meetingColors";
@@ -97,9 +97,6 @@ const SETTING_DEFAULTS: Record<string, string> = {
   retention_days: "365",
 };
 
-const INTERNAL_DOMAIN = "@mapgroup.co.kr";
-const isInternal = (email: string): boolean =>
-  email.toLowerCase().endsWith(INTERNAL_DOMAIN);
 const isAdminUser = (u: AdminUser): boolean => u.app_metadata?.role === "admin";
 
 // Korean corporate rank order (직급), most senior first — drives the default

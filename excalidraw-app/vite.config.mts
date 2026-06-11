@@ -304,7 +304,9 @@ export default defineConfig(({ mode }) => {
               },
             },
           ],
-          maximumFileSizeToCacheInBytes: 2.3 * 1024 ** 2, // 2.3MB
+          // mcm: main chunk + IFC bake worker grew past the old 2.3MB cap,
+          // which fails the whole build (workbox throws on oversized assets)
+          maximumFileSizeToCacheInBytes: 4 * 1024 ** 2, // 4MB
         },
         manifest: {
           short_name: "Excalidraw",

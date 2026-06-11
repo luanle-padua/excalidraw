@@ -90,8 +90,6 @@ export const ScheduleMeetingForm = ({
   const [hostEmail, setHostEmail] = useState<string>("");
   /** Optional pre-designated CO-HOST (one of the internal invitees). */
   const [cohostEmail, setCohostEmail] = useState<string>("");
-  const [waitingRoom, setWaitingRoom] = useState(true);
-  const [recordingEnabled, setRecordingEnabled] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [dir, setDir] = useState<DirectoryUser[]>([]);
   const [q, setQ] = useState("");
@@ -171,7 +169,7 @@ export const ScheduleMeetingForm = ({
       // ONE atomic create — lifecycle + agenda + roles + policies (form tạo =
       // form edit). Organizer is stamped server-side from the verified JWT;
       // hostEmail (internal only) defaults to the organizer when blank.
-      await registerMeeting({
+      const ok = await registerMeeting({
         roomId,
         roomKey,
         projectId,
@@ -184,8 +182,6 @@ export const ScheduleMeetingForm = ({
         priority: priority || undefined,
         confidentiality: confidentiality || undefined,
         hostEmail: hostEmail || undefined,
-        waitingRoom,
-        recordingEnabled,
         ...(mode === "schedule"
           ? {
               status: "scheduled" as const,
@@ -196,6 +192,12 @@ export const ScheduleMeetingForm = ({
             }
           : { status: "live" as const }),
       });
+      if (!ok) {
+        // Refused server-side (auth / worker down) — keep the form open
+        // instead of pretending success. Same pattern as EditMeetingForm.
+        window.alert(t("folder.saveFailed"));
+        return;
+      }
       const list = [...selected.values()];
       if (list.length) {
         await inviteToMeeting(
@@ -438,19 +440,22 @@ export const ScheduleMeetingForm = ({
               </select>
             </label>
           </div>
+          {/* Waiting room + recording aren't enforced anywhere yet (Phase 4)
+              — keep the switches visible but disabled so the form doesn't
+              promise a policy the worker won't apply. */}
           <div className="mcm-nmf__toggles">
             <label className="mcm-nmf__toggle">
               <span className="mcm-nmf__toggle-ico">
                 <DoorOpen size={15} />
               </span>
               <span className="mcm-nmf__toggle-txt">
-                {t("folder.waitingRoom")}
+                {t("folder.waitingRoom")} {t("folder.comingSoon")}
               </span>
               <input
                 className="mcm-switch"
                 type="checkbox"
-                checked={waitingRoom}
-                onChange={(e) => setWaitingRoom(e.target.checked)}
+                checked={false}
+                disabled
               />
             </label>
             <label className="mcm-nmf__toggle">
@@ -458,13 +463,13 @@ export const ScheduleMeetingForm = ({
                 <Video size={15} />
               </span>
               <span className="mcm-nmf__toggle-txt">
-                {t("folder.recordingOn")}
+                {t("folder.recordingOn")} {t("folder.comingSoon")}
               </span>
               <input
                 className="mcm-switch"
                 type="checkbox"
-                checked={recordingEnabled}
-                onChange={(e) => setRecordingEnabled(e.target.checked)}
+                checked={false}
+                disabled
               />
             </label>
           </div>

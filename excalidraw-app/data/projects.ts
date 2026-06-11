@@ -229,9 +229,7 @@ export const registerMeeting = async (m: {
   }
 };
 
-export const getMeeting = async (
-  roomId: string,
-): Promise<{
+export type Meeting = {
   id: string;
   room_key: string | null;
   title: string | null;
@@ -261,21 +259,44 @@ export const getMeeting = async (
    *  transcript blob it is derived from. */
   ai_summary: string | null;
   ai_summary_at: number | null;
-} | null> => {
+};
+
+/** Discriminated meeting lookup — callers that gate behaviour on the
+ *  registry (the collab start-gate) must tell "this room is genuinely
+ *  unregistered" (404 → ad-hoc, pass through) apart from "the worker is
+ *  unreachable / errored" (fail CLOSED, don't grant an editable canvas). */
+export type MeetingFetch =
+  | { kind: "found"; meeting: Meeting }
+  | { kind: "not-found" }
+  | { kind: "error" };
+
+export const getMeetingChecked = async (
+  roomId: string,
+): Promise<MeetingFetch> => {
   if (!IS_PROJECTS_CONFIGURED) {
-    return null;
+    // No worker in this dev setup — every room is ad-hoc by definition.
+    return { kind: "not-found" };
   }
   try {
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
     );
-    if (!res.ok) {
-      return null;
+    if (res.status === 404) {
+      return { kind: "not-found" };
     }
-    return (await res.json()).meeting ?? null;
+    if (!res.ok) {
+      return { kind: "error" };
+    }
+    const meeting = (await res.json()).meeting ?? null;
+    return meeting ? { kind: "found", meeting } : { kind: "not-found" };
   } catch {
-    return null;
+    return { kind: "error" };
   }
+};
+
+export const getMeeting = async (roomId: string): Promise<Meeting | null> => {
+  const fetched = await getMeetingChecked(roomId);
+  return fetched.kind === "found" ? fetched.meeting : null;
 };
 
 /** Store the AI-generated recap for a meeting (D1 `meeting.ai_summary`).

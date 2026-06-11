@@ -1,14 +1,6 @@
-import {
-  Command,
-  Crown,
-  LayoutGrid,
-  ShieldCheck,
-  Sparkles,
-  Zap,
-} from "lucide-react";
-import { useRef, useState } from "react";
+import { Command, LayoutGrid, Sparkles, Zap } from "lucide-react";
+import { lazy, Suspense, useRef, useState } from "react";
 
-import { DEMO_USERS, type DemoUser } from "../../data/demoUsers";
 import { supabase } from "../../data/supabaseClient";
 import { useT } from "../../i18n/mcm";
 
@@ -16,9 +8,12 @@ import { LangThemeSwitcher } from "./LangThemeSwitcher";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
-// Internal-team demo accounts (the 5 seeded R&D users) share this initial
-// password, so clicking a quick-login button signs in with one click.
-const DEMO_PASSWORD = "MapMeet@2026";
+// Dev-only quick-login grid for the seeded demo accounts. The static
+// `import.meta.env.DEV` guard lets Vite drop both this chunk and the
+// demoUsers module (incl. passwords) from production builds.
+const DevQuickLogin = import.meta.env.DEV
+  ? lazy(() => import("./DevQuickLogin"))
+  : null;
 
 /**
  * Login — the front door of the app (app → login → project home). Backed by
@@ -105,12 +100,6 @@ export const LoginScreen = () => {
     } else {
       setMagicSent(true);
     }
-  };
-
-  // One-click login for the seeded accounts (admin uses its own password).
-  const signInDemo = (u: DemoUser) => {
-    setEmail(u.email);
-    void doSignIn(u.email, u.password ?? DEMO_PASSWORD);
   };
 
   return (
@@ -238,54 +227,16 @@ export const LoginScreen = () => {
             </form>
           )}
 
-          {!magicSent && (
-            <div className="mcm-login__demo">
-              <span className="mcm-login__demo-title">
-                {t("login.demoTitle")}
-              </span>
-              {/* Grouped by DIVISION (a compact 2-col grid per group) so the
-                  cross-department test accounts read as separate teams. */}
-              {[...new Set(DEMO_USERS.map((u) => u.division))].map((div) => (
-                <div key={div} className="mcm-login__demo-group">
-                  <span className="mcm-login__demo-group-label">{div}</span>
-                  <ul className="mcm-login__demo-list">
-                    {DEMO_USERS.filter((u) => u.division === div).map((u) => (
-                      <li key={u.email}>
-                        <button
-                          type="button"
-                          className="mcm-login__demo-user"
-                          onClick={() => signInDemo(u)}
-                          title={`${u.title} · ${u.email}`}
-                          disabled={loading}
-                        >
-                          <span className="mcm-login__demo-avatar">
-                            {u.name.charAt(0)}
-                          </span>
-                          <span className="mcm-login__demo-info">
-                            <span className="mcm-login__demo-name">
-                              {u.name}
-                              {u.isHost && (
-                                <span className="mcm-login__demo-host">
-                                  <Crown size={11} /> {t("login.host")}
-                                </span>
-                              )}
-                              {u.isAdmin && (
-                                <span className="mcm-login__demo-host">
-                                  <ShieldCheck size={11} /> Admin
-                                </span>
-                              )}
-                            </span>
-                            <span className="mcm-login__demo-meta">
-                              {u.title}
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+          {DevQuickLogin && !magicSent && (
+            <Suspense fallback={null}>
+              <DevQuickLogin
+                onPick={(mail, pass) => {
+                  setEmail(mail);
+                  void doSignIn(mail, pass);
+                }}
+                disabled={loading}
+              />
+            </Suspense>
           )}
 
           <p className="mcm-login__help">{t("login.needHelp")}</p>

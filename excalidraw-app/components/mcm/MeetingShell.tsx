@@ -1,5 +1,5 @@
 import { Eye } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import {
@@ -11,6 +11,7 @@ import {
   screenShareStateAtom,
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
+import { showAppToast } from "../../data/appToast";
 import { clearLastMeeting, setLastMeeting } from "../../data/lastMeeting";
 import { hydrateMeetingFiles } from "../../data/meetingLibrary";
 import { getMeeting, logParticipation } from "../../data/projects";
@@ -35,6 +36,7 @@ import {
   screenShareMediaAtom,
 } from "../../screenshare/screenShareState";
 
+import { AppToast } from "./AppToast";
 import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
 import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
@@ -117,6 +119,22 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const someoneElseSharing = Array.from(screenSharePresence.keys()).some(
     (id) => id !== mySocketId,
   );
+  // Surface a screen-share failure as an app toast — only on the
+  // TRANSITION into "error" (tracked via ref) so re-renders while the
+  // error state persists don't re-fire the same toast.
+  const prevShareStatusRef = useRef(screenShareMedia.status);
+  useEffect(() => {
+    const prev = prevShareStatusRef.current;
+    prevShareStatusRef.current = screenShareMedia.status;
+    if (screenShareMedia.status === "error" && prev !== "error") {
+      showAppToast(
+        t("errors.presentFailed", {
+          detail: screenShareMedia.errorMessage ?? "",
+        }),
+      );
+    }
+  }, [screenShareMedia, t]);
+
   const handlePresent = () => {
     const mgr = screenShareInstance;
     if (!mgr) {
@@ -355,6 +373,8 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           meeting whose time has arrived. Hides itself while collaborating
           so the in-meeting canvas stays clean. */}
       <MeetingDueNotice />
+      {/* App-level error toast (showAppToast) — same corner, error tone. */}
+      <AppToast />
       <ProjectFolder />
     </div>
   );

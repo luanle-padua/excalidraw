@@ -111,7 +111,11 @@ import {
   upsertMeetingFile,
 } from "../data/meetingLibrary";
 
-import { fetchBatchTranslation } from "../data/translation";
+import {
+  fetchBatchTranslation,
+  preferredLanguageAtom,
+} from "../data/translation";
+import { t as tMcm } from "../i18n/mcm";
 import {
   liveTranscriptsAtom,
   loadTranscriptLog,
@@ -123,7 +127,8 @@ import { clearDxfSnapshotsForFile } from "../components/mcm/dxf/dxfSnapshotCache
 import { clearIfcSnapshotsForFile } from "../components/mcm/ifc/ifcSnapshotCache";
 import { clearPdfSnapshotsForFile } from "../components/mcm/pdf/pdfSnapshotCache";
 import { normalizeMeetingStatus } from "../components/mcm/meetingStatus";
-import { getMeeting, registerMeeting } from "../data/projects";
+import { showAppToast } from "../data/appToast";
+import { getMeetingChecked, registerMeeting } from "../data/projects";
 import { sessionAtom } from "../data/session";
 
 import {
@@ -686,9 +691,37 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
   };
 
+  /** Fire any pending debounced room saves NOW — called on leave/End/unload
+   *  before the portal closes. Without this, whatever landed inside the last
+   *  debounce window (chat 800ms, library 1.2s, transcript 5s) never reached
+   *  R2 and only resurfaced from THIS browser's local cache. A pending timer
+   *  implies we're not in read-only review (persist* never schedules there). */
+  private flushPendingRoomSaves = () => {
+    const { roomId, roomKey } = this.portal;
+    if (!roomId || !roomKey) {
+      return;
+    }
+    if (this.chatSaveTimer) {
+      clearTimeout(this.chatSaveTimer);
+      this.chatSaveTimer = null;
+      this.saveChatNow(roomId, roomKey);
+    }
+    if (this.transcriptSaveTimer) {
+      clearTimeout(this.transcriptSaveTimer);
+      this.transcriptSaveTimer = null;
+      this.saveTranscriptNow(roomId, roomKey);
+    }
+    if (this.librarySaveTimer) {
+      clearTimeout(this.librarySaveTimer);
+      this.librarySaveTimer = null;
+      this.saveLibraryNow(roomId, roomKey);
+    }
+  };
+
   private destroySocketClient = (opts?: { isUnload: boolean }) => {
     this.lastBroadcastedOrReceivedSceneVersion = -1;
     this.eagerSceneLoaded = false;
+    this.flushPendingRoomSaves();
     this.portal.close();
     this.fileManager.reset();
     if (this.chatSaveTimer) {
@@ -894,7 +927,30 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // acting-host rule) or polls until live (guests). `live`, `finished`,
       // unregistered ad-hoc rooms, and explicit review opens pass through.
       if (!viewOnly) {
-        const reg = await getMeeting(roomId);
+        let fetched = await getMeetingChecked(roomId);
+        if (fetched.kind === "error") {
+          // Transient worker hiccup? One retry before deciding.
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          fetched = await getMeetingChecked(roomId);
+        }
+        if (fetched.kind === "error") {
+          // FAIL CLOSED: we can't tell a finished/scheduled meeting from a
+          // live one, so don't grant an editable canvas on a guess. Bail
+          // before setIsCollaborating/socket open — the user stays in the
+          // lobby with #room intact on the URL, so a plain retry works.
+          showAppToast(
+            // Class context — read the viewer's language straight off the
+            // store instead of the useT hook.
+            tMcm(
+              appJotaiStore.get(preferredLanguageAtom),
+              "errors.joinUnverified",
+            ),
+          );
+          return null;
+        }
+        // `not-found` = genuinely unregistered ad-hoc room → editable
+        // pass-through, same as before.
+        const reg = fetched.kind === "found" ? fetched.meeting : null;
         const gateStatus = normalizeMeetingStatus(reg?.status);
         if (gateStatus === "scheduled" || gateStatus === "cancelled") {
           appJotaiStore.set(startGateAtom, {
@@ -1823,6 +1879,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   // read-only review — shows the past conversation. Never writes while
   // reviewing (the meeting is immutable) or before the room key is known.
   private chatSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveChatNow = (roomId: string, roomKey: string) => {
+    const messages = appJotaiStore.get(chatMessagesAtom) ?? [];
+    void saveChatToFirebase(roomId, roomKey, messages).catch((error) => {
+      console.error(error);
+    });
+  };
+
   private persistChat = () => {
     if (appJotaiStore.get(meetingViewOnlyAtom)) {
       return;
@@ -1836,10 +1899,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.chatSaveTimer = setTimeout(() => {
       this.chatSaveTimer = null;
-      const messages = appJotaiStore.get(chatMessagesAtom) ?? [];
-      void saveChatToFirebase(roomId, roomKey, messages).catch((error) => {
-        console.error(error);
-      });
+      this.saveChatNow(roomId, roomKey);
     }, 800);
   };
 
@@ -1873,6 +1933,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   // R2 is the durable copy. Debounced wider than chat (segments arrive in
   // bursts while someone talks). Never writes in read-only review.
   private transcriptSaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveTranscriptNow = (roomId: string, roomKey: string) => {
+    const log = appJotaiStore.get(transcriptionLogAtom) ?? [];
+    if (!log.length) {
+      return;
+    }
+    void saveTranscriptToFirebase(roomId, roomKey, log).catch((error) => {
+      console.error(error);
+    });
+  };
+
   private persistTranscript = () => {
     if (appJotaiStore.get(meetingViewOnlyAtom)) {
       return;
@@ -1886,13 +1956,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.transcriptSaveTimer = setTimeout(() => {
       this.transcriptSaveTimer = null;
-      const log = appJotaiStore.get(transcriptionLogAtom) ?? [];
-      if (!log.length) {
-        return;
-      }
-      void saveTranscriptToFirebase(roomId, roomKey, log).catch((error) => {
-        console.error(error);
-      });
+      this.saveTranscriptNow(roomId, roomKey);
     }, 5000);
   };
 
@@ -1939,6 +2003,38 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private libraryUnsub: (() => void) | null = null;
   private loadingLibrary = false;
 
+  private saveLibraryNow = (roomId: string, roomKey: string) => {
+    void (async () => {
+      const files = appJotaiStore.get(meetingFilesAtom) ?? [];
+      if (!files.length) {
+        return;
+      }
+      // Keep the blob small: large files (IFC GLB) live on R2 per-file; the
+      // blob carries only their metadata (dataURL stripped). Small files
+      // stay inline so a single fetch restores them.
+      const slim = await Promise.all(
+        files.map(async (f) => {
+          if (!this.isLargeLibraryFile(f)) {
+            return f;
+          }
+          // ALWAYS strip large bytes from the blob — a multi-MB GLB inline
+          // would balloon the blob and 503 the /v1/library PUT. Best-effort
+          // push the bytes to per-file R2; if that fails, the entry stays
+          // metadata-only (its thumbnail still paints; loadLibrary keeps it).
+          try {
+            await this.ensureLargeLibraryFileOnR2(f);
+          } catch (error) {
+            console.error(error);
+          }
+          return { ...f, dataURL: "" };
+        }),
+      );
+      void saveLibraryToFirebase(roomId, roomKey, slim).catch((error) => {
+        console.error(error);
+      });
+    })();
+  };
+
   private persistLibrary = () => {
     // Don't write while restoring (we'd just re-save what we loaded), while
     // reviewing (the meeting is immutable), or before a room key is known.
@@ -1954,35 +2050,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.librarySaveTimer = setTimeout(() => {
       this.librarySaveTimer = null;
-      void (async () => {
-        const files = appJotaiStore.get(meetingFilesAtom) ?? [];
-        if (!files.length) {
-          return;
-        }
-        // Keep the blob small: large files (IFC GLB) live on R2 per-file; the
-        // blob carries only their metadata (dataURL stripped). Small files
-        // stay inline so a single fetch restores them.
-        const slim = await Promise.all(
-          files.map(async (f) => {
-            if (!this.isLargeLibraryFile(f)) {
-              return f;
-            }
-            // ALWAYS strip large bytes from the blob — a multi-MB GLB inline
-            // would balloon the blob and 503 the /v1/library PUT. Best-effort
-            // push the bytes to per-file R2; if that fails, the entry stays
-            // metadata-only (its thumbnail still paints; loadLibrary keeps it).
-            try {
-              await this.ensureLargeLibraryFileOnR2(f);
-            } catch (error) {
-              console.error(error);
-            }
-            return { ...f, dataURL: "" };
-          }),
-        );
-        void saveLibraryToFirebase(roomId, roomKey, slim).catch((error) => {
-          console.error(error);
-        });
-      })();
+      this.saveLibraryNow(roomId, roomKey);
     }, 1200);
   };
 

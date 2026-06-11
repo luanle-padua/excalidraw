@@ -21,8 +21,8 @@ export const vi = {
     clientPlaceholder: "ban@congty.com",
     add: "Thêm",
     addToProject: "Cho xem cả dự án (chỉ nội bộ)",
-    send: "Gửi lời mời",
-    sent: "Đã gửi ✓",
+    send: "Cấp quyền tham gia",
+    sent: "Đã cấp quyền ✓ — nhớ gửi link cho khách",
     empty: "Không có ai",
     pickMembers: "Thành viên",
     pickTitle: "Chọn thành viên",
@@ -30,6 +30,9 @@ export const vi = {
     currentInvitees: "Đã mời ({count})",
     revoked: "Đã thu hồi",
     cohost: "Đồng chủ trì",
+    errForbidden: "Bạn không có quyền mời người vào cuộc họp này.",
+    errFinished: "Cuộc họp đã kết thúc hoặc bị huỷ — không thể mời thêm.",
+    errNetwork: "Cấp quyền không thành công — kiểm tra mạng rồi thử lại.",
   },
   invited: {
     title: "Được mời / Sắp tới",
@@ -88,6 +91,7 @@ export const vi = {
     projects: "Dự án",
     untitledMeeting: "Cuộc họp chưa đặt tên",
     editMeetingTitle: "Bấm để sửa tên / chủ đề cuộc họp",
+    shareCopied: "Đã copy link cuộc họp",
   },
 
   // ---------------- Lobby (Zoom-style front door) ------------------
@@ -107,6 +111,8 @@ export const vi = {
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "Xem lại (chỉ đọc) · cuộc họp đã xong — chỉ trích xuất",
+    uploadDisabled:
+      "Cuộc họp đã kết thúc — thư viện chỉ đọc, không tải lên được.",
   },
 
   // ---------------- Language / theme switcher ----------------------
@@ -382,6 +388,7 @@ export const vi = {
     secPeople: "Người tham gia",
     saveFailed:
       "Lưu không thành công — kiểm tra quyền (chỉ người tổ chức) hoặc trạng thái cuộc họp.",
+    comingSoon: "(sắp có)",
   },
 
   // ---------------- People grid (nhóm người trên meeting) -----------
@@ -857,5 +864,18 @@ export const vi = {
   authors: {
     toggleShow: "Hiện tác giả",
     toggleHide: "Ẩn tác giả",
+  },
+
+  // ---------------- App-level error toasts (showAppToast) -----------
+  errors: {
+    openMeetingFailed:
+      "Không mở được cuộc họp — máy chủ không phản hồi hoặc bạn không có quyền.",
+    createProjectFailed: "Không tạo được dự án — kiểm tra mạng rồi thử lại.",
+    colorFailed: "Không lưu được màu cuộc họp.",
+    endMeetingFailed:
+      "Không kết thúc được cuộc họp — kiểm tra mạng rồi thử lại.",
+    joinUnverified:
+      "Không kiểm tra được trạng thái cuộc họp (mất kết nối máy chủ). Thử lại sau.",
+    presentFailed: "Không trình bày được màn hình. {detail}",
   },
 } as const;

@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { useAtom, useAtomValue } from "../../app-jotai";
+import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import {
   clearTranscriptLog,
@@ -181,6 +181,7 @@ type Tab = "transcript" | "summary";
 export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const t = useT();
   const [log] = useAtom(transcriptionLogAtom);
+  const setLog = useSetAtom(transcriptionLogAtom);
   const [summary, setSummary] = useAtom(meetingSummaryAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
@@ -296,9 +297,10 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
       return;
     }
     clearTranscriptLog(roomId);
+    // Empty the in-memory atom too so the UI clears immediately. The R2
+    // transcript blob still exists — a rejoin re-hydrates it (separate debt).
+    setLog([]);
     setSummary(null);
-    // Local atom is cleared by TranscriptionController when room
-    // leaves; for now we leave it untouched — refresh applies fully.
   };
 
   return (

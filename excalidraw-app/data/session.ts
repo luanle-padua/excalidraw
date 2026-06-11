@@ -11,6 +11,7 @@
 
 import { atom, appJotaiStore } from "../app-jotai";
 
+import { fetchWithAuth } from "./fetchWithAuth";
 import { supabase } from "./supabaseClient";
 
 import type { User } from "@supabase/supabase-js";
@@ -36,11 +37,40 @@ export const sessionAtom = atom<Session | null>(null);
 
 /** Internal organisation email domains. Members on these domains are "internal"
  *  (auto-admit, can become acting host); everyone else is an external guest.
- *  Mirrors the admin Settings `internal_domains` (hardcoded default for now). */
+ *  Seeded with the hardcoded fallback, then REPLACED in place with the live
+ *  admin-editable `internal_domains` setting (worker /v1/config) on login —
+ *  display-side mirror of the server's authz list. */
 export const INTERNAL_DOMAINS = ["mapgroup.co.kr"];
 export const isInternalEmail = (email?: string | null): boolean =>
   !!email &&
   INTERNAL_DOMAINS.some((d) => email.toLowerCase().endsWith(`@${d}`));
+
+const STORAGE_URL =
+  import.meta.env.VITE_DEV_TUNNEL === "true"
+    ? ""
+    : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
+
+let domainsSynced = false;
+const syncInternalDomains = (): void => {
+  if (domainsSynced) {
+    return;
+  }
+  domainsSynced = true;
+  void fetchWithAuth(`${STORAGE_URL}/v1/config`)
+    .then((res) => (res.ok ? res.json() : null))
+    .then((cfg: { internal_domains?: string[] } | null) => {
+      const list = (cfg?.internal_domains ?? [])
+        .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+        .filter(Boolean);
+      if (list.length) {
+        // Mutate in place — every importer of INTERNAL_DOMAINS sees the update.
+        INTERNAL_DOMAINS.splice(0, INTERNAL_DOMAINS.length, ...list);
+      }
+    })
+    .catch(() => {
+      domainsSynced = false; // offline — retry on the next auth event
+    });
+};
 
 /** false until the first Supabase session check resolves — the login gate
  *  waits on this so it doesn't flash the login screen for an already
@@ -118,6 +148,9 @@ export const initAuthSync = (): void => {
   const apply = (user: User | null | undefined) => {
     appJotaiStore.set(sessionAtom, user ? deriveSession(user) : null);
     appJotaiStore.set(authReadyAtom, true);
+    if (user) {
+      syncInternalDomains();
+    }
   };
   void supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
   supabase.auth.onAuthStateChange((_event, session) => apply(session?.user));

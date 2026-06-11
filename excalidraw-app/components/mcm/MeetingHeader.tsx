@@ -3,10 +3,8 @@ import {
   ChevronDown,
   FileText,
   FolderOpen,
-  LayoutGrid,
   LogOut,
   Mic,
-  MoreHorizontal,
   PhoneOff,
   Presentation,
   Settings,
@@ -27,6 +25,8 @@ import {
   meetingViewOnlyAtom,
   participantsPanelOpenAtom,
 } from "../../collab/Collab";
+import { showAppToast } from "../../data/appToast";
+import { listInvitees } from "../../data/invite";
 import { clearLastMeeting } from "../../data/lastMeeting";
 import {
   getMeeting,
@@ -38,7 +38,6 @@ import { markReviewRoom } from "../../data/reviewMode";
 import { isInternalEmail, sessionAtom } from "../../data/session";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
-import { hostSocketIdAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { InvitePanel } from "./InvitePanel";
@@ -110,6 +109,7 @@ export const MeetingHeader = ({
     confidentiality: string | null;
     scheduled_at: string | null;
     organizerEmail: string | null;
+    hostEmail: string | null;
     createdAt: number | null;
     projectName: string | null;
   } | null>(null);
@@ -138,6 +138,7 @@ export const MeetingHeader = ({
             confidentiality: m.confidentiality,
             scheduled_at: m.scheduled_at,
             organizerEmail: m.organizer_email,
+            hostEmail: m.host_email,
             createdAt: m.created_at,
             projectName: m.project_name,
           }
@@ -243,12 +244,51 @@ export const MeetingHeader = ({
       isInternalEmail(session?.email),
     ) && isEditableMeetingStatus(meetingInfo?.status);
 
-  // Host control: only the elected host sees the "End meeting" button.
-  const hostSocketId = useAtomValue(hostSocketIdAtom);
   const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const setViewOnly = useSetAtom(meetingViewOnlyAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
-  const isHost = !!selfSocketId && hostSocketId === selfSocketId;
+
+  // End-for-all is gated by DESIGNATED role, not the socket election (quyết
+  // định 06-11): host / co-host / organizer only. The acting-host rule still
+  // governs in-room controls (kick/mute via hostSocketIdAtom elsewhere), but a
+  // random internal participant must not be able to end the meeting. Identity
+  // = login email; the worker re-enforces the same rule on the PATCH (403).
+  const [isCohost, setIsCohost] = useState(false);
+  useEffect(() => {
+    setIsCohost(false);
+    const myEmail = session?.email?.toLowerCase();
+    if (!roomId || !myEmail || !isInternalEmail(myEmail)) {
+      return;
+    }
+    let alive = true;
+    void listInvitees(roomId).then((invitees) => {
+      if (alive) {
+        setIsCohost(
+          invitees.some(
+            (iv) =>
+              iv.email === myEmail &&
+              iv.role === "cohost" &&
+              iv.status !== "revoked",
+          ),
+        );
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, [roomId, session?.email]);
+
+  const myEmail = session?.email?.toLowerCase();
+  const canEndMeeting =
+    !!myEmail &&
+    (meetingInfo?.hostEmail?.toLowerCase() === myEmail ||
+      meetingInfo?.organizerEmail?.toLowerCase() === myEmail ||
+      isCohost ||
+      // Legacy/ad-hoc rooms without a registry identity: keep the old
+      // internal-allow so dev rooms can still be ended (worker mirrors this).
+      (!meetingInfo?.hostEmail &&
+        !meetingInfo?.organizerEmail &&
+        isInternalEmail(myEmail)));
 
   // AI summary-first (quyết định 06-10 #4): when the host ends the meeting,
   // auto-generate a recap from the transcript + chat and store it in D1
@@ -315,15 +355,36 @@ export const MeetingHeader = ({
     [log, chatMessages, preferredLang, t],
   );
 
+  // Share = copy the live room link. Same clipboard fallback as InvitePanel:
+  // the async clipboard API can be unavailable (insecure context / permission
+  // denied), in which case a prompt lets the user copy manually.
+  const handleShare = useCallback(async () => {
+    if (!activeRoomLink) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(activeRoomLink);
+    } catch {
+      window.prompt(t("header.share"), activeRoomLink);
+    }
+    excalidrawAPI?.setToast({ message: t("header.shareCopied") });
+  }, [activeRoomLink, excalidrawAPI, t]);
+
   const handleEndMeeting = useCallback(async () => {
-    if (!roomId || !isHost) {
+    if (!roomId || !canEndMeeting) {
       return;
     }
     if (!window.confirm(t("header.endConfirm"))) {
       return;
     }
-    // Mark the meeting finished in the registry (so reopen = read-only review)…
-    await updateMeeting(roomId, { status: "finished" });
+    // Mark the meeting finished in the registry FIRST (so reopen = read-only
+    // review). If the write fails, abort before any local/broadcast side
+    // effects — nothing changes, the host can simply retry.
+    const ok = await updateMeeting(roomId, { status: "finished" });
+    if (!ok) {
+      showAppToast(t("errors.endMeetingFailed"));
+      return;
+    }
     // …kick off the AI recap in the background (never blocks the ending)…
     void generateAiSummary(roomId).catch((error) => {
       console.warn("AI summary generation failed (non-blocking):", error);
@@ -337,7 +398,7 @@ export const MeetingHeader = ({
     // …and switch ourselves too.
     markReviewRoom(roomId);
     setViewOnly(true);
-  }, [roomId, isHost, collabAPI, setViewOnly, generateAiSummary, t]);
+  }, [roomId, canEndMeeting, collabAPI, setViewOnly, generateAiSummary, t]);
 
   return (
     <header className="mcm-header">
@@ -433,17 +494,12 @@ export const MeetingHeader = ({
         <button
           type="button"
           className="mcm-header__btn mcm-header__btn--ghost"
+          onClick={() => void handleShare()}
+          disabled={!activeRoomLink}
           title={t("header.share")}
         >
           <Share2 size={18} />
           {t("header.share")}
-        </button>
-        <button
-          type="button"
-          className="mcm-header__icon-btn"
-          title={t("header.layout")}
-        >
-          <LayoutGrid size={18} />
         </button>
         <button
           type="button"
@@ -469,13 +525,6 @@ export const MeetingHeader = ({
         </button>
         <button
           type="button"
-          className="mcm-header__icon-btn"
-          title={t("header.more")}
-        >
-          <MoreHorizontal size={18} />
-        </button>
-        <button
-          type="button"
           className="mcm-header__btn mcm-header__btn--primary"
           onClick={() => setInviteOpen(true)}
           title={t("header.invite")}
@@ -483,7 +532,7 @@ export const MeetingHeader = ({
           <UserPlus size={18} />
           {t("header.invite")}
         </button>
-        {isHost && !viewOnly && (
+        {canEndMeeting && !viewOnly && (
           <button
             type="button"
             className="mcm-header__btn mcm-header__btn--danger"

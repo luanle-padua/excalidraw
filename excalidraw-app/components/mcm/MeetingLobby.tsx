@@ -89,27 +89,40 @@ export const MeetingLobby = () => {
   //     start gate (WaitingForStart), never a "Resume" shortcut. Keep the
   //     pointer (it becomes resumable once the host Starts) but don't offer.
   useEffect(() => {
-    const last = getLastMeeting();
-    if (!session || !last) {
+    if (!session) {
       setResume(null);
       return;
     }
     let cancelled = false;
-    void getMeeting(last.roomId).then((m) => {
-      if (cancelled) {
+    const revalidate = () => {
+      const last = getLastMeeting();
+      if (!last) {
+        setResume(null);
         return;
       }
-      if (!m || isFinishedStatus(m.status)) {
-        clearLastMeeting();
-        setResume(null);
-      } else if (normalizeMeetingStatus(m.status) === "scheduled") {
-        setResume(null);
-      } else {
-        setResume({ room: last, title: m.title ?? "" });
-      }
-    });
+      void getMeeting(last.roomId).then((m) => {
+        if (cancelled) {
+          return;
+        }
+        if (!m || isFinishedStatus(m.status)) {
+          clearLastMeeting();
+          setResume(null);
+        } else if (normalizeMeetingStatus(m.status) === "scheduled") {
+          setResume(null);
+        } else {
+          setResume({ room: last, title: m.title ?? "" });
+        }
+      });
+    };
+    revalidate();
+    // The check above is point-in-time — if the host "End for all"s while
+    // this user is parked at the lobby, the banner would go stale and offer
+    // a resume into a finished meeting. Re-validate whenever the user comes
+    // back to the tab (the moment they'd actually click it).
+    window.addEventListener("focus", revalidate);
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", revalidate);
     };
   }, [session]);
 
@@ -170,6 +183,15 @@ export const MeetingLobby = () => {
     }
     setBusy(true);
     try {
+      // Last-second status check: the banner may have gone stale since the
+      // focus revalidation (host ended the meeting seconds ago). A finished
+      // meeting must never be "resumed" — drop the pointer and the banner.
+      const m = await getMeeting(resume.room.roomId);
+      if (!m || isFinishedStatus(m.status)) {
+        clearLastMeeting();
+        setResume(null);
+        return;
+      }
       window.history.pushState({}, "", getCollaborationLink(resume.room));
       await collabAPI.startCollaboration(resume.room);
     } finally {

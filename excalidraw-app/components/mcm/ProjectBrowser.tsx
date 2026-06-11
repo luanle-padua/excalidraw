@@ -16,6 +16,7 @@ import { createPortal } from "react-dom";
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
+import { showAppToast } from "../../data/appToast";
 import { getMyMeetings, type CalMeeting } from "../../data/calendar";
 import { getMyInvitations, type MyInvitation } from "../../data/invite";
 import {
@@ -239,6 +240,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const joinMeetingById = async (roomId: string) => {
     const m = await getMeeting(roomId);
     if (!m?.room_key) {
+      showAppToast(t("errors.openMeetingFailed"));
       return;
     }
     const finished = isFinishedStatus(m.status);
@@ -277,11 +279,14 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setBusy(true);
     try {
       const project = await createProject(name);
+      if (!project) {
+        // Keep the typed name so the user can just retry.
+        showAppToast(t("errors.createProjectFailed"));
+        return;
+      }
       setNewProjectName("");
       await refreshProjects();
-      if (project) {
-        setView(project.id);
-      }
+      setView(project.id);
     } finally {
       setBusy(false);
     }
@@ -297,6 +302,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       if (meeting?.room_key) {
         const finished = isFinishedStatus(meeting.status);
         await enterRoom(m.id, meeting.room_key, finished);
+      } else {
+        showAppToast(t("errors.openMeetingFailed"));
       }
     } finally {
       setBusy(false);
@@ -327,7 +334,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // the calendar event (which reads meeting.color) update together.
   const assignColor = async (id: string, color: string | null) => {
     setColorMenuFor(null);
-    await updateMeeting(id, { color });
+    const ok = await updateMeeting(id, { color });
+    if (!ok) {
+      showAppToast(t("errors.colorFailed"));
+      return;
+    }
     await refreshCards();
     setCalRefresh((k) => k + 1);
   };
@@ -336,7 +347,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     if (!editingProject) {
       return;
     }
-    await updateProject(editingProject.id, {
+    const ok = await updateProject(editingProject.id, {
       name: values.name,
       code: values.code,
       client: values.client,
@@ -347,6 +358,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       cover: values.cover,
       description: values.description,
     });
+    if (!ok) {
+      // Keep the modal open so the edits aren't silently lost.
+      window.alert(t("folder.saveFailed"));
+      return;
+    }
     setEditingProject(null);
     await refreshProjects();
   };
@@ -512,17 +528,24 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-3col__middle-head">
           <div className="mcm-3col__middle-titlebox">
             <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
-            {selectedProject && isMemberProject(selectedProject) && (
-              <button
-                type="button"
-                className="mcm-icon-btn mcm-icon-btn--sm"
-                onClick={() => setEditingProject(selectedProject)}
-                title={t("folder.editProject")}
-                aria-label={t("folder.editProject")}
-              >
-                <Pencil size={14} />
-              </button>
-            )}
+            {/* Edit only for the project HOST (or an admin) — the Worker
+                rejects the PATCH for anyone else, so don't offer a button
+                that "saves" into a 403. Legacy projects with a null
+                host_email: only admins can edit (accepted trade-off). */}
+            {selectedProject &&
+              (selectedProject.host_email?.toLowerCase() ===
+                session?.email?.toLowerCase() ||
+                session?.isAdmin) && (
+                <button
+                  type="button"
+                  className="mcm-icon-btn mcm-icon-btn--sm"
+                  onClick={() => setEditingProject(selectedProject)}
+                  title={t("folder.editProject")}
+                  aria-label={t("folder.editProject")}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
           </div>
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
               so it hides while a detail/create/edit form occupies the column. */}

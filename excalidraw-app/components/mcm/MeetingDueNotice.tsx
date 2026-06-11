@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom, isCollaboratingAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
+import { showAppToast } from "../../data/appToast";
 import { getMyMeetings, type CalMeeting } from "../../data/calendar";
 import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
@@ -151,6 +152,7 @@ export const MeetingDueNotice = () => {
       // user may BE the host who should press Start.
       const m = await getMeeting(due.id);
       if (!m?.room_key) {
+        showAppToast(t("errors.openMeetingFailed"));
         return;
       }
       dismissedIds.add(due.id); // joined — never re-toast this one

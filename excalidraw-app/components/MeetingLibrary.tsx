@@ -12,7 +12,7 @@ import type { BinaryFileData } from "@excalidraw/excalidraw/types";
 import type { FileId } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../app-jotai";
-import { collabAPIAtom } from "../collab/Collab";
+import { collabAPIAtom, meetingViewOnlyAtom } from "../collab/Collab";
 import {
   canDeleteFile,
   canUnlockFile,
@@ -247,6 +247,11 @@ export const MeetingLibrary = () => {
   const t = useT();
   const items = useAtomValue(meetingFilesAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
+  // Finished meetings are review-only: block every path that ADDS material
+  // (upload button, file input, drop, shelf copy). Inserting an EXISTING
+  // library file onto the canvas stays allowed — it only touches the local
+  // scene, which review mode already keeps from syncing.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const excalidrawAPI = useExcalidrawAPI();
   const session = useAtomValue(sessionAtom);
   const isInternal = isInternalEmail(session?.email);
@@ -288,8 +293,13 @@ export const MeetingLibrary = () => {
       ifc: 0,
       other: 0,
     };
+    // Count over the SAME population the list renders — MCM-internal files
+    // (anchor snapshots, decoration assets) are hidden from the tiles, so
+    // counting them here would show chip totals above what the user sees.
     for (const f of items) {
-      counts[fileTypeOf(f)]++;
+      if (!isInternalCanvasFile(f.id, undefined)) {
+        counts[fileTypeOf(f)]++;
+      }
     }
     return counts;
   }, [items]);
@@ -542,7 +552,12 @@ export const MeetingLibrary = () => {
     [excalidrawAPI, collabAPI],
   );
 
-  const handlePickFiles = () => fileInputRef.current?.click();
+  const handlePickFiles = () => {
+    if (viewOnly) {
+      return;
+    }
+    fileInputRef.current?.click();
+  };
 
   const toggleShelf = () => {
     if (shelfOpen) {
@@ -556,7 +571,7 @@ export const MeetingLibrary = () => {
 
   const handleCopyFromShelf = useCallback(
     async (shelfFile: UserFile) => {
-      if (shelfCopyingId) {
+      if (shelfCopyingId || viewOnly) {
         return;
       }
       setShelfCopyingId(shelfFile.id);
@@ -570,19 +585,28 @@ export const MeetingLibrary = () => {
         // detection for DXF/IFC/PDF is extension-based) and feed it through
         // the exact local-upload pipeline — bake, per-meeting encryption and
         // snapshot-copy semantics all come for free.
-        const file = new File([blob], shelfFile.name, {
-          type: blob.type || SHELF_MIME_FALLBACK[shelfFile.kind],
-        });
+        // The Worker serves shelf bytes as application/octet-stream, which is
+        // truthy — so it must be treated as "untyped" or images never reach
+        // the kind fallback and ingest rejects them (image detection is the
+        // one mime-based check in ingestFiles).
+        const realType =
+          blob.type && blob.type !== "application/octet-stream"
+            ? blob.type
+            : SHELF_MIME_FALLBACK[shelfFile.kind];
+        const file = new File([blob], shelfFile.name, { type: realType });
         await ingestFiles([file]);
         setShelfOpen(false);
       } finally {
         setShelfCopyingId(null);
       }
     },
-    [shelfCopyingId, ingestFiles, t],
+    [shelfCopyingId, viewOnly, ingestFiles, t],
   );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (viewOnly) {
+      return;
+    }
     if (e.target.files && e.target.files.length > 0) {
       void ingestFiles(e.target.files);
       // reset input so picking the same file again still triggers change
@@ -593,6 +617,9 @@ export const MeetingLibrary = () => {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
+    if (viewOnly) {
+      return;
+    }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       void ingestFiles(e.dataTransfer.files);
     }
@@ -912,15 +939,17 @@ export const MeetingLibrary = () => {
         );
       }
       if (isIfc) {
+        // IFC/PDF anchors are image elements (snapshot drawn on top);
+        // only DXF still anchors on a transparent rectangle.
         return (
-          el.type === "rectangle" &&
+          el.type === "image" &&
           data?.mcmType === IFC_ANCHOR_KIND &&
           data?.ifcFileId === file.id
         );
       }
       if (isPdf) {
         return (
-          el.type === "rectangle" &&
+          el.type === "image" &&
           data?.mcmType === PDF_ANCHOR_KIND &&
           data?.pdfFileId === file.id
         );
@@ -1019,15 +1048,17 @@ export const MeetingLibrary = () => {
           );
         }
         if (isIfc) {
+          // IFC/PDF anchors are image elements (snapshot drawn on top);
+          // only DXF still anchors on a transparent rectangle.
           return (
-            el.type === "rectangle" &&
+            el.type === "image" &&
             data?.mcmType === IFC_ANCHOR_KIND &&
             data?.ifcFileId === file.id
           );
         }
         if (isPdf) {
           return (
-            el.type === "rectangle" &&
+            el.type === "image" &&
             data?.mcmType === PDF_ANCHOR_KIND &&
             data?.pdfFileId === file.id
           );
@@ -1446,7 +1477,8 @@ export const MeetingLibrary = () => {
             dragOver ? "MeetingLibrary__upload--dragover" : ""
           }`}
           onClick={handlePickFiles}
-          disabled={!excalidrawAPI}
+          disabled={!excalidrawAPI || viewOnly}
+          title={viewOnly ? t("review.uploadDisabled") : undefined}
         >
           {dragOver
             ? "Thả file để tải lên"

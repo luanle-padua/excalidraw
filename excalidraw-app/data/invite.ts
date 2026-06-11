@@ -41,12 +41,14 @@ export const getDirectory = async (): Promise<DirectoryUser[]> => {
 };
 
 /** Invite people to a meeting. `addToProject` (internal emails only) also grants
- *  whole-folder project membership; a client is never auto-added to the project. */
+ *  whole-folder project membership; a client is never auto-added to the project.
+ *  Returns the HTTP status too so callers can tell apart worker refusals
+ *  (403 not allowed, 409 meeting finished) from network failure (null). */
 export const inviteToMeeting = async (
   roomId: string,
   invitees: { email: string; role?: string }[],
   addToProject?: string[],
-): Promise<boolean> => {
+): Promise<{ ok: boolean; status: number | null }> => {
   try {
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/invitees`,
@@ -56,9 +58,9 @@ export const inviteToMeeting = async (
         body: JSON.stringify({ invitees, addToProject }),
       },
     );
-    return res.ok;
+    return { ok: res.ok, status: res.status };
   } catch {
-    return false;
+    return { ok: false, status: null };
   }
 };
 

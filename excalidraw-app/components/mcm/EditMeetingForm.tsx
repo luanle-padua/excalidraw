@@ -72,6 +72,14 @@ export const EditMeetingForm = ({
   const [dateStr, setDateStr] = useState("");
   const [timeStr, setTimeStr] = useState("09:00");
   const [duration, setDuration] = useState("60");
+  /** Roles — mirror of the create form. Host holds the ACTUAL email (no
+   *  ""=me shorthand here: an admin may edit someone else's meeting), the
+   *  co-host rides on the invitee row's role, diffed at save. */
+  const [organizerEmail, setOrganizerEmail] = useState("");
+  const [hostEmail, setHostEmail] = useState("");
+  const [origHost, setOrigHost] = useState("");
+  const [cohostEmail, setCohostEmail] = useState("");
+  const [origCohost, setOrigCohost] = useState("");
 
   const [dir, setDir] = useState<DirectoryUser[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -109,6 +117,11 @@ export const EditMeetingForm = ({
         setPriority(m.priority ?? "");
         setConfidentiality(m.confidentiality ?? "");
         setDuration(m.duration_min ? String(m.duration_min) : "60");
+        const org = (m.organizer_email ?? "").toLowerCase();
+        const host = (m.host_email ?? m.organizer_email ?? "").toLowerCase();
+        setOrganizerEmail(org);
+        setHostEmail(host);
+        setOrigHost(host);
         if (m.scheduled_at) {
           const dt = new Date(m.scheduled_at);
           if (!Number.isNaN(dt.getTime())) {
@@ -143,6 +156,10 @@ export const EditMeetingForm = ({
       }
       setSelected(next);
       setOriginal(new Set(next.keys()));
+      const cohost =
+        active.find((iv) => iv.role === "cohost")?.email.toLowerCase() ?? "";
+      setCohostEmail(cohost);
+      setOrigCohost(cohost);
       setLoading(false);
     })();
     return () => {
@@ -189,6 +206,36 @@ export const EditMeetingForm = ({
       .slice(0, 50);
   }, [dir, q, selected]);
 
+  // A co-host who got un-invited in this session can't stay co-host —
+  // otherwise saving would silently re-invite them just to carry the role.
+  useEffect(() => {
+    if (
+      cohostEmail &&
+      cohostEmail !== organizerEmail &&
+      !selected.has(cohostEmail)
+    ) {
+      setCohostEmail("");
+    }
+  }, [cohostEmail, organizerEmail, selected]);
+
+  // Host/co-host candidates: the organizer + every selected INTERNAL invitee
+  // (a guest never hosts) — same pool as the create form, names via directory.
+  const internalCandidates = useMemo(() => {
+    const out = new Map<string, string>();
+    if (organizerEmail) {
+      out.set(
+        organizerEmail,
+        dir.find((u) => u.email === organizerEmail)?.name ?? organizerEmail,
+      );
+    }
+    for (const s of selected.values()) {
+      if (s.kind === "internal" && !out.has(s.email)) {
+        out.set(s.email, dir.find((u) => u.email === s.email)?.name ?? s.name);
+      }
+    }
+    return out;
+  }, [organizerEmail, selected, dir]);
+
   const add = (s: Selected) => setSelected((p) => new Map(p).set(s.email, s));
   const remove = (email: string) =>
     setSelected((p) => {
@@ -227,6 +274,9 @@ export const EditMeetingForm = ({
               duration_min: duration ? parseInt(duration, 10) : undefined,
             }
           : {}),
+        ...(hostEmail && hostEmail !== origHost
+          ? { host_email: hostEmail }
+          : {}),
       });
       if (!ok) {
         // Refused server-side (organizer race / meeting went terminal between
@@ -242,7 +292,11 @@ export const EditMeetingForm = ({
       if (added.length) {
         await inviteToMeeting(
           roomId,
-          added.map((s) => ({ email: s.email })),
+          // A freshly added co-host carries the role on their invite row.
+          added.map((s) => ({
+            email: s.email,
+            role: s.email === cohostEmail ? "cohost" : undefined,
+          })),
           addToProject
             ? added.filter((s) => s.kind === "internal").map((s) => s.email)
             : [],
@@ -250,6 +304,21 @@ export const EditMeetingForm = ({
       }
       for (const e of removed) {
         await revokeInvitee(roomId, e);
+      }
+      // Co-host diff for PRE-EXISTING rows (the invite upsert rewrites the
+      // role): demote the old co-host back to attendee, promote the new one
+      // unless their fresh invite above already carried it.
+      if (cohostEmail !== origCohost) {
+        const roleUpdates: { email: string; role?: string }[] = [];
+        if (origCohost && selected.has(origCohost)) {
+          roleUpdates.push({ email: origCohost });
+        }
+        if (cohostEmail && !added.some((s) => s.email === cohostEmail)) {
+          roleUpdates.push({ email: cohostEmail, role: "cohost" });
+        }
+        if (roleUpdates.length) {
+          await inviteToMeeting(roomId, roleUpdates, []);
+        }
       }
       onSaved();
     } finally {
@@ -399,6 +468,55 @@ export const EditMeetingForm = ({
               setConfidentiality,
               CONFIDENTIALITY,
             )}
+          </div>
+
+          {/* Roles — same pair as the create form (form tạo = form sửa). */}
+          <div className="mcm-editm__grid">
+            <label className="mcm-editm__field">
+              <span className="mcm-invite__label">{t("folder.host")}</span>
+              <select
+                value={hostEmail}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setHostEmail(v);
+                  // The new host can't stay co-host — drop the collision.
+                  if (cohostEmail && cohostEmail === v) {
+                    setCohostEmail("");
+                  }
+                }}
+              >
+                {[...internalCandidates].map(([email, name]) => (
+                  <option key={email} value={email}>
+                    {name}
+                  </option>
+                ))}
+                {/* Keep a host whose invite was removed selectable (à la
+                    withLegacy) so the select never silently mismatches. */}
+                {hostEmail !== "" && !internalCandidates.has(hostEmail) && (
+                  <option value={hostEmail}>{hostEmail}</option>
+                )}
+              </select>
+            </label>
+            <label className="mcm-editm__field">
+              <span className="mcm-invite__label">{t("invite.cohost")}</span>
+              <select
+                value={cohostEmail}
+                onChange={(e) => setCohostEmail(e.target.value)}
+              >
+                <option value="">{t("folder.noCohost")}</option>
+                {/* Same candidates minus the current host. */}
+                {[...internalCandidates]
+                  .filter(([email]) => email !== hostEmail)
+                  .map(([email, name]) => (
+                    <option key={email} value={email}>
+                      {name}
+                    </option>
+                  ))}
+                {cohostEmail !== "" && !internalCandidates.has(cohostEmail) && (
+                  <option value={cohostEmail}>{cohostEmail}</option>
+                )}
+              </select>
+            </label>
           </div>
 
           <div className="mcm-invite__label-row">

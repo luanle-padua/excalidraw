@@ -32,8 +32,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { MiddlewareHandler } from "hono";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+
+import type { MiddlewareHandler } from "hono";
 
 type Bindings = {
   BUCKET: R2Bucket;
@@ -109,12 +110,12 @@ app.use("/v1/*", async (c, next) => {
       audience: "authenticated",
     });
     c.set("userId", String(payload.sub ?? ""));
-    c.set("email", typeof payload.email === "string" ? payload.email : undefined);
-    const appMeta = payload.app_metadata as { role?: unknown } | undefined;
     c.set(
-      "role",
-      typeof appMeta?.role === "string" ? appMeta.role : undefined,
+      "email",
+      typeof payload.email === "string" ? payload.email : undefined,
     );
+    const appMeta = payload.app_metadata as { role?: unknown } | undefined;
+    c.set("role", typeof appMeta?.role === "string" ? appMeta.role : undefined);
     // Keep the internal-domain list warm — authz below depends on it.
     await refreshInternalDomains(c.env.DB);
     return next();
@@ -156,7 +157,9 @@ const refreshInternalDomains = async (db: D1Database) => {
   internalDomainsAt = Date.now();
   try {
     const row = await db
-      .prepare(`SELECT value FROM system_settings WHERE key = 'internal_domains'`)
+      .prepare(
+        `SELECT value FROM system_settings WHERE key = 'internal_domains'`,
+      )
       .first<{ value: string }>();
     const list = (row?.value ?? "")
       .split(",")
@@ -170,8 +173,7 @@ const refreshInternalDomains = async (db: D1Database) => {
   }
 };
 const isInternalEmail = (email?: string) =>
-  !!email &&
-  internalDomains.some((d) => email.toLowerCase().endsWith(`@${d}`));
+  !!email && internalDomains.some((d) => email.toLowerCase().endsWith(`@${d}`));
 
 // Tombstone check (P0.5): a permanently deleted meeting must STAY deleted — a
 // client still holding the room open could otherwise re-create the registry
@@ -181,6 +183,30 @@ const isDeletedMeeting = async (db: D1Database, roomId: string) =>
     .prepare(`SELECT 1 FROM deleted_meeting WHERE id = ?1`)
     .bind(roomId)
     .first());
+
+// Finished meetings are review-only: reject blob PUTs (scene/chat/transcript/
+// library/files) once the meeting is finished AND a grace window has passed.
+// The window exists because clients legitimately flush AFTER the finish PATCH:
+// the leave flush, the final scene save, and the chat/transcript timers all
+// land within minutes — blocking them would lose the meeting's last state.
+// `updated_at` is a reliable anchor: the finish PATCH is the LAST write that
+// touches it (every later status PATCH gets 409 from the terminal-state rule),
+// so updated_at effectively == finished_at. Known soft spot (accepted): an
+// admin PATCH that edits other fields refreshes updated_at and re-opens the
+// window. NOTE: the summary POST is intentionally NOT gated — the AI summary
+// arrives after finish by design.
+const FINISHED_WRITE_GRACE_MS = 10 * 60 * 1000;
+const isFinishedLocked = async (db: D1Database, roomId: string) => {
+  const row = await db
+    .prepare(`SELECT status, updated_at FROM meeting WHERE id = ?1`)
+    .bind(roomId)
+    .first<{ status: string | null; updated_at: number }>();
+  return (
+    !!row &&
+    normalizeStatus(row.status) === "finished" &&
+    Date.now() - row.updated_at > FINISHED_WRITE_GRACE_MS
+  );
+};
 
 // ---- Meeting lifecycle (Phase 4.5 state machine) ---------------------------
 // One canonical status vocabulary. Mirrors components/mcm/meetingStatus.ts:
@@ -346,6 +372,12 @@ app.use("/v1/meetings/:roomId/*", roomGate);
 
 app.get("/v1/health", (c) => c.json({ ok: true }));
 
+// Runtime config for ANY authenticated user — the live internal-domain list
+// (admin-editable system setting), so the client's internal/guest DISPLAY
+// matches what authz actually enforces instead of a client-side hardcode.
+// The JWT middleware already refreshed the per-isolate cache this request.
+app.get("/v1/config", (c) => c.json({ internal_domains: internalDomains }));
+
 // ---- Scene (canvas) blob -------------------------------------------------
 
 app.put("/v1/scenes/:roomId", async (c) => {
@@ -354,6 +386,10 @@ app.put("/v1/scenes/:roomId", async (c) => {
   // the room open re-creates the registry row via the upsert below (P0.5).
   if (await isDeletedMeeting(c.env.DB, roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
+  }
+  // Finished + past the grace window — review-only, no scene rewrites.
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
   }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
@@ -386,7 +422,10 @@ app.get("/v1/scenes/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
   const obj = await c.env.BUCKET.get(sceneKey(roomId));
   if (!obj) {
-    return c.json({ error: "not found" }, 404);
+    // 204, not 404: a brand-new room legitimately has no blob yet, and the
+    // browser logs every 4xx as console noise. Loaders treat an empty body
+    // exactly like "nothing stored". (Same for chats/transcripts/library.)
+    return c.body(null, 204);
   }
   return new Response(obj.body, {
     headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
@@ -402,6 +441,9 @@ app.put("/v1/chats/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
   if (await isDeletedMeeting(c.env.DB, roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
+  }
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
   }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
@@ -423,6 +465,9 @@ app.put("/v1/transcripts/:roomId", async (c) => {
   if (await isDeletedMeeting(c.env.DB, roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
   }
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
@@ -434,7 +479,7 @@ app.put("/v1/transcripts/:roomId", async (c) => {
 app.get("/v1/transcripts/:roomId", async (c) => {
   const obj = await c.env.BUCKET.get(transcriptKey(c.req.param("roomId")));
   if (!obj) {
-    return c.json({ error: "not found" }, 404);
+    return c.body(null, 204);
   }
   return new Response(obj.body, {
     headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
@@ -444,7 +489,7 @@ app.get("/v1/transcripts/:roomId", async (c) => {
 app.get("/v1/chats/:roomId", async (c) => {
   const obj = await c.env.BUCKET.get(chatKey(c.req.param("roomId")));
   if (!obj) {
-    return c.json({ error: "not found" }, 404);
+    return c.body(null, 204);
   }
   return new Response(obj.body, {
     headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
@@ -461,6 +506,9 @@ app.put("/v1/library/:roomId", async (c) => {
   if (await isDeletedMeeting(c.env.DB, roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
   }
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
@@ -472,7 +520,7 @@ app.put("/v1/library/:roomId", async (c) => {
 app.get("/v1/library/:roomId", async (c) => {
   const obj = await c.env.BUCKET.get(libraryKey(c.req.param("roomId")));
   if (!obj) {
-    return c.json({ error: "not found" }, 404);
+    return c.body(null, 204);
   }
   return new Response(obj.body, {
     headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
@@ -486,6 +534,9 @@ app.put("/v1/files/:roomId/:fileId", async (c) => {
   const fileId = c.req.param("fileId");
   if (await isDeletedMeeting(c.env.DB, roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
+  }
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
   }
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
@@ -736,7 +787,10 @@ app.delete("/v1/projects/:id", async (c) => {
     .all<{ id: string }>();
   if (meetings.length && !isAdmin) {
     return c.json(
-      { error: "project has meetings — delete them first", count: meetings.length },
+      {
+        error: "project has meetings — delete them first",
+        count: meetings.length,
+      },
       409,
     );
   }
@@ -756,7 +810,12 @@ app.delete("/v1/projects/:id", async (c) => {
 // Member roster — anyone with FULL access (members see who shares the folder).
 app.get("/v1/projects/:id/members", async (c) => {
   const id = c.req.param("id");
-  const access = await projectAccess(c.env.DB, c.get("email"), c.get("role"), id);
+  const access = await projectAccess(
+    c.env.DB,
+    c.get("email"),
+    c.get("role"),
+    id,
+  );
   if (access !== "full") {
     return c.json({ error: "forbidden" }, 403);
   }
@@ -774,7 +833,10 @@ app.get("/v1/projects/:id/members", async (c) => {
 app.post("/v1/projects/:id/members", async (c) => {
   const id = c.req.param("id");
   const email = c.get("email");
-  if (c.get("role") !== "admin" && !(await isProjectOwner(c.env.DB, id, email))) {
+  if (
+    c.get("role") !== "admin" &&
+    !(await isProjectOwner(c.env.DB, id, email))
+  ) {
     return c.json({ error: "owner only" }, 403);
   }
   const b = await c.req.json<{ emails?: string[] }>();
@@ -804,7 +866,10 @@ app.delete("/v1/projects/:id/members/:email", async (c) => {
   const id = c.req.param("id");
   const target = decodeURIComponent(c.req.param("email")).toLowerCase();
   const email = c.get("email");
-  if (c.get("role") !== "admin" && !(await isProjectOwner(c.env.DB, id, email))) {
+  if (
+    c.get("role") !== "admin" &&
+    !(await isProjectOwner(c.env.DB, id, email))
+  ) {
     return c.json({ error: "owner only" }, 403);
   }
   const row = await c.env.DB.prepare(
@@ -831,7 +896,9 @@ app.delete("/v1/projects/:id/members/:email", async (c) => {
   )
     .bind(id, target)
     .run();
-  await logAudit(c.env.DB, email, "project.member.remove", id, { email: target });
+  await logAudit(c.env.DB, email, "project.member.remove", id, {
+    email: target,
+  });
   return c.json({ ok: true });
 });
 
@@ -936,11 +1003,7 @@ app.post("/v1/meetings", async (c) => {
   // A meeting is only ever BORN scheduled or live — terminal states are
   // reached through the PATCH state machine, never at create.
   const status = b.status === undefined ? null : normalizeStatus(b.status);
-  if (
-    b.status !== undefined &&
-    status !== "scheduled" &&
-    status !== "live"
-  ) {
+  if (b.status !== undefined && status !== "scheduled" && status !== "live") {
     return c.json({ error: "invalid status" }, 400);
   }
   const organizer = c.get("email")?.toLowerCase() ?? null;
@@ -1085,10 +1148,14 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     const role = c.get("role");
     if (role !== "admin") {
       const row = await c.env.DB.prepare(
-        `SELECT status, organizer_email FROM meeting WHERE id = ?1`,
+        `SELECT status, organizer_email, host_email FROM meeting WHERE id = ?1`,
       )
         .bind(roomId)
-        .first<{ status: string | null; organizer_email: string | null }>();
+        .first<{
+          status: string | null;
+          organizer_email: string | null;
+          host_email: string | null;
+        }>();
       if (!row) {
         return c.json({ error: "not found" }, 404);
       }
@@ -1122,6 +1189,26 @@ app.patch("/v1/meetings/:roomId", async (c) => {
           (cur === "cancelled" && next === "scheduled");
         if (!allowed) {
           return c.json({ error: `cannot go ${cur} → ${next}` }, 409);
+        }
+        if (next === "finished") {
+          // End-for-all is NOT the acting-host rule (quyết định 06-11): only
+          // the designated host, a co-host invitee, or the organizer may end —
+          // a random internal participant must not. Legacy rows without an
+          // organizer keep the internal-allow fallback via isOrganizer above.
+          const isHost = !!row.host_email && row.host_email.toLowerCase() === me;
+          const isCohost = !!(
+            me &&
+            (await c.env.DB.prepare(
+              `SELECT 1 FROM meeting_invitee
+                WHERE meeting_id = ?1 AND email = ?2
+                  AND role = 'cohost' AND status <> 'revoked' LIMIT 1`,
+            )
+              .bind(roomId, me)
+              .first())
+          );
+          if (!isHost && !isCohost && !isOrganizer) {
+            return c.json({ error: "host, co-host or organizer only" }, 403);
+          }
         }
         if (next === "cancelled" || cur === "cancelled") {
           if (!isOrganizer) {
@@ -1308,7 +1395,13 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
           `INSERT INTO client (id, name, company, email, note, created_by, created_at)
            VALUES (?1, ?2, NULL, ?3, NULL, ?4, ?5)`,
         )
-          .bind(crypto.randomUUID(), ie.split("@")[0] || ie, ie, email ?? null, t)
+          .bind(
+            crypto.randomUUID(),
+            ie.split("@")[0] || ie,
+            ie,
+            email ?? null,
+            t,
+          )
           .run();
       }
     }
@@ -1760,7 +1853,14 @@ app.put("/v1/me/files/:fileId", async (c) => {
     return c.json({ error: "file too large (max 50MB)" }, 413);
   }
   const key = userFileKey(email, fileId);
-  await c.env.BUCKET.put(key, body);
+  // Remember the REAL mime on the object itself — the copy-into-meeting
+  // client rebuilds a File from these bytes and ingest's image detection is
+  // mime-based, so serving octet-stream made shelf images unupsertable.
+  await c.env.BUCKET.put(key, body, {
+    httpMetadata: {
+      contentType: c.req.header("content-type") ?? "application/octet-stream",
+    },
+  });
   await c.env.DB.prepare(
     `INSERT INTO user_file (id, owner_email, name, kind, size, r2_key, created_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -1801,7 +1901,13 @@ app.get("/v1/me/files/:fileId/content", async (c) => {
     return c.json({ error: "not found" }, 404);
   }
   return new Response(obj.body, {
-    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+    headers: {
+      // Stored mime when we have it (uploads after 06-11); legacy objects
+      // fall back to octet-stream and the client's kind-based fallback.
+      "content-type":
+        obj.httpMetadata?.contentType ?? "application/octet-stream",
+      etag: obj.httpEtag,
+    },
   });
 });
 
@@ -1999,7 +2105,10 @@ app.get("/v1/admin/users", async (c) => {
     `/admin/users?page=${page}&per_page=${perPage}`,
   );
   if (!res.ok) {
-    return c.json({ error: "list users failed", detail: await res.text() }, 502);
+    return c.json(
+      { error: "list users failed", detail: await res.text() },
+      502,
+    );
   }
   return c.json(await res.json());
 });
@@ -2035,7 +2144,10 @@ app.post("/v1/admin/users", async (c) => {
     user_metadata: md,
   });
   if (!res.ok) {
-    return c.json({ error: "create user failed", detail: await res.text() }, 502);
+    return c.json(
+      { error: "create user failed", detail: await res.text() },
+      502,
+    );
   }
   await logAudit(c.env.DB, c.get("email"), "user.create", b.email, {
     role: b.role ?? "member",
@@ -2066,9 +2178,18 @@ app.patch("/v1/admin/users/:id", async (c) => {
     // Supabase "ban" = disable login; a long duration ≈ indefinite.
     patch.ban_duration = b.disabled ? "876000h" : "none";
   }
-  const res = await supaAdmin(cr.url, cr.key, "PUT", `/admin/users/${id}`, patch);
+  const res = await supaAdmin(
+    cr.url,
+    cr.key,
+    "PUT",
+    `/admin/users/${id}`,
+    patch,
+  );
   if (!res.ok) {
-    return c.json({ error: "update user failed", detail: await res.text() }, 502);
+    return c.json(
+      { error: "update user failed", detail: await res.text() },
+      502,
+    );
   }
   await logAudit(c.env.DB, c.get("email"), "user.update", id, {
     role: b.role,
@@ -2090,7 +2211,10 @@ app.delete("/v1/admin/users/:id", async (c) => {
     `/admin/users/${c.req.param("id")}`,
   );
   if (!res.ok && res.status !== 200 && res.status !== 204) {
-    return c.json({ error: "delete user failed", detail: await res.text() }, 502);
+    return c.json(
+      { error: "delete user failed", detail: await res.text() },
+      502,
+    );
   }
   await logAudit(c.env.DB, c.get("email"), "user.delete", c.req.param("id"));
   return c.json({ ok: true });
@@ -2302,9 +2426,7 @@ const deleteMeetingCascade = async (
 // Delete a meeting + cascade (admin — any meeting, any state).
 app.delete("/v1/admin/meetings/:roomId", async (c) => {
   const roomId = c.req.param("roomId");
-  const meeting = await c.env.DB.prepare(
-    `SELECT id FROM meeting WHERE id = ?1`,
-  )
+  const meeting = await c.env.DB.prepare(`SELECT id FROM meeting WHERE id = ?1`)
     .bind(roomId)
     .first();
   if (!meeting) {
@@ -2406,8 +2528,16 @@ app.get("/v1/admin/integrations", (c) => {
         configured: !!c.env.DAILY_API_KEY,
         note: "audio + screen-share media",
       },
-      { name: "R2 storage", configured: !!c.env.BUCKET, note: "scenes/files/chats/library" },
-      { name: "D1 database", configured: !!c.env.DB, note: "registry + audit log" },
+      {
+        name: "R2 storage",
+        configured: !!c.env.BUCKET,
+        note: "scenes/files/chats/library",
+      },
+      {
+        name: "D1 database",
+        configured: !!c.env.DB,
+        note: "registry + audit log",
+      },
       {
         name: "Gemini (AI)",
         configured: null,

@@ -36,6 +36,7 @@ export const InvitePanel = ({
   const [addToProject, setAddToProject] = useState(true);
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -114,21 +115,35 @@ export const InvitePanel = ({
       return;
     }
     setSending(true);
+    setError(null);
     const list = [...selected.values()];
     const internalEmails = list
       .filter((s) => s.kind === "internal")
       .map((s) => s.email);
-    const ok = await inviteToMeeting(
+    const { ok, status } = await inviteToMeeting(
       roomId,
       list.map((s) => ({ email: s.email })),
       addToProject ? internalEmails : [],
     );
     setSending(false);
-    if (ok) {
-      setSelected(new Map());
-      setSent(true);
-      window.setTimeout(() => setSent(false), 2500);
+    if (!ok) {
+      // Worker refusals get specific copy: 403 = not allowed to invite,
+      // 409 = meeting already finished/cancelled; everything else = network.
+      setError(
+        status === 403
+          ? t("invite.errForbidden")
+          : status === 409
+          ? t("invite.errFinished")
+          : t("invite.errNetwork"),
+      );
+      return;
     }
+    setSelected(new Map());
+    setSent(true);
+    window.setTimeout(() => setSent(false), 2500);
+    // Access granted ≠ notified (no invite emails yet) — put the room link
+    // on the clipboard so the organizer can paste it to the invitees.
+    void copyLink();
   };
 
   const hasInternal = [...selected.values()].some((s) => s.kind === "internal");
@@ -293,6 +308,18 @@ export const InvitePanel = ({
           )}
         </div>
 
+        {error && (
+          <p
+            role="alert"
+            style={{
+              color: "#d04545",
+              fontSize: "0.78rem",
+              margin: "0 1rem 0.25rem",
+            }}
+          >
+            {error}
+          </p>
+        )}
         <footer className="mcm-invite__foot">
           <button
             type="button"

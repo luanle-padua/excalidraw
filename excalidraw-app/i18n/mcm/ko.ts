@@ -22,8 +22,8 @@ export const ko: Widened<typeof vi> = {
     clientPlaceholder: "you@company.com",
     add: "추가",
     addToProject: "프로젝트 접근도 부여 (내부만)",
-    send: "초대 보내기",
-    sent: "보냄 ✓",
+    send: "참가 권한 부여",
+    sent: "권한 부여됨 ✓ — 게스트에게 링크를 꼭 보내세요",
     empty: "결과 없음",
     pickMembers: "멤버",
     pickTitle: "멤버 선택",
@@ -31,6 +31,9 @@ export const ko: Widened<typeof vi> = {
     currentInvitees: "초대됨 ({count})",
     revoked: "철회됨",
     cohost: "공동 호스트",
+    errForbidden: "이 회의에 사람을 초대할 권한이 없어요.",
+    errFinished: "회의가 종료되었거나 취소되어 더 이상 초대할 수 없어요.",
+    errNetwork: "권한 부여에 실패했어요 — 네트워크 확인 후 다시 시도하세요.",
   },
   invited: {
     title: "초대됨 / 예정",
@@ -83,6 +86,7 @@ export const ko: Widened<typeof vi> = {
     projects: "프로젝트",
     untitledMeeting: "제목 없는 회의",
     editMeetingTitle: "클릭하여 회의 이름 / 주제 편집",
+    shareCopied: "회의 링크 복사됨",
   },
 
   lobby: {
@@ -101,6 +105,8 @@ export const ko: Widened<typeof vi> = {
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "다시 보기 (읽기 전용) · 종료된 회의 — 추출만 가능",
+    uploadDisabled:
+      "회의가 종료되었어요 — 라이브러리는 읽기 전용이라 업로드할 수 없어요.",
   },
 
   switcher: {
@@ -369,6 +375,7 @@ export const ko: Widened<typeof vi> = {
     secPeople: "참석자",
     saveFailed:
       "저장에 실패했습니다 — 권한(주최자 전용) 또는 회의 상태를 확인하세요.",
+    comingSoon: "(예정)",
   },
 
   // ---------------- People grid ---------------------------------------
@@ -832,5 +839,18 @@ export const ko: Widened<typeof vi> = {
   authors: {
     toggleShow: "작성자 표시",
     toggleHide: "작성자 숨기기",
+  },
+
+  errors: {
+    openMeetingFailed:
+      "회의를 열 수 없어요 — 서버가 응답하지 않거나 접근 권한이 없어요.",
+    createProjectFailed:
+      "프로젝트를 만들 수 없어요 — 네트워크 확인 후 다시 시도하세요.",
+    colorFailed: "회의 색상을 저장하지 못했어요.",
+    endMeetingFailed:
+      "회의를 종료할 수 없어요 — 네트워크 확인 후 다시 시도하세요.",
+    joinUnverified:
+      "회의 상태를 확인할 수 없어요(서버 연결 끊김). 나중에 다시 시도하세요.",
+    presentFailed: "화면을 발표할 수 없어요. {detail}",
   },
 };

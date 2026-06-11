@@ -1,3 +1,7 @@
+// DEV-ONLY — passwords in here are stripped from production builds ONLY
+// because the sole importer is DevQuickLogin behind import.meta.env.DEV.
+// Do not import from anywhere else.
+//
 // Demo accounts — real MAP people sourced from user.csv, grouped by
 // DIVISION so cross-department flows are one click away (phòng ban A mời
 // phòng ban B → partial project visibility, acting-host, v.v.). All share
@@ -14,7 +18,7 @@ export type DemoUser = {
   /** back-office admin account (separate from meeting users — never joins). */
   isAdmin?: boolean;
   /** per-account password override (admin uses a different one). Defaults to
-   *  the shared demo password in LoginScreen. */
+   *  the shared demo password in DevQuickLogin. */
   password?: string;
 };
 

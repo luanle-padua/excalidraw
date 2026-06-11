@@ -14,8 +14,8 @@ export const en: Widened<typeof vi> = {
     clientPlaceholder: "you@company.com",
     add: "Add",
     addToProject: "Also grant project access (internal only)",
-    send: "Send invites",
-    sent: "Sent ✓",
+    send: "Grant access",
+    sent: "Access granted ✓ — remember to send guests the link",
     empty: "No one found",
     pickMembers: "Members",
     pickTitle: "Select members",
@@ -23,6 +23,9 @@ export const en: Widened<typeof vi> = {
     currentInvitees: "Invited ({count})",
     revoked: "Revoked",
     cohost: "Co-host",
+    errForbidden: "You don't have permission to invite people to this meeting.",
+    errFinished: "The meeting has ended or was cancelled — no more invites.",
+    errNetwork: "Granting access failed — check your network and try again.",
   },
   invited: {
     title: "Invited / Upcoming",
@@ -75,6 +78,7 @@ export const en: Widened<typeof vi> = {
     projects: "Projects",
     untitledMeeting: "Untitled meeting",
     editMeetingTitle: "Click to edit meeting name / topic",
+    shareCopied: "Meeting link copied",
   },
 
   lobby: {
@@ -93,6 +97,8 @@ export const en: Widened<typeof vi> = {
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "Reviewing (read-only) · meeting finished — extract only",
+    uploadDisabled:
+      "The meeting has finished — the library is read-only, uploads are disabled.",
   },
 
   switcher: {
@@ -362,6 +368,7 @@ export const en: Widened<typeof vi> = {
     secPeople: "People",
     saveFailed:
       "Save failed — check your permission (organizer only) or the meeting state.",
+    comingSoon: "(coming soon)",
   },
 
   // ---------------- People grid ---------------------------------------
@@ -824,5 +831,18 @@ export const en: Widened<typeof vi> = {
   authors: {
     toggleShow: "Show authors",
     toggleHide: "Hide authors",
+  },
+
+  errors: {
+    openMeetingFailed:
+      "Couldn't open the meeting — the server didn't respond or you don't have access.",
+    createProjectFailed:
+      "Couldn't create the project — check your network and try again.",
+    colorFailed: "Couldn't save the meeting color.",
+    endMeetingFailed:
+      "Couldn't end the meeting — check your network and try again.",
+    joinUnverified:
+      "Couldn't verify the meeting state (lost connection to the server). Try again later.",
+    presentFailed: "Couldn't present your screen. {detail}",
   },
 };
