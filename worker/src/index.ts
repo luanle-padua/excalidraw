@@ -1801,7 +1801,13 @@ app.get("/v1/me/meetings", async (c) => {
        -- My own RSVP state ('invited'|'accepted'|'declined'|'revoked');
        -- NULL when I'm not a direct invitee (organizer / project member).
        (SELECT status FROM meeting_invitee mi3
-          WHERE mi3.meeting_id = m.id AND mi3.email = ?1) AS my_invite_status
+          WHERE mi3.meeting_id = m.id AND mi3.email = ?1) AS my_invite_status,
+       -- Personal timestamps for the dashboard activity log (when was I
+       -- invited / when did I first join) — cheap subselects on PK indexes.
+       (SELECT invited_at FROM meeting_invitee mi4
+          WHERE mi4.meeting_id = m.id AND mi4.email = ?1) AS my_invited_at,
+       (SELECT joined_at FROM meeting_participant mp2
+          WHERE mp2.meeting_id = m.id AND mp2.user_email = ?1) AS my_joined_at
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
      WHERE m.id IN (
        SELECT id FROM meeting

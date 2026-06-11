@@ -18,6 +18,7 @@ import { isReviewRoom } from "../../data/reviewMode";
 import { authReadyAtom, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { ActivityLog } from "./ActivityLog";
 import { AdminConsole } from "./AdminConsole";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
@@ -231,6 +232,9 @@ export const MeetingLobby = () => {
             {/* Pending meeting invitations — accept/decline without leaving
                 the dashboard. */}
             <NotificationBell />
+            {/* Personal action history — separate surface from the bell
+                (bell = to-do, history = log; quyết định 06-11). */}
+            <ActivityLog />
             <LangThemeSwitcher />
             <button
               type="button"

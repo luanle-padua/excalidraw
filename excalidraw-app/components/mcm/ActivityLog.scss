@@ -1,0 +1,120 @@
+// Personal activity log — History icon + dropdown next to the notification
+// bell in the lobby top bar. Mirrors NotificationBell's visual language.
+
+.mcm-activity {
+  position: relative;
+
+  &__btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 9px;
+    background: var(--mcm-surface, #fff);
+    color: var(--mcm-text, #1b1b1f);
+    cursor: pointer;
+    transition: background-color 140ms;
+
+    &:hover {
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+    }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    width: 360px;
+    max-height: 440px;
+    overflow-y: auto;
+    padding: 6px;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: 12px;
+    box-shadow: var(--mcm-elev, 0 12px 28px rgba(0, 0, 0, 0.12));
+  }
+
+  &__head {
+    padding: 8px 10px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+  }
+
+  &__empty {
+    padding: 12px 10px 16px;
+    font-size: 13px;
+    color: var(--mcm-text-faint, rgba(0, 0, 0, 0.4));
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  &__item {
+    padding: 8px 10px;
+
+    & + & {
+      border-top: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    }
+  }
+
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--mcm-accent, #6965db);
+
+    .--upload & {
+      color: var(--mcm-warning, #d97706);
+    }
+  }
+
+  &__answer {
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    text-transform: none;
+    letter-spacing: 0;
+
+    &.--accepted {
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+      color: var(--mcm-accent, #6965db);
+    }
+
+    &.--declined {
+      background: var(--mcm-surface-2, rgba(0, 0, 0, 0.05));
+      color: var(--mcm-text-faint, rgba(0, 0, 0, 0.4));
+    }
+  }
+
+  &__subject {
+    font-size: 13px;
+    color: var(--mcm-text, #1b1b1f);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__meta {
+    font-size: 11.5px;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+  }
+}

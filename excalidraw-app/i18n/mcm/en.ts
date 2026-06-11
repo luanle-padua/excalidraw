@@ -44,6 +44,14 @@ export const en: Widened<typeof vi> = {
     stateDeclined: "Declined",
     stateAttended: "Attended",
   },
+  activity: {
+    title: "My activity",
+    empty: "No activity yet",
+    evCreated: "Created meeting",
+    evInvited: "Invited to",
+    evJoined: "Joined meeting",
+    evUpload: "Uploaded to My Files",
+  },
   due: {
     title: "Meeting starting soon",
     now: "It's meeting time",

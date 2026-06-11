@@ -151,40 +151,4 @@
     color: var(--mcm-danger, #dc2626);
   }
 
-  // --- History (answered / attended invites stay in the bell) -------------
-
-  &__section {
-    margin-top: 4px;
-    padding: 8px 10px 4px;
-    border-top: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--mcm-text-faint, rgba(0, 0, 0, 0.4));
-  }
-
-  &__item--past &__title {
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-weight: 500;
-  }
-
-  &__state {
-    padding: 3px 8px;
-    border-radius: 7px;
-    font-size: 11px;
-    font-weight: 600;
-    white-space: nowrap;
-
-    &--accepted,
-    &--attended {
-      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
-      color: var(--mcm-accent, #6965db);
-    }
-
-    &--declined {
-      background: var(--mcm-surface-2, rgba(0, 0, 0, 0.05));
-      color: var(--mcm-text-faint, rgba(0, 0, 0, 0.4));
-    }
-  }
 }

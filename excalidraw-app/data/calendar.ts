@@ -31,6 +31,13 @@ export type CalMeeting = {
   invited_direct?: number;
   /** 1 when I already joined this meeting at least once (participant row). */
   attended?: number;
+  /** My RSVP state ('invited'|'accepted'|'declined') — NULL when I'm not a
+   *  direct invitee. */
+  my_invite_status?: string | null;
+  /** When I was invited / when I first joined (ms) — personal timestamps
+   *  for the dashboard activity log. */
+  my_invited_at?: number | null;
+  my_joined_at?: number | null;
 };
 
 /** Every meeting the current user can see, for placement on the calendar. */

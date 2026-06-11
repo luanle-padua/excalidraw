@@ -52,6 +52,14 @@ export const vi = {
     stateDeclined: "Đã từ chối",
     stateAttended: "Đã tham gia",
   },
+  activity: {
+    title: "Hoạt động của tôi",
+    empty: "Chưa có hoạt động nào",
+    evCreated: "Tạo cuộc họp",
+    evInvited: "Được mời",
+    evJoined: "Tham gia họp",
+    evUpload: "Tải lên tủ tài liệu",
+  },
   // ---------------- Meeting-due notice (toast "đến giờ họp") --------
   due: {
     // Eyebrow when the scheduled time is still (just) ahead…

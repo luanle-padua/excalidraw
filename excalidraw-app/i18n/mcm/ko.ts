@@ -52,6 +52,14 @@ export const ko: Widened<typeof vi> = {
     stateDeclined: "거절함",
     stateAttended: "참가함",
   },
+  activity: {
+    title: "내 활동",
+    empty: "활동 내역이 없습니다",
+    evCreated: "회의 생성",
+    evInvited: "초대받음",
+    evJoined: "회의 참가",
+    evUpload: "내 문서함에 업로드",
+  },
   due: {
     title: "회의가 곧 시작됩니다",
     now: "회의 시간입니다",
