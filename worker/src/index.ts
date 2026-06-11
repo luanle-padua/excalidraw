@@ -1738,8 +1738,16 @@ app.get("/v1/me/meetings", async (c) => {
   const e = (email as string).toLowerCase();
   // NOTE: identity is the verified EMAIL — created_by is only a display name
   // (never compared against emails; meetings now always carry organizer_email).
+  // invited_direct/attended power the "invited to a LIVE meeting" nudge:
+  // direct invitee who hasn't joined yet ⇒ worth a toast; a mere
+  // project-member sighting is not an invitation.
   const { results } = await c.env.DB.prepare(
-    `SELECT ${cols}
+    `SELECT ${cols},
+       EXISTS(SELECT 1 FROM meeting_invitee mi2
+                WHERE mi2.meeting_id = m.id AND mi2.email = ?1
+                  AND mi2.status <> 'revoked') AS invited_direct,
+       EXISTS(SELECT 1 FROM meeting_participant mp
+                WHERE mp.meeting_id = m.id AND mp.user_email = ?1) AS attended
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
      WHERE m.id IN (
        SELECT id FROM meeting

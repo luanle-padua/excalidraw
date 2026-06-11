@@ -42,6 +42,7 @@ export const ko: Widened<typeof vi> = {
   due: {
     title: "회의가 곧 시작됩니다",
     now: "회의 시간입니다",
+    liveInvite: "진행 중 — 초대되었습니다",
     join: "지금 참가",
     dismiss: "나중에",
   },

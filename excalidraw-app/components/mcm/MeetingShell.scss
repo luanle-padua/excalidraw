@@ -5443,9 +5443,16 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   background: rgba(0, 0, 0, 0.45);
 
   &__panel {
-    width: 100%;
-    max-width: 880px;
-    height: min(620px, 86vh);
+    // Sized for real project browsing (was 880×620 and clipped content) and
+    // user-resizable via the native bottom-right grip — `resize` needs a
+    // non-visible overflow, which the panel already has.
+    width: min(1180px, 94vw);
+    height: min(780px, 90vh);
+    min-width: 640px;
+    min-height: 420px;
+    max-width: 96vw;
+    max-height: 94vh;
+    resize: both;
     display: flex;
     flex-direction: column;
     background: var(--mcm-surface);

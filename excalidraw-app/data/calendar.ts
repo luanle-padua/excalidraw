@@ -26,6 +26,11 @@ export type CalMeeting = {
   /** User-assigned accent colour (hex). When set, the calendar event uses
    *  it instead of the status palette so card + calendar colours match. */
   color?: string | null;
+  /** 1 when I'm a direct (non-revoked) invitee — drives the live-invite
+   *  nudge; project-member visibility alone doesn't count as an invite. */
+  invited_direct?: number;
+  /** 1 when I already joined this meeting at least once (participant row). */
+  attended?: number;
 };
 
 /** Every meeting the current user can see, for placement on the calendar. */

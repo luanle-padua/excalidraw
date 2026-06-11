@@ -6,6 +6,7 @@ import { collabAPIAtom, isCollaboratingAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
 import { getMyMeetings, type CalMeeting } from "../../data/calendar";
+import { getLastMeeting } from "../../data/lastMeeting";
 import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
@@ -45,16 +46,38 @@ const BELL_PREFIX = "🔔 ";
 // the right reset point for a "this session" memory.
 const dismissedIds = new Set<string>();
 
+/** A LIVE meeting I was directly invited to but haven't joined yet — the
+ *  "anh X mời bạn vào cuộc họp đang diễn ra" case (invites grant access but
+ *  send no email/push; this poll is the notification). Excludes the room I
+ *  most recently left (leaving is an answer, not a reason to re-nag). */
+const findLiveInvite = (meetings: CalMeeting[]): CalMeeting | null => {
+  const lastLeft = getLastMeeting()?.roomId ?? null;
+  return (
+    meetings.find(
+      (m) =>
+        !dismissedIds.has(m.id) &&
+        m.id !== lastLeft &&
+        normalizeMeetingStatus(m.status) === "live" &&
+        !!m.invited_direct &&
+        !m.attended,
+    ) ?? null
+  );
+};
+
 /** The single most-due meeting in the window, or null. Earliest scheduled
  *  time wins — the longer a meeting has been waiting, the louder it asks. */
 const findMostDue = (meetings: CalMeeting[]): CalMeeting | null => {
+  // A live meeting waiting on me beats a merely-upcoming one.
+  const live = findLiveInvite(meetings);
+  if (live) {
+    return live;
+  }
   const now = Date.now();
   const candidates = meetings.filter((m) => {
     if (dismissedIds.has(m.id) || !m.scheduled_at) {
       return false;
     }
-    // Only `scheduled` meetings prompt — live ones are already underway
-    // (the invited list covers joining those), finished ones never nag.
+    // Only `scheduled` meetings prompt here — finished ones never nag.
     if (normalizeMeetingStatus(m.status) !== "scheduled") {
       return false;
     }
@@ -171,21 +194,33 @@ export const MeetingDueNotice = () => {
     }
   };
 
-  const at = new Date(due.scheduled_at!).getTime();
-  const upcoming = at > Date.now();
+  // A live invite may be ad-hoc — no scheduled_at to format, the eyebrow
+  // carries the urgency instead.
+  const isLive = normalizeMeetingStatus(due.status) === "live";
+  const upcoming =
+    !isLive &&
+    !!due.scheduled_at &&
+    new Date(due.scheduled_at).getTime() > Date.now();
 
   return (
     <div className="mcm-due" role="alert" aria-live="assertive">
       <CalendarClock size={20} className="mcm-due__icon" />
       <div className="mcm-due__body">
         <span className="mcm-due__eyebrow">
-          {upcoming ? t("due.title") : t("due.now")}
+          {isLive
+            ? t("due.liveInvite")
+            : upcoming
+            ? t("due.title")
+            : t("due.now")}
         </span>
         <strong className="mcm-due__title">
           {due.title || t("folder.meetingFallbackTitle")}
         </strong>
         <span className="mcm-due__when">
-          {[due.project_name, fmtTime(due.scheduled_at!)]
+          {[
+            due.project_name,
+            due.scheduled_at ? fmtTime(due.scheduled_at) : null,
+          ]
             .filter(Boolean)
             .join(" · ")}
         </span>

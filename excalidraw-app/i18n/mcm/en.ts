@@ -34,6 +34,7 @@ export const en: Widened<typeof vi> = {
   due: {
     title: "Meeting starting soon",
     now: "It's meeting time",
+    liveInvite: "Happening now — you're invited",
     join: "Join now",
     dismiss: "Later",
   },

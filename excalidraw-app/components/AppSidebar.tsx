@@ -10,6 +10,7 @@ import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 
 import { useAtomValue } from "../app-jotai";
 import { meetingViewOnlyAtom } from "../collab/Collab";
+import { useT } from "../i18n/mcm";
 
 import { ChatView } from "./ChatPanel";
 import { MeetingLibrary } from "./MeetingLibrary";
@@ -40,6 +41,7 @@ const meetingLibraryIcon = (
 export const AppSidebar = () => {
   const { openSidebar } = useUIAppState();
   const excalidrawAPI = useExcalidrawAPI();
+  const t = useT();
   // Finished meeting opened for review. In Excalidraw view mode the sidebar
   // TRIGGER is hidden, so the user can't open the chat to read it. Auto-open
   // the comments tab once on entering review so the conversation is visible
@@ -90,30 +92,55 @@ export const AppSidebar = () => {
     return () => clearTimeout(t);
   }, [excalidrawAPI, openSidebar]);
 
+  // Excalidraw's view mode (review) hides its own sidebar trigger — once the
+  // auto-opened chat is closed there is NO control left to reopen it. Float
+  // our own reopen button while reviewing with the sidebar shut.
+  const reopenChat = () => {
+    excalidrawAPI?.updateScene({
+      appState: {
+        ...excalidrawAPI.getAppState(),
+        openSidebar: { name: "default", tab: "comments" },
+      },
+    });
+  };
+
   return (
-    <DefaultSidebar docked={ALWAYS_SHOW_SIDEBAR ? true : undefined}>
-      <DefaultSidebar.TabTriggers>
-        <Sidebar.TabTrigger
-          tab="meeting-library"
-          style={{
-            opacity: openSidebar?.tab === "meeting-library" ? 1 : 0.4,
-          }}
-        >
-          {meetingLibraryIcon}
-        </Sidebar.TabTrigger>
-        <Sidebar.TabTrigger
-          tab="comments"
-          style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
+    <>
+      {viewOnly && !openSidebar && (
+        <button
+          type="button"
+          className="mcm-review-chat-fab"
+          onClick={reopenChat}
+          title={t("chat.title")}
+          aria-label={t("chat.title")}
         >
           {messageCircleIcon}
-        </Sidebar.TabTrigger>
-      </DefaultSidebar.TabTriggers>
-      <Sidebar.Tab tab="meeting-library">
-        <MeetingLibrary />
-      </Sidebar.Tab>
-      <Sidebar.Tab tab="comments">
-        <ChatView />
-      </Sidebar.Tab>
-    </DefaultSidebar>
+        </button>
+      )}
+      <DefaultSidebar docked={ALWAYS_SHOW_SIDEBAR ? true : undefined}>
+        <DefaultSidebar.TabTriggers>
+          <Sidebar.TabTrigger
+            tab="meeting-library"
+            style={{
+              opacity: openSidebar?.tab === "meeting-library" ? 1 : 0.4,
+            }}
+          >
+            {meetingLibraryIcon}
+          </Sidebar.TabTrigger>
+          <Sidebar.TabTrigger
+            tab="comments"
+            style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
+          >
+            {messageCircleIcon}
+          </Sidebar.TabTrigger>
+        </DefaultSidebar.TabTriggers>
+        <Sidebar.Tab tab="meeting-library">
+          <MeetingLibrary />
+        </Sidebar.Tab>
+        <Sidebar.Tab tab="comments">
+          <ChatView />
+        </Sidebar.Tab>
+      </DefaultSidebar>
+    </>
   );
 };

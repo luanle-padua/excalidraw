@@ -44,6 +44,8 @@ export const vi = {
     title: "Cuộc họp sắp bắt đầu",
     // …and when it has already arrived / passed.
     now: "Đến giờ họp",
+    // …and when a LIVE meeting is waiting on this directly-invited user.
+    liveInvite: "Đang diễn ra — bạn được mời",
     join: "Vào họp",
     dismiss: "Để sau",
   },
