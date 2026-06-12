@@ -4,6 +4,8 @@
 
 import { fetchWithAuth } from "./fetchWithAuth";
 
+import type { ListResult } from "./projects";
+
 const STORAGE_URL =
   import.meta.env.VITE_DEV_TUNNEL === "true"
     ? ""
@@ -128,12 +130,23 @@ export const revokeInvitee = async (
 };
 
 /** The current user's invited / upcoming meetings — the only surface a client
- *  sees (project name only, never the folder). */
-export const getMyInvitations = async (): Promise<MyInvitation[]> => {
+ *  sees (project name only, never the folder). Checked variant so the
+ *  "Invited" list can tell offline from genuinely empty. */
+export const getMyInvitationsChecked = async (): Promise<
+  ListResult<MyInvitation>
+> => {
   try {
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/invitations`);
-    return res.ok ? (await res.json()).invitations ?? [] : [];
+    if (!res.ok) {
+      return { ok: false };
+    }
+    return { ok: true, items: (await res.json()).invitations ?? [] };
   } catch {
-    return [];
+    return { ok: false };
   }
+};
+
+export const getMyInvitations = async (): Promise<MyInvitation[]> => {
+  const r = await getMyInvitationsChecked();
+  return r.ok ? r.items : [];
 };

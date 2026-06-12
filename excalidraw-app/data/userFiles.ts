@@ -11,6 +11,8 @@
 
 import { fetchWithAuth } from "./fetchWithAuth";
 
+import type { ListResult } from "./projects";
+
 const STORAGE_URL =
   import.meta.env.VITE_DEV_TUNNEL === "true"
     ? ""
@@ -62,15 +64,28 @@ export type UploadMyFileResult =
   | { ok: true; file: UserFile }
   | { ok: false; reason: "too-large" | "failed" };
 
-/** List my shelf files (metadata only). Internal users only — the Worker
- *  rejects others; we degrade to an empty list. */
-export const listMyFiles = async (): Promise<UserFile[]> => {
+/** List my shelf files (metadata only). Internal users only — a 401/403
+ *  (not internal / not allowed) is a TRUE empty shelf for this viewer, but
+ *  a network error or 5xx is `ok: false` so the panel can show a retry
+ *  instead of a lying empty state. */
+export const listMyFilesChecked = async (): Promise<ListResult<UserFile>> => {
   try {
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/files`);
-    return res.ok ? (await res.json()).files ?? [] : [];
+    if (res.ok) {
+      return { ok: true, items: (await res.json()).files ?? [] };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { ok: true, items: [] };
+    }
+    return { ok: false };
   } catch {
-    return [];
+    return { ok: false };
   }
+};
+
+export const listMyFiles = async (): Promise<UserFile[]> => {
+  const r = await listMyFilesChecked();
+  return r.ok ? r.items : [];
 };
 
 /** Upload one file to my shelf. Raw bytes, id minted client-side; the

@@ -56,7 +56,11 @@ const readBool = (key: string, fallback: boolean): boolean => {
   }
 };
 
-export const sttEnabledAtom = atom<boolean>(readBool(STT_ENABLED_LS_KEY, true));
+// Default OFF — streaming mic audio to Deepgram costs money and is a
+// privacy decision each user should opt into per device.
+export const sttEnabledAtom = atom<boolean>(
+  readBool(STT_ENABLED_LS_KEY, false),
+);
 
 export const setSttEnabled = (enabled: boolean): void => {
   try {

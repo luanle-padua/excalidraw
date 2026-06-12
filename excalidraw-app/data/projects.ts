@@ -71,9 +71,16 @@ export type MeetingSummary = {
 
 const json = { "content-type": "application/json" };
 
-export const listProjects = async (host?: string): Promise<Project[]> => {
+/** Outcome of a list fetch that DISTINGUISHES "genuinely empty" from
+ *  "couldn't reach the worker" — empty-states must not lie when offline.
+ *  Shared by the other data modules (calendar, invite, userFiles). */
+export type ListResult<T> = { ok: true; items: T[] } | { ok: false };
+
+export const listProjectsChecked = async (
+  host?: string,
+): Promise<ListResult<Project>> => {
   if (!IS_PROJECTS_CONFIGURED) {
-    return [];
+    return { ok: true, items: [] };
   }
   const url = host
     ? `${STORAGE_URL}/v1/projects?host=${encodeURIComponent(host)}`
@@ -81,13 +88,18 @@ export const listProjects = async (host?: string): Promise<Project[]> => {
   try {
     const res = await fetchWithAuth(url);
     if (!res.ok) {
-      return [];
+      return { ok: false };
     }
-    return (await res.json()).projects ?? [];
+    return { ok: true, items: (await res.json()).projects ?? [] };
   } catch {
-    // storage worker offline — degrade gracefully (no projects)
-    return [];
+    // storage worker offline
+    return { ok: false };
   }
+};
+
+export const listProjects = async (host?: string): Promise<Project[]> => {
+  const r = await listProjectsChecked(host);
+  return r.ok ? r.items : [];
 };
 
 // The owner is stamped server-side from the verified JWT (and gets their
@@ -169,23 +181,30 @@ export const updateMeeting = async (
   }
 };
 
-export const listMeetings = async (
+export const listMeetingsChecked = async (
   projectId: string,
-): Promise<MeetingSummary[]> => {
+): Promise<ListResult<MeetingSummary>> => {
   if (!IS_PROJECTS_CONFIGURED) {
-    return [];
+    return { ok: true, items: [] };
   }
   try {
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/meetings`,
     );
     if (!res.ok) {
-      return [];
+      return { ok: false };
     }
-    return (await res.json()).meetings ?? [];
+    return { ok: true, items: (await res.json()).meetings ?? [] };
   } catch {
-    return [];
+    return { ok: false };
   }
+};
+
+export const listMeetings = async (
+  projectId: string,
+): Promise<MeetingSummary[]> => {
+  const r = await listMeetingsChecked(projectId);
+  return r.ok ? r.items : [];
 };
 
 // Create/upsert a meeting in ONE call — lifecycle fields included, so a

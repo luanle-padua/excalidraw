@@ -40,7 +40,7 @@ import "@schedule-x/theme-default/dist/index.css";
 
 import { useAtomValue } from "../../app-jotai";
 import {
-  getMyMeetings,
+  getMyMeetingsChecked,
   getNote,
   saveNote,
   type CalMeeting,
@@ -209,8 +209,12 @@ export const CalendarX = ({
 }) => {
   const lang = useAtomValue(preferredLanguageAtom);
   const isDark = useIsDark();
+  const t = useT();
 
   const [localMeetings, setLocalMeetings] = useState<CalMeeting[]>([]);
+  // Self-fetch failed (offline / worker error) — show a "couldn't load"
+  // strip instead of silently rendering an empty calendar.
+  const [loadFailed, setLoadFailed] = useState(false);
   const meetings = externalMeetings ?? localMeetings;
 
   // The day the notes panel is bound to. Starts on today; follows the
@@ -254,11 +258,18 @@ export const CalendarX = ({
 
   // Self-fetch when the parent didn't hand us a list; re-fetch when refreshKey
   // bumps (e.g. a meeting colour was assigned) so event colours stay in sync.
+  const refetch = useCallback(async () => {
+    const r = await getMyMeetingsChecked();
+    setLoadFailed(!r.ok);
+    if (r.ok) {
+      setLocalMeetings(r.items);
+    }
+  }, []);
   useEffect(() => {
     if (!externalMeetings) {
-      void getMyMeetings().then(setLocalMeetings);
+      void refetch();
     }
-  }, [externalMeetings, refreshKey]);
+  }, [externalMeetings, refreshKey, refetch]);
 
   // Stable refs so the (memoised-at-creation) Schedule-X callbacks always see
   // the latest handlers without re-creating the calendar app.
@@ -359,6 +370,18 @@ export const CalendarX = ({
 
   return (
     <div className="mcm-cal mcm-calx">
+      {!externalMeetings && loadFailed && (
+        <div className="mcm-calx__loaderr">
+          {t("errors.loadFailed")}{" "}
+          <button
+            type="button"
+            className="mcm-calx__loaderr-retry"
+            onClick={() => void refetch()}
+          >
+            {t("errors.retry")}
+          </button>
+        </div>
+      )}
       <div className="mcm-calx__cal">
         <ScheduleXCalendar
           calendarApp={calendar}

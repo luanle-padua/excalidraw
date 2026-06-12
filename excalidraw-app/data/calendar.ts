@@ -5,6 +5,8 @@
 
 import { fetchWithAuth } from "./fetchWithAuth";
 
+import type { ListResult } from "./projects";
+
 const STORAGE_URL =
   import.meta.env.VITE_DEV_TUNNEL === "true"
     ? ""
@@ -40,14 +42,26 @@ export type CalMeeting = {
   my_joined_at?: number | null;
 };
 
-/** Every meeting the current user can see, for placement on the calendar. */
-export const getMyMeetings = async (): Promise<CalMeeting[]> => {
+/** Every meeting the current user can see, for placement on the calendar.
+ *  Checked variant: `ok: false` = worker unreachable / errored, so the
+ *  caller can show "couldn't load" instead of a lying empty calendar. */
+export const getMyMeetingsChecked = async (): Promise<
+  ListResult<CalMeeting>
+> => {
   try {
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/meetings`);
-    return res.ok ? (await res.json()).meetings ?? [] : [];
+    if (!res.ok) {
+      return { ok: false };
+    }
+    return { ok: true, items: (await res.json()).meetings ?? [] };
   } catch {
-    return [];
+    return { ok: false };
   }
+};
+
+export const getMyMeetings = async (): Promise<CalMeeting[]> => {
+  const r = await getMyMeetingsChecked();
+  return r.ok ? r.items : [];
 };
 
 /** Free-text note scoped to a day (YYYY-MM-DD) or a meeting (roomId). Returns

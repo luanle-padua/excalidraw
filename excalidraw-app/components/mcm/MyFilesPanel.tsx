@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   deleteMyFile,
-  listMyFiles,
+  listMyFilesChecked,
   updateMyFile,
   uploadMyFile,
   type UserFile,
@@ -209,6 +209,9 @@ export const MyFilesPanel = () => {
   // null = first load in flight — render a quiet placeholder, not the
   // empty state (which would flash for users who DO have files).
   const [files, setFiles] = useState<UserFile[] | null>(null);
+  // Last list fetch failed (offline / worker error) — show "couldn't
+  // load + retry" instead of the lying "no files yet" empty state.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -217,7 +220,15 @@ export const MyFilesPanel = () => {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
-    setFiles(await listMyFiles());
+    const r = await listMyFilesChecked();
+    setLoadFailed(!r.ok);
+    if (r.ok) {
+      setFiles(r.items);
+    } else {
+      // Keep whatever we already showed (stale beats blank); only the
+      // never-loaded case falls through to the error block below.
+      setFiles((prev) => prev ?? []);
+    }
   }, []);
 
   useEffect(() => {
@@ -353,6 +364,19 @@ export const MyFilesPanel = () => {
 
       {sections === null || files === null ? (
         <div className="mcm-myfiles__hint">…</div>
+      ) : files.length === 0 && loadFailed ? (
+        <div className="mcm-myfiles__empty">
+          <span className="mcm-myfiles__empty-title">
+            {t("errors.loadFailed")}
+          </span>
+          <button
+            type="button"
+            className="mcm-myfiles__retry"
+            onClick={() => void refresh()}
+          >
+            {t("errors.retry")}
+          </button>
+        </div>
       ) : files.length === 0 ? (
         <div className="mcm-myfiles__empty">
           <span className="mcm-myfiles__empty-title">
