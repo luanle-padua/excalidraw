@@ -1,0 +1,379 @@
+// Trang "Quản lý dự án" (ProjectManagerPanel) — list + drill-in detail in
+// the dashboard's middle column. All colour through --mcm-* tokens so dark
+// mode follows automatically (file-per-component precedent:
+// ProjectOverviewHeader.scss, which this page replaces).
+
+.mcm-pmgr {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px 24px;
+  animation: mcm-pmgr-in 160ms ease-out;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  // Search input — icon + field, mirrors the .mcm-select icon pattern.
+  &__search {
+    position: relative;
+    flex: 1;
+    max-width: 360px;
+
+    svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--mcm-text-faint);
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      padding: 7px 12px 7px 32px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: 9px;
+      background: var(--mcm-surface);
+      color: var(--mcm-text);
+      font-size: 13px;
+
+      &:focus {
+        outline: none;
+        border-color: var(--mcm-accent);
+      }
+      &::placeholder {
+        color: var(--mcm-text-faint);
+      }
+    }
+  }
+
+  &__group-label {
+    margin: 6px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint);
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--mcm-surface);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 14px;
+    border: none;
+    border-bottom: 1px solid var(--mcm-hairline);
+    background: transparent;
+    color: var(--mcm-text);
+    text-align: left;
+    cursor: pointer;
+    transition: background 120ms;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+    }
+  }
+  li:last-child &__row {
+    border-bottom: none;
+  }
+
+  &__row-cover {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-faint);
+    font-size: 16px;
+    font-weight: 700;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &__row-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  &__row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  &__row-name {
+    font-size: 13.5px;
+    font-weight: 650;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &__row-meta {
+    font-size: 12px;
+    color: var(--mcm-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &__row-chevron {
+    flex: 0 0 auto;
+    color: var(--mcm-text-faint);
+  }
+
+  // Stage / invited tag on a row — same look as the sidebar stage tag.
+  &__tag {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+
+    &--invited {
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 20px;
+    border: 1px dashed var(--mcm-hairline);
+    border-radius: 12px;
+    text-align: center;
+    color: var(--mcm-text-faint);
+
+    svg {
+      opacity: 0.6;
+    }
+  }
+  &__empty-title {
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--mcm-text);
+  }
+  &__empty-hint {
+    max-width: 380px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--mcm-text-soft);
+  }
+  &__clear-search {
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--mcm-accent);
+    font-size: 12.5px;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+}
+
+// ---- Detail (drill-in) -----------------------------------------------------
+
+.mcm-pdetail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px 2px 24px;
+  animation: mcm-pmgr-in 160ms ease-out;
+
+  &__back {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 2px 4px;
+    color: var(--mcm-text-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__hero {
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--mcm-surface);
+  }
+  &__cover {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+  }
+  &__hero-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+  }
+  &__name {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    min-width: 0;
+  }
+  &__code {
+    font-size: 12px;
+    color: var(--mcm-text-faint);
+  }
+  &__actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__section-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint);
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__metagrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--mcm-hairline);
+  }
+  &__meta-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 14px;
+    background: var(--mcm-surface);
+  }
+  &__meta-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint);
+  }
+  &__meta-value {
+    font-size: 13px;
+    color: var(--mcm-text);
+    word-break: break-word;
+  }
+
+  &__desc {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--mcm-text-soft);
+    white-space: pre-wrap;
+  }
+
+  &__readonly-banner {
+    padding: 9px 14px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 10px;
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-soft);
+    font-size: 12.5px;
+  }
+
+  &__danger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid
+      var(--mcm-danger-soft, color-mix(in srgb, var(--mcm-danger) 35%, transparent));
+    border-radius: 12px;
+  }
+  &__danger-hint {
+    flex: 1;
+    font-size: 12.5px;
+    color: var(--mcm-text-soft);
+  }
+  &__danger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid
+      var(--mcm-danger-soft, color-mix(in srgb, var(--mcm-danger) 35%, transparent));
+    border-radius: 9px;
+    background: transparent;
+    color: var(--mcm-danger);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-danger) 8%, transparent);
+    }
+  }
+
+  @media (max-width: 900px) {
+    &__metagrid {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@keyframes mcm-pmgr-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcm-pmgr,
+  .mcm-pdetail {
+    animation: none;
+  }
+}

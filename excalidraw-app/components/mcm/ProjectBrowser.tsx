@@ -3,11 +3,13 @@ import {
   Check,
   Eye,
   FolderHeart,
+  FolderKanban,
   LayoutGrid,
   List as ListIcon,
   Palette,
   Pencil,
   Plus,
+  Settings,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
@@ -17,14 +19,13 @@ import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
-import { getMyMeetings, type CalMeeting } from "../../data/calendar";
-import { getMyInvitations, type MyInvitation } from "../../data/invite";
+import { getMyMeetingsChecked, type CalMeeting } from "../../data/calendar";
+import { getMyInvitationsChecked, type MyInvitation } from "../../data/invite";
 import {
   createProject,
-  deleteProject,
   getMeeting,
-  listMeetings,
-  listProjects,
+  listMeetingsChecked,
+  listProjectsChecked,
   updateMeeting,
   updateProject,
 } from "../../data/projects";
@@ -49,16 +50,17 @@ import {
 } from "./meetingStatus";
 import { MetadataEditor } from "./MetadataEditor";
 import { MyFilesPanel } from "./MyFilesPanel";
-import { ProjectMemberRoster } from "./ProjectMemberRoster";
-import { ProjectOverviewHeader } from "./ProjectOverviewHeader";
+import { ProjectManagerPanel } from "./ProjectManagerPanel";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
 
 // "all" = my whole calendar · "invited" = invitations · "myfiles" = the
-// personal document shelf (internal only) · else a project id.
-type View = "all" | "invited" | "myfiles" | string;
+// personal document shelf (internal only) · "projects" = the project
+// management page (reserved id — never collides with project UUIDs) ·
+// else a project id (its meeting list).
+type View = "all" | "invited" | "myfiles" | "projects" | string;
 
 // Middle-column presentation controls (persisted in component state).
 type ViewMode = "grid" | "list";
@@ -143,12 +145,19 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const session = useAtomValue(sessionAtom);
 
   const [projects, setProjects] = useState<Project[]>([]);
+  // Last list fetch failed (network / worker error) — the empty-states
+  // must say "couldn't load", not pretend there is genuinely nothing.
+  const [projectsFailed, setProjectsFailed] = useState(false);
   const [view, setView] = useState<View>("all");
   const [cards, setCards] = useState<MeetingSummary[]>([]);
+  const [cardsFailed, setCardsFailed] = useState(false);
   const [loadingCards, setLoadingCards] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  /** Project open in the management page's detail (view === "projects"). */
+  const [manageProjectId, setManageProjectId] = useState<string | null>(null);
+  /** Create-project modal (full-metadata MetadataEditor). */
+  const [creatingProject, setCreatingProject] = useState(false);
   /** Meeting being edited in the middle column (full organizer editor). */
   const [editRoomId, setEditRoomId] = useState<string | null>(null);
   const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
@@ -174,22 +183,36 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [calRefresh, setCalRefresh] = useState(0);
 
   const refreshProjects = useCallback(async () => {
-    setProjects(await listProjects());
+    const r = await listProjectsChecked();
+    // On failure keep whatever we already have (stale beats blank) and
+    // flag it so the sidebar's empty slot says "couldn't load", not
+    // "no projects".
+    setProjectsFailed(!r.ok);
+    if (r.ok) {
+      setProjects(r.items);
+    }
   }, []);
 
   // Load the middle column for the current context.
   const refreshCards = useCallback(async () => {
     setLoadingCards(true);
     try {
-      if (view === "myfiles") {
-        // The shelf panel self-fetches — no meeting cards in this view.
+      if (view === "myfiles" || view === "projects") {
+        // These panels self-manage — no meeting cards in these views.
         setCards([]);
+        setCardsFailed(false);
       } else if (view === "all") {
-        setCards((await getMyMeetings()).map(calToSummary));
+        const r = await getMyMeetingsChecked();
+        setCardsFailed(!r.ok);
+        setCards(r.ok ? r.items.map(calToSummary) : []);
       } else if (view === "invited") {
-        setCards((await getMyInvitations()).map(invToSummary));
+        const r = await getMyInvitationsChecked();
+        setCardsFailed(!r.ok);
+        setCards(r.ok ? r.items.map(invToSummary) : []);
       } else {
-        setCards(await listMeetings(view));
+        const r = await listMeetingsChecked(view);
+        setCardsFailed(!r.ok);
+        setCards(r.ok ? r.items : []);
       }
     } finally {
       setLoadingCards(false);
@@ -211,7 +234,10 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const isInternal = isInternalEmail(session?.email);
 
   const selectedProject =
-    view === "all" || view === "invited" || view === "myfiles"
+    view === "all" ||
+    view === "invited" ||
+    view === "myfiles" ||
+    view === "projects"
       ? null
       : projects.find((p) => p.id === view) ?? null;
   // True membership only — an "invitee" folder (mời vào 1 cuộc họp của phòng
@@ -230,6 +256,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     ? t("invited.title")
     : view === "myfiles"
     ? t("myfiles.title")
+    : view === "projects"
+    ? t("pmgr.title")
     : t("cal.upcoming");
 
   const enterRoom = async (
@@ -281,8 +309,13 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     document.addEventListener("mouseup", onUp);
   };
 
-  const handleCreateProject = async () => {
-    const name = newProjectName.trim();
+  // Create with FULL metadata in one modal. The worker's POST only takes a
+  // name, so this is a 2-call flow: POST name → PATCH the extra fields.
+  // POST fail keeps the modal (and everything typed) open for a retry;
+  // PATCH fail still lands in the new project's detail with a toast — the
+  // user presses Sửa and re-enters, nothing is lost twice.
+  const handleCreateProject = async (values: Record<string, string>) => {
+    const name = values.name?.trim();
     if (!name || busy) {
       return;
     }
@@ -290,16 +323,56 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     try {
       const project = await createProject(name);
       if (!project) {
-        // Keep the typed name so the user can just retry.
         showAppToast(t("errors.createProjectFailed"));
         return;
       }
-      setNewProjectName("");
+      const extras: Record<string, string> = {};
+      for (const key of [
+        "code",
+        "client",
+        "location",
+        "stage",
+        "type",
+        "branch",
+        "cover",
+        "description",
+      ] as const) {
+        if (values[key]?.trim()) {
+          extras[key] = values[key];
+        }
+      }
+      if (Object.keys(extras).length > 0) {
+        const ok = await updateProject(project.id, extras);
+        if (!ok) {
+          showAppToast(t("pmgr.savePartialFailed"));
+        }
+      }
+      setCreatingProject(false);
       await refreshProjects();
-      setView(project.id);
+      // Stay in management mode: the natural next step after creating is
+      // adding members in the detail — not staring at an empty meeting list.
+      setView("projects");
+      setManageProjectId(project.id);
     } finally {
       setBusy(false);
     }
+  };
+
+  // Blank shape for the create modal's field builder.
+  const BLANK_PROJECT: Project = {
+    id: "",
+    name: "",
+    host_email: null,
+    code: null,
+    client: null,
+    location: null,
+    stage: null,
+    type: null,
+    branch: null,
+    cover: null,
+    description: null,
+    created_at: 0,
+    updated_at: 0,
   };
 
   const handleReopen = async (m: MeetingSummary) => {
@@ -379,38 +452,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     await refreshProjects();
   };
 
-  // The selected project's owner (or an admin) gets the overview Edit/Delete
-  // affordances + the roster's add/remove controls.
-  const isOwnerOfSelected =
-    !!selectedProject &&
-    (selectedProject.host_email?.toLowerCase() ===
-      session?.email?.toLowerCase() ||
-      !!session?.isAdmin);
-
-  // Delete the selected project (owner/admin). The worker rejects a non-empty
-  // project with 409 — surface that as a "remove the meetings first" hint
-  // rather than a generic failure.
-  const handleDeleteProject = async () => {
-    if (!selectedProject) {
-      return;
-    }
-    if (
-      !window.confirm(t("proj.deleteConfirm", { name: selectedProject.name }))
-    ) {
-      return;
-    }
-    const { ok, status } = await deleteProject(selectedProject.id);
-    if (ok) {
-      setView("all");
-      await refreshProjects();
-      return;
-    }
-    if (status === 409) {
-      window.alert(t("proj.deleteNotEmpty"));
-      return;
-    }
-    showAppToast(t("proj.deleteFailed"));
-  };
+  // Project administration (edit/delete/members) lives in the management
+  // page (ProjectManagerPanel) — the meeting view keeps no admin controls
+  // beyond the ⚙ shortcut in the title row.
 
   // Apply the chosen sort. "By time" is CALENDAR logic, not a flat list:
   // today/future days first (nearest day first), each day's meetings in
@@ -479,15 +523,23 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     });
   };
 
+  // Every nav click resets the middle column's sub-views (detail/forms)
+  // AND the management page's drill-in, so switching context never leaves
+  // a stale detail behind.
+  const resetSubViews = () => {
+    setDetailRoomId(null);
+    setMeetingFormOpen(null);
+    setEditRoomId(null);
+    setManageProjectId(null);
+  };
+
   const navItem = (key: View, label: string) => (
     <button
       type="button"
       className={`mcm-nav__item${view === key ? " mcm-nav__item--active" : ""}`}
       onClick={() => {
         setView(key);
-        setDetailRoomId(null);
-        setMeetingFormOpen(null);
-        setEditRoomId(null);
+        resetSubViews();
       }}
     >
       <span className="mcm-nav__item-label">{label}</span>
@@ -518,22 +570,50 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               }`}
               onClick={() => {
                 setView("myfiles");
-                setDetailRoomId(null);
-                setMeetingFormOpen(null);
-                setEditRoomId(null);
+                resetSubViews();
               }}
             >
               <FolderHeart size={14} className="mcm-nav__item-icon" />
               <span className="mcm-nav__item-label">{t("myfiles.title")}</span>
             </button>
           )}
+          {/* Project management page — create/metadata/members/delete all
+              live there; the per-project view below stays a clean meeting
+              list. Internal staff only, same gate as the shelf. */}
+          {isInternal && (
+            <button
+              type="button"
+              className={`mcm-nav__item${
+                view === "projects" ? " mcm-nav__item--active" : ""
+              }`}
+              onClick={() => {
+                setView("projects");
+                resetSubViews();
+              }}
+            >
+              <FolderKanban size={14} className="mcm-nav__item-icon" />
+              <span className="mcm-nav__item-label">{t("pmgr.navLabel")}</span>
+            </button>
+          )}
         </div>
         <div className="mcm-nav__section">
           <h3 className="mcm-nav__section-label">{t("header.projects")}</h3>
           <ul className="mcm-nav__items">
-            {projects.length === 0 && (
-              <li className="mcm-nav__empty">{t("folder.empty")}</li>
-            )}
+            {projects.length === 0 &&
+              (projectsFailed ? (
+                <li className="mcm-nav__empty">
+                  {t("errors.loadFailed")}{" "}
+                  <button
+                    type="button"
+                    className="mcm-nav__retry"
+                    onClick={() => void refreshProjects()}
+                  >
+                    {t("errors.retry")}
+                  </button>
+                </li>
+              ) : (
+                <li className="mcm-nav__empty">{t("folder.empty")}</li>
+              ))}
             {projects.map((p) => (
               <li key={p.id}>
                 <button
@@ -543,9 +623,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                   }`}
                   onClick={() => {
                     setView(p.id);
-                    setDetailRoomId(null);
-                    setMeetingFormOpen(null);
-                    setEditRoomId(null);
+                    resetSubViews();
                   }}
                 >
                   <span className="mcm-nav__item-label">{p.name}</span>
@@ -565,24 +643,21 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             ))}
           </ul>
         </div>
-        <div className="mcm-nav__footer">
-          <input
-            type="text"
-            className="mcm-nav__input"
-            placeholder={t("folder.projectNamePlaceholder")}
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && void handleCreateProject()}
-          />
-          <button
-            type="button"
-            className="mcm-nav__create"
-            onClick={handleCreateProject}
-            disabled={busy || !newProjectName.trim()}
-          >
-            {t("folder.create")}
-          </button>
-        </div>
+        {/* One create path with full metadata (the old quick-name input
+            made half-configured projects) — same modal as the management
+            page's button. Internal only, like project creation itself. */}
+        {isInternal && (
+          <div className="mcm-nav__footer">
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--block"
+              onClick={() => setCreatingProject(true)}
+              disabled={busy}
+            >
+              <Plus size={15} /> {t("pmgr.newProject")}
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* MIDDLE — context meetings, or the inline detail / create form */}
@@ -590,29 +665,35 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-3col__middle-head">
           <div className="mcm-3col__middle-titlebox">
             <h2 className="mcm-3col__middle-title">{contextLabel}</h2>
-            {/* Edit only for the project HOST (or an admin) — the Worker
-                rejects the PATCH for anyone else, so don't offer a button
-                that "saves" into a 403. Legacy projects with a null
-                host_email: only admins can edit (accepted trade-off). Hidden
-                in list mode, where the overview header carries its own
-                Edit/Delete; only shown in the detail/edit/form sub-views. */}
-            {selectedProject &&
-              isOwnerOfSelected &&
-              (detailRoomId || meetingFormOpen || editRoomId) && (
-                <button
-                  type="button"
-                  className="mcm-icon-btn mcm-icon-btn--sm"
-                  onClick={() => setEditingProject(selectedProject)}
-                  title={t("folder.editProject")}
-                  aria-label={t("folder.editProject")}
-                >
-                  <Pencil size={14} />
-                </button>
-              )}
+            {/* Project view = clean meeting list: the name appears HERE
+                once, with just the stage pill and a ⚙ shortcut into the
+                management page's detail (hidden for invitee folders —
+                nothing there for them to administer). */}
+            {selectedProject && selectedProject.stage && (
+              <span className="mcm-nav__item-stage">
+                {selectedProject.stage}
+              </span>
+            )}
+            {selectedProject && isMemberProject(selectedProject) && (
+              <button
+                type="button"
+                className="mcm-icon-btn mcm-icon-btn--sm"
+                onClick={() => {
+                  setView("projects");
+                  resetSubViews();
+                  setManageProjectId(selectedProject.id);
+                }}
+                title={t("pmgr.manage")}
+                aria-label={t("pmgr.manage")}
+              >
+                <Settings size={14} />
+              </button>
+            )}
           </div>
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
               so it hides while a detail/create/edit form occupies the column. */}
           {view !== "myfiles" &&
+            view !== "projects" &&
             !detailRoomId &&
             !meetingFormOpen &&
             !editRoomId && (
@@ -691,6 +772,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             )}
           {view !== "invited" &&
             view !== "myfiles" &&
+            view !== "projects" &&
             targetProject &&
             !detailRoomId &&
             !editRoomId &&
@@ -707,28 +789,23 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
-          {/* COMPACT project context strip (this is a meeting app — quyết
-              định 06-11): one row of identity + counters; description, the
-              member roster and owner actions live behind its expand toggle.
-              Roster only for true membership, never an invitee folder. */}
-          {selectedProject && !detailRoomId && !meetingFormOpen && !editRoomId && (
-            <ProjectOverviewHeader
-              project={selectedProject}
-              meetings={cards}
-              isOwner={isOwnerOfSelected}
-              onEdit={() => setEditingProject(selectedProject)}
-              onDelete={handleDeleteProject}
-            >
-              {isMemberProject(selectedProject) && (
-                <ProjectMemberRoster
-                  projectId={selectedProject.id}
-                  isOwner={isOwnerOfSelected}
-                />
-              )}
-            </ProjectOverviewHeader>
-          )}
           {view === "myfiles" ? (
             <MyFilesPanel />
+          ) : view === "projects" ? (
+            <ProjectManagerPanel
+              projects={projects}
+              projectsFailed={projectsFailed}
+              onRetryProjects={() => void refreshProjects()}
+              manageProjectId={manageProjectId}
+              onManage={setManageProjectId}
+              onOpenMeetings={(id) => {
+                setView(id);
+                resetSubViews();
+              }}
+              onCreate={() => setCreatingProject(true)}
+              onEdit={(p) => setEditingProject(p)}
+              onProjectsChanged={() => void refreshProjects()}
+            />
           ) : editRoomId ? (
             <EditMeetingForm
               roomId={editRoomId}
@@ -777,6 +854,17 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             />
           ) : loadingCards ? (
             <div className="mcm-3col__hint">…</div>
+          ) : cardsFailed ? (
+            <div className="mcm-3col__hint">
+              {t("errors.loadFailed")}{" "}
+              <button
+                type="button"
+                className="mcm-3col__retry"
+                onClick={() => void refreshCards()}
+              >
+                {t("errors.retry")}
+              </button>
+            </div>
           ) : filteredCards.length === 0 ? (
             <div className="mcm-3col__hint">{t("folder.noMeetings")}</div>
           ) : (
@@ -979,6 +1067,17 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           fields={buildProjectFields(editingProject)}
           onSave={saveProject}
           onClose={() => setEditingProject(null)}
+        />
+      )}
+
+      {/* Create with full metadata — POST name then PATCH extras; the
+          modal stays open (with everything typed) if the POST fails. */}
+      {creatingProject && (
+        <MetadataEditor
+          title={t("pmgr.createTitle")}
+          fields={buildProjectFields(BLANK_PROJECT)}
+          onSave={handleCreateProject}
+          onClose={() => setCreatingProject(false)}
         />
       )}
     </div>
