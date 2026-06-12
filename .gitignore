@@ -38,6 +38,8 @@ meta*.json
 .playwright-mcp/
 # transient verification screenshots from local Playwright runs
 canvas-nav-widget.png
+# vite leaves these temp config bundles behind when dev server is killed
+*.timestamp-*.mjs
 narrow-toolbar-after.png
 call-bar-pre-live.png
 text-translate-before.png
