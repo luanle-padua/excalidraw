@@ -1,44 +1,79 @@
-// Trang "Quản lý dự án" (ProjectManagerPanel) — list + drill-in detail in
-// the dashboard's middle column. All colour through --mcm-* tokens so dark
-// mode follows automatically (file-per-component precedent:
+// Trang "Quản lý dự án" (ProjectManagerPanel) — list/card toggle + drill-in
+// detail in the dashboard's middle column. All colour through --mcm-* tokens
+// so dark mode follows automatically (file-per-component precedent:
 // ProjectOverviewHeader.scss, which this page replaces).
+//
+// Glass Desk: this surface is SOLID (no backdrop-filter) — de-boxed list
+// (ring-in-shadow thay border, divider hairline-2, hover-wash), cover-first
+// project cards, hero with an AA scrim over the cover, danger zone tinted
+// not shadowed.
 
 .mcm-pmgr {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 4px 2px 24px;
-  animation: mcm-pmgr-in 160ms ease-out;
+  gap: 12px;
+  // The middle-body frame is overflow:hidden ("the child scrolls itself"),
+  // so this panel owns its scroll. 16px sides line the content edge up with
+  // .mcm-mcards; 12px top clears the head's scroll-edge fade mask.
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+  animation: mcm-pmgr-in var(--mcm-dur-base) var(--mcm-ease);
+  // Size container so the head can switch to its 2-row layout from the
+  // COLUMN's width (the calendar drag changes it, not the viewport — a
+  // media query can't see that). See the @container rule below.
+  container-type: inline-size;
 
   &__head {
     display: flex;
     align-items: center;
+    // Narrow middle column (calendar dragged wide, ~480px) → search takes
+    // row 1, segmented + New project wrap to a tidy row 2. Never overlap.
+    flex-wrap: wrap;
     gap: 10px;
+
+    // Toggle + CTA keep their intrinsic size; only the search flexes.
+    .mcm-segmented,
+    > .mcm-btn {
+      flex: none;
+    }
   }
 
-  // Search input — icon + field, mirrors the .mcm-select icon pattern.
+  // Search input — icon + capsule field, mirrors the middle toolbar search.
   &__search {
     position: relative;
-    flex: 1;
+    flex: 1 1 200px;
+    // Floor, not 0: with min-width:0 the input SQUEEZED toward nothing
+    // instead of wrapping, cramming the segmented toggle onto it (the
+    // "switch view đè ô search" PM bug). 160px forces the wrap instead.
+    min-width: 160px;
     max-width: 360px;
 
     svg {
       position: absolute;
-      left: 10px;
+      left: 12px;
       top: 50%;
       transform: translateY(-50%);
-      color: var(--mcm-text-faint);
+      color: var(--mcm-text-faint); // decor — faint is allowed here
       pointer-events: none;
     }
 
     input {
+      // border-box is NOT guaranteed here (computed content-box): without
+      // it, width:100% + 48px padding bleeds ~50px past the label and
+      // covers the view toggle next to it (the PM overlap bug).
+      box-sizing: border-box;
       width: 100%;
-      padding: 7px 12px 7px 32px;
+      padding: 7px 14px 7px 34px;
       border: 1px solid var(--mcm-hairline);
-      border-radius: 9px;
+      border-radius: var(--mcm-radius-pill);
       background: var(--mcm-surface);
       color: var(--mcm-text);
       font-size: 13px;
+      transition: border-color var(--mcm-dur-fast) var(--mcm-ease);
 
       &:focus {
         outline: none;
@@ -50,59 +85,105 @@
     }
   }
 
+  // Group heading — Label style (soft, not faint). On the 12px rhythm:
+  // 20px above (12 gap + 8), 8px below (12 gap − 4) so it hugs its group.
   &__group-label {
-    margin: 6px 0 0;
+    margin: 8px 0 -4px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 650;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--mcm-text-faint);
+    color: var(--mcm-text-soft);
   }
 
+  // ---- LIST mode — one de-boxed card per group ---------------------------
   &__list {
     list-style: none;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 12px;
+    border-radius: var(--mcm-radius-md);
     overflow: hidden;
     background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1); // 1px ring lives in the shadow
   }
 
+  // Wrapper is a DIV (the palette button must not nest inside the nav
+  // button); &__row-hit below is the actual click target.
   &__row {
+    position: relative; // tint rail anchor
     display: flex;
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 11px 14px;
+    min-height: 44px;
+    padding: 6px 14px;
     border: none;
-    border-bottom: 1px solid var(--mcm-hairline);
+    border-bottom: 1px solid var(--mcm-hairline-2); // divider, not box
     background: transparent;
     color: var(--mcm-text);
     text-align: left;
     cursor: pointer;
-    transition: background 120ms;
+    transition: background-color var(--mcm-dur-fast) var(--mcm-ease);
 
     &:hover {
-      background: var(--mcm-surface-2);
+      background: var(--mcm-surface-2); // hover-wash
     }
   }
   li:last-child &__row {
     border-bottom: none;
   }
 
+  // The row's navigation hit — a reset button carrying the cover + text.
+  &__row-hit {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  // Project colour (--mcard-color from TSX, same contract as the meeting
+  // cards): wash the row + a small lamp rail on the left edge.
+  &__row--tinted {
+    background: color-mix(in srgb, var(--mcard-color) 10%, transparent);
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcard-color) 16%, transparent);
+    }
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 2.5px;
+      height: 18px;
+      border-radius: var(--mcm-radius-pill, 999px);
+      background: var(--mcard-color);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+  }
+
   &__row-cover {
-    flex: 0 0 40px;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--mcm-radius-sm);
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--mcm-surface-2);
     color: var(--mcm-text-faint);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
 
     img {
@@ -144,9 +225,179 @@
     color: var(--mcm-text-faint);
   }
 
-  // Stage / invited tag on a row — same look as the sidebar stage tag.
+  // ---- CARD mode — cover-first grid ---------------------------------------
+  &__cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    // Same 200px floor as .mcm-mcards--grid — two columns still fit when
+    // the calendar squeezes the middle column to ~480px.
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  // Wrapper is a DIV (the palette action floats over the cover corner,
+  // outside the &__card-hit click target — no nested buttons).
+  &__card {
+    position: relative; // actions overlay + tint rail anchor
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: var(--mcm-radius-md);
+    overflow: hidden;
+    background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1);
+    color: var(--mcm-text);
+    text-align: left;
+    cursor: pointer;
+    transition: transform var(--mcm-dur-fast) var(--mcm-ease),
+      box-shadow var(--mcm-dur-fast) var(--mcm-ease);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--mcm-shadow-2);
+    }
+    // Press feedback only when the NAV hit is pressed (not the palette).
+    &:has(.mcm-pmgr__card-hit:active) {
+      transform: scale(0.97);
+    }
+  }
+
+  // The card's navigation hit — a reset button carrying cover + body.
+  &__card-hit {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  // Project colour — EXACT meeting-card (mcard) recipe: 10% colour wash on
+  // the paper, 1px tint ring riding INSIDE the shadow (22% → 30% on hover),
+  // and the 36×2.5px lamp rail top-center.
+  &__card--tinted {
+    background: color-mix(in srgb, var(--mcard-color) 10%, var(--mcm-surface));
+    box-shadow: 0 0 0 1px
+        color-mix(in srgb, var(--mcard-color) 22%, transparent),
+      var(--mcm-shadow-1);
+
+    &:hover {
+      box-shadow: 0 0 0 1px
+          color-mix(in srgb, var(--mcard-color) 30%, transparent),
+        var(--mcm-shadow-2);
+    }
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 36px;
+      height: 2.5px;
+      border-radius: var(--mcm-radius-pill, 999px);
+      background: var(--mcard-color);
+      transform: translateX(-50%);
+      z-index: 1; // above the cover image
+      pointer-events: none;
+    }
+  }
+
+  // Floating action corner (palette) — solid frosted chip so the glyph
+  // reads on any cover photo (no blur: Glass Desk budget).
+  &__card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    display: flex;
+    gap: 4px;
+
+    .mcm-icon-btn {
+      background: color-mix(in srgb, var(--mcm-surface) 82%, transparent);
+      box-shadow: var(--mcm-shadow-1);
+
+      &:hover:not(:disabled) {
+        background: var(--mcm-surface);
+      }
+    }
+  }
+
+  // Cover = the hero of the card (~16:10). No cover → soft accent gradient
+  // with a big initial.
+  &__card-cover {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      180deg,
+      var(--mcm-accent-soft),
+      var(--mcm-surface-2)
+    );
+
+    img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+  &__card-initial {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--mcm-accent);
+  }
+
+  &__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: var(--mcm-pad-card);
+  }
+  &__card-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  &__card-name {
+    // Title
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &__card-meta {
+    // Caption
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Stage / invited tag on a row or card — same look as the sidebar stage tag.
   &__tag {
     flex-shrink: 0;
+    // Long stage names must not push past the card edge — cap and ellipsize.
+    max-width: 45%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     font-size: 10px;
     font-weight: 600;
     padding: 1px 6px;
@@ -161,6 +412,13 @@
     }
   }
 
+  // Project icon (emoji accent) — sits just before the name on rows + cards.
+  &__icon {
+    flex: 0 0 auto;
+    font-size: 15px;
+    line-height: 1;
+  }
+
   &__empty {
     display: flex;
     flex-direction: column;
@@ -168,7 +426,7 @@
     gap: 8px;
     padding: 40px 20px;
     border: 1px dashed var(--mcm-hairline);
-    border-radius: 12px;
+    border-radius: var(--mcm-radius-md);
     text-align: center;
     color: var(--mcm-text-faint);
 
@@ -198,14 +456,37 @@
   }
 }
 
+// Narrow middle column (420–~560px): deterministic 2-row head — search owns
+// the full first row, segmented + New project share row 2 with the CTA on
+// the right edge. Engines without container queries keep the flex-wrap +
+// min-width fallback above (which already cannot overlap, just wraps later).
+@container (max-width: 560px) {
+  .mcm-pmgr__head {
+    .mcm-pmgr__search {
+      flex: 1 1 100%;
+      max-width: none;
+    }
+    > .mcm-btn {
+      margin-left: auto;
+    }
+  }
+}
+
 // ---- Detail (drill-in) -----------------------------------------------------
 
 .mcm-pdetail {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 4px 2px 24px;
-  animation: mcm-pmgr-in 160ms ease-out;
+  // Same self-scroll + 16px edge rhythm as .mcm-pmgr above (the drill-in
+  // is the taller of the two: hero + meta grid + roster + danger zone).
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+  animation: mcm-pmgr-in var(--mcm-dur-base) var(--mcm-ease);
 
   &__back {
     align-self: flex-start;
@@ -226,16 +507,30 @@
   }
 
   &__hero {
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 14px;
+    border-radius: var(--mcm-radius-xl);
     overflow: hidden;
     background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1);
   }
+  // Cover wrapper — scrim ::after keeps the overlaid name AA on any image.
   &__cover {
-    width: 100%;
+    position: relative;
     height: 120px;
-    object-fit: cover;
-    display: block;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(transparent 40%, rgba(0, 0, 0, 0.45));
+      pointer-events: none;
+    }
   }
   &__hero-row {
     display: flex;
@@ -244,11 +539,26 @@
     flex-wrap: wrap;
     padding: 14px 16px;
   }
+  // Display — project name (on the cover when there is one).
   &__name {
     margin: 0;
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     min-width: 0;
+
+    &--cover {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 12px;
+      z-index: 1; // above the scrim
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
   &__code {
     font-size: 12px;
@@ -261,13 +571,14 @@
     gap: 8px;
   }
 
+  // Label style — soft, not faint.
   &__section-title {
     margin: 0;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 650;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--mcm-text-faint);
+    color: var(--mcm-text-soft);
 
     display: flex;
     align-items: center;
@@ -278,10 +589,10 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1px;
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 12px;
+    border-radius: var(--mcm-radius-md);
     overflow: hidden;
-    background: var(--mcm-hairline);
+    background: var(--mcm-hairline-2); // gap-line between cells
+    box-shadow: var(--mcm-shadow-1);
   }
   &__meta-cell {
     display: flex;
@@ -291,14 +602,18 @@
     background: var(--mcm-surface);
   }
   &__meta-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+    // Label
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--mcm-text-faint);
+    color: var(--mcm-text-soft);
   }
   &__meta-value {
-    font-size: 13px;
+    // Body 600
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.45;
     color: var(--mcm-text);
     word-break: break-word;
   }
@@ -314,20 +629,21 @@
   &__readonly-banner {
     padding: 9px 14px;
     border: 1px solid var(--mcm-hairline);
-    border-radius: 10px;
+    border-radius: var(--mcm-radius-sm);
     background: var(--mcm-surface-2);
     color: var(--mcm-text-soft);
     font-size: 12.5px;
   }
 
+  // Danger zone — tinted border + soft fill, NO shadow (colour does the work).
   &__danger {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    border: 1px solid
-      var(--mcm-danger-soft, color-mix(in srgb, var(--mcm-danger) 35%, transparent));
-    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--mcm-danger) 30%, transparent);
+    border-radius: var(--mcm-radius-md);
+    background: var(--mcm-danger-soft);
   }
   &__danger-hint {
     flex: 1;
@@ -339,17 +655,17 @@
     align-items: center;
     gap: 6px;
     padding: 6px 12px;
-    border: 1px solid
-      var(--mcm-danger-soft, color-mix(in srgb, var(--mcm-danger) 35%, transparent));
-    border-radius: 9px;
-    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--mcm-danger) 30%, transparent);
+    border-radius: var(--mcm-radius-sm);
+    background: var(--mcm-surface);
     color: var(--mcm-danger);
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
+    transition: background-color var(--mcm-dur-fast) var(--mcm-ease);
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger) 8%, transparent);
+      background: color-mix(in srgb, var(--mcm-danger) 10%, var(--mcm-surface));
     }
   }
 
@@ -375,5 +691,44 @@
   .mcm-pmgr,
   .mcm-pdetail {
     animation: none;
+  }
+}
+
+// ---- Shared bits parked here (MeetingShell.scss under concurrent edit) ----
+
+// Sidebar project colour dot (.mcm-nav lives in MeetingShell.scss — the dot
+// is sized here to avoid edit collisions; the TSX sets `background` inline).
+.mcm-nav__item-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+// EmojiMenu cell (shared ColorMenu.tsx) — reuses the .mcm-swatches--pop
+// glass shell; only the emoji button is new (sibling of &__dot/&__clear).
+.mcm-swatches__emoji {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 120ms ease, transform 120ms ease;
+
+  &:hover {
+    background: var(--mcm-surface-2);
+    transform: scale(1.1);
+  }
+  &--active {
+    background: var(--mcm-surface-2);
+    box-shadow: 0 0 0 1px var(--mcm-accent);
   }
 }

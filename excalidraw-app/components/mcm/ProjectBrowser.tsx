@@ -1,7 +1,7 @@
 import {
   ArrowUpDown,
-  Check,
   Eye,
+  Folder,
   FolderHeart,
   FolderKanban,
   LayoutGrid,
@@ -10,10 +10,9 @@ import {
   Pencil,
   Plus,
   Settings,
+  SmilePlus,
 } from "lucide-react";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-
-import { createPortal } from "react-dom";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
@@ -33,14 +32,12 @@ import { isInternalEmail, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { CalendarX } from "./CalendarX";
+// Shared cosmetic popovers — extracted to their own file (UI-2) so the
+// project manager reuses the exact same menus as the meeting cards.
+import { ColorMenu, EmojiMenu } from "./ColorMenu";
 import { EditMeetingForm } from "./EditMeetingForm";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
-import {
-  MEETING_COLOR_PRESETS,
-  meetingColor,
-  personColor,
-  statusBucket,
-} from "./meetingColors";
+import { meetingColor, personColor, statusBucket } from "./meetingColors";
 import {
   canManageMeeting,
   isEditableMeetingStatus,
@@ -113,7 +110,9 @@ const calToSummary = (c: CalMeeting): MeetingSummary => ({
   last_opened_at: null,
   scheduled_at: c.scheduled_at,
   color: c.color ?? null,
+  icon: c.icon ?? null,
   project_name: c.project_name,
+  project_id: c.project_id,
 });
 
 const invToSummary = (i: MyInvitation): MeetingSummary => ({
@@ -178,6 +177,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // The card whose colour-swatch menu is open (one at a time), by room id.
   const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
   const [colorMenuAnchor, setColorMenuAnchor] = useState<DOMRect | null>(null);
+  // Same pattern for the emoji (icon) picker — one open at a time.
+  const [emojiMenuFor, setEmojiMenuFor] = useState<string | null>(null);
+  const [emojiMenuAnchor, setEmojiMenuAnchor] = useState<DOMRect | null>(null);
   // Bumped on any meeting change so the calendar (which self-fetches) re-pulls
   // and its event colours stay in sync with the cards.
   const [calRefresh, setCalRefresh] = useState(0);
@@ -428,6 +430,19 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setCalRefresh((k) => k + 1);
   };
 
+  // Assign (or clear) a meeting's icon (emoji) — same in-place patch as
+  // assignColor so the list never flashes.
+  const assignIcon = async (id: string, icon: string | null) => {
+    setEmojiMenuFor(null);
+    const ok = await updateMeeting(id, { icon });
+    if (!ok) {
+      showAppToast("Không gán được biểu tượng");
+      return;
+    }
+    setCards((prev) => prev.map((c) => (c.id === id ? { ...c, icon } : c)));
+    setCalRefresh((k) => k + 1);
+  };
+
   const saveProject = async (values: Record<string, string>) => {
     if (!editingProject) {
       return;
@@ -558,7 +573,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       {/* LEFT — sidebar nav */}
       <aside className="mcm-3col__sidebar mcm-scroll">
         <div className="mcm-nav__section">
-          {navItem("all", t("cal.title"))}
+          {navItem("all", t("cal.myMeetings"))}
           {navItem("invited", t("invited.title"))}
           {/* Personal document shelf — internal staff only (the Worker
               also gates /v1/me/files to internal accounts). */}
@@ -626,7 +641,18 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                     resetSubViews();
                   }}
                 >
-                  <span className="mcm-nav__item-label">{p.name}</span>
+                  {/* Project colour dot — mirrors the card tint at a glance. */}
+                  {p.color && (
+                    <span
+                      className="mcm-nav__item-dot"
+                      style={{ background: p.color }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="mcm-nav__item-label">
+                    {p.icon ? `${p.icon} ` : ""}
+                    {p.name}
+                  </span>
                   {/* Invited-only access (no membership): badge instead of
                       the stage — the folder shows just their meetings. */}
                   {p.access === "invitee" ? (
@@ -805,6 +831,13 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               onCreate={() => setCreatingProject(true)}
               onEdit={(p) => setEditingProject(p)}
               onProjectsChanged={() => void refreshProjects()}
+              onPatchProject={(id, patch) =>
+                // Cosmetic colour/icon: patch the one project in place so
+                // the list (and the open detail) updates without a flash.
+                setProjects((prev) =>
+                  prev.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+                )
+              }
             />
           ) : editRoomId ? (
             <EditMeetingForm
@@ -876,7 +909,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                 {filteredCards.map((m, idx) => {
                   const when = meetingWhenMs(m);
                   const stripe = meetingColor(m.color, m.status);
-                  const projectName = selectedProject?.name ?? m.project_name;
+                  // Project chip only in the overview/invited lists — inside
+                  // a project view every card shares the (visible) context.
+                  const chipProject =
+                    view === "all" || view === "invited"
+                      ? m.project_name
+                      : null;
                   // "By time" groups by DAY: emit a separator whenever this
                   // card's day differs from the previous card's.
                   const daySep =
@@ -923,6 +961,14 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                           title={t("folder.reopen")}
                         >
                           <span className="mcm-mcard__title">
+                            {m.icon && (
+                              <span
+                                className="mcm-mcard__title-icon"
+                                aria-hidden="true"
+                              >
+                                {m.icon}
+                              </span>
+                            )}
                             {m.title || t("folder.meetingFallbackTitle")}
                           </span>
                           {m.topic && (
@@ -976,9 +1022,47 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                                 {meetingStatusLabel(t, m.status)}
                               </span>
                             )}
-                            {projectName && (
-                              <span className="mcm-mcard__project">
-                                {projectName}
+                            {chipProject && (
+                              <span
+                                className={`mcm-mcard__project${
+                                  m.project_id
+                                    ? " mcm-mcard__project--link"
+                                    : ""
+                                }`}
+                                role={m.project_id ? "button" : undefined}
+                                tabIndex={m.project_id ? 0 : undefined}
+                                title={chipProject}
+                                onClick={
+                                  m.project_id
+                                    ? (e) => {
+                                        // Don't reopen the meeting — the chip
+                                        // navigates to the project instead.
+                                        e.stopPropagation();
+                                        setView(m.project_id!);
+                                        resetSubViews();
+                                      }
+                                    : undefined
+                                }
+                                onKeyDown={
+                                  m.project_id
+                                    ? (e) => {
+                                        if (
+                                          e.key === "Enter" ||
+                                          e.key === " "
+                                        ) {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setView(m.project_id!);
+                                          resetSubViews();
+                                        }
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <Folder size={11} aria-hidden="true" />
+                                <span className="mcm-mcard__project-name">
+                                  {chipProject}
+                                </span>
                               </span>
                             )}
                           </span>
@@ -992,6 +1076,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                                 if (colorMenuFor === m.id) {
                                   setColorMenuFor(null);
                                 } else {
+                                  setEmojiMenuFor(null);
                                   setColorMenuAnchor(
                                     e.currentTarget.getBoundingClientRect(),
                                   );
@@ -1010,6 +1095,36 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                                 onPick={(c) => void assignColor(m.id, c)}
                                 onClose={() => setColorMenuFor(null)}
                                 clearLabel={t("color.none")}
+                              />
+                            )}
+                          </div>
+                          <div className="mcm-mcard__color">
+                            <button
+                              type="button"
+                              className="mcm-icon-btn mcm-icon-btn--sm"
+                              onClick={(e) => {
+                                if (emojiMenuFor === m.id) {
+                                  setEmojiMenuFor(null);
+                                } else {
+                                  setColorMenuFor(null);
+                                  setEmojiMenuAnchor(
+                                    e.currentTarget.getBoundingClientRect(),
+                                  );
+                                  setEmojiMenuFor(m.id);
+                                }
+                              }}
+                              title="Gán biểu tượng"
+                              aria-label="Gán biểu tượng"
+                            >
+                              <SmilePlus size={14} />
+                            </button>
+                            {emojiMenuFor === m.id && emojiMenuAnchor && (
+                              <EmojiMenu
+                                anchor={emojiMenuAnchor}
+                                current={m.icon ?? null}
+                                onPick={(ic) => void assignIcon(m.id, ic)}
+                                onClose={() => setEmojiMenuFor(null)}
+                                clearLabel="Bỏ biểu tượng"
                               />
                             )}
                           </div>
@@ -1081,92 +1196,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         />
       )}
     </div>
-  );
-};
-
-/**
- * Small colour picker popover for a meeting card — a row of preset swatches
- * plus a "none" option that clears the colour back to the status default.
- * Closes on outside-click / Esc.
- */
-const ColorMenu = ({
-  anchor,
-  current,
-  onPick,
-  onClose,
-  clearLabel,
-}: {
-  anchor: DOMRect;
-  current: string | null;
-  onPick: (color: string | null) => void;
-  onClose: () => void;
-  clearLabel: string;
-}) => {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
-
-  // Render in a portal positioned just under the trigger so the scroll
-  // container can't clip it (the "underlay" bug). Clamp to the viewport.
-  const top = Math.min(anchor.bottom + 6, window.innerHeight - 80);
-  const left = Math.max(
-    8,
-    Math.min(anchor.right - 224, window.innerWidth - 232),
-  );
-
-  return createPortal(
-    <div
-      className="mcm-swatches mcm-swatches--pop"
-      ref={ref}
-      style={{ position: "fixed", top, left } as React.CSSProperties}
-    >
-      {MEETING_COLOR_PRESETS.map((c) => (
-        <button
-          key={c}
-          type="button"
-          className={`mcm-swatches__dot${
-            current?.toLowerCase() === c.toLowerCase()
-              ? " mcm-swatches__dot--active"
-              : ""
-          }`}
-          style={{ ["--swatch" as string]: c } as React.CSSProperties}
-          onClick={() => onPick(c)}
-          aria-label={c}
-          title={c}
-        >
-          {current?.toLowerCase() === c.toLowerCase() && <Check size={12} />}
-        </button>
-      ))}
-      <button
-        type="button"
-        className="mcm-swatches__clear"
-        onClick={() => onPick(null)}
-        title={clearLabel}
-      >
-        {clearLabel}
-      </button>
-    </div>,
-    // Portal into .mcm-shell (NOT document.body) so the --mcm-* design tokens —
-    // surface/hairline/elev/dark-mode — resolve; on body they'd be undefined and
-    // the popover would render with no background.
-    document.querySelector(".mcm-shell") ?? document.body,
   );
 };
 

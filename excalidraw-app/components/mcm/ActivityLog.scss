@@ -4,22 +4,25 @@
 .mcm-activity {
   position: relative;
 
+  // Icon button: exact copy of .mcm-bell__btn (32px capsule, borderless,
+  // hover wash) so the header icon trio reads as one family.
   &__btn {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 9px;
-    background: var(--mcm-surface, #fff);
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: transparent;
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
-    transition: background-color 140ms;
+    transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease);
 
     &:hover {
-      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
     }
   }
 

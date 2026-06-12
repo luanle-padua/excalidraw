@@ -649,7 +649,7 @@ app.post("/v1/projects", async (c) => {
 app.get("/v1/projects", async (c) => {
   const host = c.req.query("host");
   const isAdmin = c.get("role") === "admin";
-  const cols = `id, name, host_email, code, client, location, stage, type, branch, cover, description, created_at, updated_at`;
+  const cols = `id, name, host_email, code, client, location, stage, type, branch, cover, description, color, icon, created_at, updated_at`;
   if (isAdmin) {
     const stmt = host
       ? c.env.DB.prepare(
@@ -721,7 +721,36 @@ app.get("/v1/projects", async (c) => {
 // Closes audit finding #4 (any valid JWT could PATCH any project).
 app.patch("/v1/projects/:id", async (c) => {
   const id = c.req.param("id");
-  if (c.get("role") !== "admin") {
+  const b = await c.req.json<{
+    name?: string;
+    code?: string;
+    client?: string;
+    location?: string;
+    stage?: string;
+    type?: string;
+    branch?: string;
+    cover?: string;
+    description?: string;
+    // Accent colour (hex) + icon (emoji/id) — COSMETIC personalisation, NOT
+    // content. Mirrors meeting.color's exempt guard: a colour/icon-only PATCH
+    // skips the owner-only check so any member can tint their folder.
+    color?: string;
+    icon?: string;
+  }>();
+  // Owner-only applies to CONTENT edits (name/code/.../description). `color`
+  // and `icon` are deliberately exempt — same rationale as meeting colour
+  // (cosmetic shared accent, not a folder reshape).
+  const touchesContent =
+    b.name !== undefined ||
+    b.code !== undefined ||
+    b.client !== undefined ||
+    b.location !== undefined ||
+    b.stage !== undefined ||
+    b.type !== undefined ||
+    b.branch !== undefined ||
+    b.cover !== undefined ||
+    b.description !== undefined;
+  if (touchesContent && c.get("role") !== "admin") {
     const me = c.get("email")?.toLowerCase();
     const owner =
       me &&
@@ -735,17 +764,6 @@ app.patch("/v1/projects/:id", async (c) => {
       return c.json({ error: "owner only" }, 403);
     }
   }
-  const b = await c.req.json<{
-    name?: string;
-    code?: string;
-    client?: string;
-    location?: string;
-    stage?: string;
-    type?: string;
-    branch?: string;
-    cover?: string;
-    description?: string;
-  }>();
   await c.env.DB.prepare(
     `UPDATE project SET
        name = COALESCE(?2, name),
@@ -757,6 +775,8 @@ app.patch("/v1/projects/:id", async (c) => {
        branch = COALESCE(?8, branch),
        cover = COALESCE(?9, cover),
        description = COALESCE(?10, description),
+       color = COALESCE(?12, color),
+       icon = COALESCE(?13, icon),
        updated_at = ?11
      WHERE id = ?1`,
   )
@@ -772,6 +792,8 @@ app.patch("/v1/projects/:id", async (c) => {
       b.cover ?? null,
       b.description ?? null,
       now(),
+      b.color ?? null,
+      b.icon ?? null,
     )
     .run();
   return c.json({ ok: true });
@@ -953,7 +975,7 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
   const cols = `m.id, m.title, m.topic, m.type, m.status, m.created_by,
             m.organizer_email, m.thumbnail, m.participant_count, m.duration_s,
             m.scene_updated_at, m.updated_at, m.last_opened_at, m.discipline,
-            m.priority, m.confidentiality, m.scheduled_at, m.color`;
+            m.priority, m.confidentiality, m.scheduled_at, m.color, m.icon`;
   // Confidential meetings stay invisible to plain project members in the
   // folder list too — only organizer/host/invitee (and admins) see the card.
   // Mirrors the canSeeMeeting enforcement (quyết định 06-10 #3).
@@ -1118,7 +1140,7 @@ app.get("/v1/meetings/:roomId", async (c) => {
             m.scheduled_at, m.duration_min, m.organizer_email, m.host_email,
             m.created_by, m.room_key, m.scene_r2_key,
             m.scene_updated_at, m.thumbnail, m.participant_count, m.duration_s,
-            m.ai_summary, m.ai_summary_at,
+            m.ai_summary, m.ai_summary_at, m.color, m.icon,
             m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.stage AS project_stage
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
@@ -1150,6 +1172,9 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     // User-assigned accent colour (nullable hex, e.g. "#6965db"). COALESCE:
     // omit to keep the current colour; the calendar + cards read it back.
     color?: string;
+    // User-assigned icon (emoji/id) — same cosmetic class as `color`, same
+    // guard exemption below.
+    icon?: string;
   }>();
 
   // ---- Edit + lifecycle guard ---------------------------------------------
@@ -1174,10 +1199,11 @@ app.patch("/v1/meetings/:roomId", async (c) => {
     b.duration_min !== undefined ||
     b.organizer_email !== undefined ||
     b.host_email !== undefined;
-  // NOTE: `color` is NOT in this guard — it's a cosmetic shared accent (the
-  // calendar tint), exempt from the finished-immutable rule, so a colour-only
-  // PATCH falls straight through to the UPDATE below (even on a finished
-  // meeting). Including it here wrongly 409'd "recolour a finished card".
+  // NOTE: `color` and `icon` are NOT in this guard — cosmetic shared accents
+  // (the calendar tint / card icon), exempt from the finished-immutable rule,
+  // so a colour/icon-only PATCH falls straight through to the UPDATE below
+  // (even on a finished meeting). Including them here wrongly 409'd
+  // "recolour a finished card".
   if (b.status !== undefined || touchesContent) {
     let next: string | null = null;
     if (b.status !== undefined) {
@@ -1291,6 +1317,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
        organizer_email = COALESCE(?13, organizer_email),
        host_email = COALESCE(?14, host_email),
        color = COALESCE(?15, color),
+       icon = COALESCE(?16, icon),
        updated_at = ?11
      WHERE id = ?1`,
   )
@@ -1310,6 +1337,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       b.organizer_email ?? null,
       b.host_email ?? null,
       b.color ?? null,
+      b.icon ?? null,
     )
     .run();
   return c.json({ ok: true });
@@ -1812,7 +1840,7 @@ app.get("/v1/me/meetings", async (c) => {
   }
   const cols = `m.id, m.title, m.status, m.scheduled_at, m.created_at,
                 m.project_id, p.name AS project_name, m.created_by,
-                m.organizer_email, m.duration_min, m.color`;
+                m.organizer_email, m.duration_min, m.color, m.icon`;
   const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
   if (isAdmin) {
     const { results } = await c.env.DB.prepare(

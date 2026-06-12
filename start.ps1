@@ -82,8 +82,11 @@ function Wait-Port($port, $timeoutSec) {
     return $false
 }
 
+# 90s: under heavy machine load (agent teams / compiles) the room's cold
+# start can exceed 30s — a short threshold here false-alarms TIMEOUT while
+# the service window still comes up fine moments later.
 Write-Host "waiting for room :3002..." -NoNewline
-if (Wait-Port 3002 30) { Write-Host " ready" -ForegroundColor Green } else { Write-Host " TIMEOUT" -ForegroundColor Red; return }
+if (Wait-Port 3002 90) { Write-Host " ready" -ForegroundColor Green } else { Write-Host " TIMEOUT (cua so 'room :3002' co the van dang len — kiem tra truoc khi chay lai)" -ForegroundColor Red; return }
 
 Write-Host "waiting for vite :3001 (cold start may take ~30s)..." -NoNewline
 if (Wait-Port 3001 120) { Write-Host " ready" -ForegroundColor Green } else { Write-Host " TIMEOUT" -ForegroundColor Red; return }

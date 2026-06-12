@@ -1,0 +1,331 @@
+// Wallpaper — dashboard desk background (yêu cầu anh Luân 06-12: đổi hình
+// nền để tôn hiệu ứng glass). Two halves live here:
+//
+//   1. The APPLY mechanism: `.mcm-lobby[data-mcm-wallpaper]` (attribute +
+//      inline `--mcm-wallpaper` var are stamped from data/wallpaper.ts)
+//      paints a STATIC cover image under the whole dashboard home (header +
+//      all 3 columns — one continuous sheet), with a THIN `--mcm-wall-scrim`
+//      veil on top. 06-12 frosted-mirror rev (PM đảo hướng: "hình nền mờ
+//      quá nhìn cũng k thấy được cái đẹp của nó, cho rõ lên đi"): the image
+//      layer is SHARP — no filter here at all; ALL the frost now lives in
+//      the glass panes' backdrop-filter (mcm-glass in MeetingShell.scss).
+//      The attr value still distinguishes "image" (photo — desk-level
+//      labels get a legibility text-shadow below) from "flat" (gradient —
+//      low-chroma by design, no helper needed).
+//   2. The picker popover (`.mcm-wallp`) — same small glass popover recipe
+//      as the NotificationBell dropdown (inline copy of the mcm-glass mixin;
+//      this file can't @use MeetingShell.scss without re-emitting it).
+//
+// Lives inside .mcm-lobby, so the global fallback blocks at the end of
+// MeetingShell.scss (reduced-transparency glass collapse + backdrop-filter
+// kill, prefers-contrast, reduced-motion) all cover this file too — only
+// the NEW scrim token needs its own reduced-transparency bump below.
+
+// ----- TOKEN: --mcm-wall-scrim (light | dark) ----------------------------
+// 06-12 frosted-mirror rev: THIN veil only (.30 milk | .22 ink) — the image
+// stays vivid ("cho rõ lên"). Safe because almost no text sits directly on
+// the desk: panels/cards carry their own backgrounds, and the few desk-level
+// labels (day separators) get a text-shadow helper below instead of a
+// heavier scrim. Declared on .mcm-lobby in BOTH theme branches per the
+// Glass-Desk scope rule. (No portal stamp needed: the desk never renders
+// inside .mcm-pp-overlay/.mcm-cmodal-ov.)
+.mcm-lobby {
+  --mcm-wall-scrim: rgba(245, 246, 250, 0.3);
+}
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby {
+  --mcm-wall-scrim: rgba(8, 10, 7, 0.22);
+}
+
+// Reduced transparency: imagery retreats to a near-solid veil (the desk
+// reads as the plain bg again, wallpaper only ghosts through).
+@media (prefers-reduced-transparency: reduce) {
+  .mcm-lobby {
+    --mcm-wall-scrim: rgba(245, 246, 250, 0.85);
+  }
+  .mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby {
+    --mcm-wall-scrim: rgba(8, 10, 7, 0.85);
+  }
+}
+
+// ----- APPLY: wallpaper layer under the WHOLE dashboard home ---------------
+// Integration 06-12 ("liền lạc"): the layer lives on .mcm-lobby__home (the
+// full-viewport fixed frame), NOT on .mcm-3col — so ONE image runs under the
+// header AND all three columns, and the header/sidebar glass both sample it
+// through backdrop-filter. ::before = the image (cover, center, STATIC — no
+// animation, no fixed attachment, per desk rules), ::after = the scrim. Both
+// at z-index -1 inside an isolated stacking context: above the home's own
+// desk-gradient background (MeetingShell.scss paints it on this same
+// element — covered automatically, no per-theme clearing needed), below
+// every child.
+.mcm-lobby[data-mcm-wallpaper] .mcm-lobby__home {
+  isolation: isolate;
+  // (No overflow needed here: .mcm-lobby__home already clips —
+  // overflow:hidden in MeetingShell.scss.)
+
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  &::before {
+    background-image: var(--mcm-wallpaper);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    // 06-12 PM final tune: fully sharp reads BUSY behind the UI ("hình rõ
+    // thì nhìn bị rối, cho nó nhòe 1 chút xíu thôi") — a whisper of blur
+    // calms it while the image stays vivid. Keep ≤6px: heavy frost belongs
+    // to the glass panes, not this layer. scale() hides the edge bleed.
+    filter: blur(5px);
+    transform: scale(1.02);
+  }
+
+  &::after {
+    background: var(--mcm-wall-scrim);
+  }
+}
+
+// (06-12 frosted-mirror rev: the previous mandatory blur-14px frost on the
+// image layer is REMOVED in favour of a 5px whisper (PM tune above) —
+// heavy frost moved into the glass panes' backdrop-filter.)
+
+// Desk-level text legibility over a SHARP photo: the thin scrim alone can't
+// guarantee AA for the few labels that sit directly on the wallpaper (day
+// separators in the meeting list). A soft halo in the scrim's own colour
+// does the job without dulling the image. Photo wallpapers only.
+.mcm-lobby[data-mcm-wallpaper="image"] .mcm-mcards__daysep {
+  text-shadow: 0 1px 2px rgba(245, 246, 250, 0.65),
+    0 0 12px rgba(245, 246, 250, 0.8);
+}
+.mcm-shell:has(.excalidraw.theme--dark)
+  .mcm-lobby[data-mcm-wallpaper="image"]
+  .mcm-mcards__daysep {
+  text-shadow: 0 1px 2px rgba(8, 10, 7, 0.7), 0 0 12px rgba(8, 10, 7, 0.85);
+}
+
+
+// ----- PICKER POPOVER ------------------------------------------------------
+.mcm-wallp {
+  position: relative;
+
+  // Icon trigger: same 32px borderless capsule as .mcm-bell__btn.
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: var(--mcm-radius-pill);
+    background: transparent;
+    color: var(--mcm-text);
+    cursor: pointer;
+    transition: background-color var(--mcm-dur-fast) var(--mcm-ease);
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
+    }
+  }
+
+  // Small glass popover — inline copy of the mcm-glass recipe (cf.
+  // NotificationBell.scss), local 14px blur; this popover is the lone
+  // overlay while open, so the ≤3 blur budget holds.
+  &__panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 30;
+    width: 296px;
+    padding: 6px 6px 10px;
+    --mcm-glass-blur: 14px;
+    background: var(--mcm-glass-bg);
+    box-shadow: var(--mcm-highlight), var(--mcm-shadow-3);
+    border-radius: var(--mcm-radius-md);
+    transform-origin: top right;
+    animation: mcm-wallp-pop var(--mcm-dur-base) var(--mcm-ease-spring) both;
+
+    @supports (backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr);
+      // #{}-escape: dart-sass intercepts bare saturate() as a color fn.
+      backdrop-filter: blur(var(--mcm-glass-blur))
+        #{"saturate(var(--mcm-glass-sat))"}
+        brightness(var(--mcm-glass-bright, 1));
+    }
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      padding: 1px;
+      border-radius: inherit;
+      background: var(--mcm-glass-stroke);
+      -webkit-mask: linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    @media (prefers-contrast: more) {
+      border: 1px solid var(--mcm-hairline);
+      &::before {
+        display: none;
+      }
+    }
+  }
+
+  &__head {
+    padding: 8px 10px 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mcm-text-soft);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 0 6px;
+  }
+
+  // One preset = thumb + caption, the whole thing clickable.
+  &__tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: center;
+
+    &:hover .mcm-wallp__thumb {
+      box-shadow: 0 0 0 2px
+        color-mix(in srgb, var(--mcm-accent) 45%, transparent);
+    }
+
+    &--active .mcm-wallp__thumb,
+    &--active:hover .mcm-wallp__thumb {
+      box-shadow: 0 0 0 2px var(--mcm-accent);
+    }
+
+    &--active .mcm-wallp__label {
+      color: var(--mcm-text);
+      font-weight: 700;
+    }
+
+    // Upload tile (06-12): wrapper is a DIV (no button-in-button); the
+    // inner __upbtn carries the click. Relative so the small x can sit on
+    // the thumb corner.
+    &--upload {
+      position: relative;
+      cursor: default;
+    }
+  }
+
+  // Inner click target of the upload tile — same column layout as a tile.
+  &__upbtn {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: center;
+    font: inherit;
+  }
+
+  // Empty upload thumb: dashed drop-zone look, centered Upload icon. When a
+  // custom image is active the inline background-image takes over and the
+  // base __thumb ring/active ring apply as usual.
+  &__thumb--upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mcm-text-soft);
+  }
+  &__thumb--empty {
+    background: var(--mcm-surface-0, var(--mcm-surface-2));
+    box-shadow: none;
+    border: 1px dashed var(--mcm-hairline);
+  }
+
+  // Tiny "gỡ ảnh" x on the active custom thumb.
+  &__remove {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--mcm-surface);
+    color: var(--mcm-text-soft);
+    box-shadow: var(--mcm-shadow-1);
+    cursor: pointer;
+    transition: color var(--mcm-dur-fast) var(--mcm-ease);
+
+    &:hover {
+      color: var(--mcm-danger);
+    }
+  }
+
+  // Thumbnail: ~16:10 swatch — image presets set background-image inline,
+  // gradient presets paint their gradient, the default tile mimics the
+  // bare Glass-Desk (see --none below). Ring 1px in-shadow per system.
+  &__thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: var(--mcm-radius-sm);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: inset 0 0 0 1px var(--mcm-hairline);
+    transition: box-shadow var(--mcm-dur-fast) var(--mcm-ease);
+
+    // "Mặc định": the desk's own wash (accent radial over --mcm-bg), so the
+    // tile previews exactly what "no wallpaper" looks like in either theme.
+    &--none {
+      background: radial-gradient(
+          70px 36px at 22% -10%,
+          color-mix(in srgb, var(--mcm-accent) 14%, transparent),
+          transparent 65%
+        ),
+        var(--mcm-bg);
+    }
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// Popover entrance: fade + scale, spring ease (transform/opacity only) —
+// killed globally by the reduced-motion block in MeetingShell.scss.
+@keyframes mcm-wallp-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -28,6 +28,8 @@ export type CalMeeting = {
   /** User-assigned accent colour (hex). When set, the calendar event uses
    *  it instead of the status palette so card + calendar colours match. */
   color?: string | null;
+  /** User-assigned icon (emoji/id) — same cosmetic class as `color`. */
+  icon?: string | null;
   /** 1 when I'm a direct (non-revoked) invitee — drives the live-invite
    *  nudge; project-member visibility alone doesn't count as an invite. */
   invited_direct?: number;

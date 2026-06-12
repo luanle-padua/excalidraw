@@ -17,19 +17,24 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderKanban,
+  LayoutGrid,
+  List,
+  Palette,
   Pencil,
   Plus,
   Search,
+  SmilePlus,
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { showAppToast } from "../../data/appToast";
-import { deleteProject } from "../../data/projects";
+import { deleteProject, updateProject } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { ColorMenu, EmojiMenu, PROJECT_ICON_PRESETS } from "./ColorMenu";
 import { ProjectMemberRoster } from "./ProjectMemberRoster";
 
 import "./ProjectManager.scss";
@@ -53,6 +58,29 @@ type Props = {
   onEdit: (p: Project) => void;
   /** A mutation happened here (delete) — parent refreshes the list. */
   onProjectsChanged: () => void;
+  /** Cosmetic colour/icon saved — parent patches its list IN PLACE (no
+   *  refetch flash; same pattern as the meeting cards' assignColor). */
+  onPatchProject: (
+    id: string,
+    patch: { color?: string | null; icon?: string | null },
+  ) => void;
+};
+
+/** Cosmetic colour/icon PATCH. Any member may set these (the worker exempts
+ *  them from the owner-only guard). The worker COALESCEs nulls (null = keep),
+ *  so clearing sends "" — falsy for every consumer, same effect as null. */
+const saveCosmetic = async (
+  id: string,
+  patch: { color?: string | null; icon?: string | null },
+): Promise<boolean> => {
+  const wire: { color?: string; icon?: string } = {};
+  if (patch.color !== undefined) {
+    wire.color = patch.color ?? "";
+  }
+  if (patch.icon !== undefined) {
+    wire.icon = patch.icon ?? "";
+  }
+  return updateProject(id, wire);
 };
 
 const fmtCreated = (ms: number): string =>
@@ -74,10 +102,33 @@ export const ProjectManagerPanel = ({
   onCreate,
   onEdit,
   onProjectsChanged,
+  onPatchProject,
 }: Props) => {
   const t = useT();
   const session = useAtomValue(sessionAtom);
   const [q, setQ] = useState("");
+  // LIST ⇄ CARD, same affordance as the meeting list (anh Luân, 06-12).
+  // Card is the default — covers carry the page.
+  const [viewMode, setViewMode] = useState<"list" | "card">("card");
+  // The project whose colour-swatch menu is open (one at a time), by id —
+  // same pattern as the meeting cards.
+  const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
+  const [colorMenuAnchor, setColorMenuAnchor] = useState<DOMRect | null>(null);
+
+  // PM: "project card cũng cần được set màu tương tự như meeting card" —
+  // save, then patch the parent's list in place + background reconcile.
+  const assignCosmetic = async (
+    id: string,
+    patch: { color?: string | null; icon?: string | null },
+  ) => {
+    setColorMenuFor(null);
+    if (!(await saveCosmetic(id, patch))) {
+      showAppToast("Không lưu được màu/biểu tượng dự án");
+      return;
+    }
+    onPatchProject(id, patch);
+    onProjectsChanged();
+  };
 
   const detail = manageProjectId
     ? projects.find((p) => p.id === manageProjectId) ?? null
@@ -107,6 +158,7 @@ export const ProjectManagerPanel = ({
           onManage(null);
           onProjectsChanged();
         }}
+        onAssignCosmetic={(patch) => void assignCosmetic(detail.id, patch)}
       />
     );
   }
@@ -127,6 +179,45 @@ export const ProjectManagerPanel = ({
     .filter((p) => p.access === "invitee" && matches(p))
     .sort(byUpdated);
 
+  // Inline style contract shared with the meeting cards: --mcard-color is
+  // the project's user hue; the SCSS --tinted modifiers do the colour math.
+  const tintStyle = (p: Project): React.CSSProperties | undefined =>
+    p.color
+      ? ({ ["--mcard-color" as string]: p.color } as React.CSSProperties)
+      : undefined;
+
+  // Palette trigger + its popover. Lives OUTSIDE the row/card hit <button>
+  // (nested buttons are invalid HTML) — the wrapper div carries the layout.
+  const paletteButton = (p: Project) => (
+    <>
+      <button
+        type="button"
+        className="mcm-icon-btn mcm-icon-btn--sm"
+        onClick={(e) => {
+          if (colorMenuFor === p.id) {
+            setColorMenuFor(null);
+          } else {
+            setColorMenuAnchor(e.currentTarget.getBoundingClientRect());
+            setColorMenuFor(p.id);
+          }
+        }}
+        title="Đổi màu dự án"
+        aria-label="Đổi màu dự án"
+      >
+        <Palette size={14} />
+      </button>
+      {colorMenuFor === p.id && colorMenuAnchor && (
+        <ColorMenu
+          anchor={colorMenuAnchor}
+          current={p.color ?? null}
+          onPick={(c) => void assignCosmetic(p.id, { color: c })}
+          onClose={() => setColorMenuFor(null)}
+          clearLabel={t("color.none")}
+        />
+      )}
+    </>
+  );
+
   const row = (p: Project) => {
     const meta =
       [p.code, p.client, p.location].filter(Boolean).join(" · ") ||
@@ -134,58 +225,164 @@ export const ProjectManagerPanel = ({
       t("pmgr.noMeta");
     return (
       <li key={p.id}>
-        <button
-          type="button"
-          className="mcm-pmgr__row"
-          onClick={() => onManage(p.id)}
+        <div
+          className={`mcm-pmgr__row${p.color ? " mcm-pmgr__row--tinted" : ""}`}
+          style={tintStyle(p)}
         >
-          <span className="mcm-pmgr__row-cover" aria-hidden="true">
-            {p.cover ? (
-              <img src={p.cover} alt="" />
-            ) : (
-              p.name.trim()[0]?.toUpperCase() ?? "#"
-            )}
-          </span>
-          <span className="mcm-pmgr__row-main">
-            <span className="mcm-pmgr__row-top">
-              <span className="mcm-pmgr__row-name">{p.name}</span>
-              {p.access === "invitee" ? (
-                <span className="mcm-pmgr__tag mcm-pmgr__tag--invited">
-                  {t("folder.invitedBadge")}
-                </span>
+          <button
+            type="button"
+            className="mcm-pmgr__row-hit"
+            onClick={() => onManage(p.id)}
+          >
+            <span className="mcm-pmgr__row-cover" aria-hidden="true">
+              {p.cover ? (
+                <img src={p.cover} alt="" />
               ) : (
-                p.stage && <span className="mcm-pmgr__tag">{p.stage}</span>
+                p.name.trim()[0]?.toUpperCase() ?? "#"
               )}
             </span>
-            <span className="mcm-pmgr__row-meta">{meta}</span>
-          </span>
+            <span className="mcm-pmgr__row-main">
+              <span className="mcm-pmgr__row-top">
+                {p.icon && (
+                  <span className="mcm-pmgr__icon" aria-hidden="true">
+                    {p.icon}
+                  </span>
+                )}
+                <span className="mcm-pmgr__row-name">{p.name}</span>
+                {p.access === "invitee" ? (
+                  <span className="mcm-pmgr__tag mcm-pmgr__tag--invited">
+                    {t("folder.invitedBadge")}
+                  </span>
+                ) : (
+                  p.stage && <span className="mcm-pmgr__tag">{p.stage}</span>
+                )}
+              </span>
+              <span className="mcm-pmgr__row-meta">{meta}</span>
+            </span>
+          </button>
+          {paletteButton(p)}
           <ChevronRight size={16} className="mcm-pmgr__row-chevron" />
-        </button>
+        </div>
       </li>
     );
   };
 
+  // CARD mode — cover-first tile, same click target as a row (the palette
+  // action floats over the cover's corner, outside the hit button).
+  const card = (p: Project) => {
+    const meta =
+      [p.code, p.client, p.location].filter(Boolean).join(" · ") ||
+      p.description ||
+      t("pmgr.noMeta");
+    return (
+      <li key={p.id}>
+        <div
+          className={`mcm-pmgr__card${
+            p.color ? " mcm-pmgr__card--tinted" : ""
+          }`}
+          style={tintStyle(p)}
+        >
+          <button
+            type="button"
+            className="mcm-pmgr__card-hit"
+            onClick={() => onManage(p.id)}
+          >
+            <span className="mcm-pmgr__card-cover" aria-hidden="true">
+              {p.cover ? (
+                <img src={p.cover} alt="" />
+              ) : (
+                <span className="mcm-pmgr__card-initial">
+                  {p.name.trim()[0]?.toUpperCase() ?? "#"}
+                </span>
+              )}
+            </span>
+            <span className="mcm-pmgr__card-body">
+              <span className="mcm-pmgr__card-top">
+                {p.icon && (
+                  <span className="mcm-pmgr__icon" aria-hidden="true">
+                    {p.icon}
+                  </span>
+                )}
+                <span className="mcm-pmgr__card-name">{p.name}</span>
+                {p.access === "invitee" ? (
+                  <span className="mcm-pmgr__tag mcm-pmgr__tag--invited">
+                    {t("folder.invitedBadge")}
+                  </span>
+                ) : (
+                  p.stage && <span className="mcm-pmgr__tag">{p.stage}</span>
+                )}
+              </span>
+              <span className="mcm-pmgr__card-meta">{meta}</span>
+            </span>
+          </button>
+          <div className="mcm-pmgr__card-actions">{paletteButton(p)}</div>
+        </div>
+      </li>
+    );
+  };
+
+  const group = (items: Project[]) =>
+    viewMode === "card" ? (
+      <ul className="mcm-pmgr__cards">{items.map(card)}</ul>
+    ) : (
+      <ul className="mcm-pmgr__list">{items.map(row)}</ul>
+    );
+
   return (
     <div className="mcm-pmgr">
-      <div className="mcm-pmgr__head">
-        <label className="mcm-pmgr__search">
-          <Search size={14} />
-          <input
-            type="text"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t("pmgr.searchPlaceholder")}
-            aria-label={t("pmgr.searchPlaceholder")}
-          />
-        </label>
-        <button
-          type="button"
-          className="mcm-btn mcm-btn--primary mcm-btn--sm"
-          onClick={onCreate}
-        >
-          <Plus size={15} /> {t("pmgr.newProject")}
-        </button>
-      </div>
+      {/* Head hides when there is nothing to search/arrange — the empty
+          state carries its own create CTA (no redundant buttons). */}
+      {projects.length > 0 && (
+        <div className="mcm-pmgr__head">
+          <label className="mcm-pmgr__search">
+            <Search size={14} />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t("pmgr.searchPlaceholder")}
+              aria-label={t("pmgr.searchPlaceholder")}
+            />
+          </label>
+          <div
+            className="mcm-segmented"
+            role="group"
+            aria-label={t("view.label")}
+          >
+            <button
+              type="button"
+              className={`mcm-segmented__btn${
+                viewMode === "card" ? " mcm-segmented__btn--active" : ""
+              }`}
+              onClick={() => setViewMode("card")}
+              title={t("view.grid")}
+              aria-label={t("view.grid")}
+              aria-pressed={viewMode === "card" ? "true" : "false"}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              type="button"
+              className={`mcm-segmented__btn${
+                viewMode === "list" ? " mcm-segmented__btn--active" : ""
+              }`}
+              onClick={() => setViewMode("list")}
+              title={t("view.list")}
+              aria-label={t("view.list")}
+              aria-pressed={viewMode === "list" ? "true" : "false"}
+            >
+              <List size={14} />
+            </button>
+          </div>
+          <button
+            type="button"
+            className="mcm-btn mcm-btn--primary mcm-btn--sm"
+            onClick={onCreate}
+          >
+            <Plus size={15} /> {t("pmgr.newProject")}
+          </button>
+        </div>
+      )}
 
       {projectsFailed && projects.length === 0 ? (
         <div className="mcm-3col__hint">
@@ -231,7 +428,7 @@ export const ProjectManagerPanel = ({
               <h3 className="mcm-pmgr__group-label">
                 {t("pmgr.groupMine")} ({mine.length})
               </h3>
-              <ul className="mcm-pmgr__list">{mine.map(row)}</ul>
+              {group(mine)}
             </>
           )}
           {invited.length > 0 && (
@@ -239,7 +436,7 @@ export const ProjectManagerPanel = ({
               <h3 className="mcm-pmgr__group-label">
                 {t("pmgr.groupInvited")} ({invited.length})
               </h3>
-              <ul className="mcm-pmgr__list">{invited.map(row)}</ul>
+              {group(invited)}
             </>
           )}
         </>
@@ -257,6 +454,7 @@ const ProjectDetail = ({
   onOpenMeetings,
   onEdit,
   onDeleted,
+  onAssignCosmetic,
 }: {
   project: Project;
   isOwner: boolean;
@@ -264,10 +462,32 @@ const ProjectDetail = ({
   onOpenMeetings: () => void;
   onEdit: () => void;
   onDeleted: () => void;
+  /** Save a colour/icon accent (panel owns the PATCH + in-place update). */
+  onAssignCosmetic: (patch: {
+    color?: string | null;
+    icon?: string | null;
+  }) => void;
 }) => {
   const t = useT();
   const [deleting, setDeleting] = useState(false);
+  // Which cosmetic popover is open in the hero (colour XOR emoji).
+  const [cosmeticMenu, setCosmeticMenu] = useState<"color" | "icon" | null>(
+    null,
+  );
+  const [cosmeticAnchor, setCosmeticAnchor] = useState<DOMRect | null>(null);
   const isInvitee = project.access === "invitee";
+
+  const toggleCosmeticMenu = (
+    kind: "color" | "icon",
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    if (cosmeticMenu === kind) {
+      setCosmeticMenu(null);
+    } else {
+      setCosmeticAnchor(e.currentTarget.getBoundingClientRect());
+      setCosmeticMenu(kind);
+    }
+  };
 
   const metaCells = useMemo(
     () =>
@@ -317,10 +537,22 @@ const ProjectDetail = ({
 
       <div className="mcm-pdetail__hero">
         {project.cover && (
-          <img className="mcm-pdetail__cover" src={project.cover} alt="" />
+          <div className="mcm-pdetail__cover">
+            <img src={project.cover} alt="" />
+            {/* Name sits ON the cover — the SCSS scrim keeps it AA. */}
+            <h2 className="mcm-pdetail__name mcm-pdetail__name--cover">
+              {project.icon ? `${project.icon} ` : ""}
+              {project.name}
+            </h2>
+          </div>
         )}
         <div className="mcm-pdetail__hero-row">
-          <h2 className="mcm-pdetail__name">{project.name}</h2>
+          {!project.cover && (
+            <h2 className="mcm-pdetail__name">
+              {project.icon ? `${project.icon} ` : ""}
+              {project.name}
+            </h2>
+          )}
           {project.stage && (
             <span className="mcm-pmgr__tag">{project.stage}</span>
           )}
@@ -328,6 +560,55 @@ const ProjectDetail = ({
             <span className="mcm-pdetail__code">{project.code}</span>
           )}
           <div className="mcm-pdetail__actions">
+            {/* Cosmetic accents — colour + icon. Any member (the worker
+                exempts these from owner-only); hidden for invitees. */}
+            {!isInvitee && (
+              <>
+                <button
+                  type="button"
+                  className="mcm-icon-btn mcm-icon-btn--sm"
+                  onClick={(e) => toggleCosmeticMenu("color", e)}
+                  title="Đổi màu dự án"
+                  aria-label="Đổi màu dự án"
+                >
+                  <Palette size={14} />
+                </button>
+                <button
+                  type="button"
+                  className="mcm-icon-btn mcm-icon-btn--sm"
+                  onClick={(e) => toggleCosmeticMenu("icon", e)}
+                  title="Gán biểu tượng dự án"
+                  aria-label="Gán biểu tượng dự án"
+                >
+                  <SmilePlus size={14} />
+                </button>
+                {cosmeticMenu === "color" && cosmeticAnchor && (
+                  <ColorMenu
+                    anchor={cosmeticAnchor}
+                    current={project.color ?? null}
+                    onPick={(c) => {
+                      setCosmeticMenu(null);
+                      onAssignCosmetic({ color: c });
+                    }}
+                    onClose={() => setCosmeticMenu(null)}
+                    clearLabel={t("color.none")}
+                  />
+                )}
+                {cosmeticMenu === "icon" && cosmeticAnchor && (
+                  <EmojiMenu
+                    anchor={cosmeticAnchor}
+                    current={project.icon ?? null}
+                    presets={PROJECT_ICON_PRESETS}
+                    onPick={(ic) => {
+                      setCosmeticMenu(null);
+                      onAssignCosmetic({ icon: ic });
+                    }}
+                    onClose={() => setCosmeticMenu(null)}
+                    clearLabel="Bỏ biểu tượng"
+                  />
+                )}
+              </>
+            )}
             {isOwner && !isInvitee && (
               <button
                 type="button"

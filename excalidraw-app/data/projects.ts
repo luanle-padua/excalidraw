@@ -35,6 +35,10 @@ export type Project = {
   branch: string | null;
   cover: string | null;
   description: string | null;
+  /** Accent colour (hex) — cosmetic personalisation, nullable. */
+  color?: string | null;
+  /** Icon (emoji/id) — cosmetic personalisation, nullable. */
+  icon?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -63,10 +67,16 @@ export type MeetingSummary = {
    *  the card stripe and the calendar event. Nullable: most meetings have
    *  none and fall back to the status palette. */
   color?: string | null;
+  /** User-assigned icon (emoji/id) — same cosmetic class as `color`. */
+  icon?: string | null;
   /** Parent project name, when the API/adaptor carries it (the project
    *  view already knows it from context; the calendar/invite adapters
    *  populate it so the card can show it in every context). */
   project_name?: string | null;
+  /** Parent project id — lets the card's project chip jump straight to
+   *  that project's meeting list. Only adapters that know it (calendar)
+   *  carry it; the invite shape has just the name. */
+  project_id?: string | null;
 };
 
 const json = { "content-type": "application/json" };
@@ -132,6 +142,11 @@ export const updateProject = async (
     branch?: string;
     cover?: string;
     description?: string;
+    /** Accent colour (hex) — cosmetic; the worker exempts a colour/icon-only
+     *  patch from the owner-only guard (any member can tint the folder). */
+    color?: string;
+    /** Icon (emoji/id) — same cosmetic class as `color`. */
+    icon?: string;
   },
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED) {
@@ -165,6 +180,8 @@ export const updateMeeting = async (
     host_email?: string;
     /** Accent colour (hex) or null to clear it. Synced to the calendar. */
     color?: string | null;
+    /** Icon (emoji/id) — same cosmetic class as `color`. */
+    icon?: string | null;
   },
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED) {
@@ -278,6 +295,9 @@ export type Meeting = {
    *  transcript blob it is derived from. */
   ai_summary: string | null;
   ai_summary_at: number | null;
+  /** Cosmetic accents (hex colour + emoji/icon id), nullable. */
+  color?: string | null;
+  icon?: string | null;
 };
 
 /** Discriminated meeting lookup — callers that gate behaviour on the

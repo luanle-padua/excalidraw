@@ -66,6 +66,8 @@ export const en: Widened<typeof vi> = {
   },
   cal: {
     title: "Calendar",
+    // Sidebar tab label (ProjectBrowser) — distinct from `title`.
+    myMeetings: "My meetings",
     upcoming: "Upcoming",
     today: "Today",
     tomorrow: "Tomorrow",

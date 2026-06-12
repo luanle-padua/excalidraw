@@ -3,7 +3,10 @@
 // compatible). Same props as CalendarView so swapping is a one-line change.
 //
 // What it does that the hand-rolled CalendarView did:
-//   • Month / Week / Day (+ month-agenda) views with a built-in view switcher.
+//   • Month / Week / Day views with a built-in view switcher. The calendar is
+//     NOT responsive-switched: month-agenda was dropped and isResponsive is
+//     off, so the month grid looks the same at every width (PM consistency
+//     ask 06-12) — the column already has a 360px floor so the grid holds.
 //   • Colour-marks each meeting by its EFFECTIVE colour — the exact hex its card
 //     stripe uses: meetingColor(m.color, m.status) (assigned colour wins, else
 //     the status colour). Derived from STATUS_COLOR in meetingColors.ts, the one
@@ -27,7 +30,6 @@
 import { THEME } from "@excalidraw/excalidraw";
 import {
   createViewDay,
-  createViewMonthAgenda,
   createViewMonthGrid,
   createViewWeek,
 } from "@schedule-x/calendar";
@@ -114,6 +116,32 @@ const dateTimeKey = (d: Date): string =>
 /** Where a meeting sits: scheduled_at if set, else created_at. */
 const meetingDate = (m: CalMeeting): Date =>
   m.scheduled_at ? new Date(m.scheduled_at) : new Date(m.created_at);
+
+// Day/Week views should open on the working day, not at 00:00/01:00 (PM
+// 06-12). Initial scroll = the later of the work-day start and 30 min before
+// the day's earliest meeting — so the first meeting is in view, and meeting-
+// less days still open at a sane hour.
+const WORK_DAY_START = "07:30";
+
+/** "HH:mm" the time grid should scroll to for a given day: max(07:30,
+ *  earliest meeting − 30min). Zero-padded strings compare correctly. */
+const scrollTargetForDay = (dayStr: string, meetings: CalMeeting[]): string => {
+  let earliest: Date | null = null;
+  for (const m of meetings) {
+    const d = meetingDate(m);
+    if (!Number.isNaN(d.getTime()) && dayKey(d) === dayStr) {
+      if (!earliest || d.getTime() < earliest.getTime()) {
+        earliest = d;
+      }
+    }
+  }
+  if (!earliest) {
+    return WORK_DAY_START;
+  }
+  const lead = new Date(earliest.getTime() - 30 * 60_000);
+  const hhmm = `${pad(lead.getHours())}:${pad(lead.getMinutes())}`;
+  return hhmm > WORK_DAY_START ? hhmm : WORK_DAY_START;
+};
 
 /** The effective colour for a meeting — the EXACT hex its card stripe paints.
  *  Single source of truth: meetingColor() over STATUS_COLOR. */
@@ -282,6 +310,66 @@ export const CalendarX = ({
   // the live event list through it via .set() whenever `meetings` changes.
   const eventsService = useState(() => createEventsServicePlugin())[0];
 
+  // --- Day/Week initial scroll: open on the working day, never at 00:00 ---
+  // NOTE (06-12): the official @schedule-x/scroll-controller plugin is in
+  // package.json (2.36.0) but is NOT imported here on purpose — it was added
+  // while the long-running dev server was already up, and vite cannot load a
+  // newly installed dep without a restart (504 "Outdated Optimize Dep";
+  // restarting the PM's server is off-limits). Its internals are one line —
+  // `viewContainer.scroll(0, px)` over `.sx__view-container` — so we do that
+  // scroll ourselves: identical behaviour, zero load-order risk. Feel free to
+  // swap to the plugin after any natural dev-server restart.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const focusedDayRef = useRef(focusedDay);
+  const meetingsRef = useRef(meetings);
+  focusedDayRef.current = focusedDay;
+  meetingsRef.current = meetings;
+  const scrollRaf = useRef<number | null>(null);
+
+  // Scroll the week/day time grid to the focused day's working hours
+  // (max(07:30, earliest meeting − 30min) — see scrollTargetForDay). The grid
+  // mounts a few frames AFTER the view-switch callback fires, so retry on
+  // rAF until `.sx__week-grid` exists (cheap stand-in for the plugin's
+  // MutationObserver); give up quietly when a non-time view (month) shows.
+  const scrollTimeGridToWorkHours = useCallback(() => {
+    if (scrollRaf.current !== null) {
+      cancelAnimationFrame(scrollRaf.current);
+    }
+    let attempts = 0;
+    const tick = () => {
+      scrollRaf.current = null;
+      const root = rootRef.current;
+      const container = root?.querySelector<HTMLElement>(".sx__view-container");
+      const grid = root?.querySelector<HTMLElement>(".sx__week-grid");
+      if (!container || !grid) {
+        if (root && ++attempts <= 30) {
+          scrollRaf.current = requestAnimationFrame(tick);
+        }
+        return;
+      }
+      const [h, m] = scrollTargetForDay(
+        focusedDayRef.current,
+        meetingsRef.current,
+      )
+        .split(":")
+        .map(Number);
+      // The grid's full height spans the whole 24h day (default boundaries),
+      // so the target offset is just the time-of-day fraction of it.
+      container.scrollTop = ((h * 60 + m) / (24 * 60)) * grid.offsetHeight;
+    };
+    scrollRaf.current = requestAnimationFrame(tick);
+  }, []);
+
+  // Cancel any pending scroll attempt on unmount.
+  useEffect(
+    () => () => {
+      if (scrollRaf.current !== null) {
+        cancelAnimationFrame(scrollRaf.current);
+      }
+    },
+    [],
+  );
+
   const events = useMemo<CalendarEventExternal[]>(() => {
     return meetings
       .filter((m) => !Number.isNaN(meetingDate(m).getTime()))
@@ -289,16 +377,16 @@ export const CalendarX = ({
   }, [meetings]);
 
   const calendar = useCalendarApp({
-    views: [
-      createViewMonthGrid(),
-      createViewWeek(),
-      createViewDay(),
-      createViewMonthAgenda(),
-    ],
+    views: [createViewMonthGrid(), createViewWeek(), createViewDay()],
     defaultView: createViewMonthGrid().name,
     events,
     calendars: ALL_CALENDARS,
     plugins: [eventsService],
+    // Never auto-swap views on narrow widths: Schedule-X used to flip
+    // month-grid → month-agenda below its 700px breakpoint, which read as
+    // "two different month UIs". The grid keeps one consistent look at every
+    // width (the calendar column has a 360px min-width floor).
+    isResponsive: false,
     isDark,
     locale: LOCALE_MAP[lang] ?? "en-US",
     selectedDate: dayKey(new Date()),
@@ -319,13 +407,11 @@ export const CalendarX = ({
       onSelectedDateUpdate: (date) => {
         setFocusedDay(date.slice(0, 10));
       },
-      // Month-agenda day click → just focus the notes for that day.
-      onClickAgendaDate: (date) => {
-        setFocusedDay(date.slice(0, 10));
-      },
       // Whenever the visible range changes (navigation / view switch / first
       // render), make sure holidays for every year it spans are loaded so the
       // red/blue tinting is robust across month navigation and year edges.
+      // Also (re-)aim the Day/Week time grid at the working hours — this is
+      // what stops those views opening at 00:00/01:00 (no-op in month view).
       onRangeUpdate: (range) => {
         const startYear = Number(String(range.start).slice(0, 4));
         const endYear = Number(String(range.end).slice(0, 4));
@@ -333,6 +419,7 @@ export const CalendarX = ({
         if (endYear !== startYear) {
           ensureHolidaysForYear(endYear);
         }
+        scrollTimeGridToWorkHours();
       },
     },
   });
@@ -349,6 +436,13 @@ export const CalendarX = ({
   useEffect(() => {
     calendar?.setTheme(isDark ? "dark" : "light");
   }, [calendar, isDark]);
+
+  // Re-aim the time grid whenever the focused day or the meeting list changes
+  // (date click / navigation / the initial fetch landing). View switches are
+  // covered by onRangeUpdate above; in month view this quietly no-ops.
+  useEffect(() => {
+    scrollTimeGridToWorkHours();
+  }, [scrollTimeGridToWorkHours, focusedDay, meetings]);
 
   // Custom month-grid date cell: paint the day number per the Korean
   // red-calendar convention and surface the holiday name. Stable identity (no
@@ -369,7 +463,7 @@ export const CalendarX = ({
   );
 
   return (
-    <div className="mcm-cal mcm-calx">
+    <div className="mcm-cal mcm-calx" ref={rootRef}>
       {!externalMeetings && loadFailed && (
         <div className="mcm-calx__loaderr">
           {t("errors.loadFailed")}{" "}

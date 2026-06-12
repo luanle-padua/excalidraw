@@ -80,6 +80,9 @@ export const vi = {
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",
+    // Sidebar tab label (ProjectBrowser) — distinct from `title`, which the
+    // calendar view itself still uses (tablist aria-label).
+    myMeetings: "Cuộc họp của tôi",
     upcoming: "Sắp tới",
     today: "Hôm nay",
     tomorrow: "Ngày mai",

@@ -1,3 +1,5 @@
+@use "./type" as *; // dashboard type-scale mixins (t-display…t-btn) + font stacks
+
 // MCM (Map Canvas Meet) shell — solid Apple-style design language.
 //
 // No glass / no backdrop blur. Every panel is a crisp solid surface,
@@ -32,6 +34,7 @@
   --mcm-text-faint: rgba(27, 27, 31, 0.4);
   --mcm-surface: #ffffff;
   --mcm-surface-2: #f0f0f3;
+  --mcm-surface-3: #fbfbfd;
   --mcm-hairline: rgba(0, 0, 0, 0.12);
   --mcm-hairline-2: rgba(0, 0, 0, 0.06);
   --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.06), 0 12px 28px rgba(0, 0, 0, 0.12);
@@ -51,6 +54,7 @@
   --mcm-text-faint: rgba(235, 235, 239, 0.4);
   --mcm-surface: #232329;
   --mcm-surface-2: #2c2c34;
+  --mcm-surface-3: #2f2f38;
   --mcm-hairline: rgba(255, 255, 255, 0.12);
   --mcm-hairline-2: rgba(255, 255, 255, 0.06);
   --mcm-elev: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 28px rgba(0, 0, 0, 0.5);
@@ -58,9 +62,192 @@
   --mcm-accent-soft: rgba(168, 165, 255, 0.18);
   --mcm-success: #22c55e;
   --mcm-success-soft: rgba(34, 197, 94, 0.12);
+  --mcm-danger: #f87171; // was missing — danger text inherited the light red in dark
   --mcm-danger-soft: rgba(248, 113, 113, 0.13);
   --mcm-warning: #fbbf24;
   --mcm-warning-soft: rgba(251, 191, 36, 0.13);
+}
+
+// ----- DASHBOARD ("Glass Desk") TOKENS — .mcm-lobby scope only -----------
+// 2026 dashboard re-skin: solid desk background, floating glass chrome.
+// These mixins OVERRIDE the base palette and ADD the material/elevation/
+// radius/motion vocabulary — but only inside .mcm-lobby (and the portaled
+// overlay roots, which sit under <body> and need their own stamp). The
+// in-meeting canvas keeps the original tokens untouched.
+@mixin mcm-lobby-tokens-light {
+  // Palette overrides (base tokens, new values)
+  --mcm-bg: #eef0f5;
+  --mcm-text: #1d1d1f;
+  --mcm-text-soft: #6e6e73; // SOLID — readable secondary text
+  --mcm-text-faint: rgba(29, 29, 31, 0.48); // placeholder/decor only
+  --mcm-surface: #ffffff;
+  --mcm-surface-2: #f2f3f7;
+  --mcm-hairline: rgba(20, 20, 24, 0.1);
+  --mcm-hairline-2: rgba(20, 20, 24, 0.05);
+  --mcm-elev: var(--mcm-shadow-3);
+  --mcm-accent: #5e5ad8;
+  --mcm-accent-soft: rgba(94, 90, 216, 0.12);
+  // "Lux" champagne-gold — accent-of-the-accent, used VERY sparingly:
+  // sidebar active bar, calendar Today capsule (dark), avatar-chip ring.
+  // NEVER for focus rings or body text.
+  --mcm-lux: #b08d3e;
+  --mcm-success: #15803d;
+  --mcm-success-soft: rgba(21, 128, 61, 0.1);
+  --mcm-danger-soft: rgba(220, 38, 38, 0.08);
+  --mcm-warning: #b45309;
+  --mcm-warning-soft: rgba(180, 83, 9, 0.1);
+  // Surfaces / material
+  --mcm-surface-0: #e9ebf1; // sunken: segmented track, drop zone
+  --mcm-glass-bg: #f7f8fb; // opaque fallback
+  // Only under @supports backdrop-filter. 06-12 frosted-mirror rev (PM đảo
+  // hướng: "hình nền … cho rõ lên đi, các nền của các thành phần glass cho
+  // nó kiểu gương mờ, frost á"): wallpaper is SHARP now — the frost lives
+  // here instead. Alpha .52 + blur 22px + sat 1.5 + brightness 1.05: nền
+  // xuyên rõ ràng nhưng nhòe mịn như gương mờ; the heavy blur is what keeps
+  // glass text AA over arbitrary imagery (old ≥70% floor retired).
+  --mcm-glass-bg-tr: rgba(250, 250, 253, 0.52);
+  --mcm-glass-blur: 22px;
+  --mcm-glass-sat: 1.5;
+  --mcm-glass-bright: 1.05;
+  --mcm-glass-stroke: linear-gradient(
+    168deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(255, 255, 255, 0.18) 38%,
+    rgba(20, 20, 24, 0.1)
+  );
+  --mcm-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  // Elevation — 1px ring lives INSIDE the shadow (no border)
+  --mcm-shadow-1: 0 0 0 1px rgba(20, 20, 24, 0.05),
+    0 1px 2px rgba(16, 17, 20, 0.05);
+  --mcm-shadow-2: 0 0 0 1px rgba(20, 20, 24, 0.05),
+    0 2px 6px rgba(16, 17, 20, 0.06), 0 10px 24px rgba(16, 17, 20, 0.09);
+  --mcm-shadow-3: 0 1px 2px rgba(16, 17, 20, 0.06),
+    0 16px 40px rgba(16, 17, 20, 0.14);
+  --mcm-scrim: rgba(28, 28, 30, 0.35);
+  --mcm-ring: 0 0 0 3px color-mix(in srgb, var(--mcm-accent) 30%, transparent);
+  // Radius scale (concentric rule: child = parent − 4px per nesting level)
+  --mcm-radius-xs: 6px;
+  --mcm-radius-sm: 10px;
+  --mcm-radius-md: 14px;
+  --mcm-radius-lg: 18px;
+  --mcm-radius-xl: 24px;
+  --mcm-radius-pill: 999px;
+  --mcm-pad-card: 12px;
+  // File-kind hues
+  --mcm-kind-pdf: #dc2626;
+  --mcm-kind-dxf: #2563eb;
+  --mcm-kind-ifc: #7c3aed;
+  --mcm-kind-img: #059669;
+  --mcm-kind-misc: #6b7280;
+  // Motion
+  --mcm-dur-fast: 120ms;
+  --mcm-dur-base: 180ms;
+  --mcm-dur-enter: 240ms;
+  --mcm-ease: cubic-bezier(0.2, 0, 0, 1);
+  --mcm-ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1); // popover/swatches/toast enter only
+}
+@mixin mcm-lobby-tokens-dark {
+  // Only the values that differ from light (radius/kind-light=dark? kind
+  // differs; radius/motion/ring/elev formulas are shared).
+  //
+  // "Olive Royal" (2026-06): deep royal-olive neutrals + warm-white ink —
+  // expensive, library-at-night feel. Lobby + portal stamps ONLY (this
+  // mixin); the in-meeting canvas keeps the base neutral dark palette.
+  --mcm-bg: #0c100b;
+  --mcm-text: #f2f3ec; // warm white — ~17:1 on surface, AA everywhere
+  --mcm-text-soft: rgba(242, 243, 236, 0.66); // ~7.5:1 on --mcm-surface
+  --mcm-text-faint: rgba(242, 243, 236, 0.48);
+  --mcm-surface: #151a12;
+  --mcm-surface-2: #1e2419;
+  // Base mixin's --mcm-surface-3 (#2f2f38, blue-grey) would clash with the
+  // olive family — override INSIDE the lobby scope only (calendar day tray).
+  --mcm-surface-3: #232a1e;
+  --mcm-hairline: rgba(255, 255, 255, 0.1);
+  --mcm-hairline-2: rgba(255, 255, 255, 0.06);
+  // Brand violet, warmed/desaturated a touch to sit well on olive.
+  // #b9b4f4 on #151a12 ≈ 9:1 — AA as text, AAA as large text.
+  --mcm-accent: #b9b4f4;
+  --mcm-accent-soft: rgba(185, 180, 244, 0.16);
+  // Champagne-gold lux accent (see light mixin for usage contract).
+  // #d6c08a on #151a12 ≈ 10:1; #1d1d1f ink on #d6c08a ≈ 10.5:1.
+  --mcm-lux: #d6c08a;
+  --mcm-success: #34d399;
+  --mcm-success-soft: rgba(52, 211, 153, 0.13);
+  --mcm-danger-soft: rgba(248, 113, 113, 0.14);
+  --mcm-warning: #fbbf24;
+  --mcm-warning-soft: rgba(251, 191, 36, 0.13);
+  --mcm-surface-0: #0e120c;
+  --mcm-glass-bg: #161c13;
+  // 06-12 frosted-mirror rev (see light branch): wallpaper sharp, frost on
+  // the glass — alpha .47 + blur 22px + sat 1.45 + brightness .9 (dark dims
+  // the backdrop slightly so light ink keeps contrast over bright imagery).
+  --mcm-glass-bg-tr: rgba(22, 28, 19, 0.47);
+  --mcm-glass-sat: 1.45;
+  --mcm-glass-bright: 0.9;
+  --mcm-glass-stroke: linear-gradient(
+    168deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.05) 40%,
+    rgba(0, 0, 0, 0.35)
+  );
+  --mcm-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --mcm-shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+  --mcm-shadow-2: 0 0 0 1px rgba(255, 255, 255, 0.07),
+    0 2px 6px rgba(0, 0, 0, 0.4), 0 10px 24px rgba(0, 0, 0, 0.45);
+  --mcm-shadow-3: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.55);
+  --mcm-scrim: rgba(0, 0, 0, 0.55);
+  --mcm-kind-pdf: #f87171;
+  --mcm-kind-dxf: #60a5fa;
+  --mcm-kind-ifc: #a78bfa;
+  --mcm-kind-img: #34d399;
+  --mcm-kind-misc: #9ca3af;
+}
+
+// ----- MATERIAL: floating glass pane --------------------------------------
+// Opaque by default (the fallback IS the default); real translucency +
+// blur only under @supports. The 1px gradient stroke is painted by a
+// masked ::before so it follows the radius pixel-perfectly.
+// Budget (06-12 frosted-mirror rev, SSOT): ≤4 simultaneous backdrop-filters
+// — 3 fixed panes (sidebar + header + middle-head toolbar ROW — one filter
+// for the whole row, never per-button) + ONE open overlay. Never on cards /
+// list rows / calendar cells / scrims / drag-scroll surfaces; lone buttons
+// on the desk (FAB…) stay semi-transparent without their own blur.
+@mixin mcm-glass($radius: var(--mcm-radius-lg)) {
+  background: var(--mcm-glass-bg);
+  box-shadow: var(--mcm-highlight), var(--mcm-shadow-3);
+  border-radius: $radius;
+  position: relative;
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr);
+    // #{}-escape: bare saturate() is intercepted by dart-sass as its own
+    // color function (expects a number, chokes on var()) — emit literally.
+    // brightness() is not a Sass builtin, safe bare.
+    backdrop-filter: blur(var(--mcm-glass-blur))
+      #{"saturate(var(--mcm-glass-sat))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: var(--mcm-glass-stroke);
+    -webkit-mask: linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  @media (prefers-contrast: more) {
+    // Gradient stroke is too subtle at high contrast — plain border instead.
+    border: 1px solid var(--mcm-hairline);
+    &::before {
+      display: none;
+    }
+  }
 }
 
 .mcm-shell {
@@ -107,6 +294,82 @@
   .UserList {
     display: none !important;
   }
+}
+
+// ----- DASHBOARD TOKEN SCOPE ---------------------------------------------
+// Declared AFTER .mcm-shell's mixin include: custom properties set on
+// .mcm-lobby itself beat the ones inherited from the shell, so the
+// dashboard gets the Glass-Desk palette while the meeting canvas keeps
+// the original one. Dark repeats every differing value below — the
+// element-level light values would otherwise win over the shell's
+// inherited dark set.
+.mcm-lobby {
+  @include mcm-lobby-tokens-light;
+
+  // Dashboard typefaces (Type System 2026-06-12). Manrope variable
+  // 300..800 (index.html) — Vietnamese native, Korean falls through to the
+  // EXPLICIT Apple SD Gothic Neo / Malgun Gothic entries before the generic.
+  // Fraunces is a digits-only instance (opsz144/wght560) reserved for the
+  // Number-XL token. Scoped HERE + the 4 portal roots only — the in-meeting
+  // canvas keeps the system/SF stack from .mcm-shell.
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+  --mcm-font-display-num: #{$mcm-font-display-num-stack}; // CHỈ cho chữ số
+  font-family: var(--mcm-font-ui);
+
+  // Tabular figures wherever times/dates/sizes/counts column up.
+  .mcm-mcard__when,
+  .mcm-mcard__time,
+  .mcm-mcards__daysep,
+  .mcm-calx__day-time,
+  .mcm-calx .sx__date-input,
+  .mcm-cal__pill-time,
+  .mcm-cal__row-time,
+  .mcm-nmf__when-grid,
+  .mcm-mdp__ai-at,
+  .mcm-myfiles__chip-count,
+  .mcm-myfiles__meta,
+  .mcm-sched__time {
+    font-variant-numeric: tabular-nums;
+  }
+}
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby {
+  @include mcm-lobby-tokens-dark;
+}
+
+// "Desk" backdrop — two static radial washes over the solid bg. Painted on
+// the FULL-VIEWPORT home frame (not .mcm-3col — moved 06-12 per anh Luân:
+// "muốn nó liên tục… mọi thứ nhìn nó liền lạc") so header + all 3 columns
+// share ONE continuous sheet, and the header glass blurs the same desk the
+// sidebar does. When a wallpaper is on, its image/scrim layer
+// (Wallpaper.scss) paints OVER this on the same element. No animation, no
+// fixed attachment.
+.mcm-lobby .mcm-lobby__home {
+  background: radial-gradient(
+      1100px 500px at 18% -8%,
+      rgba(94, 90, 216, 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 480px at 92% 4%,
+      rgba(56, 140, 255, 0.05),
+      transparent 55%
+    ),
+    var(--mcm-bg);
+}
+// Dark desk: champagne-gold + lifted-olive washes instead of the light
+// theme's violet/blue — the "lamplight on a green-leather desk" read.
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby .mcm-lobby__home {
+  background: radial-gradient(
+      1100px 500px at 18% -8%,
+      rgba(214, 192, 138, 0.06),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 480px at 92% 4%,
+      rgba(140, 160, 110, 0.05),
+      transparent 55%
+    ),
+    var(--mcm-bg);
 }
 
 .mcm-shell__canvas-wrap {
@@ -5299,16 +5562,14 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__title {
-    font-size: 19px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    @include t-title;
     color: var(--mcm-text);
   }
 
   &__tagline {
     margin: -4px 0 8px;
     text-align: center;
-    font-size: 13.5px;
+    @include t-body;
     color: var(--mcm-text-soft);
   }
 
@@ -5321,8 +5582,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border-radius: 10px;
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 15px;
-    font-weight: 600;
+    @include t-btn-lg;
     transition: filter 200ms ease, transform 200ms ease;
 
     &:hover:not(:disabled) {
@@ -5366,7 +5626,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
-    font-size: 14px;
+    @include t-body;
     outline: none;
     transition: border-color 200ms ease;
 
@@ -5389,8 +5649,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 14px;
-    font-weight: 600;
+    @include t-btn-lg;
     transition: background 200ms ease;
 
     &:hover:not(:disabled) {
@@ -5486,8 +5745,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__title {
-    font-size: 16px;
-    font-weight: 650;
+    @include t-title;
     color: var(--mcm-text);
   }
 
@@ -5617,8 +5875,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__meetings-title {
-    font-size: 15px;
-    font-weight: 600;
+    @include t-title;
     color: var(--mcm-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -5718,7 +5975,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__card-date {
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
 }
@@ -5744,27 +6001,121 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 }
 
 .mcm-lobby__top {
+  // Glass Desk: the header is a square glass pane; its gradient stroke is
+  // reduced to a single hairline along the bottom edge (no full outline).
+  // (Plain declarations sit BEFORE the include — the mixin nests rules,
+  // and Sass deprecates declarations that follow nested rules.)
+  z-index: 3; // shadow must paint over the home body below
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 18px;
-  border-bottom: 1px solid var(--mcm-hairline);
+  @include mcm-glass(0);
+
+  &::before {
+    inset: auto 0 0;
+    height: 1px;
+    padding: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--mcm-hairline) 12%,
+      var(--mcm-hairline) 88%,
+      transparent
+    );
+    -webkit-mask: none;
+    mask: none;
+  }
 }
 
+// Secondary header entries ("Use the canvas solo" / "Join by link") —
+// quiet ghost capsules: no border, 32px tall, same hover wash as the
+// icon buttons so the whole right rail speaks one language.
 .mcm-lobby__join-toggle {
   appearance: none;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--mcm-hairline);
-  background: var(--mcm-surface);
-  color: var(--mcm-text);
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--mcm-radius-pill, 999px);
+  border: 0;
+  background: transparent;
+  color: var(--mcm-text-soft);
   font-size: 13px;
   font-weight: 600;
-  transition: background 200ms ease;
+  white-space: nowrap;
+  transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease),
+    color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
   &:hover {
-    background: var(--mcm-surface-2);
+    background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
+    color: var(--mcm-text);
+  }
+}
+
+// Header right rail — clusters with a steady rhythm: icon trio | lang
+// segmented | ghost entries | identity chip, separated by hairlines.
+.mcm-lobby__top-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mcm-lobby__top-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  background: var(--mcm-hairline);
+}
+
+// Lobby-scoped restyle of the lang/theme controls (the component also
+// lives in the canvas header / login / admin, which keep the base look).
+// Langs become a mini segmented capsule — same sunken-track + floating
+// solid thumb recipe as .mcm-segmented; the moon joins the icon trio.
+.mcm-lobby__top .mcm-langtheme__langs {
+  padding: 3px;
+  gap: 2px;
+  background: var(--mcm-surface-0, var(--mcm-surface-2));
+  border: 0;
+  border-radius: var(--mcm-radius-pill, 999px);
+  overflow: visible;
+}
+.mcm-lobby__top .mcm-langtheme__lang {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--mcm-radius-pill, 999px);
+  font-size: 11.5px;
+  transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease),
+    color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+  &:hover {
+    color: var(--mcm-text);
+  }
+  &.is-active {
+    background: var(--mcm-surface);
+    color: var(--mcm-accent);
+    box-shadow: var(--mcm-highlight), var(--mcm-shadow-1);
+  }
+}
+.mcm-lobby__top .mcm-langtheme__theme {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--mcm-radius-pill, 999px);
+  background: transparent;
+  transition: background-color var(--mcm-dur-fast, 120ms)
+    var(--mcm-ease, ease);
+
+  &:hover {
+    background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
   }
 }
 
@@ -5914,16 +6265,15 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--mcm-scrim, rgba(0, 0, 0, 0.5)); // solid scrim, never blurred
 
   &__panel {
+    // Glass pane; the controls inside stay solid surfaces.
     width: 100%;
     max-width: 440px;
-    background: var(--mcm-surface);
-    border: 1px solid var(--mcm-hairline-2);
-    border-radius: 16px;
-    box-shadow: var(--mcm-elev);
     overflow: hidden;
+    animation: mcm-modal-in var(--mcm-dur-enter, 240ms) var(--mcm-ease, ease);
+    @include mcm-glass(var(--mcm-radius-lg, 16px));
   }
 
   &__header {
@@ -5935,8 +6285,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__title {
-    font-size: 15px;
-    font-weight: 650;
+    @include t-title;
     color: var(--mcm-text);
   }
 
@@ -5982,7 +6331,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     padding: 10px 12px;
     border-radius: 9px;
     border: 1px solid var(--mcm-hairline);
-    background: var(--mcm-surface-2);
+    background: var(--mcm-surface); // solid control on the glass panel
     color: var(--mcm-text);
     font-size: 14px;
     font-family: inherit;
@@ -6018,8 +6367,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 14px;
-    font-weight: 600;
+    @include t-btn-lg;
 
     &:hover {
       background: var(--mcm-surface-2);
@@ -6034,14 +6382,21 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: none;
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 14px;
-    font-weight: 600;
+    @include t-btn-lg;
 
     &:disabled {
       opacity: 0.5;
       cursor: default;
     }
   }
+}
+
+// Dark: the accent is PALE in dark mode, so the save CTA takes dark ink —
+// same treatment as .mcm-btn--primary / .mcm-calx__fab (white-on-pale-accent
+// missed AA). body:has() so it holds whether the editor mounts in-shell or
+// portaled to <body>.
+body:has(.excalidraw.theme--dark) .mcm-meditor__save {
+  color: #1c1c21;
 }
 
 // Header meeting title: project name (dim) stacked over the meeting name.
@@ -6107,11 +6462,19 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 }
 
-// Lobby top bar right-side cluster (switcher + join + sign out).
+// Lobby top bar right-side rail (icon trio | langs | ghosts | chip).
+// Shared modal entrance — fade + scale .98→1 (meditor / mpick panels).
+@keyframes mcm-modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
 .mcm-lobby__top-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px; // groups breathe; intra-group rhythm = .mcm-lobby__top-cluster
 }
 
 // Metadata editor <select> — mirror the text input.
@@ -6246,9 +6609,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__brand-name {
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    @include t-title;
     color: var(--mcm-text);
   }
 
@@ -6261,9 +6622,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 
   &__title {
     margin: 0;
-    font-size: 26px;
-    font-weight: 750;
-    letter-spacing: -0.02em;
+    @include t-display;
     color: var(--mcm-text);
   }
 
@@ -6431,10 +6790,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 
   &__hero-title {
     margin: 0 0 14px;
-    font-size: 29px;
-    font-weight: 750;
-    line-height: 1.16;
-    letter-spacing: -0.02em;
+    @include t-display-hero;
   }
 
   &__hero-sub {
@@ -6827,13 +7183,29 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 // var(--mcm-accent) to nothing → white label on a transparent background →
 // the "invisible buttons" bug.
 .mcm-pp-overlay,
-.mcm-cmodal-ov {
+.mcm-cmodal-ov,
+// roots that sit OUTSIDE .mcm-lobby but ride the Glass-Desk vocabulary:
+// the swatches popover portals into .mcm-shell, the app toast mounts as a
+// shell sibling of the lobby — neither inherits the lobby token scope.
+.mcm-swatches--pop,
+.mcm-toast {
   @include mcm-tokens-light;
+  // Glass-Desk dashboard tokens — EVERY new/changed token must be stamped
+  // here too, or portaled overlays fall back to the base palette.
+  @include mcm-lobby-tokens-light;
+  // Dashboard typefaces (same scoping note as .mcm-lobby) — theme-agnostic,
+  // so stamping them once here covers the dark portal context too.
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+  --mcm-font-display-num: #{$mcm-font-display-num-stack}; // CHỈ cho chữ số
+  font-family: var(--mcm-font-ui);
 }
 body:has(.excalidraw.theme--dark) {
   .mcm-pp-overlay,
-  .mcm-cmodal-ov {
+  .mcm-cmodal-ov,
+  .mcm-swatches--pop,
+  .mcm-toast {
     @include mcm-tokens-dark;
+    @include mcm-lobby-tokens-dark;
   }
 }
 
@@ -6845,21 +7217,22 @@ body:has(.excalidraw.theme--dark) {
   // them, making the drawer open invisibly behind the home (the "click does
   // nothing" bug).
   z-index: 1200;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--mcm-scrim, rgba(0, 0, 0, 0.28)); // solid scrim, never blurred
   display: flex;
   justify-content: flex-end;
 }
 .mcm-pp {
+  // Glass drawer — rounded on the exposed (left) edge only.
   width: 340px;
   max-width: 92vw;
   height: 100%;
-  background: var(--mcm-surface, #fff);
   color: var(--mcm-text, #1b1b1f);
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.18);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  // (system font override removed 06-12 — panel now inherits Manrope
+  // from the portal-root --mcm-font-ui stamp)
   animation: mcm-pp-in 160ms ease;
+  @include mcm-glass(var(--mcm-radius-lg, 0) 0 0 var(--mcm-radius-lg, 0));
 
   &__head {
     display: flex;
@@ -6926,8 +7299,7 @@ body:has(.excalidraw.theme--dark) {
     flex-direction: column;
   }
   &__name {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -6936,10 +7308,7 @@ body:has(.excalidraw.theme--dark) {
     text-overflow: ellipsis;
   }
   &__tag {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    @include t-micro;
     padding: 1px 6px;
     border-radius: 999px;
     background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
@@ -6971,7 +7340,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 4px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 640;
     padding: 5px 9px;
     border-radius: 8px;
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
@@ -7010,16 +7379,17 @@ body:has(.excalidraw.theme--dark) {
 
 // ===== Invite panel (reuses .mcm-pp-overlay + .mcm-pp__head/__close) =====
 .mcm-invite {
+  // Same glass drawer treatment as .mcm-pp.
   width: 380px;
   max-width: 94vw;
   height: 100%;
-  background: var(--mcm-surface, #fff);
   color: var(--mcm-text, #1b1b1f);
   display: flex;
   flex-direction: column;
-  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.18);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  // (system font override removed 06-12 — panel now inherits Manrope
+  // from the portal-root --mcm-font-ui stamp)
   animation: mcm-pp-in 160ms ease;
+  @include mcm-glass(var(--mcm-radius-lg, 0) 0 0 var(--mcm-radius-lg, 0));
 
   &__body {
     flex: 1;
@@ -7035,10 +7405,7 @@ body:has(.excalidraw.theme--dark) {
     align-self: flex-start;
   }
   &__label {
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
+    @include t-label;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
     margin-top: 2px;
   }
@@ -7051,7 +7418,8 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 12.5px;
+    // Content-bearing chip: 11.5/600 (not Micro — these hold real names).
+    font-size: 11.5px;
     font-weight: 600;
     padding: 3px 4px 3px 10px;
     border-radius: 999px;
@@ -7090,7 +7458,7 @@ body:has(.excalidraw.theme--dark) {
       border: 0;
       background: transparent;
       color: var(--mcm-text, #1b1b1f);
-      font-size: 13.5px;
+      @include t-body;
       height: 36px;
       outline: none;
     }
@@ -7163,10 +7531,7 @@ body:has(.excalidraw.theme--dark) {
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
+    @include t-label;
     color: var(--mcm-accent, #6965db);
     margin: 0 0 8px;
   }
@@ -7200,11 +7565,10 @@ body:has(.excalidraw.theme--dark) {
     gap: 2px;
 
     strong {
-      font-size: 13.5px;
-      font-weight: 650;
+      @include t-subtitle;
     }
     span {
-      font-size: 11.5px;
+      @include t-caption;
       color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
       white-space: nowrap;
       overflow: hidden;
@@ -7220,8 +7584,8 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 9px;
     background: var(--mcm-accent, #2563eb);
     color: #fff;
-    font-size: 12.5px;
-    font-weight: 650;
+    font-size: 12px;
+    font-weight: 640;
     padding: 7px 13px;
     cursor: pointer;
 
@@ -7403,7 +7767,7 @@ body:has(.excalidraw.theme--dark) {
     }
   }
   &__hero-time {
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
   }
@@ -7417,8 +7781,9 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 6px;
     margin-top: 12px;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
+    font-variant-numeric: tabular-nums;
 
     svg {
       flex: none;
@@ -7455,10 +7820,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 7px;
     margin: 0 0 8px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    @include t-label;
     color: var(--mcm-text-soft);
 
     // Second/third people sections breathe a bit after the previous list.
@@ -7502,8 +7864,7 @@ body:has(.excalidraw.theme--dark) {
     }
     dd {
       margin: 0;
-      font-size: 13px;
-      line-height: 1.45;
+      @include t-body;
       color: var(--mcm-text);
       overflow-wrap: anywhere;
       white-space: pre-wrap; // descriptions may carry newlines
@@ -7544,8 +7905,7 @@ body:has(.excalidraw.theme--dark) {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 15px;
-    font-weight: 650;
+    @include t-title;
     color: var(--mcm-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -7655,9 +8015,7 @@ body:has(.excalidraw.theme--dark) {
     margin: 0;
     min-width: 168px;
     text-align: center;
-    font-size: 18px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    @include t-title;
     text-transform: capitalize;
   }
 
@@ -7668,8 +8026,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     cursor: pointer;
     transition: background 150ms ease, border-color 150ms ease;
 
@@ -7695,8 +8052,7 @@ body:has(.excalidraw.theme--dark) {
     background: none;
     padding: 6px 18px;
     border-radius: 999px;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     color: var(--mcm-text-soft);
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease;
@@ -7732,10 +8088,7 @@ body:has(.excalidraw.theme--dark) {
   &__weekday {
     padding: 4px 8px;
     text-align: left;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include t-label;
     color: var(--mcm-text-faint);
   }
 
@@ -7922,8 +8275,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__day-title {
     margin: 0;
-    font-size: 16px;
-    font-weight: 650;
+    @include t-title;
     text-transform: capitalize;
   }
 
@@ -7933,8 +8285,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid transparent;
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     cursor: pointer;
     transition: filter 150ms ease;
 
@@ -8028,8 +8379,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__row-title {
-    font-size: 14px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -8037,7 +8387,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__row-meta {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -8108,9 +8458,8 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
-    font-size: 13.5px;
+    @include t-body;
     font-family: inherit;
-    line-height: 1.5;
     resize: vertical;
     outline: none;
     transition: border-color 150ms ease, background 150ms ease;
@@ -8180,8 +8529,7 @@ body:has(.excalidraw.theme--dark) {
     cursor: pointer;
     padding: 13px 16px 11px;
     font: inherit;
-    font-size: 14px;
-    font-weight: 600;
+    @include t-btn-lg;
     color: var(--mcm-text-soft);
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -8227,10 +8575,7 @@ body:has(.excalidraw.theme--dark) {
   &__list-head {
     flex-shrink: 0;
     padding: 16px 16px 10px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
+    @include t-label;
     color: var(--mcm-accent);
   }
   &__cards {
@@ -8254,7 +8599,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 28px 12px;
     text-align: center;
     color: var(--mcm-text-faint);
-    font-size: 13px;
+    @include t-body;
   }
   &__card {
     width: 100%;
@@ -8279,10 +8624,8 @@ body:has(.excalidraw.theme--dark) {
     }
   }
   &__card-title {
-    font-size: 14px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
-    line-height: 1.3;
   }
   &__card-row {
     display: flex;
@@ -8291,19 +8634,16 @@ body:has(.excalidraw.theme--dark) {
     flex-wrap: wrap;
   }
   &__card-when {
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
   }
   &__card-sub {
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
   &__pill {
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    @include t-micro;
     padding: 2px 8px;
     border-radius: 999px;
 
@@ -8332,7 +8672,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     padding: 6px 8px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 640;
     color: var(--mcm-text-soft);
     cursor: pointer;
     transition: border-color 120ms, background 120ms, color 120ms;
@@ -8417,7 +8757,10 @@ body:has(.excalidraw.theme--dark) {
   // when the browser/divider narrowed, which read as "the view changed".
   grid-template-columns: 248px minmax(0, 1fr) minmax(360px, var(--cal-w, 1fr));
   min-height: 0;
-  background: var(--mcm-bg);
+  // Transparent (06-12 continuity): the desk/wallpaper sheet is painted by
+  // .mcm-lobby__home behind this grid — an opaque fill here would cut the
+  // header off from the columns.
+  background: transparent;
 
   @media (max-width: 1180px) {
     grid-template-columns: 216px minmax(0, 1fr) minmax(360px, var(--cal-w, 1fr));
@@ -8429,29 +8772,79 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__sidebar {
+    // Floating glass pane over the desk. The sidebar is its OWN scroll
+    // container, so the mixin's masked ::before stroke would scroll away
+    // with the content — paint the stroke on a real (non-scrolling)
+    // border via a two-layer background instead.
+    // 12px on ALL sides (06-12 continuity pass): the middle column is now
+    // transparent desk, so the pane needs the same breathing gutter on its
+    // right as everywhere else — panels float on ONE continuous sheet.
+    margin: 12px;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: var(--mcm-surface);
-    border-right: 1px solid var(--mcm-hairline);
     overflow-y: auto;
     padding: 10px 0;
+    @include mcm-glass(var(--mcm-radius-lg));
+    &::before {
+      content: none;
+    }
+    // `& {}` keeps these AFTER the mixin's nested rules without tripping
+    // Sass's mixed-decls deprecation.
+    & {
+      border: 1px solid transparent;
+      background: linear-gradient(var(--mcm-glass-bg), var(--mcm-glass-bg))
+          padding-box,
+        var(--mcm-glass-stroke) border-box;
+    }
+    @supports (backdrop-filter: blur(1px)) {
+      background: linear-gradient(
+            var(--mcm-glass-bg-tr),
+            var(--mcm-glass-bg-tr)
+          )
+          padding-box,
+        var(--mcm-glass-stroke) border-box;
+    }
+    @media (prefers-contrast: more) {
+      // --mcm-glass-stroke collapses to `none` here, which would invalidate
+      // the layered background — fall back to the opaque pane + hairline.
+      background: var(--mcm-glass-bg);
+      border-color: var(--mcm-hairline);
+    }
   }
   &__middle {
     display: flex;
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: var(--mcm-surface);
-    border-right: 1px solid var(--mcm-hairline);
+    // Glass continuity (yêu cầu anh Luân 06-12): the middle column was a
+    // full-bleed solid sheet, which made sidebar / meetings / calendar read
+    // as 3 different backgrounds. Transparent now — the ONE desk/wallpaper
+    // sheet runs under all 3 columns; the mcards / panels inside stay solid
+    // paper and float on it. (No border-right either: a full-height hairline
+    // would slice the continuous sheet; the resize handle still lives there.)
+    background: transparent;
   }
   &__middle-head {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--mcm-hairline);
+    padding: 10px 14px;
+    // Frosted-mirror toolbar row (06-12 rev): the 3rd FIXED glass pane in
+    // the ≤4 budget (sidebar + header + this row + 1 overlay). ONE
+    // backdrop-filter for the WHOLE row — the buttons inside stay plain.
+    // Floats with a margin so the sharp wallpaper sheet runs around it.
+    margin: 12px 16px 0;
+    @include mcm-glass(var(--mcm-radius-lg));
+    // The pane's shadow-3 is too heavy for an inline toolbar — step down.
+    // (`& {}`: the mixin emits nested rules, plain decls after them are
+    // deprecated by dart-sass.)
+    & {
+      box-shadow: var(--mcm-highlight), var(--mcm-shadow-2);
+    }
+    // No hairline under the head — the body's scroll-edge mask (below)
+    // replaces it: content fades out as it slides under the head.
   }
   // Title + (optional) project-edit button, kept together on the left.
   &__middle-titlebox {
@@ -8464,8 +8857,8 @@ body:has(.excalidraw.theme--dark) {
   &__middle-title {
     margin: 0;
     min-width: 0;
-    font-size: 15px;
-    font-weight: 700;
+    // Display type — the middle column's one big title.
+    @include t-display;
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -8479,6 +8872,9 @@ body:has(.excalidraw.theme--dark) {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    // Scroll-edge fade — replaces the old hairline under the head.
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14px);
+    mask-image: linear-gradient(to bottom, transparent, #000 14px);
   }
   &__new-meeting {
     display: inline-flex;
@@ -8492,7 +8888,7 @@ body:has(.excalidraw.theme--dark) {
     color: var(--mcm-text);
     font: inherit;
     font-size: 12.5px;
-    font-weight: 600;
+    font-weight: 640;
     cursor: pointer;
     transition: background 120ms, border-color 120ms, color 120ms;
 
@@ -8527,7 +8923,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 24px;
     text-align: center;
     color: var(--mcm-text-faint);
-    font-size: 13px;
+    @include t-body;
   }
   // "Thử lại" inside the failed-load hint — small ghost button.
   &__retry {
@@ -8553,7 +8949,10 @@ body:has(.excalidraw.theme--dark) {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    background: var(--mcm-surface);
+    // Transparent so the .mcm-3col desk gradient shows in the 12px gutter
+    // around the floating CalendarX panel (which paints its own solid
+    // surface + ring). A surface bg here made the panel white-on-white.
+    background: transparent;
     overflow: hidden;
 
     > .mcm-cal,
@@ -8582,7 +8981,10 @@ body:has(.excalidraw.theme--dark) {
       top: 0;
       bottom: 0;
       width: 1px;
-      background: var(--mcm-hairline);
+      // Invisible at rest (06-12 continuity): a permanent full-height line
+      // would cut the continuous desk sheet in two. The affordance appears
+      // on hover/drag only.
+      background: transparent;
       transition: background 140ms;
     }
     &:hover::after,
@@ -8614,10 +9016,7 @@ body:has(.excalidraw.theme--dark) {
   &__section-label {
     margin: 0;
     padding: 4px 16px 6px;
-    font-size: 10.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    @include t-label;
     color: var(--mcm-text-faint);
   }
   &__items {
@@ -8630,27 +9029,48 @@ body:has(.excalidraw.theme--dark) {
     border: 0;
     background: transparent;
     cursor: pointer;
+    position: relative;
     width: calc(100% - 16px);
     margin: 1px 8px;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
-    border-radius: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border-radius: var(--mcm-radius-sm, 6px);
     font: inherit;
-    font-size: 13px;
-    font-weight: 500;
+    @include t-body;
     color: var(--mcm-text);
     text-align: left;
     transition: background 120ms, color 120ms;
 
+    // Active indicator — a 3px capsule bar on the left edge; scales in.
+    // Lux champagne (decorative, non-text — no contrast requirement); the
+    // active wash/label stay on the brand accent.
+    &::before {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: 50%;
+      width: 3px;
+      height: 16px;
+      border-radius: var(--mcm-radius-pill, 999px);
+      background: var(--mcm-lux, var(--mcm-accent));
+      transform: translateY(-50%) scaleY(0);
+      transition: transform var(--mcm-dur-base, 180ms) var(--mcm-ease, ease);
+    }
+
     &:hover {
-      background: var(--mcm-surface-2);
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
     }
     &--active {
-      background: var(--mcm-surface-2);
+      background: var(--mcm-accent-soft);
       color: var(--mcm-accent);
-      font-weight: 600;
+      font-weight: 640; // weight-only emphasis, same size (type system)
+
+      &::before {
+        transform: translateY(-50%) scaleY(1);
+      }
     }
   }
   &__item-label {
@@ -8662,14 +9082,11 @@ body:has(.excalidraw.theme--dark) {
   }
   &__item-stage {
     flex-shrink: 0;
-    font-size: 10px;
-    font-weight: 600;
+    @include t-micro;
     padding: 1px 6px;
     border-radius: 4px;
     background: var(--mcm-surface-2);
     color: var(--mcm-text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
   }
   &__empty {
     list-style: none;
@@ -8710,7 +9127,7 @@ body:has(.excalidraw.theme--dark) {
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
     font: inherit;
-    font-size: 12.5px;
+    @include t-body;
     outline: none;
 
     &:focus {
@@ -8720,13 +9137,13 @@ body:has(.excalidraw.theme--dark) {
   }
   &__create {
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--mcm-radius-pill, 8px); // footer CTA = capsule
     border: 0;
     background: var(--mcm-accent-soft);
     color: var(--mcm-accent);
     font: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-body;
+    font-weight: 640;
     cursor: pointer;
     transition: filter 120ms;
 
@@ -8767,9 +9184,7 @@ body:has(.excalidraw.theme--dark) {
   border-radius: 8px;
   border: 1px solid transparent;
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.005em;
+  @include t-btn;
   cursor: pointer;
   white-space: nowrap;
   transition: background-color 200ms ease, border-color 200ms ease,
@@ -8788,6 +9203,7 @@ body:has(.excalidraw.theme--dark) {
     height: 32px;
     padding: 0 12px;
     font-size: 12.5px;
+    font-weight: 640;
   }
 
   // Primary = brand accent fill. The home's main CTA (e.g. + New meeting).
@@ -8795,7 +9211,7 @@ body:has(.excalidraw.theme--dark) {
     background: var(--mcm-accent);
     color: #fff;
     box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
-      0 1px 2px rgba(105, 101, 219, 0.25);
+      0 1px 2px color-mix(in srgb, var(--mcm-accent) 25%, transparent);
 
     &:hover:not(:disabled) {
       filter: brightness(1.06);
@@ -8897,6 +9313,82 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+// ----- Glass-Desk capsule overrides (dashboard only) ----------------------
+// .mcm-btn / .mcm-icon-btn are shared with the in-meeting drawers and the
+// start gate, so the capsule re-shape is scoped to .mcm-lobby — the canvas
+// keeps the original 8px-radius buttons.
+.mcm-lobby {
+  .mcm-btn,
+  .mcm-icon-btn {
+    border-radius: var(--mcm-radius-pill);
+  }
+  // Bare .mcm-btn (no --primary/--secondary/--ghost/--danger — e.g. the
+  // project detail's "Edit project" and the roster's "Add member") was
+  // falling through to the UA ButtonFace grey + black text: off-token in
+  // light, unreadable blob on the dark olive surfaces. Default the bare
+  // variant to the --secondary look so every text button rides tokens.
+  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
+      .mcm-btn--ghost
+    ):not(.mcm-btn--danger) {
+    background: var(--mcm-surface-2);
+    border-color: var(--mcm-hairline);
+    color: var(--mcm-text);
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-accent-soft);
+      border-color: var(--mcm-accent);
+      color: var(--mcm-accent);
+    }
+  }
+  .mcm-btn--primary {
+    // Light: subtle top-lit gradient; highlight + accent glow ride tokens.
+    background: linear-gradient(180deg, #6f6be0, var(--mcm-accent));
+    box-shadow: var(--mcm-highlight),
+      0 4px 12px color-mix(in srgb, var(--mcm-accent) 28%, transparent);
+  }
+
+  // ----- Semi-transparent control fills (06-12, PM: "nhìn vẫn thấy nền
+  // nhưng mờ") — dashboard only. The wallpaper layer is already pre-blurred
+  // (Wallpaper.scss frost), so NO backdrop-filter here (budget stays ≤3):
+  // just drop the fill opacity so the frosted desk ghosts through. Controls
+  // sitting inside solid cards/panels inherit these too — harmless, the
+  // surface behind them is opaque. Primary (accent) stays SOLID above.
+  .mcm-btn--secondary,
+  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
+      .mcm-btn--ghost
+    ):not(.mcm-btn--danger) {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+  .mcm-btn--ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+  .mcm-icon-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+  .mcm-icon-btn--outline {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+  .mcm-chip:not(.mcm-chip--active) {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+  .mcm-segmented {
+    // Sunken track keeps its "lõm" read at a slightly higher floor.
+    background: color-mix(
+      in srgb,
+      var(--mcm-surface-0, var(--mcm-surface-2)) 78%,
+      transparent
+    );
+  }
+  .mcm-select {
+    background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
+  }
+}
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby .mcm-btn--primary {
+  // Dark: flat accent fill, dark label (the accent is light in dark mode).
+  background: var(--mcm-accent);
+  color: #1c1c21;
+}
+
 // ----- Pills (status / label) --------------------------------------------
 // One shape for every status/label pill on the home. The four status tints
 // match the calendar palette so card pill ⇄ calendar event read alike.
@@ -8907,9 +9399,7 @@ body:has(.excalidraw.theme--dark) {
   height: 20px;
   padding: 0 9px;
   border-radius: 999px;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  @include t-micro;
   white-space: nowrap;
   background: var(--mcm-surface-2);
   color: var(--mcm-text-soft);
@@ -8956,7 +9446,6 @@ body:has(.excalidraw.theme--dark) {
   &--tag {
     height: 18px;
     padding: 0 7px;
-    font-size: 10px;
   }
 }
 
@@ -8979,10 +9468,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   thead th {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include t-label;
     color: var(--mcm-text-soft);
     white-space: nowrap;
   }
@@ -9015,8 +9501,7 @@ body:has(.excalidraw.theme--dark) {
   &__sub {
     display: block;
     margin-top: 1px;
-    font-size: 11.5px;
-    font-weight: 400;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -9118,9 +9603,10 @@ body:has(.excalidraw.theme--dark) {
   align-items: center;
   padding: 2px;
   gap: 2px;
-  background: var(--mcm-surface-2);
-  border: 1px solid var(--mcm-hairline);
-  border-radius: 9px;
+  // Sunken capsule track; the active thumb floats on it.
+  background: var(--mcm-surface-0, var(--mcm-surface-2));
+  border: 0;
+  border-radius: var(--mcm-radius-pill, 9px);
 
   &__btn {
     width: 28px;
@@ -9129,7 +9615,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     justify-content: center;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-pill, 7px);
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
@@ -9139,11 +9625,12 @@ body:has(.excalidraw.theme--dark) {
     &:hover {
       color: var(--mcm-text);
     }
-    // Active segment lifts onto a solid surface chip.
+    // Active segment lifts onto a solid surface thumb (ring lives in the
+    // shadow, top edge catches the highlight).
     &--active {
       background: var(--mcm-surface);
       color: var(--mcm-accent);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      box-shadow: var(--mcm-highlight), var(--mcm-shadow-1);
     }
   }
 }
@@ -9157,7 +9644,7 @@ body:has(.excalidraw.theme--dark) {
   padding: 0 8px 0 10px;
   background: var(--mcm-surface-2);
   border: 1px solid var(--mcm-hairline);
-  border-radius: 9px;
+  border-radius: var(--mcm-radius-pill, 9px); // capsule
   color: var(--mcm-text-soft);
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease;
@@ -9199,12 +9686,15 @@ body:has(.excalidraw.theme--dark) {
 }
 .mcm-chip {
   padding: 5px 11px;
-  border-radius: 999px;
+  border-radius: var(--mcm-radius-pill, 999px);
+  // Idle: hairline only, no fill. Same 600 weight in every state so the
+  // chip never changes width when toggled (i18n-safe).
   border: 1px solid var(--mcm-hairline);
-  background: var(--mcm-surface);
+  background: transparent;
   color: var(--mcm-text-soft);
   font: inherit;
-  font-size: 12px;
+  // Content-bearing chip: 11.5/600 (not Micro — holds real words).
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   transition: background 120ms, border-color 120ms, color 120ms;
@@ -9215,12 +9705,12 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &--active {
-    background: var(--mcm-accent);
-    border-color: var(--mcm-accent);
-    color: #fff;
+    background: var(--mcm-accent-soft);
+    border-color: transparent;
+    color: var(--mcm-accent);
 
     &:hover {
-      color: #fff;
+      color: var(--mcm-accent);
     }
   }
 }
@@ -9290,40 +9780,55 @@ body:has(.excalidraw.theme--dark) {
   // The meeting's colour now TINTS the whole card (not just a stripe) — a
   // soft wash that keeps text legible in both themes while making each
   // meeting's colour read at a glance. --mcard-color is the user/​status hue.
-  background: color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 12%, var(--mcm-surface));
-  border: 1px solid
-    color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 30%, var(--mcm-hairline));
-  border-radius: 12px;
-  transition: border-color 200ms ease, box-shadow 200ms ease,
-    transform 150ms ease;
+  // Paper card: no border — a 1px tint ring rides INSIDE the shadow.
+  background: color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 10%, var(--mcm-surface));
+  border: 0;
+  border-radius: var(--mcm-radius-md, 12px);
+  box-shadow: 0 0 0 1px
+      color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 22%, transparent),
+    var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
+  transition: box-shadow var(--mcm-dur-base, 200ms) var(--mcm-ease, ease),
+    transform var(--mcm-dur-fast, 150ms) var(--mcm-ease, ease);
 
   &:hover {
-    border-color: var(--mcard-color, var(--mcm-accent));
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 6px 16px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 1px
+        color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 30%, transparent),
+      var(--mcm-shadow-2, 0 6px 16px rgba(0, 0, 0, 0.08));
   }
 
-  // Left colour stripe — a stronger solid edge of the same hue, bookending
-  // the tinted body.
+  // Old left colour stripe — retired; the ::after lamp rail replaces it
+  // (markup keeps the element, CSS hides it).
   &__stripe {
-    flex-shrink: 0;
-    width: 4px;
-    align-self: stretch;
-    background: var(--mcard-color, var(--mcm-accent));
+    display: none;
   }
 
-  // LIVE meeting — unmistakable: a green ring + soft glow that overrides the
-  // colour tint, plus a pulsing dot top-right. Catches the eye in a grid of
-  // scheduled/finished cards.
+  // Lamp rail — a small colour pill centred on the card's top edge.
+  &::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 2.5px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcard-color, var(--mcm-accent));
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+
+  // LIVE meeting — unmistakable: a STATIC green double ring that overrides
+  // the colour tint, plus a pulsing dot top-right (the dot keeps the motion).
   &--in-progress {
     background: color-mix(in srgb, var(--mcm-success) 12%, var(--mcm-surface));
-    border-color: var(--mcm-success);
-    box-shadow: 0 0 0 1px var(--mcm-success),
-      0 4px 14px color-mix(in srgb, var(--mcm-success) 35%, transparent);
+    box-shadow: 0 0 0 2px var(--mcm-success), 0 0 0 5px var(--mcm-success-soft);
 
     &:hover {
-      border-color: var(--mcm-success);
+      box-shadow: 0 0 0 2px var(--mcm-success),
+        0 0 0 5px var(--mcm-success-soft),
+        var(--mcm-shadow-2, 0 6px 16px rgba(0, 0, 0, 0.08));
     }
-    .mcm-mcard__stripe {
+    &::after {
       background: var(--mcm-success);
     }
   }
@@ -9361,17 +9866,22 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__title {
-    font-size: 13.5px;
-    font-weight: 650;
+    @include t-subtitle;
     color: var(--mcm-text);
-    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  // Optional emoji prefixing the title (cosmetic personalisation, like the
+  // accent colour).
+  &__title-icon {
+    margin-right: 5px;
+    font-size: 14px;
+    line-height: 1;
+  }
 
   &__topic {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -9384,7 +9894,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 6px;
     margin-top: 2px;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
   }
@@ -9397,7 +9907,7 @@ body:has(.excalidraw.theme--dark) {
     }
   }
 
-  // Footer — status pill + project name.
+  // Footer — status pill + project chip.
   &__foot {
     display: flex;
     align-items: center;
@@ -9405,14 +9915,46 @@ body:has(.excalidraw.theme--dark) {
     margin-top: 6px;
     min-width: 0;
   }
+  // Project chip — folder glyph + name on a surface-2 capsule. Rendered as a
+  // span (it nests inside the card's main <button>); the --link variant is
+  // click/keyboard-navigable to that project's meeting list.
   &__project {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--mcm-text-faint);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 8px;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 999px;
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-soft);
+    @include t-caption;
+    white-space: nowrap;
+
+    > svg {
+      flex-shrink: 0;
+    }
+  }
+  &__project-name {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+  &__project--link {
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--mcm-surface-3, var(--mcm-surface-2));
+      color: var(--mcm-text);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--mcm-ring, 0 0 0 2px var(--mcm-accent));
+    }
   }
 
   // Hover action cluster — colour / detail / edit. Top-right, fades in.
@@ -9484,7 +10026,8 @@ body:has(.excalidraw.theme--dark) {
 
 // ----- Colour-assign popover ---------------------------------------------
 .mcm-swatches {
-  position: absolute;
+  // Small glass popover — lighter blur than the big panes.
+  --mcm-glass-blur: 14px;
   top: calc(100% + 6px);
   right: 0;
   z-index: 20;
@@ -9492,11 +10035,14 @@ body:has(.excalidraw.theme--dark) {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  background: var(--mcm-surface);
-  border: 1px solid var(--mcm-hairline);
-  border-radius: 12px;
-  box-shadow: var(--mcm-elev);
-  animation: mcm-swatches-in 140ms ease;
+  animation: mcm-swatches-in var(--mcm-dur-base, 140ms)
+    var(--mcm-ease-spring, ease);
+  @include mcm-glass(var(--mcm-radius-md, 12px));
+  // Anchored popover — must beat the mixin's `position: relative`
+  // (`& {}` keeps it after the mixin's nested rules warning-free).
+  & {
+    position: absolute;
+  }
 
   // Portaled variant (rendered to <body> at a fixed position from the trigger):
   // must sit above the full-screen home (z 1000+) and wrap the colour grid.
@@ -9531,6 +10077,33 @@ body:has(.excalidraw.theme--dark) {
     &--active {
       box-shadow: 0 0 0 2px var(--mcm-surface),
         0 0 0 4px var(--swatch, var(--mcm-accent));
+    }
+  }
+
+  // Emoji cells of the icon-assign popover (same container as the colours).
+  &__emoji {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--mcm-radius-xs, 6px);
+    background: transparent;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 120ms ease, transform 120ms ease;
+
+    &:hover {
+      background: var(--mcm-surface-2);
+      transform: scale(1.1);
+    }
+    &--active {
+      background: var(--mcm-surface-2);
+      box-shadow: 0 0 0 2px var(--mcm-accent);
     }
   }
 
@@ -9612,19 +10185,18 @@ body:has(.excalidraw.theme--dark) {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--mcm-scrim, rgba(0, 0, 0, 0.4)); // solid scrim, never blurred
 }
 .mcm-mpick {
   width: 440px;
   max-width: 94vw;
   max-height: 82vh;
-  background: var(--mcm-surface);
   color: var(--mcm-text);
   display: flex;
   flex-direction: column;
-  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3);
+  animation: mcm-modal-in var(--mcm-dur-enter, 240ms) var(--mcm-ease, ease);
+  @include mcm-glass(var(--mcm-radius-lg, 16px));
 
   &__search {
     flex-shrink: 0;
@@ -9635,6 +10207,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 0 10px;
     border: 1px solid var(--mcm-hairline);
     border-radius: 9px;
+    background: var(--mcm-surface); // solid control on the glass panel
 
     input {
       flex: 1;
@@ -9642,7 +10215,7 @@ body:has(.excalidraw.theme--dark) {
       border: 0;
       background: transparent;
       color: var(--mcm-text);
-      font-size: 13.5px;
+      @include t-body;
       outline: none;
     }
   }
@@ -9671,10 +10244,7 @@ body:has(.excalidraw.theme--dark) {
     background: transparent;
     cursor: pointer;
     text-align: left;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    @include t-label;
     color: var(--mcm-text-soft);
     border-radius: 8px;
 
@@ -9714,7 +10284,7 @@ body:has(.excalidraw.theme--dark) {
     }
   }
   &__name {
-    font-size: 13.5px;
+    @include t-subtitle;
     color: var(--mcm-text);
     flex-shrink: 0;
   }
@@ -9757,7 +10327,7 @@ body:has(.excalidraw.theme--dark) {
   border: 1px solid var(--mcm-hairline);
   border-radius: 9px;
   padding: 0 8px;
-  font-size: 13.5px;
+  @include t-body;
   background: var(--mcm-bg);
   color: var(--mcm-text);
 }
@@ -9774,8 +10344,8 @@ body:has(.excalidraw.theme--dark) {
   border: 1px solid var(--mcm-hairline);
   background: var(--mcm-surface-2);
   color: var(--mcm-accent);
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 640;
   padding: 4px 9px;
   border-radius: 7px;
   cursor: pointer;
@@ -9853,8 +10423,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__title {
     margin: 2px 0 0;
-    font-size: 17px;
-    font-weight: 650;
+    @include t-title;
     color: var(--mcm-text);
   }
 
@@ -9975,10 +10544,12 @@ body:has(.excalidraw.theme--dark) {
 }
 
 // ---------------- Lobby current-user chip + account menu -------------
-// The signed-in identity in the lobby header (<UserMenu>): an avatar +
-// name + title chip that opens a small account dropdown — read-only
-// identity block, "Profile & avatar", "Sign out". Same hairline / hover
-// wash language as the .mcm-lobby__join-toggle buttons beside it.
+// The signed-in identity in the lobby header (<UserMenu>): a single-line
+// avatar + name capsule that opens a small account dropdown — read-only
+// identity block, "Profile & avatar", "Sign out". The chip is the ONE
+// solid element on the right rail (ring-in-shadow, no border) so it
+// anchors the edge; everything before it is ghost/segmented. 32px tall
+// like the rest of the header rail.
 .mcm-user {
   position: relative;
 }
@@ -9987,17 +10558,20 @@ body:has(.excalidraw.theme--dark) {
   appearance: none;
   display: flex;
   align-items: center;
-  gap: 9px;
-  max-width: 260px;
-  padding: 4px 10px 4px 5px;
-  border: 1px solid var(--mcm-hairline);
-  border-radius: 999px;
+  gap: 8px;
+  max-width: 220px;
+  height: 32px;
+  padding: 0 10px 0 3px;
+  border: 0;
+  border-radius: var(--mcm-radius-pill, 999px);
   background: var(--mcm-surface);
+  box-shadow: var(--mcm-highlight), var(--mcm-shadow-1);
   color: var(--mcm-text);
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 200ms ease;
+  transition: background-color var(--mcm-dur-fast, 120ms)
+    var(--mcm-ease, ease);
 
   &:hover,
   &[aria-expanded="true"] {
@@ -10011,14 +10585,17 @@ body:has(.excalidraw.theme--dark) {
 // recipe as .mcm-person__ava so a person reads identically everywhere).
 .mcm-user__ava {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 26px; // 26 + 3px chip inset = 32px rail height
+  height: 26px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   overflow: hidden;
   background: color-mix(in srgb, var(--pa, var(--mcm-accent)) 16%, var(--mcm-surface));
   color: var(--pa, var(--mcm-accent));
+  // Hairline lux ring — the "signed-in identity" gets the champagne detail.
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--mcm-lux, var(--mcm-accent)) 55%, transparent);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -10044,19 +10621,8 @@ body:has(.excalidraw.theme--dark) {
 }
 
 .mcm-user__name {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
+  @include t-subtitle;
   color: var(--mcm-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.mcm-user__sub {
-  font-size: 11px;
-  line-height: 1.25;
-  color: var(--mcm-text-faint);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -10073,36 +10639,36 @@ body:has(.excalidraw.theme--dark) {
 }
 
 .mcm-user__menu {
-  position: absolute;
+  // Small glass popover — lighter blur than the big panes.
+  --mcm-glass-blur: 14px;
   top: calc(100% + 8px);
   right: 0;
   z-index: 30;
   width: 264px;
   padding: 6px;
-  border: 1px solid var(--mcm-hairline);
-  border-radius: 12px;
-  background: var(--mcm-surface);
-  box-shadow: var(--mcm-elev);
-  animation: mcm-user-menu-in 200ms ease;
+  animation: mcm-user-menu-in var(--mcm-dur-base, 200ms)
+    var(--mcm-ease-spring, ease);
+  @include mcm-glass(var(--mcm-radius-md, 12px));
+  // Anchored popover — must beat the mixin's `position: relative`.
+  & {
+    position: absolute;
+  }
 }
 
 @keyframes mcm-user-menu-in {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-4px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .mcm-user__menu-eyebrow {
   padding: 6px 10px 2px;
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  @include t-label;
   color: var(--mcm-text-faint);
 }
 
@@ -10121,8 +10687,7 @@ body:has(.excalidraw.theme--dark) {
 }
 
 .mcm-user__menu-name {
-  font-size: 13.5px;
-  font-weight: 600;
+  @include t-subtitle;
   color: var(--mcm-text);
   white-space: nowrap;
   overflow: hidden;
@@ -10131,7 +10696,7 @@ body:has(.excalidraw.theme--dark) {
 
 .mcm-user__menu-email,
 .mcm-user__menu-org {
-  font-size: 11.5px;
+  @include t-caption;
   color: var(--mcm-text-faint);
   white-space: nowrap;
   overflow: hidden;
@@ -10217,15 +10782,12 @@ body:has(.excalidraw.theme--dark) {
 
   // Clients get a faint warm wash so external presence is unmissable.
   &__block--guest {
-    border-color: color-mix(in srgb, #d97706 28%, transparent);
-    background: color-mix(in srgb, #d97706 4%, var(--mcm-surface));
+    border-color: color-mix(in srgb, var(--mcm-warning) 28%, transparent);
+    background: color-mix(in srgb, var(--mcm-warning) 4%, var(--mcm-surface));
   }
 
   &__block-label {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-faint);
   }
 
@@ -10346,10 +10908,19 @@ body:has(.excalidraw.theme--dark) {
 }
 
 .mcm-myfiles {
+  // Fills the middle-body frame (which clips; children scroll themselves —
+  // same contract as .mcm-mcards-scroll) and uses the FULL column width:
+  // no max-width. Edge padding mirrors .mcm-mcards--grid (16px all round)
+  // so every middle view shares the same margins.
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  max-width: 720px;
+  padding: 16px;
 
   &__drop {
     display: flex;
@@ -10357,9 +10928,10 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 4px;
     padding: 22px 16px;
-    border: 1.5px dashed var(--mcm-hairline-2);
-    border-radius: 12px;
-    background: var(--mcm-surface);
+    // Sunken well — the one concave surface on the shelf.
+    border: 1.5px dashed var(--mcm-hairline);
+    border-radius: var(--mcm-radius-md, 12px);
+    background: var(--mcm-surface-0, var(--mcm-surface));
     color: var(--mcm-text-soft);
     font: inherit;
     cursor: pointer;
@@ -10371,8 +10943,8 @@ body:has(.excalidraw.theme--dark) {
 
     &:hover,
     &--over {
-      border-color: var(--mcm-accent);
-      background: color-mix(in srgb, var(--mcm-accent) 5%, var(--mcm-surface));
+      border-color: color-mix(in srgb, var(--mcm-accent) 35%, transparent);
+      background: var(--mcm-accent-soft);
       color: var(--mcm-text);
     }
 
@@ -10401,62 +10973,48 @@ body:has(.excalidraw.theme--dark) {
     pointer-events: none;
   }
 
-  // Count + sort dropdown above the kind sections.
+  // One toolbar row above the kind sections:
+  // [filter chips] … [view segmented + sort]. Chips reuse .mcm-chips /
+  // .mcm-chip, the right cluster reuses .mcm-toolbar/.mcm-segmented/
+  // .mcm-select — same controls as the meeting-list toolbar. Chips wrap
+  // on narrow widths; the controls keep right via margin-left:auto.
   &__toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
   }
 
-  &__count {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    color: var(--mcm-text-faint);
+  &__toolbar-end {
+    margin-left: auto;
   }
 
-  &__sort {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--mcm-text-faint);
-
-    select {
-      font: inherit;
-      font-size: 11.5px;
-      padding: 2px 6px;
-      border: 1px solid var(--mcm-hairline);
-      border-radius: 7px;
-      background: var(--mcm-surface);
-      color: var(--mcm-text-soft);
-      cursor: pointer;
-
-      &:hover {
-        border-color: var(--mcm-hairline-2);
-      }
-    }
+  // File count inside a filter chip — quiet, tabular (set in the lobby
+  // tabular-nums group above).
+  &__chip-count {
+    margin-left: 5px;
+    font-size: 10px;
+    opacity: 0.75;
   }
 
   // Per-kind sections (PDF / DXF / IFC / image / other) — empty ones
-  // are hidden by the component.
+  // are hidden by the component. De-boxed: the SECTION is the card, the
+  // rows inside are bare with hairline dividers.
   &__section {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding: var(--mcm-pad-card, 12px);
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-md, 12px);
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
   }
 
   &__section-head {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-soft);
   }
 
@@ -10470,7 +11028,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__hint {
     padding: 16px 4px;
-    font-size: 13px;
+    @include t-body;
     color: var(--mcm-text-faint);
   }
 
@@ -10486,8 +11044,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__empty-title {
-    font-size: 13.5px;
-    font-weight: 650;
+    @include t-subtitle;
     color: var(--mcm-text);
   }
 
@@ -10521,7 +11078,130 @@ body:has(.excalidraw.theme--dark) {
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0;
+  }
+
+  // GRID mode — thumbnail-first cards inside the same kind section. Same
+  // card language as the ProjectManager card grid (auto-fill, ring-in-shadow
+  // card, hover lift) at document density (~180px tracks).
+  &__list--grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  // Concentric radii: section card radius-md (14) → file card radius-sm (10).
+  &__card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--mcm-radius-sm, 10px);
+    overflow: hidden;
+    background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
+    transition: transform var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      box-shadow var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--mcm-shadow-2, var(--mcm-shadow-1));
+    }
+  }
+
+  // The "thumbnail": a kind-tinted well with the big kind icon (solid mix
+  // with surface — no transparency, text-safe in both themes). Hosts the
+  // corner overlays (kind badge / vis toggle / delete).
+  &__card-thumb {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 16 / 10;
+    color: var(--myfile-accent, var(--mcm-accent));
+    background: color-mix(
+      in srgb,
+      var(--myfile-accent, var(--mcm-accent)) 9%,
+      var(--mcm-surface)
+    );
+  }
+
+  // Kind badge rides the thumb's top-left corner (reuses __kind look).
+  &__card-kind {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+  }
+
+  // Visibility toggle, icon-only, top-right of the thumb. Solid surface
+  // mixes so it stays readable over the tinted well.
+  &__card-vis {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--mcm-radius-pill, 999px);
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+
+    &--private {
+      color: var(--mcm-danger, #dc2626);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 12%,
+        var(--mcm-surface)
+      );
+
+      &:hover {
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-danger, #dc2626) 35%,
+          transparent
+        );
+      }
+    }
+
+    &--sharable {
+      color: var(--mcm-success, #059669);
+      background: color-mix(
+        in srgb,
+        var(--mcm-success, #059669) 12%,
+        var(--mcm-surface)
+      );
+
+      &:hover {
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-success, #059669) 35%,
+          transparent
+        );
+      }
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: progress;
+    }
+  }
+
+  // Hover-reveal delete on the thumb's bottom-right (shares __delete base).
+  &__card-delete {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
+  }
+
+  &__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px 9px;
   }
 
   &__row {
@@ -10529,33 +11209,43 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 10px;
-    background: var(--mcm-surface);
-    transition: border-color 120ms, background 120ms;
+    // De-boxed row: no per-row border — a hairline divider between rows
+    // and a soft hover wash instead.
+    border: 0;
+    border-radius: var(--mcm-radius-sm, 10px);
+    background: transparent;
+    transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease);
 
+    & + & {
+      border-top: 1px solid var(--mcm-hairline-2);
+    }
     &:hover {
-      border-color: var(--mcm-hairline-2);
       background: var(--mcm-surface-2);
     }
   }
 
-  // Kind accent — the icon tile picks up a per-format hue so a mixed
-  // shelf scans by colour (mirrors the library's type badges).
-  &__row--pdf {
-    --myfile-accent: #dc2626;
+  // Kind accent — the icon tile / card thumb picks up a per-format hue so
+  // a mixed shelf scans by colour (mirrors the library's type badges).
+  &__row--pdf,
+  &__card--pdf {
+    --myfile-accent: var(--mcm-kind-pdf, #dc2626);
   }
-  &__row--dxf {
-    --myfile-accent: #2563eb;
+  &__row--dxf,
+  &__card--dxf {
+    --myfile-accent: var(--mcm-kind-dxf, #2563eb);
   }
-  &__row--ifc {
-    --myfile-accent: #7c3aed;
+  &__row--ifc,
+  &__card--ifc {
+    --myfile-accent: var(--mcm-kind-ifc, #7c3aed);
   }
-  &__row--image {
-    --myfile-accent: #059669;
+  &__row--image,
+  &__card--image {
+    --myfile-accent: var(--mcm-kind-img, #059669);
   }
-  &__row--other {
-    --myfile-accent: #6b7280;
+  &__row--other,
+  &__card--other {
+    --myfile-accent: var(--mcm-kind-misc, #6b7280);
   }
 
   &__icon {
@@ -10564,7 +11254,7 @@ body:has(.excalidraw.theme--dark) {
     place-items: center;
     width: 34px;
     height: 34px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 9px);
     color: var(--myfile-accent, var(--mcm-accent));
     background: color-mix(
       in srgb,
@@ -10594,22 +11284,21 @@ body:has(.excalidraw.theme--dark) {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
     font-variant-numeric: tabular-nums;
   }
 
   &__kind {
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    padding: 1px 5px;
-    border-radius: 4px;
+    // Mini kind capsule — kind hue on a kind-tinted solid chip.
+    @include t-micro;
+    padding: 1px 7px;
+    border-radius: var(--mcm-radius-pill, 999px);
     color: var(--myfile-accent, var(--mcm-text-faint));
     background: color-mix(
       in srgb,
-      var(--myfile-accent, var(--mcm-text-faint)) 10%,
-      transparent
+      var(--myfile-accent, var(--mcm-text-faint)) 14%,
+      var(--mcm-surface)
     );
   }
 
@@ -10628,8 +11317,7 @@ body:has(.excalidraw.theme--dark) {
     gap: 3px;
     padding: 1px 4px 1px 7px;
     border-radius: 99px;
-    font-size: 10.5px;
-    font-weight: 600;
+    @include t-micro;
     color: var(--mcm-accent);
     background: color-mix(in srgb, var(--mcm-accent) 10%, transparent);
   }
@@ -10695,26 +11383,37 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 99px;
     background: none;
     font: inherit;
-    font-size: 10.5px;
-    font-weight: 700;
+    @include t-micro;
     cursor: pointer;
     transition: background 120ms, border-color 120ms;
 
     &--private {
-      color: #dc2626;
-      background: color-mix(in srgb, #dc2626 9%, transparent);
+      color: var(--mcm-danger, #dc2626);
+      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 9%, transparent);
 
       &:hover {
-        border-color: color-mix(in srgb, #dc2626 35%, transparent);
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-danger, #dc2626) 35%,
+          transparent
+        );
       }
     }
 
     &--sharable {
-      color: #059669;
-      background: color-mix(in srgb, #059669 10%, transparent);
+      color: var(--mcm-success, #059669);
+      background: color-mix(
+        in srgb,
+        var(--mcm-success, #059669) 10%,
+        transparent
+      );
 
       &:hover {
-        border-color: color-mix(in srgb, #059669 35%, transparent);
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-success, #059669) 35%,
+          transparent
+        );
       }
     }
 
@@ -10735,17 +11434,24 @@ body:has(.excalidraw.theme--dark) {
     background: none;
     color: var(--mcm-text-faint);
     cursor: pointer;
-    transition: background 120ms, color 120ms;
+    // Hover-reveal: hidden until the row is hovered / keyboard-focused.
+    opacity: 0;
+    transition: background 120ms, color 120ms, opacity 120ms;
 
     &:hover {
-      background: color-mix(in srgb, #ef4444 12%, transparent);
-      color: #ef4444;
+      background: var(--mcm-danger-soft);
+      color: var(--mcm-danger);
     }
 
     &:disabled {
       opacity: 0.5;
       cursor: progress;
     }
+  }
+  &__row:hover .mcm-myfiles__delete,
+  &__card:hover .mcm-myfiles__delete,
+  &__delete:focus-visible {
+    opacity: 1;
   }
 }
 
@@ -11079,7 +11785,7 @@ body:has(.excalidraw.theme--dark) {
 // Same bottom-right slot and z-tier as .mcm-due, but in the danger tone —
 // it carries failure messages (showAppToast), not invitations.
 .mcm-toast {
-  position: fixed;
+  // Glass card with a semantic left rail (replaces the solid red wash).
   right: 20px;
   bottom: 20px;
   z-index: 1200;
@@ -11088,12 +11794,27 @@ body:has(.excalidraw.theme--dark) {
   gap: 10px;
   width: 340px;
   max-width: calc(100vw - 32px);
-  padding: 12px 12px 12px 14px;
-  background: var(--mcm-danger-soft);
-  border: 1px solid color-mix(in srgb, var(--mcm-danger) 35%, transparent);
-  border-radius: 14px;
-  box-shadow: var(--mcm-elev);
-  animation: mcm-due-in 220ms ease;
+  padding: 12px 12px 12px 20px;
+  animation: mcm-toast-in var(--mcm-dur-enter, 220ms)
+    var(--mcm-ease-spring, ease);
+  @include mcm-glass(var(--mcm-radius-md, 14px));
+  // Floating toast — must beat the mixin's `position: relative`.
+  & {
+    position: fixed;
+  }
+
+  // Semantic rail — 3px danger pill hugging the left edge.
+  &::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcm-danger);
+    pointer-events: none;
+  }
 
   &__icon {
     flex-shrink: 0;
@@ -11104,9 +11825,9 @@ body:has(.excalidraw.theme--dark) {
   &__message {
     flex: 1;
     min-width: 0;
-    font-size: 12.5px;
-    font-weight: 550;
-    line-height: 1.4;
+    font-size: 13.5px;
+    font-weight: 450;
+    line-height: 1.45;
     color: var(--mcm-text);
   }
 
@@ -11129,6 +11850,18 @@ body:has(.excalidraw.theme--dark) {
       background: color-mix(in srgb, var(--mcm-danger) 12%, transparent);
       color: var(--mcm-danger);
     }
+  }
+}
+
+// Toast entrance — rise + fade with the spring ease.
+@keyframes mcm-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -11214,12 +11947,12 @@ body:has(.excalidraw.theme--dark) {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 6px 0 2px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: var(--mcm-text-faint);
+  margin: 10px 0 4px;
+  // Label type for the words — the DAY NUMBER carries the display weight
+  // via the serif Number-XL span below (magazine-cover numeral + compressed
+  // sans label). This is Home's single champagne point.
+  @include t-label;
+  color: var(--mcm-text);
 
   &::after {
     content: "";
@@ -11227,6 +11960,12 @@ body:has(.excalidraw.theme--dark) {
     height: 1px;
     background: var(--mcm-hairline);
   }
+}
+// Day number split into its own span (ProjectBrowser.tsx) — Fraunces
+// digits-only instance, champagne. ONE per screen; digits never carry
+// Vietnamese diacritics or Hangul, so zero i18n risk.
+.mcm-mcards__daysep-num {
+  @include t-number-xl;
 }
 
 // =========================================================================
@@ -11296,16 +12035,15 @@ body:has(.excalidraw.theme--dark) {
   border-radius: 0;
   background: transparent;
   font: inherit;
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  @include t-title;
   color: var(--mcm-text);
   outline: none;
   transition: border-color 180ms ease;
 
   &::placeholder {
     color: var(--mcm-text-faint);
-    font-weight: 550;
+    // 500, not 550 — the 550–600 band is the Korean-font weight-snap zone.
+    font-weight: 500;
   }
   &:focus {
     border-bottom-color: var(--mcm-accent);
@@ -11563,7 +12301,124 @@ body:has(.excalidraw.theme--dark) {
 // Sidebar project badge for invited-only access ("phòng ban khác mời mình
 // 1 cuộc họp"): warm tint distinguishes it from the neutral stage badge.
 .mcm-nav__item-stage--invited {
-  border-color: color-mix(in srgb, #d97706 35%, transparent);
-  color: #d97706;
-  background: color-mix(in srgb, #d97706 8%, var(--mcm-surface));
+  border-color: color-mix(in srgb, var(--mcm-warning) 35%, transparent);
+  color: var(--mcm-warning);
+  background: color-mix(in srgb, var(--mcm-warning) 8%, var(--mcm-surface));
+}
+
+// ----- Focus (Glass Desk) --------------------------------------------------
+// One accent ring for every focusable element on the dashboard. Elements
+// that carry their own box-shadow get the ring COMBINED with it below
+// (a bare override would erase their elevation).
+.mcm-lobby :focus-visible {
+  outline: none;
+  box-shadow: var(--mcm-ring);
+}
+.mcm-lobby .mcm-btn--primary:focus-visible {
+  box-shadow: var(--mcm-ring), var(--mcm-highlight),
+    0 4px 12px color-mix(in srgb, var(--mcm-accent) 28%, transparent);
+}
+// =========================================================================
+// DASHBOARD PREFERENCE FALLBACKS (Glass Desk) — keep at the END of the
+// file so they win the cascade over everything above.
+// =========================================================================
+
+// Reduced transparency: glass goes opaque (tr token collapses onto the
+// opaque bg) and every backdrop-filter is switched off. Selector list
+// repeats the dark contexts so it out-ranks the dark token blocks.
+@media (prefers-reduced-transparency: reduce) {
+  .mcm-lobby,
+  .mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby,
+  .mcm-pp-overlay,
+  .mcm-cmodal-ov,
+  .mcm-swatches--pop,
+  .mcm-toast,
+  body:has(.excalidraw.theme--dark) .mcm-pp-overlay,
+  body:has(.excalidraw.theme--dark) .mcm-cmodal-ov,
+  body:has(.excalidraw.theme--dark) .mcm-swatches--pop,
+  body:has(.excalidraw.theme--dark) .mcm-toast {
+    --mcm-glass-bg-tr: var(--mcm-glass-bg);
+  }
+  .mcm-lobby,
+  .mcm-lobby *,
+  .mcm-pp-overlay,
+  .mcm-pp-overlay *,
+  .mcm-cmodal-ov,
+  .mcm-cmodal-ov *,
+  .mcm-swatches--pop,
+  .mcm-toast {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  // 06-12 semi-transparent control fills go back to their solid values
+  // (same selectors as the .mcm-lobby block — later in the file, so it
+  // wins the specificity tie).
+  .mcm-lobby .mcm-btn--secondary,
+  .mcm-lobby
+    .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
+      .mcm-btn--ghost
+    ):not(.mcm-btn--danger),
+  .mcm-lobby .mcm-select {
+    background: var(--mcm-surface-2);
+  }
+  .mcm-lobby .mcm-icon-btn--outline {
+    background: var(--mcm-surface);
+  }
+  .mcm-lobby .mcm-segmented {
+    background: var(--mcm-surface-0, var(--mcm-surface-2));
+  }
+  .mcm-lobby .mcm-chip:not(.mcm-chip--active) {
+    background: transparent;
+  }
+}
+
+// High contrast: stronger hairlines, secondary text promoted to full
+// text colour, gradient glass stroke dropped (mcm-glass swaps in a plain
+// border under the same media query).
+@media (prefers-contrast: more) {
+  .mcm-lobby,
+  .mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby,
+  .mcm-pp-overlay,
+  .mcm-cmodal-ov,
+  .mcm-swatches--pop,
+  .mcm-toast,
+  body:has(.excalidraw.theme--dark) .mcm-pp-overlay,
+  body:has(.excalidraw.theme--dark) .mcm-cmodal-ov,
+  body:has(.excalidraw.theme--dark) .mcm-swatches--pop,
+  body:has(.excalidraw.theme--dark) .mcm-toast {
+    --mcm-text-soft: var(--mcm-text);
+    --mcm-glass-stroke: none;
+  }
+  .mcm-lobby,
+  .mcm-pp-overlay,
+  .mcm-cmodal-ov,
+  .mcm-swatches--pop,
+  .mcm-toast {
+    --mcm-hairline: rgba(20, 20, 24, 0.4);
+  }
+  .mcm-shell:has(.excalidraw.theme--dark) .mcm-lobby,
+  body:has(.excalidraw.theme--dark) .mcm-pp-overlay,
+  body:has(.excalidraw.theme--dark) .mcm-cmodal-ov,
+  body:has(.excalidraw.theme--dark) .mcm-swatches--pop,
+  body:has(.excalidraw.theme--dark) .mcm-toast {
+    --mcm-hairline: rgba(255, 255, 255, 0.4);
+  }
+}
+
+// Reduced motion: kill-switch for every dashboard animation/transition.
+@media (prefers-reduced-motion: reduce) {
+  .mcm-lobby *,
+  .mcm-lobby *::before,
+  .mcm-lobby *::after,
+  .mcm-pp-overlay *,
+  .mcm-cmodal-ov *,
+  .mcm-swatches--pop,
+  .mcm-swatches--pop *,
+  .mcm-toast,
+  .mcm-toast * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

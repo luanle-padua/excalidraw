@@ -1,6 +1,6 @@
 // Current-user chip + account menu for the lobby header.
 //
-// Shows WHO is signed in at a glance (avatar, name, title/division) and
+// Shows WHO is signed in at a glance (avatar + name, single-line) and
 // opens a small dropdown with a read-only identity block (name, email,
 // org line) plus two actions: "Profile & avatar" (the shared
 // UserProfileModal — open state is owned by MeetingLobby so the modal
@@ -134,8 +134,8 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
   const displayName = profile?.username || session.name;
   const title = dirSelf?.title;
   const division = dirSelf?.division ?? session.branch;
-  // Chip second line: the single most specific descriptor we have.
-  const chipSub = title ?? division ?? session.company;
+  // The chip itself stays single-line (32px header baseline — Glass Desk);
+  // title/division/company live in the dropdown org line + hover title.
   // Dropdown org line: everything we know, quietly joined.
   const orgLine = [title, division, session.company]
     .filter(Boolean)
@@ -156,7 +156,6 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
         <UserAvatar url={avatarUrl} name={displayName} email={session.email} />
         <span className="mcm-user__id">
           <span className="mcm-user__name">{displayName}</span>
-          {chipSub && <span className="mcm-user__sub">{chipSub}</span>}
         </span>
         <ChevronDown size={14} className="mcm-user__chev" aria-hidden />
       </button>

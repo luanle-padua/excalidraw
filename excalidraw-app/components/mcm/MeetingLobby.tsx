@@ -16,17 +16,21 @@ import {
 import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
 import { isReviewRoom } from "../../data/reviewMode";
 import { authReadyAtom, sessionAtom } from "../../data/session";
+import { applyWallpaperToElement, wallpaperAtom } from "../../data/wallpaper";
 import { useT } from "../../i18n/mcm";
 
 import { ActivityLog } from "./ActivityLog";
 import { AdminConsole } from "./AdminConsole";
-import { LangThemeSwitcher } from "./LangThemeSwitcher";
+import { LangSwitcher, ThemeToggle } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
 import { isFinishedStatus, normalizeMeetingStatus } from "./meetingStatus";
 import { NotificationBell } from "./NotificationBell";
 import { ProjectBrowser } from "./ProjectBrowser";
 import { UserMenu } from "./UserMenu";
 import { UserProfileModal } from "./UserProfileModal";
+import { WallpaperPicker } from "./WallpaperPicker";
+
+import "./Wallpaper.scss";
 
 /**
  * Project-first home for MAP CanvasMeet.
@@ -64,6 +68,10 @@ export const MeetingLobby = () => {
   // when the user backs out of the start gate (clearing the #room hash), this
   // re-render is what re-evaluates hasRoomInUrl below so the home reappears.
   const startGate = useAtomValue(startGateAtom);
+  // Wallpaper preference (localStorage-backed). Applied to the root via the
+  // ref callback below — setWallpaper() also stamps live DOM directly, but
+  // the ref covers the FIRST mount (and any remount) from the persisted value.
+  const wallpaper = useAtomValue(wallpaperAtom);
 
   const [dismissed, setDismissed] = useState(false);
   // "Hồ sơ & avatar" from the user chip — the modal is shared with the
@@ -221,7 +229,16 @@ export const MeetingLobby = () => {
   };
 
   return (
-    <div className="mcm-lobby" role="dialog" aria-modal="true">
+    <div
+      className="mcm-lobby"
+      role="dialog"
+      aria-modal="true"
+      ref={(el) => {
+        if (el) {
+          applyWallpaperToElement(el, wallpaper);
+        }
+      }}
+    >
       <div className="mcm-lobby__home">
         <header className="mcm-lobby__top">
           <div className="mcm-lobby__brand">
@@ -229,28 +246,39 @@ export const MeetingLobby = () => {
             <span className="mcm-lobby__title">MAP CanvasMeet</span>
           </div>
           <div className="mcm-lobby__top-actions">
-            {/* Pending meeting invitations — accept/decline without leaving
-                the dashboard. */}
-            <NotificationBell />
-            {/* Personal action history — separate surface from the bell
-                (bell = to-do, history = log; quyết định 06-11). */}
-            <ActivityLog />
-            <LangThemeSwitcher />
-            <button
-              type="button"
-              className="mcm-lobby__join-toggle"
-              onClick={() => setDismissed(true)}
-            >
-              {t("lobby.solo")}
-            </button>
-            <button
-              type="button"
-              className="mcm-lobby__join-toggle"
-              onClick={() => setJoinOpen((v) => !v)}
-            >
-              {t("lobby.joinByLink")}
-            </button>
-            {/* Signed-in identity: avatar + name chip → account menu
+            {/* Cluster 1 — uniform 32px round icon buttons. Bell = pending
+                invitations (to-do); History = personal action log (quyết
+                định 06-11); Image = wallpaper picker (06-12); Moon = theme
+                toggle. */}
+            <div className="mcm-lobby__top-cluster">
+              <NotificationBell />
+              <ActivityLog />
+              <WallpaperPicker />
+              <ThemeToggle />
+            </div>
+            <span className="mcm-lobby__top-sep" aria-hidden="true" />
+            {/* Cluster 2 — VI/EN/KO mini segmented capsule. */}
+            <LangSwitcher />
+            <span className="mcm-lobby__top-sep" aria-hidden="true" />
+            {/* Cluster 3 — secondary entries as matching ghost capsules. */}
+            <div className="mcm-lobby__top-cluster">
+              <button
+                type="button"
+                className="mcm-lobby__join-toggle"
+                onClick={() => setDismissed(true)}
+              >
+                {t("lobby.solo")}
+              </button>
+              <button
+                type="button"
+                className="mcm-lobby__join-toggle"
+                onClick={() => setJoinOpen((v) => !v)}
+              >
+                {t("lobby.joinByLink")}
+              </button>
+            </div>
+            <span className="mcm-lobby__top-sep" aria-hidden="true" />
+            {/* Cluster 4 — signed-in identity: avatar chip → account menu
                 (read-only info, profile editor, sign out). */}
             <UserMenu
               session={session}

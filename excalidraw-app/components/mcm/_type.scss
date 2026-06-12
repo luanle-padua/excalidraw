@@ -1,0 +1,142 @@
+// MCM Dashboard TYPE SCALE — Type System chốt 2026-06-12.
+// Scope: .mcm-lobby + the 4 portal roots ONLY (never the meeting canvas).
+//
+// Swiss Precision (H2) frame: ONE family (Manrope variable), hierarchy by
+// WEIGHT first (steps ≥180 apart: 450↔640, 500↔680), line-heights locked to
+// the 4px grid, 3 ink levels (--mcm-text / -soft / -faint). Plus the three
+// H1 keepers: Fraunces digits-only Number-XL, champagne (--mcm-lux) reserved
+// for display numerals, en-dash time ranges (09:30–10:15).
+//
+// Rules baked in:
+//   - no weight <400 below 20px (hero 320 sits at 32px);
+//   - no italic (Manrope has none — fake oblique is cheap);
+//   - avoid 550–600 weights for text that may carry Korean (weight-snap);
+//   - champagne NEVER on sans body/label — t-number-xl only, 1 per screen;
+//   - letter-spacing always in em (never px).
+//
+// Shared via `@use "./type" as *;` — ProjectManager/CalendarX/
+// NotificationBell/Wallpaper are compiled standalone (no MeetingShell
+// import), so the mixins live in this partial. Mixins emit no CSS on
+// their own; duplication cost across bundles is zero-ish.
+
+// Font tokens are CSS custom properties (declared on .mcm-lobby + portal
+// roots in MeetingShell.scss); mixins reference them with a hard fallback
+// so a portal root that misses the stamp still renders Manrope.
+$mcm-font-ui-stack: "Manrope", -apple-system, BlinkMacSystemFont,
+  "SF Pro Text", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Roboto,
+  sans-serif;
+$mcm-font-display-num-stack: "Fraunces", Georgia, serif; // digits ONLY
+
+// 32/320 — thin large hero, the Swiss signature. Login hero only.
+@mixin t-display-hero {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 32px;
+  font-weight: 320;
+  line-height: 36px;
+  letter-spacing: -0.03em;
+}
+
+// 24/760 — page titles.
+@mixin t-display {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 24px;
+  font-weight: 760;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+}
+
+// 16/680 — panel / large-card headings.
+@mixin t-title {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 24px;
+  letter-spacing: -0.01em;
+}
+
+// 17/720 tnum — stats, prominent times.
+@mixin t-number {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 17px;
+  font-weight: 720;
+  line-height: 24px;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+// 40/560 Fraunces digits — ONE per screen, champagne. Digits only (the
+// loaded Fraunces instance literally contains just 0–9; anything else
+// falls through to Georgia — never put words in here).
+@mixin t-number-xl {
+  font-family: var(--mcm-font-display-num, #{$mcm-font-display-num-stack});
+  font-size: 40px;
+  font-weight: 560;
+  line-height: 40px;
+  font-variation-settings: "opsz" 144;
+  font-variant-numeric: lining-nums;
+  color: var(--mcm-lux, #b08d3e);
+}
+
+// 13.5/640 — row/meeting names.
+@mixin t-subtitle {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 13.5px;
+  font-weight: 640;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+// 13.5/450 — running text, form inputs. In-line emphasis: weight 640,
+// same colour (never a colour change).
+@mixin t-body {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 13.5px;
+  font-weight: 450;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+// 11/680/+0.08em UPPERCASE — eyebrows, column headers.
+@mixin t-label {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 11px;
+  font-weight: 680;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+// 11.5/500 — meta, timestamps (seconds/units/AM-PM live here, text-soft).
+@mixin t-caption {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.01em;
+}
+
+// 10/700/+0.06em UPPERCASE — pills/badges/tags.
+@mixin t-micro {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+// 13/640 — standard buttons.
+@mixin t-btn {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 13px;
+  font-weight: 640;
+  letter-spacing: 0;
+}
+
+// 14/640 — large primary buttons.
+@mixin t-btn-lg {
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: 0;
+}

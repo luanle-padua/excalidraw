@@ -113,11 +113,14 @@ Start-Process powershell -ArgumentList @(
 
 # --- 5. wait for both to listen ----------------------------------------
 
+# 90s: room cold start can exceed 30s when the machine is loaded (agent
+# teams / compiles) — short threshold false-alarms while the service
+# window still comes up fine moments later.
 Write-Host "waiting for room :3002..." -NoNewline
-if (Wait-Port 3002 30) {
+if (Wait-Port 3002 90) {
     Write-Host " ready" -ForegroundColor Green
 } else {
-    Write-Host " TIMEOUT" -ForegroundColor Red
+    Write-Host " TIMEOUT (cua so 'room :3002' co the van dang len — kiem tra truoc khi chay lai)" -ForegroundColor Red
     return
 }
 

@@ -16,41 +16,69 @@ const LANGS = [
   { mcm: "ko", code: "ko-KR", label: "KO" },
 ] as const;
 
-/** Compact language (VI/EN/KO) + light/dark theme control. Mounted in the
- *  lobby top bar and the in-canvas header. */
-export const LangThemeSwitcher = () => {
+/** Language segment (VI/EN/KO) alone — the lobby header mounts it as its
+ *  own cluster, away from the icon buttons (Glass Desk header redesign). */
+export const LangSwitcher = () => {
   const t = useT();
   const [, setLangCode] = useAppLangCode();
   const current = useAtomValue(preferredLanguageAtom);
+
+  return (
+    <div
+      className="mcm-langtheme__langs"
+      role="group"
+      aria-label={t("switcher.label")}
+    >
+      {LANGS.map((l) => (
+        <button
+          key={l.mcm}
+          type="button"
+          className={`mcm-langtheme__lang${
+            current === l.mcm ? " is-active" : ""
+          }`}
+          onClick={() => setLangCode(l.code)}
+          aria-pressed={current === l.mcm}
+        >
+          {l.label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/** Light/dark toggle alone — grouped with bell + history in the lobby. */
+export const ThemeToggle = () => {
+  const t = useT();
   const [appTheme, setAppTheme] = useAtom(appThemeAtom);
   const isDark = appTheme === THEME.DARK;
 
   return (
-    <div className="mcm-langtheme" role="group" aria-label={t("switcher.label")}>
-      <div className="mcm-langtheme__langs">
-        {LANGS.map((l) => (
-          <button
-            key={l.mcm}
-            type="button"
-            className={`mcm-langtheme__lang${
-              current === l.mcm ? " is-active" : ""
-            }`}
-            onClick={() => setLangCode(l.code)}
-            aria-pressed={current === l.mcm}
-          >
-            {l.label}
-          </button>
-        ))}
-      </div>
-      <button
-        type="button"
-        className="mcm-langtheme__theme"
-        onClick={() => setAppTheme(isDark ? THEME.LIGHT : THEME.DARK)}
-        title={t("switcher.toggleTheme")}
-        aria-label={t("switcher.toggleTheme")}
-      >
-        {isDark ? <Moon size={15} /> : <Sun size={15} />}
-      </button>
+    <button
+      type="button"
+      className="mcm-langtheme__theme"
+      onClick={() => setAppTheme(isDark ? THEME.LIGHT : THEME.DARK)}
+      title={t("switcher.toggleTheme")}
+      aria-label={t("switcher.toggleTheme")}
+    >
+      {isDark ? <Moon size={15} /> : <Sun size={15} />}
+    </button>
+  );
+};
+
+/** Compact language (VI/EN/KO) + light/dark theme control. Mounted in the
+ *  in-canvas header, the login screen and the admin console; the lobby
+ *  header mounts the two halves separately instead. */
+export const LangThemeSwitcher = () => {
+  const t = useT();
+
+  return (
+    <div
+      className="mcm-langtheme"
+      role="group"
+      aria-label={t("switcher.label")}
+    >
+      <LangSwitcher />
+      <ThemeToggle />
     </div>
   );
 };

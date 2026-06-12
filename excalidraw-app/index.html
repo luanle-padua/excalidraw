@@ -91,6 +91,30 @@
       href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Noto+Sans:wght@400;700&family=Noto+Sans+KR:wght@400;700&display=swap"
     />
 
+    <!--
+      Manrope — the MCM dashboard (Glass Desk / Olive Royal) UI typeface.
+      Variable weight 300..800 covers Display-Hero 320 / Body 450 / Title 680
+      / Display 760 (Type System 2026-06-12);
+      ships a native Vietnamese subset so diacritics don't fall through to
+      a substitute font. Scoped in CSS to .mcm-lobby + portal overlays only;
+      the meeting canvas keeps the system/SF stack.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@300..800&display=swap"
+    />
+    <!--
+      Fraunces — digits ONLY (text=0123456789), one fixed instance
+      opsz 144 / wght 560 (~5KB). Used solely for the Number-XL display
+      numeral token (e.g. the day number on meeting-list day separators).
+      Digits carry no Vietnamese diacritics and no Hangul, so this adds
+      zero i18n risk; all running text stays Manrope/system.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@144,560&text=0123456789&display=swap"
+    />
+
     <!------------------------------------------------------------------------->
     <% if (typeof PROD != 'undefined' && PROD == true) { %>
     <script>

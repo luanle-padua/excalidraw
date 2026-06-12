@@ -74,6 +74,8 @@ export const ko: Widened<typeof vi> = {
   },
   cal: {
     title: "일정",
+    // Sidebar tab label (ProjectBrowser) — distinct from `title`.
+    myMeetings: "내 회의",
     upcoming: "예정",
     today: "오늘",
     tomorrow: "내일",

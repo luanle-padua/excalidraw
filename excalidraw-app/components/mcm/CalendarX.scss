@@ -21,6 +21,19 @@
 
 .mcm-calx {
   // --- container ----------------------------------------------------------
+  // Glass continuity (yêu cầu anh Luân 06-12): the panel floats on the ONE
+  // continuous desk/wallpaper sheet, so its paper is SEMI-OPAQUE — 88%
+  // surface, NO backdrop-filter (the grid is a drag/scroll area; blur here
+  // is banned by the ≤3 budget). 88% keeps --mcm-text AA on every preset
+  // (the wallpaper already sits under --mcm-wall-scrim). Ring lives inside
+  // --mcm-shadow-1, so no border. 12px gutter on ALL sides — same khe as
+  // the sidebar pane.
+  margin: 12px;
+  background: color-mix(in srgb, var(--mcm-surface) 88%, transparent);
+  border-radius: var(--mcm-radius-lg);
+  box-shadow: var(--mcm-shadow-1);
+  overflow: hidden; // clip the grid/header to the panel radius
+
   // Failed self-fetch strip ("couldn't load — retry") above the grid.
   &__loaderr {
     flex: 0 0 auto;
@@ -30,14 +43,14 @@
     gap: 8px;
     padding: 6px 10px;
     font-size: 12px;
-    color: var(--mcm-danger, #b3261e);
-    background: color-mix(in srgb, currentColor 8%, transparent);
-    border-bottom: 1px solid var(--mcm-hairline);
+    color: var(--mcm-danger);
+    background: var(--mcm-danger-soft);
+    border-bottom: 1px solid var(--mcm-hairline-2);
   }
   &__loaderr-retry {
     padding: 2px 10px;
     border: 1px solid var(--mcm-hairline);
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs);
     background: var(--mcm-surface);
     color: var(--mcm-text);
     font-size: 11.5px;
@@ -57,6 +70,21 @@
   }
   &__notes {
     flex: 0 0 auto;
+    min-width: 0;
+
+    // Bounded resize (PM 06-12: "ô notes resize bị lỗi"). The calendar column
+    // is a fixed-height, overflow-hidden panel and the grid above has a 420px
+    // floor — an UNbounded vertical drag grew the day tray past the clipped
+    // bottom edge, hiding the textarea's lower half and its resize grip (no
+    // way to drag back). Cap the drag instead: vertical-only, with floor +
+    // ceiling, full-width border-box so it can never push sideways either.
+    .mcm-cal__notes-area {
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      min-height: 64px;
+      max-height: clamp(96px, 24vh, 240px);
+    }
   }
 
   // === Schedule-X design tokens → MCM palette ==============================
@@ -67,13 +95,14 @@
     width: 100%;
     min-height: 420px;
 
-    // Surfaces / background
+    // Surfaces / background — mapped onto the 4-step surface scale
+    // (surface-0 sunken → surface raised → surface-3 lifted).
     --sx-color-background: var(--mcm-surface);
     --sx-color-surface: var(--mcm-surface);
-    --sx-color-surface-dim: var(--mcm-surface-2);
-    --sx-color-surface-bright: var(--mcm-surface);
+    --sx-color-surface-dim: var(--mcm-surface-0);
+    --sx-color-surface-bright: var(--mcm-surface-3);
     --sx-color-surface-container: var(--mcm-surface);
-    --sx-color-surface-container-low: var(--mcm-surface);
+    --sx-color-surface-container-low: var(--mcm-surface-3);
     --sx-color-surface-container-high: var(--mcm-surface-2);
     --sx-color-on-surface: var(--mcm-text);
     --sx-color-on-background: var(--mcm-text);
@@ -99,6 +128,7 @@
     --sx-color-outline-variant: var(--mcm-hairline-2);
     --sx-color-neutral: var(--mcm-hairline);
     --sx-color-neutral-variant: var(--mcm-hairline-2);
+    // Schedule-X wants a plain colour here (no shadow token fits); keep quiet.
     --sx-color-shadow: rgba(0, 0, 0, 0.18);
     --sx-color-surface-tint: var(--mcm-accent);
 
@@ -112,22 +142,72 @@
     );
 
     font-family: inherit;
-    background: var(--mcm-surface);
+    // Transparent (06-12): the semi-opaque .mcm-calx panel above is the ONE
+    // paper layer — a solid fill here would make it opaque again. The
+    // --sx-color-* tokens stay on real colours for the controls/popups.
+    background: transparent;
     color: var(--mcm-text);
   }
 
   // === Calendar frame ======================================================
   .sx__calendar {
     border: 0;
-    background: var(--mcm-surface);
+    background: transparent; // see wrapper note — panel owns the paper
     color: var(--mcm-text);
   }
 
   // --- Header: nav + range heading + today + view switcher -----------------
+  // One rhythm for every header control: 32px tall, capsule (pill) corners on
+  // text controls / radius-sm on icon buttons, even 8px gaps. Controls are
+  // nested under .sx__calendar-header (3 classes) so they deterministically
+  // beat theme-default's `.is-dark .sx__*` rules (2 classes) regardless of
+  // stylesheet import order.
   .sx__calendar-header {
     padding: 10px 12px;
     border-bottom: 1px solid var(--mcm-hairline);
     gap: 8px;
+
+    // Prev / next chevrons — quiet 32px icon buttons (match .mcm-icon-btn)
+    .sx__chevron-wrapper {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border-radius: var(--mcm-radius-sm);
+      color: var(--mcm-text-soft);
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        color var(--mcm-dur-fast) var(--mcm-ease);
+
+      &:hover {
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text);
+      }
+    }
+
+    // "Today" button — idle chip: 32px capsule, hairline, no fill
+    .sx__today-button {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-pill);
+      background: transparent;
+      color: var(--mcm-text);
+      font-weight: 600;
+      font-size: 13px;
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        border-color var(--mcm-dur-fast) var(--mcm-ease);
+
+      &:hover,
+      &:focus {
+        background: var(--mcm-surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-accent) 40%,
+          var(--mcm-hairline)
+        );
+      }
+    }
   }
 
   .sx__range-heading {
@@ -137,81 +217,135 @@
     color: var(--mcm-text);
   }
 
-  // Prev / next chevrons — quiet round icon buttons
-  .sx__chevron-wrapper {
-    border-radius: 8px;
-    color: var(--mcm-text-soft);
-    transition: background 120ms ease, color 120ms ease;
-
-    &:hover {
-      background: var(--mcm-surface-2);
-      color: var(--mcm-text);
-    }
-  }
   .sx__chevron {
     border-color: currentColor;
   }
 
-  // "Today" button — hairline pill
-  .sx__today-button {
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 8px;
-    background: var(--mcm-surface);
-    color: var(--mcm-text);
-    font-weight: 600;
-    font-size: 13px;
-    padding: 6px 12px;
-    transition: background 120ms ease, border-color 120ms ease;
-
-    &:hover {
+  // View switcher (Month / Week / Day) — Schedule-X renders this as a
+  // DROPDOWN, not a segmented control: a trigger button showing the current
+  // view (.sx__view-selection-selected-item) that opens an absolute popover
+  // ul (.sx__view-selection-items) of li options (.sx__view-selection-item,
+  // `.is-selected` = current). Trigger = 32px capsule synced with
+  // .mcm-select; popover = SOLID surface panel — paper, NO glass/blur inside
+  // the calendar grid (blur budget) — radius-md shell with radius-sm items
+  // (concentric −4px), ring baked into --mcm-shadow-2 so no border.
+  .sx__view-selection {
+    .sx__view-selection-selected-item {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-pill);
       background: var(--mcm-surface-2);
-      border-color: color-mix(in srgb, var(--mcm-accent) 40%, var(--mcm-hairline));
-    }
-  }
-
-  // View switcher (Month / Week / Day / Agenda) — segmented control
-  .sx__view-selection-items {
-    background: var(--mcm-surface-2);
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 9px;
-    padding: 2px;
-    box-shadow: none;
-  }
-  .sx__view-selection-item,
-  .sx__view-selection-selected-item {
-    border-radius: 7px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--mcm-text-soft);
-
-    &:hover {
-      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
       color: var(--mcm-text);
+      font-size: 13px;
+      font-weight: 600;
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        border-color var(--mcm-dur-fast) var(--mcm-ease);
+
+      &:hover {
+        background: var(--mcm-surface-2);
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-accent) 40%,
+          var(--mcm-hairline)
+        );
+      }
     }
-  }
-  .sx__view-selection-selected-item {
-    background: var(--mcm-surface);
-    color: var(--mcm-text);
-    box-shadow: var(--mcm-elev, 0 1px 2px rgba(0, 0, 0, 0.08));
+
+    .sx__view-selection-items {
+      min-width: 132px;
+      margin: 4px 0 0;
+      padding: 4px;
+      list-style: none;
+      background: var(--mcm-surface);
+      border: 0;
+      border-radius: var(--mcm-radius-md);
+      box-shadow: var(--mcm-shadow-2);
+    }
+
+    .sx__view-selection-item {
+      display: flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--mcm-radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--mcm-text);
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        color var(--mcm-dur-fast) var(--mcm-ease);
+
+      // Quiet wash on hover — kill theme-default's loud primary fill.
+      &:hover,
+      &:focus {
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text);
+      }
+
+      &.is-selected {
+        background: var(--mcm-accent-soft);
+        color: var(--mcm-accent);
+        font-weight: 600;
+
+        &:hover,
+        &:focus {
+          background: var(--mcm-accent-soft);
+          color: var(--mcm-accent);
+        }
+      }
+    }
   }
 
   // === Date-input + date-picker popup =====================================
-  .sx__date-input {
-    background: var(--mcm-surface);
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 8px;
-    color: var(--mcm-text);
+  // Same 32px capsule as the view-switcher trigger / .mcm-select. The
+  // theme-default MUI-style floating label (text cut into the border) fights
+  // the capsule, so it's hidden — the input value already says everything.
+  .sx__date-input-wrapper {
+    .sx__date-input {
+      height: 32px;
+      width: 116px;
+      padding: 0 30px 0 12px; // room for the chevron on the right
+      background: var(--mcm-surface-2);
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-pill);
+      color: var(--mcm-text);
+      font-size: 13px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        border-color var(--mcm-dur-fast) var(--mcm-ease);
 
-    &--active {
-      border-color: var(--mcm-accent);
-      box-shadow: 0 0 0 2px var(--mcm-accent-soft);
+      &:hover {
+        border-color: color-mix(
+          in srgb,
+          var(--mcm-accent) 40%,
+          var(--mcm-hairline)
+        );
+      }
+    }
+    .sx__date-input-label {
+      display: none;
+    }
+    .sx__date-input-chevron-wrapper {
+      right: 10px;
+      color: var(--mcm-text-soft);
     }
   }
+  // `--active` lives on the WRAPPER in Schedule-X markup — ring the input.
+  .sx__date-input--active .sx__date-input {
+    border-color: var(--mcm-accent);
+    box-shadow: var(--mcm-ring);
+    outline: 0; // theme-default draws a 1px outline here; the ring replaces it
+  }
+  // Solid popover (small, lives in the grid → no glass here); ring is baked
+  // into --mcm-shadow-2, so no border.
   .sx__date-picker-popup {
     background: var(--mcm-surface);
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 12px;
-    box-shadow: var(--mcm-elev, 0 12px 28px rgba(0, 0, 0, 0.18));
+    border: 0;
+    border-radius: var(--mcm-radius-md);
+    box-shadow: var(--mcm-shadow-2);
     color: var(--mcm-text);
   }
   .sx__date-picker__day-name {
@@ -219,7 +353,7 @@
     font-weight: 600;
   }
   .sx__date-picker__day {
-    border-radius: 8px;
+    border-radius: var(--mcm-radius-sm);
     color: var(--mcm-text);
 
     &:hover {
@@ -291,26 +425,16 @@
     max-width: 100%;
     height: auto;
     padding: 0;
-    border-radius: 8px;
+    border-radius: var(--mcm-radius-sm);
     background: transparent;
     color: inherit;
   }
   // TODAY — keyed off our own data-today (Schedule-X v2 has no usable today
-  // class on the cell). Fill the date number...
+  // class on the cell). Just the solid accent capsule, white digits — no cell
+  // ring/wash (Glass Desk keeps the grid calm).
   .mcm-calx__date[data-today] .mcm-calx__date-num {
     background: var(--mcm-accent);
     color: #ffffff;
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mcm-accent) 28%, transparent);
-  }
-  // ...and ring the whole cell that contains today + a soft accent wash.
-  .sx__month-grid-day:has(.mcm-calx__date[data-today]) {
-    background: color-mix(in srgb, var(--mcm-accent) 10%, transparent);
-    box-shadow: inset 0 0 0 2px var(--mcm-accent);
-    border-radius: 4px;
-
-    &:hover {
-      background: color-mix(in srgb, var(--mcm-accent) 15%, transparent);
-    }
   }
 
   // "+ N more" affordance
@@ -326,7 +450,7 @@
   .sx__time-grid-event,
   .sx__date-grid-event,
   .sx__month-agenda-event {
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs); // 6px — keeps the chip density
     font-weight: 600;
     font-size: 12px;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent);
@@ -343,12 +467,23 @@
   }
   .sx__current-time-indicator,
   .sx__current-time-indicator-full-week {
-    background: var(--mcm-danger, #dc2626);
+    background: var(--mcm-danger);
   }
 
   // === Month-agenda view ===================================================
   .sx__month-agenda-day-name {
     color: var(--mcm-text-faint);
+  }
+  // Korean red-calendar parity for the COMPACT month (month-agenda) view —
+  // the custom monthGridDate component (data-tone) only mounts in the full
+  // month grid, so the small calendar lost the weekend tones. Schedule-X puts
+  // sx__saturday / sx__sunday on the day cell; the bare digit inherits color.
+  // :not(--active) keeps the selected day's accent override winning.
+  .sx__month-agenda-day.sx__saturday:not(.sx__month-agenda-day--active) {
+    color: #2f6fed;
+  }
+  .sx__month-agenda-day.sx__sunday:not(.sx__month-agenda-day--active) {
+    color: #e5484d;
   }
   .sx__month-agenda-day--active .sx__month-agenda-day-name,
   .sx__month-agenda-day--active {
@@ -411,9 +546,12 @@
 
 // Dark mode: the token-driven theming above already follows dark automatically
 // (the `--mcm-*` vars flip under `.mcm-shell:has(.excalidraw.theme--dark)`, and
-// `.mcm-calx` lives inside `.mcm-shell`). Only the intentionally NON-token
-// red/blue/holiday colours need lifting so they read on the dark surface. Match
-// the app's exact dark-mode ancestor pattern.
+// `.mcm-calx` lives inside `.mcm-shell`). The header controls + view-switcher
+// dropdown need NO dark entries here: they are 100% token-driven and nested
+// 3-classes deep, which outranks every `.is-dark .sx__*` rule (2 classes) in
+// theme-default. Only the intentionally NON-token red/blue/holiday colours need
+// lifting so they read on the dark surface. Match the app's exact dark-mode
+// ancestor pattern.
 .mcm-shell:has(.excalidraw.theme--dark) .mcm-calx {
   .mcm-calx__date[data-tone="holiday"] .mcm-calx__date-num {
     color: #ff8a8f;
@@ -424,23 +562,50 @@
   .mcm-calx__date-holiday {
     color: color-mix(in srgb, #ff8a8f 80%, var(--mcm-text));
   }
+  // Compact month (month-agenda) weekend tones — lifted pair of the light
+  // #2f6fed / #e5484d above, same dark values as the month-grid date-num.
+  .sx__month-agenda-day.sx__saturday:not(.sx__month-agenda-day--active) {
+    color: #7aa2ff;
+  }
+  .sx__month-agenda-day.sx__sunday:not(.sx__month-agenda-day--active) {
+    color: #ff8a8f;
+  }
+  // Accent buttons go FLAT in dark (no gradient), dark glyph on the pale
+  // accent — same treatment as .mcm-btn--primary.
+  .mcm-calx__fab,
+  .mcm-calx__date-add {
+    background: var(--mcm-accent);
+    color: #1c1c21;
+  }
+  // Today capsule goes champagne in dark (Olive Royal lux detail) — also
+  // closes the B7 contrast risk: white digits on the pale dark accent
+  // missed AA; dark ink on --mcm-lux (#d6c08a) is ~10.5:1.
+  .mcm-calx__date[data-today] .mcm-calx__date-num {
+    background: var(--mcm-lux, var(--mcm-accent));
+  }
 }
 
-// Today's filled number must stay white in every tone (override the red/blue),
-// in both light and dark.
-.mcm-calx .mcm-calx__date[data-today] .mcm-calx__date-num,
+// Today's filled number must override the red/blue weekend tones in every
+// theme: white on the solid accent in light, dark ink on the champagne
+// capsule in dark (white would fail AA there).
+.mcm-calx .mcm-calx__date[data-today] .mcm-calx__date-num {
+  color: #ffffff;
+}
 .mcm-shell:has(.excalidraw.theme--dark)
   .mcm-calx
   .mcm-calx__date[data-today]
   .mcm-calx__date-num {
-  color: #ffffff;
+  color: #1d1d1f;
 }
 
 // === Day panel: the focused day's meetings + notes, with a create "+" FAB ===
 .mcm-calx__day {
   position: relative;
   flex: 0 0 auto;
-  border-top: 1px solid var(--mcm-hairline);
+  border-top: 1px solid var(--mcm-hairline-2);
+  // Same semi-opaque formula as the panel (06-12 continuity) — the lifted
+  // tray keeps its surface-3 step but lets the desk sheet ghost through.
+  background: color-mix(in srgb, var(--mcm-surface-3) 88%, transparent);
   padding: 10px 14px 14px;
   display: flex;
   flex-direction: column;
@@ -469,18 +634,33 @@
   padding: 2px;
 }
 .mcm-calx__day-item {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px 6px 9px;
+  padding: 6px 8px 6px 13px; // room for the rail
   border: 0;
-  border-left: 3px solid var(--mc, var(--mcm-accent));
-  border-radius: 8px;
+  border-radius: var(--mcm-radius-sm);
   background: var(--mcm-surface-2);
   cursor: pointer;
   text-align: left;
-  transition: filter 120ms;
+  transition: filter var(--mcm-dur-fast) var(--mcm-ease);
+
+  // Meeting-colour rail — 3px pill, replaces the old full-height border-left.
+  // `--mc` is the inline per-meeting colour contract from CalendarX.tsx.
+  &::before {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    width: 3px;
+    height: 18px;
+    transform: translateY(-50%);
+    border-radius: var(--mcm-radius-pill);
+    background: var(--mc, var(--mcm-accent));
+    pointer-events: none;
+  }
 
   &:hover {
     filter: brightness(0.97);
@@ -510,23 +690,29 @@
   position: absolute;
   right: 14px;
   bottom: 12px;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
-  border-radius: 50%;
-  background: var(--mcm-accent);
+  border-radius: var(--mcm-radius-pill);
+  // Primary-button material: subtle top-lit accent gradient (dark flattens it
+  // in the theme block below).
+  background: linear-gradient(180deg, #6f6be0, var(--mcm-accent));
   color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--mcm-accent) 50%, transparent);
-  transition: transform 120ms, filter 120ms;
+  box-shadow: var(--mcm-highlight), var(--mcm-shadow-2);
+  transition: transform var(--mcm-dur-fast) var(--mcm-ease),
+    filter var(--mcm-dur-fast) var(--mcm-ease);
   z-index: 3;
 
   &:hover {
-    transform: scale(1.08);
+    transform: translateY(-1px); // lift, not scale
     filter: brightness(1.06);
+  }
+  &:active {
+    transform: translateY(0) scale(0.97);
   }
 }
 
@@ -541,7 +727,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--mcm-radius-xs);
   background: var(--mcm-accent);
   color: #fff;
   cursor: pointer;
@@ -549,7 +735,9 @@
   transform: scale(0.8);
   pointer-events: none; // don't intercept clicks while hidden
   box-shadow: 0 2px 7px color-mix(in srgb, var(--mcm-accent) 42%, transparent);
-  transition: opacity 130ms ease, transform 130ms ease, filter 130ms ease;
+  transition: opacity var(--mcm-dur-fast) var(--mcm-ease),
+    transform var(--mcm-dur-fast) var(--mcm-ease),
+    filter var(--mcm-dur-fast) var(--mcm-ease);
   z-index: 4;
 
   &:hover {
@@ -563,4 +751,17 @@
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
+}
+
+// Reduced transparency (06-12): the panel's semi-opaque paper (88% surface,
+// for desk/wallpaper continuity) collapses back to solid — same spirit as
+// the glass collapse at the end of MeetingShell.scss. Same file + later in
+// the cascade, so these win over the container rules above.
+@media (prefers-reduced-transparency: reduce) {
+  .mcm-calx {
+    background: var(--mcm-surface);
+  }
+  .mcm-calx__day {
+    background: var(--mcm-surface-3);
+  }
 }

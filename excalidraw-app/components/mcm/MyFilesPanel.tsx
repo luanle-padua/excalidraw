@@ -5,10 +5,13 @@
 // never touches a meeting that already ingested it.
 
 import {
+  ArrowUpDown,
   Box,
   File as FileIcon,
   FileText,
   Image as ImageIcon,
+  LayoutGrid,
+  List as ListIcon,
   Lock,
   PencilRuler,
   Trash2,
@@ -28,12 +31,16 @@ import {
 } from "../../data/userFiles";
 import { useT } from "../../i18n/mcm";
 
-const KIND_ICON: Record<UserFileKind, React.ReactNode> = {
-  pdf: <FileText size={17} />,
-  dxf: <PencilRuler size={17} />,
-  ifc: <Box size={17} />,
-  image: <ImageIcon size={17} />,
-  other: <FileIcon size={17} />,
+import type { LucideIcon } from "lucide-react";
+
+// Kind → icon component — list rows render it small (17), grid cards big
+// (26) as the thumbnail stand-in.
+const KIND_ICON: Record<UserFileKind, LucideIcon> = {
+  pdf: FileText,
+  dxf: PencilRuler,
+  ifc: Box,
+  image: ImageIcon,
+  other: FileIcon,
 };
 
 // Section order on the shelf — documents first (the formats meetings care
@@ -49,6 +56,8 @@ const KIND_LABEL_KEY = {
 } as const;
 
 type SortKey = "date" | "name" | "size";
+type ViewMode = "list" | "grid";
+type KindFilter = UserFileKind | "all";
 
 const SORT_CMP: Record<SortKey, (a: UserFile, b: UserFile) => number> = {
   date: (a, b) => tsToMs(b.created_at) - tsToMs(a.created_at),
@@ -112,6 +121,7 @@ const MyFileRow = ({
   const [tagDraft, setTagDraft] = useState("");
   const tags = parseTags(file.tags);
   const isPrivate = file.visibility === "private";
+  const Icon = KIND_ICON[file.kind] ?? KIND_ICON.other;
 
   const addTag = () => {
     // Commas are the storage separator — swap them out of user input.
@@ -130,7 +140,7 @@ const MyFileRow = ({
   return (
     <li className={`mcm-myfiles__row mcm-myfiles__row--${file.kind}`}>
       <span className="mcm-myfiles__icon" aria-hidden="true">
-        {KIND_ICON[file.kind] ?? KIND_ICON.other}
+        <Icon size={17} />
       </span>
       <span className="mcm-myfiles__main">
         <span className="mcm-myfiles__name" title={file.name}>
@@ -204,6 +214,75 @@ const MyFileRow = ({
   );
 };
 
+/** GRID-mode card — thumbnail-first: a big kind icon on a kind-tinted well,
+ *  name + size + date below, kind badge top-left and the visibility toggle
+ *  top-right of the thumb, hover-reveal delete bottom-right. Tag editing
+ *  stays in LIST mode — the grid is for scanning, not metadata work. */
+const MyFileCard = ({
+  file,
+  saving,
+  deleting,
+  onUpdate,
+  onDelete,
+}: {
+  file: UserFile;
+  saving: boolean;
+  deleting: boolean;
+  onUpdate: (file: UserFile, patch: Parameters<typeof updateMyFile>[1]) => void;
+  onDelete: (file: UserFile) => void;
+}) => {
+  const t = useT();
+  const isPrivate = file.visibility === "private";
+  const Icon = KIND_ICON[file.kind] ?? KIND_ICON.other;
+  const visLabel = t(isPrivate ? "myfiles.visPrivate" : "myfiles.visSharable");
+
+  return (
+    <li className={`mcm-myfiles__card mcm-myfiles__card--${file.kind}`}>
+      <div className="mcm-myfiles__card-thumb">
+        <Icon size={26} aria-hidden="true" />
+        <span className="mcm-myfiles__kind mcm-myfiles__card-kind">
+          {file.kind.toUpperCase()}
+        </span>
+        <button
+          type="button"
+          className={`mcm-myfiles__card-vis mcm-myfiles__card-vis--${file.visibility}`}
+          onClick={() =>
+            onUpdate(file, { visibility: isPrivate ? "sharable" : "private" })
+          }
+          disabled={saving}
+          title={visLabel}
+          aria-label={visLabel}
+        >
+          {isPrivate ? (
+            <Lock size={11} aria-hidden="true" />
+          ) : (
+            <Users size={11} aria-hidden="true" />
+          )}
+        </button>
+        <button
+          type="button"
+          className="mcm-myfiles__delete mcm-myfiles__card-delete"
+          onClick={() => onDelete(file)}
+          disabled={deleting}
+          title={t("myfiles.delete")}
+          aria-label={t("myfiles.delete")}
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <div className="mcm-myfiles__card-body">
+        <span className="mcm-myfiles__name" title={file.name}>
+          {file.name}
+        </span>
+        <span className="mcm-myfiles__meta">
+          <span>{humanSize(file.size)}</span>
+          <span>{fmtDate(file.created_at)}</span>
+        </span>
+      </div>
+    </li>
+  );
+};
+
 export const MyFilesPanel = () => {
   const t = useT();
   // null = first load in flight — render a quiet placeholder, not the
@@ -217,6 +296,8 @@ export const MyFilesPanel = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const refresh = useCallback(async () => {
@@ -301,15 +382,44 @@ export const MyFilesPanel = () => {
     [savingId, refresh],
   );
 
-  // Group by kind (fixed section order, empty sections hidden), then sort
-  // within each section by the user's pick.
+  // Per-kind counts feed the filter chips (kinds with no files get no chip).
+  const kindCounts: Record<UserFileKind, number> = {
+    pdf: 0,
+    dxf: 0,
+    ifc: 0,
+    image: 0,
+    other: 0,
+  };
+  for (const file of files ?? []) {
+    const kind = (file.kind ?? "other") as UserFileKind;
+    // Unknown kinds never render a section (the grouping below matches by
+    // equality), so they must not count toward a chip either.
+    if (kind in kindCounts) {
+      kindCounts[kind] += 1;
+    }
+  }
+  // Deleting the last file of the filtered kind would strand an empty view
+  // (its chip disappears with it) — quietly fall back to "all".
+  const activeFilter: KindFilter =
+    kindFilter !== "all" && kindCounts[kindFilter] === 0 ? "all" : kindFilter;
+  const chipKinds: KindFilter[] = [
+    "all",
+    ...KIND_ORDER.filter((kind) => kindCounts[kind] > 0),
+  ];
+
+  // Filter by the active chip, group by kind (fixed section order, empty
+  // sections hidden), then sort within each section by the user's pick.
   const sections = files
-    ? KIND_ORDER.map((kind) => ({
-        kind,
-        files: files
-          .filter((file) => (file.kind ?? "other") === kind)
-          .sort(SORT_CMP[sortKey]),
-      })).filter((section) => section.files.length > 0)
+    ? KIND_ORDER.filter(
+        (kind) => activeFilter === "all" || kind === activeFilter,
+      )
+        .map((kind) => ({
+          kind,
+          files: files
+            .filter((file) => (file.kind ?? "other") === kind)
+            .sort(SORT_CMP[sortKey]),
+        }))
+        .filter((section) => section.files.length > 0)
     : null;
 
   return (
@@ -388,21 +498,74 @@ export const MyFilesPanel = () => {
         </div>
       ) : (
         <>
+          {/* One toolbar row: [kind filter chips] … [view toggle + sort].
+              Chip counts double as the shelf inventory, so no extra
+              "N tệp" label. */}
           <div className="mcm-myfiles__toolbar">
-            <div className="mcm-myfiles__count">
-              {t("myfiles.count", { count: files.length })}
+            <div className="mcm-chips" role="group" aria-label="Lọc theo loại">
+              {chipKinds.map((kind) => (
+                <button
+                  key={kind}
+                  type="button"
+                  className={`mcm-chip${
+                    activeFilter === kind ? " mcm-chip--active" : ""
+                  }`}
+                  onClick={() => setKindFilter(kind)}
+                  aria-pressed={activeFilter === kind ? "true" : "false"}
+                >
+                  {kind === "all"
+                    ? t("proj.filterAll")
+                    : t(KIND_LABEL_KEY[kind])}
+                  <span className="mcm-myfiles__chip-count">
+                    {kind === "all" ? files.length : kindCounts[kind]}
+                  </span>
+                </button>
+              ))}
             </div>
-            <label className="mcm-myfiles__sort">
-              {t("myfiles.sortLabel")}
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as SortKey)}
+            <div className="mcm-toolbar mcm-myfiles__toolbar-end">
+              <div
+                className="mcm-segmented"
+                role="group"
+                aria-label={t("view.label")}
               >
-                <option value="date">{t("myfiles.sortDate")}</option>
-                <option value="name">{t("myfiles.sortName")}</option>
-                <option value="size">{t("myfiles.sortSize")}</option>
-              </select>
-            </label>
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    viewMode === "grid" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setViewMode("grid")}
+                  title={t("view.grid")}
+                  aria-label={t("view.grid")}
+                  aria-pressed={viewMode === "grid" ? "true" : "false"}
+                >
+                  <LayoutGrid size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    viewMode === "list" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setViewMode("list")}
+                  title={t("view.list")}
+                  aria-label={t("view.list")}
+                  aria-pressed={viewMode === "list" ? "true" : "false"}
+                >
+                  <ListIcon size={14} />
+                </button>
+              </div>
+              <label className="mcm-select" title={t("myfiles.sortLabel")}>
+                <ArrowUpDown size={13} className="mcm-select__icon" />
+                <select
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as SortKey)}
+                  aria-label={t("myfiles.sortLabel")}
+                >
+                  <option value="date">{t("myfiles.sortDate")}</option>
+                  <option value="name">{t("myfiles.sortName")}</option>
+                  <option value="size">{t("myfiles.sortSize")}</option>
+                </select>
+              </label>
+            </div>
           </div>
           {sections.map(({ kind, files: sectionFiles }) => (
             <section key={kind} className="mcm-myfiles__section">
@@ -412,19 +575,36 @@ export const MyFilesPanel = () => {
                   {sectionFiles.length}
                 </span>
               </div>
-              <ul className="mcm-myfiles__list">
-                {sectionFiles.map((file) => (
-                  <MyFileRow
-                    key={file.id}
-                    file={file}
-                    saving={savingId === file.id}
-                    deleting={deletingId === file.id}
-                    onUpdate={(target, patch) =>
-                      void handleUpdate(target, patch)
-                    }
-                    onDelete={(target) => void handleDelete(target)}
-                  />
-                ))}
+              <ul
+                className={`mcm-myfiles__list${
+                  viewMode === "grid" ? " mcm-myfiles__list--grid" : ""
+                }`}
+              >
+                {sectionFiles.map((file) =>
+                  viewMode === "grid" ? (
+                    <MyFileCard
+                      key={file.id}
+                      file={file}
+                      saving={savingId === file.id}
+                      deleting={deletingId === file.id}
+                      onUpdate={(target, patch) =>
+                        void handleUpdate(target, patch)
+                      }
+                      onDelete={(target) => void handleDelete(target)}
+                    />
+                  ) : (
+                    <MyFileRow
+                      key={file.id}
+                      file={file}
+                      saving={savingId === file.id}
+                      deleting={deletingId === file.id}
+                      onUpdate={(target, patch) =>
+                        void handleUpdate(target, patch)
+                      }
+                      onDelete={(target) => void handleDelete(target)}
+                    />
+                  ),
+                )}
               </ul>
             </section>
           ))}
