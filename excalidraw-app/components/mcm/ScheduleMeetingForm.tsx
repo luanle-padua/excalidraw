@@ -28,6 +28,7 @@ import {
   DISCIPLINE,
   MTG_TYPE,
   PRIORITY,
+  metaOptionLabel,
   withLegacy,
 } from "./metadataFields";
 import { PeopleGrid } from "./PeopleGrid";
@@ -252,7 +253,7 @@ export const ScheduleMeetingForm = ({
       <select value={value} onChange={(e) => set(e.target.value)}>
         {withLegacy(options, value).map((o) => (
           <option key={o} value={o}>
-            {o || "—"}
+            {o ? metaOptionLabel(t, o) : "—"}
           </option>
         ))}
       </select>

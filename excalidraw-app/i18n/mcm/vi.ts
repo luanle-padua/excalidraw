@@ -443,6 +443,38 @@ export const vi = {
     memberAddFailed: "Không thêm được thành viên (chỉ email nội bộ).",
   },
 
+  // ---------------- Trang quản lý dự án -----------------------------
+  pmgr: {
+    navLabel: "Quản lý dự án",
+    title: "Quản lý dự án",
+    searchPlaceholder: "Tìm dự án…",
+    newProject: "Dự án mới",
+    createTitle: "Tạo dự án mới",
+    groupMine: "Dự án của tôi",
+    groupInvited: "Được mời",
+    readOnly: "Bạn được mời vào dự án này — chỉ xem",
+    back: "Tất cả dự án",
+    viewMeetings: "Xem cuộc họp",
+    manage: "Quản lý dự án",
+    sectionInfo: "Thông tin",
+    sectionDanger: "Vùng nguy hiểm",
+    dangerDeleteHint: "Chỉ xóa được khi dự án không còn cuộc họp.",
+    empty: "Chưa có dự án nào",
+    emptyHint: "Tạo dự án đầu tiên để bắt đầu tổ chức cuộc họp.",
+    emptySearch: 'Không có dự án khớp "{q}"',
+    clearSearch: "Xóa bộ lọc",
+    savePartialFailed:
+      "Đã tạo dự án nhưng lưu thông tin bổ sung thất bại — bấm Sửa để thử lại.",
+    ownerLabel: "Chủ dự án",
+    createdAt: "Tạo lúc",
+    metaClient: "Khách hàng",
+    metaLocation: "Địa điểm",
+    metaBranch: "Văn phòng",
+    metaType: "Loại dự án",
+    noMeta: "Chưa có mô tả",
+    deleted: 'Đã xóa dự án "{name}"',
+  },
+
   // ---------------- People grid (nhóm người trên meeting) -----------
   people: {
     internalCount: "Nội bộ ({count})",
@@ -596,6 +628,7 @@ export const vi = {
     micBusy:
       "Mic đang bị app khác chiếm (Teams/Zoom...). Thoát app đó rồi thử lại.",
     cannotStartMic: "Không thể bật microphone",
+    callFailed: "Không vào được cuộc gọi — kiểm tra mạng rồi thử lại.",
     retry: "Thử lại",
     raiseHand: "Giơ tay",
     lowerHand: "Hạ tay",
@@ -603,6 +636,192 @@ export const vi = {
     pickEmoji: "Chọn emoji",
     sendReaction: "Gửi {emoji}",
     callingNoPeers: "Đang gọi…",
+  },
+
+  // ---------------- Meeting recording ------------------------------
+  recording: {
+    audioNotReady: "Audio call chưa sẵn sàng",
+    noAudioSource: "Không có nguồn âm thanh nào — vào audio call rồi thử lại",
+    startFailed: "Không thể bắt đầu ghi",
+    emptyFile: "File ghi âm trống — kiểm tra mic và thử lại",
+    stopFailed: "Lỗi khi dừng ghi",
+    recTooltipHost: "Đang ghi âm · {time} — bấm để dừng",
+    recTooltipPeer: "{host} đang ghi âm cuộc họp · {time}",
+    startTitle: "Bắt đầu ghi âm cuộc họp (chỉ host)",
+    joinFirst: "Vào audio call trước để ghi âm",
+    startAria: "Bắt đầu ghi âm",
+    hostOnlyTitle: "Chỉ host ({host}) mới ghi âm được",
+    hostOnlyAria: "Ghi âm — chỉ host {host} mới dùng được",
+    redownloadTitle: "Tải lại bản ghi vừa rồi",
+    redownloadAria: "Tải lại bản ghi",
+  },
+
+  // ---------------- Canvas text translate ---------------------------
+  textTranslate: {
+    aria: "Dịch văn bản",
+    staleTitle: "Bản dịch đã cũ — bấm để cập nhật",
+    refresh: "Cập nhật bản dịch",
+    translateTo: "Dịch sang {lang}",
+    translating: "Đang dịch…",
+    translate: "Dịch",
+    pickOther: "Chọn ngôn ngữ khác",
+  },
+
+  // ---------------- Meeting library (room file shelf) ---------------
+  library: {
+    unsupportedType: "Tạm thời chỉ hỗ trợ ảnh, DXF, PDF và IFC. Bỏ qua: {name}",
+    ifcProcessFailed: "Không thể xử lý file IFC: {name}",
+    deleteLockedAlert:
+      "File này đang bị khoá bởi {lockedBy}. Yêu cầu họ mở khoá trước.",
+    deleteConfirm:
+      'Xoá "{name}" khỏi thư viện phòng?\n\nMọi ảnh dùng file này trên canvas cũng bị xoá (cho cả người khác).',
+    unlockDenied:
+      "Chỉ {lockedBy} (người khoá) hoặc {author} (người tải lên) có thể mở khoá.",
+    authorChipTitle: "Tải lên bởi {author}",
+    authorChipLockedSuffix: " · đang khoá bởi {lockedBy}",
+    linkTextAria: "Link tới text element đang chọn",
+    linkTextTitle: "Link tới text element đang chọn (mention từ canvas)",
+    unlockAria: "Mở khoá",
+    lockAria: "Khoá file",
+    lockedByTitle: "Khoá bởi {lockedBy}. Bấm để mở khoá.",
+    lockTitle: "Khoá file (chặn người khác xoá)",
+    deleteAria: "Xoá",
+    deleteTitle: "Xoá khỏi thư viện và canvas",
+    deleteDisabledTitle: "File đang bị khoá bởi {lockedBy}",
+    itemTitle: "{name} — bấm hoặc kéo vào canvas",
+    justNow: "vừa xong",
+    sectionDxf: "Bản vẽ CAD",
+    sectionIfc: "Mô hình IFC",
+    sectionPdf: "Tài liệu PDF",
+    sectionImage: "Hình ảnh",
+    sectionOther: "File khác",
+    chipAll: "Tất cả",
+    chipImage: "Ảnh",
+    chipOther: "Khác",
+    dropToUpload: "Thả file để tải lên",
+    uploadButton: "+ Tải ảnh / DXF / PDF / IFC lên · hoặc kéo thả",
+    fileInputAria: "Chọn ảnh, DXF, PDF hoặc IFC để tải lên thư viện phòng",
+    searchPlaceholder: "Tìm theo tên hoặc người tải…",
+    searchAria: "Tìm kiếm trong thư viện",
+    sortAria: "Sắp xếp",
+    sortNewest: "Mới nhất",
+    sortOldest: "Cũ nhất",
+    sortName: "Tên A-Z",
+    sortAuthor: "Người tải",
+    viewModeAria: "Chế độ xem",
+    viewGridTitle: "Hiển thị dạng lưới",
+    viewListTitle: "Hiển thị dạng danh sách",
+    groupByTypeTitle: "Gom nhóm theo loại file",
+    emptyTitle: "Chưa có file nào trong phòng này.",
+    emptyHint: "Kéo ảnh vào đây hoặc paste/kéo lên canvas để bắt đầu.",
+    noMatch: "Không có file nào khớp với bộ lọc.",
+    clearFilters: "Xoá bộ lọc",
+  },
+
+  // ---------------- PDF canvas overlay ------------------------------
+  pdfOverlay: {
+    waitingPeer: "Đang chờ file PDF từ peer…",
+    prevPage: "Trang trước",
+    nextPage: "Trang sau",
+    exit: "Thoát",
+    exitTitle: "Thoát chế độ chỉnh PDF (ESC)",
+    menuEdit: "Chỉnh PDF (đổi trang)",
+    menuCancel: "Huỷ",
+  },
+
+  // ---------------- Canvas navigation widget ------------------------
+  canvasNav: {
+    rootAria: "Điều hướng canvas",
+    minimapAria: "Bản đồ canvas",
+    minimapTitle: "Click hoặc kéo để di chuyển camera",
+    zoomIn: "Phóng to",
+    zoomOut: "Thu nhỏ",
+    zoomResetTitle: "Đặt lại zoom (100%)",
+    zoomPctAria: "Zoom {pct}% — bấm để reset",
+    mapHide: "Ẩn navigation map",
+    mapShow: "Hiện navigation map",
+    mapToggleAria: "Bật/tắt navigation map",
+  },
+
+  // ---------------- Sticker / stamp picker --------------------------
+  sticker: {
+    kindSticker: "Sticker",
+    kindStamp: "Con dấu",
+    pickerAria: "Bảng chọn {kind}",
+    hint: "Chọn → lăn chuột chỉnh cỡ → click để dán",
+    empty: "Chưa có {kind} nào trong thư viện.",
+  },
+
+  // ---------------- Revision cloud tool -----------------------------
+  revCloud: {
+    // Creation-time default text baked into the (shared) note element.
+    defaultNote: "Ghi chú",
+    placeNoteToast: "Bấm vào vị trí muốn đặt ghi chú",
+  },
+
+  // ---------------- Project / meeting metadata vocabularies ---------
+  // Field labels + canonical option DISPLAY labels. Stored values stay
+  // English (metadataFields.ts) — only the rendered label localises.
+  meta: {
+    field: {
+      name: "Tên",
+      cover: "Ảnh bìa",
+      code: "Mã dự án",
+      client: "Khách hàng",
+      location: "Địa điểm",
+      branch: "Chi nhánh / văn phòng",
+      phase: "Giai đoạn",
+      projectType: "Loại dự án",
+      description: "Mô tả",
+      title: "Tiêu đề",
+      topic: "Chủ đề",
+      meetingType: "Loại cuộc họp",
+      discipline: "Bộ môn",
+      priority: "Ưu tiên",
+      confidentiality: "Bảo mật",
+      scheduledDate: "Lịch hẹn",
+    },
+    ph: {
+      code: "VD: MAP-2026-014",
+      client: "Khách hàng / chủ đầu tư",
+      location: "Thành phố, quốc gia",
+      branch: "Studio / văn phòng",
+      notes: "Ghi chú",
+      topic: "Nội dung / trọng tâm",
+    },
+    option: {
+      concept: "Ý tưởng",
+      schematicDesign: "Thiết kế cơ sở",
+      designDevelopment: "Thiết kế kỹ thuật",
+      constructionDocs: "Hồ sơ thi công",
+      construction: "Thi công",
+      handover: "Bàn giao",
+      residential: "Nhà ở",
+      commercial: "Thương mại",
+      mixedUse: "Hỗn hợp",
+      public: "Công cộng",
+      industrial: "Công nghiệp",
+      other: "Khác",
+      designReview: "Review thiết kế",
+      kickoff: "Khởi động",
+      coordination: "Phối hợp",
+      clientPresentation: "Trình bày với khách hàng",
+      internalSync: "Họp nội bộ",
+      qaqc: "QA-QC",
+      architecture: "Kiến trúc",
+      structure: "Kết cấu",
+      mep: "MEP",
+      facade: "Mặt dựng",
+      interior: "Nội thất",
+      landscape: "Cảnh quan",
+      general: "Chung",
+      low: "Thấp",
+      normal: "Bình thường",
+      high: "Cao",
+      internal: "Nội bộ",
+      clientShared: "Chia sẻ với khách",
+      confidential: "Bảo mật",
+    },
   },
 
   // ---------------- Screen share -----------------------------------
@@ -946,5 +1165,7 @@ export const vi = {
     joinUnverified:
       "Không kiểm tra được trạng thái cuộc họp (mất kết nối máy chủ). Thử lại sau.",
     presentFailed: "Không trình bày được màn hình. {detail}",
+    loadFailed: "Không tải được dữ liệu — kiểm tra kết nối mạng.",
+    retry: "Thử lại",
   },
 } as const;

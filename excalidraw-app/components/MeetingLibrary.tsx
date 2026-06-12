@@ -44,6 +44,7 @@ import { probePdf } from "./mcm/pdf/pdfRendering";
 import "./MeetingLibrary.scss";
 
 import type { MeetingFile } from "../data/meetingLibrary";
+import type { McmKey } from "../i18n/mcm";
 
 const newFileId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -184,12 +185,13 @@ const authorInitial = (name: string): string => {
 
 /** Short relative timestamp ("2m", "3h", "yesterday", "5 Mar") used in
  *  the list view so each row can show recency without consuming the
- *  width of a full ISO string. */
-const relativeTime = (ts: number): string => {
+ *  width of a full ISO string. `justNow` is the localised "<1 min"
+ *  label (module-level helper — no hook access). */
+const relativeTime = (ts: number, justNow: string): string => {
   const diffMs = Date.now() - ts;
   const min = Math.floor(diffMs / 60_000);
   if (min < 1) {
-    return "just now";
+    return justNow;
   }
   if (min < 60) {
     return `${min}m`;
@@ -210,13 +212,14 @@ type SortBy = "newest" | "oldest" | "name" | "author";
 type ViewMode = "grid" | "list";
 
 /** Order in which sections appear when group-by-type is enabled, plus
- *  the user-facing section title. */
-const TYPE_SECTION_ORDER: { type: FileType; title: string }[] = [
-  { type: "dxf", title: "CAD drawings" },
-  { type: "ifc", title: "IFC models" },
-  { type: "pdf", title: "PDF documents" },
-  { type: "image", title: "Images" },
-  { type: "other", title: "Other files" },
+ *  the i18n key of the user-facing section title (translated at
+ *  render). */
+const TYPE_SECTION_ORDER: { type: FileType; titleKey: McmKey }[] = [
+  { type: "dxf", titleKey: "library.sectionDxf" },
+  { type: "ifc", titleKey: "library.sectionIfc" },
+  { type: "pdf", titleKey: "library.sectionPdf" },
+  { type: "image", titleKey: "library.sectionImage" },
+  { type: "other", titleKey: "library.sectionOther" },
 ];
 
 /** Fallback mime when the shelf blob arrives untyped — keeps the
@@ -433,9 +436,7 @@ export const MeetingLibrary = () => {
         const isPdf = isPdfFile(file);
         const isIfc = isIfcFile(file);
         if (!isImage && !isDxf && !isPdf && !isIfc) {
-          window.alert(
-            `Tạm thời chỉ hỗ trợ ảnh, DXF, PDF và IFC. Bỏ qua: ${file.name}`,
-          );
+          window.alert(t("library.unsupportedType", { name: file.name }));
           continue;
         }
         if (isIfc) {
@@ -471,7 +472,7 @@ export const MeetingLibrary = () => {
             );
           } catch (error: any) {
             console.error("[meetingLibrary] failed to bake IFC", error);
-            window.alert(`Không thể xử lý file IFC: ${file.name}`);
+            window.alert(t("library.ifcProcessFailed", { name: file.name }));
           }
           continue;
         }
@@ -549,7 +550,7 @@ export const MeetingLibrary = () => {
         }
       }
     },
-    [excalidrawAPI, collabAPI],
+    [excalidrawAPI, collabAPI, t],
   );
 
   const handlePickFiles = () => {
@@ -1122,15 +1123,11 @@ export const MeetingLibrary = () => {
     e.stopPropagation();
     if (!canDeleteFile(file, me)) {
       window.alert(
-        `File này đang bị khoá bởi ${file.lockedBy}. Yêu cầu họ mở khoá trước.`,
+        t("library.deleteLockedAlert", { lockedBy: file.lockedBy ?? "" }),
       );
       return;
     }
-    if (
-      !window.confirm(
-        `Xoá "${file.name}" khỏi thư viện phòng?\n\nMọi ảnh dùng file này trên canvas cũng bị xoá (cho cả người khác).`,
-      )
-    ) {
+    if (!window.confirm(t("library.deleteConfirm", { name: file.name }))) {
       return;
     }
     // collabAPI: removes canvas elements + library entry + broadcasts
@@ -1143,7 +1140,10 @@ export const MeetingLibrary = () => {
       // unlock
       if (!canUnlockFile(file, me)) {
         window.alert(
-          `Chỉ ${file.lockedBy} (người khoá) hoặc ${file.author} (người tải lên) có thể mở khoá.`,
+          t("library.unlockDenied", {
+            lockedBy: file.lockedBy ?? "",
+            author: file.author,
+          }),
         );
         return;
       }
@@ -1269,11 +1269,11 @@ export const MeetingLibrary = () => {
   /** Coloured-initial badge — same algorithm as the participants bar,
    *  so the same uploader reads as the same swatch wherever it shows
    *  up in the meeting UI. */
-  const renderAuthorChip = (author: string, locked?: boolean) => (
+  const renderAuthorChip = (author: string, lockedBy?: string | null) => (
     <span
       className="MeetingLibrary__author-chip"
-      title={`Tải lên bởi ${author}${
-        locked ? ` · đang khoá bởi ${locked}` : ""
+      title={`${t("library.authorChipTitle", { author })}${
+        lockedBy ? t("library.authorChipLockedSuffix", { lockedBy }) : ""
       }`}
     >
       <span
@@ -1299,8 +1299,8 @@ export const MeetingLibrary = () => {
       <button
         type="button"
         className="MeetingLibrary__item-action"
-        aria-label="Link tới text element đang chọn"
-        title="Link tới text element đang chọn (mention từ canvas)"
+        aria-label={t("library.linkTextAria")}
+        title={t("library.linkTextTitle")}
         onClick={(e) => handleLinkText(file, e)}
       >
         🔗
@@ -1310,11 +1310,13 @@ export const MeetingLibrary = () => {
         className={`MeetingLibrary__item-action ${
           file.lockedBy ? "MeetingLibrary__item-action--locked" : ""
         }`}
-        aria-label={file.lockedBy ? "Mở khoá" : "Khoá file"}
+        aria-label={
+          file.lockedBy ? t("library.unlockAria") : t("library.lockAria")
+        }
         title={
           file.lockedBy
-            ? `Khoá bởi ${file.lockedBy}. Bấm để mở khoá.`
-            : "Khoá file (chặn người khác xoá)"
+            ? t("library.lockedByTitle", { lockedBy: file.lockedBy })
+            : t("library.lockTitle")
         }
         onClick={(e) => handleToggleLock(file, e)}
       >
@@ -1323,11 +1325,13 @@ export const MeetingLibrary = () => {
       <button
         type="button"
         className="MeetingLibrary__item-action MeetingLibrary__item-action--danger"
-        aria-label="Xoá"
+        aria-label={t("library.deleteAria")}
         title={
           canDeleteFile(file, me)
-            ? "Xoá khỏi thư viện và canvas"
-            : `File đang bị khoá bởi ${file.lockedBy}`
+            ? t("library.deleteTitle")
+            : t("library.deleteDisabledTitle", {
+                lockedBy: file.lockedBy ?? "",
+              })
         }
         onClick={(e) => handleDelete(file, e)}
         disabled={!canDeleteFile(file, me)}
@@ -1346,7 +1350,7 @@ export const MeetingLibrary = () => {
         onClick={() => handleInsert(file)}
         draggable
         onDragStart={(e) => handleItemDragStart(file, e)}
-        title={`${file.name} — bấm hoặc kéo vào canvas`}
+        title={t("library.itemTitle", { name: file.name })}
       >
         <div className="MeetingLibrary__item-thumb">{renderThumb(file)}</div>
         <span
@@ -1356,7 +1360,7 @@ export const MeetingLibrary = () => {
         </span>
         <div className="MeetingLibrary__item-meta">
           <div className="MeetingLibrary__item-name">{file.name}</div>
-          {renderAuthorChip(file.author, !!file.lockedBy)}
+          {renderAuthorChip(file.author, file.lockedBy)}
         </div>
         {renderActions(file)}
       </div>
@@ -1372,7 +1376,7 @@ export const MeetingLibrary = () => {
         onClick={() => handleInsert(file)}
         draggable
         onDragStart={(e) => handleItemDragStart(file, e)}
-        title={`${file.name} — bấm hoặc kéo vào canvas`}
+        title={t("library.itemTitle", { name: file.name })}
       >
         <div className="MeetingLibrary__row-thumb">{renderThumb(file)}</div>
         <div className="MeetingLibrary__row-main">
@@ -1385,9 +1389,9 @@ export const MeetingLibrary = () => {
             </span>
           </div>
           <div className="MeetingLibrary__row-sub">
-            {renderAuthorChip(file.author, !!file.lockedBy)}
+            {renderAuthorChip(file.author, file.lockedBy)}
             <span className="MeetingLibrary__row-ts">
-              {relativeTime(file.ts)}
+              {relativeTime(file.ts, t("library.justNow"))}
             </span>
             {file.lockedBy && (
               <span className="MeetingLibrary__row-lock">
@@ -1425,7 +1429,7 @@ export const MeetingLibrary = () => {
       byType[fileTypeOf(f)].push(f);
     }
     return TYPE_SECTION_ORDER.filter(({ type }) => byType[type].length > 0).map(
-      ({ type, title }) => {
+      ({ type, titleKey }) => {
         const isCollapsed = collapsedSections.has(type);
         const sectionFiles = byType[type];
         return (
@@ -1439,7 +1443,9 @@ export const MeetingLibrary = () => {
               <span className="MeetingLibrary__section-caret" aria-hidden>
                 {isCollapsed ? "▸" : "▾"}
               </span>
-              <span className="MeetingLibrary__section-title">{title}</span>
+              <span className="MeetingLibrary__section-title">
+                {t(titleKey)}
+              </span>
               <span className="MeetingLibrary__section-count">
                 {sectionFiles.length}
               </span>
@@ -1457,12 +1463,20 @@ export const MeetingLibrary = () => {
   const filterChips: { key: FileType | "all"; label: string; count: number }[] =
     (
       [
-        { key: "all", label: "All", count: items.length },
+        { key: "all", label: t("library.chipAll"), count: items.length },
         { key: "dxf", label: "DXF", count: typeCounts.dxf },
         { key: "ifc", label: "IFC", count: typeCounts.ifc },
         { key: "pdf", label: "PDF", count: typeCounts.pdf },
-        { key: "image", label: "Image", count: typeCounts.image },
-        { key: "other", label: "Other", count: typeCounts.other },
+        {
+          key: "image",
+          label: t("library.chipImage"),
+          count: typeCounts.image,
+        },
+        {
+          key: "other",
+          label: t("library.chipOther"),
+          count: typeCounts.other,
+        },
       ] as const
     )
       .filter((c) => c.key === "all" || c.count > 0)
@@ -1490,16 +1504,14 @@ export const MeetingLibrary = () => {
           disabled={!excalidrawAPI || viewOnly}
           title={viewOnly ? t("review.uploadDisabled") : undefined}
         >
-          {dragOver
-            ? "Thả file để tải lên"
-            : "+ Tải ảnh / DXF / PDF / IFC lên · hoặc kéo thả"}
+          {dragOver ? t("library.dropToUpload") : t("library.uploadButton")}
         </button>
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*,.dxf,application/dxf,image/vnd.dxf,.pdf,application/pdf,.ifc"
           multiple
-          aria-label="Chọn ảnh, DXF, PDF hoặc IFC để tải lên thư viện phòng"
+          aria-label={t("library.fileInputAria")}
           className="MeetingLibrary__file-input"
           onChange={handleFileInputChange}
         />
@@ -1590,10 +1602,10 @@ export const MeetingLibrary = () => {
             <input
               type="text"
               className="MeetingLibrary__search"
-              placeholder="Tìm theo tên hoặc người tải…"
+              placeholder={t("library.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Tìm kiếm trong thư viện"
+              aria-label={t("library.searchAria")}
             />
             <div className="MeetingLibrary__filters">
               {filterChips.map((chip) => (
@@ -1619,17 +1631,17 @@ export const MeetingLibrary = () => {
                 className="MeetingLibrary__sort"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortBy)}
-                aria-label="Sắp xếp"
+                aria-label={t("library.sortAria")}
               >
-                <option value="newest">Mới nhất</option>
-                <option value="oldest">Cũ nhất</option>
-                <option value="name">Tên A-Z</option>
-                <option value="author">Người tải</option>
+                <option value="newest">{t("library.sortNewest")}</option>
+                <option value="oldest">{t("library.sortOldest")}</option>
+                <option value="name">{t("library.sortName")}</option>
+                <option value="author">{t("library.sortAuthor")}</option>
               </select>
               <div
                 className="MeetingLibrary__view-toggle"
                 role="radiogroup"
-                aria-label="Chế độ xem"
+                aria-label={t("library.viewModeAria")}
               >
                 <button
                   type="button"
@@ -1640,7 +1652,7 @@ export const MeetingLibrary = () => {
                   }`}
                   onClick={() => setViewMode("grid")}
                   aria-pressed={viewMode === "grid" ? "true" : "false"}
-                  title="Hiển thị dạng lưới"
+                  title={t("library.viewGridTitle")}
                 >
                   ▦
                 </button>
@@ -1653,7 +1665,7 @@ export const MeetingLibrary = () => {
                   }`}
                   onClick={() => setViewMode("list")}
                   aria-pressed={viewMode === "list" ? "true" : "false"}
-                  title="Hiển thị dạng danh sách"
+                  title={t("library.viewListTitle")}
                 >
                   ☰
                 </button>
@@ -1664,7 +1676,7 @@ export const MeetingLibrary = () => {
                   }`}
                   onClick={() => setGroupByType((v) => !v)}
                   aria-pressed={groupByType ? "true" : "false"}
-                  title="Gom nhóm theo loại file"
+                  title={t("library.groupByTypeTitle")}
                 >
                   ⌘
                 </button>
@@ -1676,13 +1688,13 @@ export const MeetingLibrary = () => {
       <div className="MeetingLibrary__body">
         {items.length === 0 ? (
           <div className="MeetingLibrary__empty">
-            Chưa có file nào trong phòng này.
+            {t("library.emptyTitle")}
             <br />
-            Kéo ảnh vào đây hoặc paste/kéo lên canvas để bắt đầu.
+            {t("library.emptyHint")}
           </div>
         ) : displayedFiles.length === 0 ? (
           <div className="MeetingLibrary__empty">
-            Không có file nào khớp với bộ lọc.
+            {t("library.noMatch")}
             <br />
             <button
               type="button"
@@ -1692,7 +1704,7 @@ export const MeetingLibrary = () => {
                 setFilterType("all");
               }}
             >
-              Xoá bộ lọc
+              {t("library.clearFilters")}
             </button>
           </div>
         ) : groupByType ? (

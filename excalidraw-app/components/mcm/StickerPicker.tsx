@@ -23,9 +23,12 @@ import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
+import { useT } from "../../i18n/mcm";
 
 import { STAMP_ASSETS, STICKER_ASSETS } from "./decorations/assets";
 import { findOrCreateToolbarExtras } from "./toolbarExtras";
+
+import type { McmKey } from "../../i18n/mcm";
 
 const MAX_INSERT = 240; // px (logical) on canvas
 
@@ -41,20 +44,21 @@ type PlacingState = {
 
 const KINDS: ReadonlyArray<{
   kind: Kind;
-  label: string;
+  /** i18n key of the user-facing label — translated at render. */
+  labelKey: McmKey;
   assets: readonly string[];
   /** Optional toolbar-button icon; defaults to assets[0]. */
   icon?: string;
 }> = [
   {
     kind: "sticker",
-    label: "Stickers",
+    labelKey: "sticker.kindSticker",
     assets: STICKER_ASSETS,
     // Use a colourful MAP character instead of the plain hand-drawn 01.png
     // so the toolbar button reads clearly as "stickers".
     icon: "/decorations/stickers/02.png",
   },
-  { kind: "stamp", label: "Stamps", assets: STAMP_ASSETS },
+  { kind: "stamp", labelKey: "sticker.kindStamp", assets: STAMP_ASSETS },
 ];
 
 const newFileId = (): string =>
@@ -96,6 +100,7 @@ const scaleDown = (w: number, h: number, max: number) => {
 };
 
 export const StickerPicker = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const collabAPI = useAtomValue(collabAPIAtom);
   const [toolbarEl, setToolbarEl] = useState<HTMLElement | null>(null);
@@ -507,7 +512,8 @@ export const StickerPicker = () => {
             via a portal, so they sit next to the shape buttons. */}
       {createPortal(
         <>
-          {KINDS.map(({ kind, label, assets, icon }) => {
+          {KINDS.map(({ kind, labelKey, assets, icon }) => {
+            const label = t(labelKey);
             const previewSrc = icon ?? assets[0]; // per-kind icon override
             const isOpen = openKind === kind;
             return (
@@ -552,22 +558,26 @@ export const StickerPicker = () => {
             ref={popoverRef}
             className="mcm-sticker-popover"
             role="dialog"
-            aria-label={`${activeKind.label} picker`}
+            aria-label={t("sticker.pickerAria", {
+              kind: t(activeKind.labelKey),
+            })}
             // eslint-disable-next-line react/forbid-dom-props
             style={{ left: popoverPos.left, top: popoverPos.top }}
           >
             <div className="mcm-sticker-popover__header">
               <span className="mcm-sticker-popover__title">
-                {activeKind.label}
+                {t(activeKind.labelKey)}
               </span>
               <span className="mcm-sticker-popover__hint">
-                Chọn → lăn chuột chỉnh cỡ → click để dán
+                {t("sticker.hint")}
               </span>
             </div>
             <div className="mcm-sticker-popover__grid">
               {activeKind.assets.length === 0 ? (
                 <div className="mcm-sticker-popover__empty">
-                  Chưa có {activeKind.label.toLowerCase()} nào trong thư viện.
+                  {t("sticker.empty", {
+                    kind: t(activeKind.labelKey).toLowerCase(),
+                  })}
                 </div>
               ) : (
                 activeKind.assets.map((path) => (

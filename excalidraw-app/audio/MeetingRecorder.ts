@@ -132,8 +132,10 @@ export class MeetingRecorder {
         ? new MediaRecorder(this.destination.stream, { mimeType })
         : new MediaRecorder(this.destination.stream);
     } catch (err) {
+      // Dev-facing detail — the UI shows an i18n headline and only
+      // appends this message in parentheses (tooltip).
       throw new Error(
-        `Không thể khởi tạo MediaRecorder: ${(err as Error)?.message ?? err}`,
+        `MediaRecorder init failed: ${(err as Error)?.message ?? err}`,
       );
     }
     this.chunks = [];
@@ -155,7 +157,7 @@ export class MeetingRecorder {
     return new Promise((resolve, reject) => {
       const recorder = this.recorder;
       if (!recorder) {
-        reject(new Error("Chưa bắt đầu ghi"));
+        reject(new Error("recording was never started"));
         return;
       }
       const finish = async () => {

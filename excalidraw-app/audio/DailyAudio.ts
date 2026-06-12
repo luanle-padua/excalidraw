@@ -140,7 +140,9 @@ export class DailyAudio {
     if (!cfg) {
       this.active = false;
       this.releaseMic();
-      const err = new Error("Không lấy được token cuộc gọi (Daily)");
+      // Message is dev-facing detail only — the UI shows an i18n string
+      // mapped from audioState.errorKind, never this text.
+      const err = new Error("could not fetch the call token (Daily)");
       this.events.onError?.(err);
       throw err;
     }
@@ -176,7 +178,7 @@ export class DailyAudio {
       this.call = null;
       this.releaseMic();
       const e =
-        err instanceof Error ? err : new Error("Không vào được cuộc gọi");
+        err instanceof Error ? err : new Error("could not join the call");
       this.events.onError?.(e);
       throw e;
     }
@@ -313,7 +315,11 @@ export class DailyAudio {
     };
     this.peers.set(socketId, peer);
     this.attachAnalyser(peer);
-    this.setPeerState(socketId, { socketId, speaking: false, hasRemoteStream: true });
+    this.setPeerState(socketId, {
+      socketId,
+      speaking: false,
+      hasRemoteStream: true,
+    });
     this.events.onPeerStream?.(socketId, stream);
     log(`remote audio from ${e.participant.user_name} (${socketId})`);
   };
@@ -322,7 +328,8 @@ export class DailyAudio {
     if (e.type !== "audio" || !e.participant || e.participant.local) {
       return;
     }
-    const socketId = this.socketIdOf(e.participant) ??
+    const socketId =
+      this.socketIdOf(e.participant) ??
       this.sessionToSocket.get(e.participant.session_id);
     if (socketId) {
       this.dropPeer(socketId);
@@ -376,7 +383,7 @@ export class DailyAudio {
 
   private onFatalError = (e: DailyEventObjectFatalError) => {
     warn("fatal error", e.errorMsg);
-    this.events.onError?.(new Error(e.errorMsg || "Lỗi cuộc gọi"));
+    this.events.onError?.(new Error(e.errorMsg || "call error"));
   };
 
   // ---- peer state + speaking analyser ------------------------------------

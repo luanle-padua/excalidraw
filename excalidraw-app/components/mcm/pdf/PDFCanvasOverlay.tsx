@@ -26,6 +26,7 @@ import type { ExcalidrawElement, FileId } from "@excalidraw/element/types";
 import { appJotaiStore, useAtomValue } from "../../../app-jotai";
 import { meetingViewOnlyAtom } from "../../../collab/Collab";
 import { meetingFilesAtom } from "../../../data/meetingLibrary";
+import { useT } from "../../../i18n/mcm";
 
 import { PDFRenderer } from "./PDFRenderer";
 import {
@@ -163,6 +164,7 @@ const writePdfSnapshotToFileMap = (
 };
 
 export const PDFCanvasOverlay = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const files = useAtomValue(meetingFilesAtom);
   // Re-render on snapshot cache updates so passive anchors flip from
@@ -695,7 +697,7 @@ export const PDFCanvasOverlay = () => {
                 )
               ) : !known ? (
                 <div className="mcm-pdf-layer__waiting">
-                  Đang chờ file PDF từ peer…
+                  {t("pdfOverlay.waitingPeer")}
                 </div>
               ) : (
                 // Image anchor — focused = live renderer on top of the
@@ -742,7 +744,7 @@ export const PDFCanvasOverlay = () => {
                     goToPage(a, -1);
                   }}
                   disabled={a.page <= 1}
-                  title="Trang trước"
+                  title={t("pdfOverlay.prevPage")}
                 >
                   ←
                 </button>
@@ -758,7 +760,7 @@ export const PDFCanvasOverlay = () => {
                     goToPage(a, 1);
                   }}
                   disabled={pageCount > 0 && a.page >= pageCount}
-                  title="Trang sau"
+                  title={t("pdfOverlay.nextPage")}
                 >
                   →
                 </button>
@@ -769,9 +771,9 @@ export const PDFCanvasOverlay = () => {
                     e.stopPropagation();
                     setFocusedAnchorId(null);
                   }}
-                  title="Thoát chế độ chỉnh PDF (ESC)"
+                  title={t("pdfOverlay.exitTitle")}
                 >
-                  × Thoát
+                  × {t("pdfOverlay.exit")}
                 </button>
               </div>
             )}
@@ -804,7 +806,7 @@ export const PDFCanvasOverlay = () => {
                 }}
               >
                 <span aria-hidden="true">✏️</span>
-                <span>Chỉnh PDF (đổi trang)</span>
+                <span>{t("pdfOverlay.menuEdit")}</span>
               </button>
               <button
                 type="button"
@@ -813,7 +815,7 @@ export const PDFCanvasOverlay = () => {
                 onClick={() => setContextMenu(null)}
               >
                 <span aria-hidden="true">↩️</span>
-                <span>Huỷ</span>
+                <span>{t("pdfOverlay.menuCancel")}</span>
               </button>
             </div>
           );

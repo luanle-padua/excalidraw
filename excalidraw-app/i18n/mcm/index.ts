@@ -52,7 +52,9 @@ export type Widened<T> = {
 
 // Source-of-truth shape — every locale dictionary must extend this.
 export type McmStrings = Widened<typeof vi>;
-type McmKey = NestedKeyOf<McmStrings>;
+/** Exported so modules without hooks (e.g. metadataFields.ts) can carry
+ *  typed i18n keys that consumers translate at render time. */
+export type McmKey = NestedKeyOf<McmStrings>;
 
 /** All "dot-path" keys reachable in the nested dictionary, e.g.
  *  "header.invite". Computed from the vi dictionary so TS catches

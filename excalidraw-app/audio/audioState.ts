@@ -10,6 +10,11 @@ import type { MeetingRecorder, RecordingResult } from "./MeetingRecorder";
 
 export type AudioStatus = "idle" | "connecting" | "live" | "error";
 
+/** WHY the last start() failed, as a code — the UI maps it to an i18n
+ *  message at render time (never bake a localized string into state:
+ *  a Korean/English guest must not read a Vietnamese mic error). */
+export type AudioErrorKind = "mic-denied" | "mic-busy" | "mic" | "call";
+
 export type AudioState = {
   status: AudioStatus;
   /** the user's own mic is muted (still in call, just not transmitting) */
@@ -19,7 +24,9 @@ export type AudioState = {
   canTransmit: boolean;
   /** keyed by socket.id (excluding the local user) */
   peers: Map<string, PeerState>;
-  /** human-readable error from the last failed start() attempt */
+  /** error code from the last failed start() attempt — see AudioErrorKind */
+  errorKind: AudioErrorKind | null;
+  /** raw (dev-facing) error detail for the tooltip / console */
   errorMessage: string | null;
 };
 
@@ -28,6 +35,7 @@ export const audioStateAtom = atom<AudioState>({
   muted: false,
   canTransmit: true,
   peers: new Map(),
+  errorKind: null,
   errorMessage: null,
 });
 

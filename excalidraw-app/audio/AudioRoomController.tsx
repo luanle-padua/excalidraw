@@ -81,6 +81,7 @@ export const AudioRoomController = () => {
           muted: false,
           canTransmit: true,
           peers: new Map(),
+          errorKind: null,
           errorMessage: null,
         });
       }
@@ -103,55 +104,60 @@ export const AudioRoomController = () => {
       getSocketId: () => collabAPI.portal.socket?.id ?? null,
       getToken: (rid, name) => getDailyToken(rid, name),
       events: {
-      onState: ({ peers, muted, canTransmit }) => {
-        setAudioState((prev) => ({
-          ...prev,
-          peers,
-          muted,
-          canTransmit,
-          status: prev.status === "connecting" ? "live" : prev.status,
-        }));
-      },
-      onPeerStream: (socketId, stream) => {
-        const rec = recorderRef.current;
-        if (rec?.isRecording()) {
-          rec.addStream(socketId, stream);
-          setRecordingState((prev) => ({
+        onState: ({ peers, muted, canTransmit }) => {
+          setAudioState((prev) => ({
             ...prev,
-            inputCount: prev.inputCount + 1,
+            peers,
+            muted,
+            canTransmit,
+            status: prev.status === "connecting" ? "live" : prev.status,
           }));
-        }
-      },
-      onPeerRemoved: (socketId) => {
-        const rec = recorderRef.current;
-        if (rec?.isRecording()) {
-          rec.removeStream(socketId);
-          setRecordingState((prev) => ({
-            ...prev,
-            inputCount: Math.max(0, prev.inputCount - 1),
-          }));
-        }
-      },
-      onError: (err) => {
-        const name = err?.name;
-        let message = err?.message ?? "Không thể bật microphone";
-        if (name === "NotAllowedError") {
-          message =
-            "Mic bị từ chối — bật quyền microphone trong trình duyệt rồi thử lại.";
-        } else if (name === "NotReadableError" || name === "TrackStartError") {
-          message =
-            "Mic đang bị app khác chiếm (Teams/Zoom...). Thoát app đó rồi thử lại.";
-        }
-        // NotFoundError is no longer fatal — AudioRoom downgrades to
-        // listener-only mode, so we never reach this handler for it.
-        setAudioState({
-          status: "error",
-          muted: false,
-          canTransmit: false,
-          peers: new Map(),
-          errorMessage: message,
-        });
-      },
+        },
+        onPeerStream: (socketId, stream) => {
+          const rec = recorderRef.current;
+          if (rec?.isRecording()) {
+            rec.addStream(socketId, stream);
+            setRecordingState((prev) => ({
+              ...prev,
+              inputCount: prev.inputCount + 1,
+            }));
+          }
+        },
+        onPeerRemoved: (socketId) => {
+          const rec = recorderRef.current;
+          if (rec?.isRecording()) {
+            rec.removeStream(socketId);
+            setRecordingState((prev) => ({
+              ...prev,
+              inputCount: Math.max(0, prev.inputCount - 1),
+            }));
+          }
+        },
+        onError: (err) => {
+          // Classify into a CODE; MeetingCallControls translates it at
+          // render time (state must stay language-neutral). getUserMedia
+          // failures carry DOMException names; plain Errors (token/join
+          // from DailyAudio) are call-level failures.
+          // NotFoundError is no longer fatal — AudioRoom downgrades to
+          // listener-only mode, so we never reach this handler for it.
+          const name = err?.name;
+          const kind =
+            name === "NotAllowedError"
+              ? "mic-denied"
+              : name === "NotReadableError" || name === "TrackStartError"
+              ? "mic-busy"
+              : name && name !== "Error"
+              ? "mic"
+              : "call";
+          setAudioState({
+            status: "error",
+            muted: false,
+            canTransmit: false,
+            peers: new Map(),
+            errorKind: kind,
+            errorMessage: err?.message ?? null,
+          });
+        },
       },
     });
     roomRef.current = room;

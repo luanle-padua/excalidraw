@@ -15,6 +15,7 @@ import type { LocalPoint } from "@excalidraw/math";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
+import { useT } from "../../i18n/mcm";
 
 import {
   findNearestCloudPoint,
@@ -22,7 +23,6 @@ import {
 } from "./revisionCloudGeometry";
 
 const MIN_SIZE = 12;
-const DEFAULT_NOTE_TEXT = "Ghi chú";
 const NOTE_FONT_SIZE = 20;
 
 type AwaitingTextPhase = {
@@ -42,6 +42,7 @@ type AwaitingTextPhase = {
 type Phase = { kind: "idle" } | AwaitingTextPhase;
 
 export const RevisionCloudController = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const collabAPI = useAtomValue(collabAPIAtom);
 
@@ -120,9 +121,12 @@ export const RevisionCloudController = () => {
           // creates via `T`.
           const noteFontFamily =
             excalidrawAPI.getAppState().currentItemFontFamily;
+          // Translated once at CREATION time — the text is baked into a
+          // shared canvas element, so it must not re-translate per viewer.
+          const defaultNoteText = t("revCloud.defaultNote");
           const note = newTextElement({
-            text: DEFAULT_NOTE_TEXT,
-            originalText: DEFAULT_NOTE_TEXT,
+            text: defaultNoteText,
+            originalText: defaultNoteText,
             fontSize: NOTE_FONT_SIZE,
             fontFamily: noteFontFamily,
             textAlign: "left",
@@ -304,7 +308,7 @@ export const RevisionCloudController = () => {
           frameId,
         };
         excalidrawAPI.setToast({
-          message: "Bấm vào vị trí muốn đặt ghi chú",
+          message: t("revCloud.placeNoteToast"),
           closable: false,
           duration: 4000,
         });
@@ -315,7 +319,7 @@ export const RevisionCloudController = () => {
       unsubDown();
       unsubUp();
     };
-  }, [excalidrawAPI, collabAPI]);
+  }, [excalidrawAPI, collabAPI, t]);
 
   return null;
 };

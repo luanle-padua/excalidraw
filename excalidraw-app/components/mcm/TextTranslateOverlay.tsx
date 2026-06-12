@@ -42,6 +42,7 @@ import {
   getCachedTranslation,
   preferredLanguageAtom,
 } from "../../data/translation";
+import { useT } from "../../i18n/mcm";
 
 import type { SupportedLanguage } from "../../data/translation";
 
@@ -138,6 +139,7 @@ type ButtonPosition = {
 };
 
 export const TextTranslateOverlay = () => {
+  const t = useT();
   const excalidrawAPI = useExcalidrawAPI();
   const preferred = useAtomValue(preferredLanguageAtom);
   const [selectedText, setSelectedText] =
@@ -685,7 +687,7 @@ export const TextTranslateOverlay = () => {
   const hasStale = staleChildren.length > 0;
 
   return (
-    <div className="mcm-text-translate" aria-label="Translate text">
+    <div className="mcm-text-translate" aria-label={t("textTranslate.aria")}>
       <div
         ref={buttonRef}
         className="mcm-text-translate__anchor"
@@ -701,10 +703,10 @@ export const TextTranslateOverlay = () => {
             className="mcm-text-translate__btn mcm-text-translate__btn--stale"
             onClick={() => void refreshStale()}
             disabled={busyLang !== null}
-            title="Bản dịch đã cũ — bấm để cập nhật"
+            title={t("textTranslate.staleTitle")}
           >
             <RefreshCw size={14} />
-            <span>Cập nhật bản dịch</span>
+            <span>{t("textTranslate.refresh")}</span>
           </button>
         ) : (
           <>
@@ -713,13 +715,18 @@ export const TextTranslateOverlay = () => {
               className="mcm-text-translate__btn"
               onClick={() => void translateInto(preferred)}
               disabled={busyLang !== null}
-              title={`Dịch sang ${
-                LANG_OPTIONS.find((l) => l.code === preferred)?.label ??
-                preferred
-              }`}
+              title={t("textTranslate.translateTo", {
+                lang:
+                  LANG_OPTIONS.find((l) => l.code === preferred)?.label ??
+                  preferred,
+              })}
             >
               <Languages size={14} />
-              <span>{busyLang === preferred ? "Đang dịch…" : "Dịch"}</span>
+              <span>
+                {busyLang === preferred
+                  ? t("textTranslate.translating")
+                  : t("textTranslate.translate")}
+              </span>
             </button>
             <button
               type="button"
@@ -730,7 +737,7 @@ export const TextTranslateOverlay = () => {
               }}
               aria-haspopup="listbox"
               aria-expanded={dropdownOpen ? "true" : "false"}
-              title="Chọn ngôn ngữ khác"
+              title={t("textTranslate.pickOther")}
             >
               ▾
             </button>

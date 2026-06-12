@@ -3,10 +3,18 @@ import { useRef, useState } from "react";
 
 import { useT } from "../../i18n/mcm";
 
+import { metaOptionLabel } from "./metadataFields";
+
+import type { McmKey } from "../../i18n/mcm";
+
 export type EditorField = {
   key: string;
+  /** Either an i18n key ("meta.field.…") translated at render, or a
+   *  pre-translated literal (the translator falls back to echoing
+   *  unknown keys, so both work). */
   label: string;
   value: string;
+  /** Same key-or-literal convention as `label`. */
   placeholder?: string;
   multiline?: boolean;
   required?: boolean;
@@ -152,7 +160,7 @@ const SelectField = ({
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
-            {opt === "" ? "—" : opt}
+            {opt === "" ? "—" : metaOptionLabel(t, opt)}
           </option>
         ))}
         <option value={OTHER_SENTINEL}>{t("folder.optionOther")}</option>
@@ -239,6 +247,13 @@ export const MetadataEditor = ({
         <div className="mcm-meditor__body">
           {fields.map((f) => {
             const full = f.fullWidth || f.multiline || f.type === "image";
+            // Labels/placeholders arrive as i18n keys (metadataFields.ts);
+            // `t` echoes unknown keys, so pre-translated literals pass
+            // through untouched.
+            const label = t(f.label as McmKey);
+            const placeholder = f.placeholder
+              ? t(f.placeholder as McmKey)
+              : undefined;
             return (
               <label
                 key={f.key}
@@ -246,7 +261,7 @@ export const MetadataEditor = ({
                   full ? " mcm-meditor__field--full" : ""
                 }`}
               >
-                <span className="mcm-meditor__label">{f.label}</span>
+                <span className="mcm-meditor__label">{label}</span>
                 {f.type === "image" ? (
                   <ImageField
                     value={values[f.key]}
@@ -255,14 +270,14 @@ export const MetadataEditor = ({
                 ) : f.multiline ? (
                   <textarea
                     className="mcm-meditor__textarea"
-                    placeholder={f.placeholder}
+                    placeholder={placeholder}
                     value={values[f.key]}
                     rows={3}
                     onChange={(e) => set(f.key, e.target.value)}
                   />
                 ) : f.type === "select" ? (
                   <SelectField
-                    label={f.label}
+                    label={label}
                     value={values[f.key]}
                     options={f.options ?? []}
                     onChange={(v) => set(f.key, v)}
@@ -278,7 +293,7 @@ export const MetadataEditor = ({
                   <input
                     type="text"
                     className="mcm-meditor__input"
-                    placeholder={f.placeholder}
+                    placeholder={placeholder}
                     value={values[f.key]}
                     onChange={(e) => set(f.key, e.target.value)}
                     onKeyDown={(e) => {

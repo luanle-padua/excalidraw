@@ -36,7 +36,7 @@ export const recordMic = (
 ): Promise<MicRecording> =>
   new Promise((resolve, reject) => {
     if (typeof MediaRecorder === "undefined") {
-      reject(new Error("MediaRecorder không được hỗ trợ trên thiết bị này"));
+      reject(new Error("MediaRecorder is not supported on this device"));
       return;
     }
     const mimeType = pickMimeType();

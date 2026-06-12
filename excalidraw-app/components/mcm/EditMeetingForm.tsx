@@ -20,6 +20,7 @@ import {
   DISCIPLINE,
   MTG_TYPE,
   PRIORITY,
+  metaOptionLabel,
   withLegacy,
 } from "./metadataFields";
 import { statusBucket } from "./meetingColors";
@@ -340,7 +341,7 @@ export const EditMeetingForm = ({
       <select value={value} onChange={(e) => set(e.target.value)}>
         {withLegacy(options, value).map((o) => (
           <option key={o} value={o}>
-            {o || "—"}
+            {o ? metaOptionLabel(t, o) : "—"}
           </option>
         ))}
       </select>

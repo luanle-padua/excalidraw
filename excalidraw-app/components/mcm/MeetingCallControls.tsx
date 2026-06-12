@@ -155,6 +155,7 @@ export const MeetingCallControls = () => {
     setAudioState((prev) => ({
       ...prev,
       status: "connecting",
+      errorKind: null,
       errorMessage: null,
     }));
     try {
@@ -186,6 +187,7 @@ export const MeetingCallControls = () => {
       muted: false,
       canTransmit: true,
       peers: new Map(),
+      errorKind: null,
       errorMessage: null,
     });
   }, [audioRoom, setAudioState]);
@@ -196,7 +198,7 @@ export const MeetingCallControls = () => {
     return null;
   }
 
-  const { status, muted, canTransmit, errorMessage } = audioState;
+  const { status, muted, canTransmit, errorKind, errorMessage } = audioState;
 
   if (status === "live") {
     // Compact layout — icons only, tooltips carry the labels. The
@@ -310,10 +312,21 @@ export const MeetingCallControls = () => {
   }
 
   if (status === "error") {
+    // errorKind → localized message; the raw error detail (dev-facing,
+    // often an English browser/Daily string) only rides the tooltip.
     return (
       <div className="mcm-call-controls mcm-call-controls--error">
-        <span className="mcm-call-controls__err">
-          {errorMessage ?? t("callControls.cannotStartMic")}
+        <span
+          className="mcm-call-controls__err"
+          title={errorMessage ?? undefined}
+        >
+          {errorKind === "mic-denied"
+            ? t("callControls.micDenied")
+            : errorKind === "mic-busy"
+            ? t("callControls.micBusy")
+            : errorKind === "call"
+            ? t("callControls.callFailed")
+            : t("callControls.cannotStartMic")}
         </span>
         <button
           type="button"

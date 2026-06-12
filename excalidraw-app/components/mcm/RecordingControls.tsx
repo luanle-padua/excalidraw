@@ -45,6 +45,7 @@ import {
   peerProfilesAtom,
   userProfileAtom,
 } from "../../data/userProfile";
+import { useT } from "../../i18n/mcm";
 
 import type { RecordingResult } from "../../audio/MeetingRecorder";
 
@@ -158,6 +159,7 @@ type RecordingApi = {
  *  hook stays separate so future surfaces (e.g. a settings panel
  *  control row) can plug in without duplicating lifecycle logic. */
 const useRecording = (): RecordingApi => {
+  const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioRoom = useAtomValue(audioRoomInstanceAtom);
@@ -212,7 +214,7 @@ const useRecording = (): RecordingApi => {
 
   const start = useCallback(async () => {
     if (!collabAPI || !audioRoom) {
-      setErrorMessage("Audio call chưa sẵn sàng");
+      setErrorMessage(t("recording.audioNotReady"));
       return;
     }
     setErrorMessage(null);
@@ -230,9 +232,7 @@ const useRecording = (): RecordingApi => {
     if (inputCount === 0) {
       // No mic, no peers — recording would produce a 0-byte file.
       // Bail before MediaRecorder runs so the user gets a clear error.
-      setErrorMessage(
-        "Không có nguồn âm thanh nào — vào audio call rồi thử lại",
-      );
+      setErrorMessage(t("recording.noAudioSource"));
       return;
     }
     try {
@@ -244,7 +244,12 @@ const useRecording = (): RecordingApi => {
       // an empty .webm on stop.
       await rec.start();
     } catch (err) {
-      const msg = (err as Error)?.message ?? "Không thể bắt đầu ghi";
+      // Localized headline; the raw (dev-facing) error rides along in
+      // parens since this surfaces in a hover tooltip anyway.
+      const detail = (err as Error)?.message;
+      const msg = detail
+        ? `${t("recording.startFailed")} (${detail})`
+        : t("recording.startFailed");
       setErrorMessage(msg);
       setRecordingState((prev) => ({ ...prev, errorMessage: msg }));
       return;
@@ -276,6 +281,7 @@ const useRecording = (): RecordingApi => {
     mySocketId,
     myProfile?.username,
     setRecordingState,
+    t,
   ]);
 
   const stop = useCallback(async () => {
@@ -301,7 +307,7 @@ const useRecording = (): RecordingApi => {
         // a no-input recording up front, but keeps users from getting
         // a useless 0-byte file with no explanation if some browser /
         // device combination still produces one.
-        setErrorMessage("File ghi âm trống — kiểm tra mic và thử lại");
+        setErrorMessage(t("recording.emptyFile"));
       }
       setRecordingState({
         status: "idle",
@@ -310,7 +316,10 @@ const useRecording = (): RecordingApi => {
         errorMessage: null,
       });
     } catch (err) {
-      const msg = (err as Error)?.message ?? "Lỗi khi dừng ghi";
+      const detail = (err as Error)?.message;
+      const msg = detail
+        ? `${t("recording.stopFailed")} (${detail})`
+        : t("recording.stopFailed");
       setErrorMessage(msg);
       setRecordingState((prev) => ({
         ...prev,
@@ -327,6 +336,7 @@ const useRecording = (): RecordingApi => {
     setRecorderInstance,
     setRecordingState,
     roomRecording.startedAt,
+    t,
   ]);
 
   // Best-effort: emit a stop broadcast on tab close so peers don't
@@ -390,6 +400,7 @@ const useRecording = (): RecordingApi => {
  *  The pill, recording badge, and idle button all share the same
  *  call-bar slot, so the bar width never changes between states. */
 export const RecordingButton = () => {
+  const t = useT();
   const rec = useRecording();
   if (!rec.inActiveRoom) {
     return null;
@@ -406,10 +417,11 @@ export const RecordingButton = () => {
   // status pill with a host-name tooltip.
   if (rec.isRecording) {
     const tooltip = rec.isHost
-      ? `Đang ghi âm · ${formatElapsed(rec.elapsedMs)} — bấm để dừng`
-      : `${rec.hostName} đang ghi âm cuộc họp · ${formatElapsed(
-          rec.elapsedMs,
-        )}`;
+      ? t("recording.recTooltipHost", { time: formatElapsed(rec.elapsedMs) })
+      : t("recording.recTooltipPeer", {
+          host: rec.hostName,
+          time: formatElapsed(rec.elapsedMs),
+        });
     return (
       <div className="mcm-recording-btns" role="group">
         <button
@@ -460,10 +472,10 @@ export const RecordingButton = () => {
           disabled={!rec.audioReady}
           title={
             rec.audioReady
-              ? "Bắt đầu ghi âm cuộc họp (chỉ host)"
-              : "Vào audio call trước để ghi âm"
+              ? t("recording.startTitle")
+              : t("recording.joinFirst")
           }
-          aria-label="Bắt đầu ghi âm"
+          aria-label={t("recording.startAria")}
         >
           <RecordIcon />
         </button>
@@ -472,8 +484,8 @@ export const RecordingButton = () => {
           type="button"
           className="mcm-call-controls__btn mcm-recording-btn mcm-recording-btn--start"
           disabled
-          title={`Chỉ host (${rec.hostName}) mới ghi âm được`}
-          aria-label={`Ghi âm — chỉ host ${rec.hostName} mới dùng được`}
+          title={t("recording.hostOnlyTitle", { host: rec.hostName })}
+          aria-label={t("recording.hostOnlyAria", { host: rec.hostName })}
         >
           <RecordIcon />
         </button>
@@ -484,8 +496,8 @@ export const RecordingButton = () => {
           type="button"
           className="mcm-call-controls__btn mcm-recording-btn mcm-recording-btn--download"
           onClick={rec.redownload}
-          title="Tải lại bản ghi vừa rồi"
-          aria-label="Tải lại bản ghi"
+          title={t("recording.redownloadTitle")}
+          aria-label={t("recording.redownloadAria")}
         >
           <DownloadIcon />
         </button>

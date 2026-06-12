@@ -20,6 +20,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppState } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
+import { useT } from "../../i18n/mcm";
+
 const LS_KEY = "mcm:canvasNav:v1";
 
 type NavPrefs = { minimapOpen: boolean };
@@ -171,6 +173,7 @@ const useExcalidrawSnapshot = () => {
 };
 
 export const CanvasNavWidget = () => {
+  const t = useT();
   const { api, snap } = useExcalidrawSnapshot();
   const [prefs, setPrefs] = useState<NavPrefs>(() => readPrefs());
   const minimapRef = useRef<HTMLDivElement | null>(null);
@@ -374,7 +377,7 @@ export const CanvasNavWidget = () => {
   }
 
   return (
-    <div className="mcm-canvas-nav" aria-label="Canvas navigation">
+    <div className="mcm-canvas-nav" aria-label={t("canvasNav.rootAria")}>
       {prefs.minimapOpen && (
         <div
           ref={minimapRef}
@@ -384,8 +387,8 @@ export const CanvasNavWidget = () => {
           onPointerUp={handleMapPointerUp}
           onPointerCancel={handleMapPointerUp}
           role="application"
-          aria-label="Bản đồ canvas"
-          title="Click hoặc kéo để di chuyển camera"
+          aria-label={t("canvasNav.minimapAria")}
+          title={t("canvasNav.minimapTitle")}
         >
           <svg
             width={MAP_W}
@@ -419,8 +422,8 @@ export const CanvasNavWidget = () => {
           className="mcm-canvas-nav__btn"
           onClick={handleZoomIn}
           disabled={zoom >= MAX_ZOOM}
-          title="Zoom in"
-          aria-label="Zoom in"
+          title={t("canvasNav.zoomIn")}
+          aria-label={t("canvasNav.zoomIn")}
         >
           <span aria-hidden>+</span>
         </button>
@@ -428,8 +431,8 @@ export const CanvasNavWidget = () => {
           type="button"
           className="mcm-canvas-nav__pct"
           onClick={handleZoomReset}
-          title="Reset zoom (100%)"
-          aria-label={`Zoom ${zoomPct}% — bấm để reset`}
+          title={t("canvasNav.zoomResetTitle")}
+          aria-label={t("canvasNav.zoomPctAria", { pct: zoomPct })}
         >
           {zoomPct}%
         </button>
@@ -438,8 +441,8 @@ export const CanvasNavWidget = () => {
           className="mcm-canvas-nav__btn"
           onClick={handleZoomOut}
           disabled={zoom <= MIN_ZOOM}
-          title="Zoom out"
-          aria-label="Zoom out"
+          title={t("canvasNav.zoomOut")}
+          aria-label={t("canvasNav.zoomOut")}
         >
           <span aria-hidden>−</span>
         </button>
@@ -451,9 +454,9 @@ export const CanvasNavWidget = () => {
           }`}
           onClick={handleToggleMinimap}
           title={
-            prefs.minimapOpen ? "Ẩn navigation map" : "Hiện navigation map"
+            prefs.minimapOpen ? t("canvasNav.mapHide") : t("canvasNav.mapShow")
           }
-          aria-label="Toggle navigation map"
+          aria-label={t("canvasNav.mapToggleAria")}
           aria-pressed={prefs.minimapOpen}
         >
           <svg
