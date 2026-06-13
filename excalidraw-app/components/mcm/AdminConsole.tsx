@@ -90,7 +90,7 @@ type Tab =
   | "recordings";
 
 const SETTING_DEFAULTS: Record<string, string> = {
-  org_name: "MAP CanvasMeet",
+  org_name: "Canvas M",
   internal_domains: "mapgroup.co.kr",
   default_waiting_room: "on",
   default_recording: "off",
@@ -591,7 +591,11 @@ export const AdminConsole = () => {
     <div className="mcm-admin" role="dialog" aria-modal="true">
       <header className="mcm-admin__top">
         <div className="mcm-admin__brand">
-          <span className="mcm-admin__logo">MAP</span>
+          <img
+            src="/canvas-m.png"
+            alt="Canvas M"
+            className="mcm-admin__logo-img"
+          />
           <strong>{t("admin.title")}</strong>
         </div>
         <nav className="mcm-admin__tabs">

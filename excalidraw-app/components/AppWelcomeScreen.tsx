@@ -16,7 +16,7 @@ export const AppWelcomeScreen: React.FC<{
       <WelcomeScreen.Hints.ToolbarHint />
       <WelcomeScreen.Hints.HelpHint />
       <WelcomeScreen.Center>
-        <WelcomeScreen.Center.Logo>MAP CanvasMeet</WelcomeScreen.Center.Logo>
+        <WelcomeScreen.Center.Logo>Canvas M</WelcomeScreen.Center.Logo>
         <WelcomeScreen.Center.Heading>
           {t("welcomeScreen.app.center_heading")}
           <br />

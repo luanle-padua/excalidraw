@@ -153,6 +153,12 @@ export const ko: Widened<typeof vi> = {
     emailInvalid: "이메일이 올바르지 않습니다.",
     guestToggle: "게스트? 이메일로 로그인 링크 받기",
     usePassword: "← 비밀번호로 로그인",
+    linkToggle: "회의 링크가 있으신가요?",
+    linkLabel: "회의 링크",
+    linkPlaceholder: "회의 링크 또는 ID,KEY 붙여넣기",
+    linkContinue: "계속",
+    linkInvalid: "회의 링크가 올바르지 않습니다.",
+    linkAccepted: "회의 링크 확인됨 — 로그인하면 입장합니다.",
     sendMagicLink: "로그인 링크 보내기",
     magicSent:
       "{email}(으)로 로그인 링크를 보냈습니다. 이메일을 열어 참여하세요.",
@@ -161,7 +167,7 @@ export const ko: Widened<typeof vi> = {
     host: "호스트",
     heroTitle: "실시간 디자인 리뷰",
     heroSubtitle:
-      "MAP CanvasMeet: 회의, BIM/CAD 마크업, 전사, 번역을 하나의 캔버스에서 — AI가 모든 결정을 기억합니다.",
+      "Canvas M: 회의, BIM/CAD 마크업, 전사, 번역을 하나의 캔버스에서 — AI가 모든 결정을 기억합니다.",
     feat1Title: "실시간 협업",
     feat1Desc: "커서, 스케치, 편집이 방 전체에 실시간 반영",
     feat2Title: "BIM & CAD 뷰어",

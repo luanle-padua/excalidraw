@@ -336,6 +336,19 @@
   @include mcm-lobby-tokens-dark;
 }
 
+// Admin console rides the SAME Glass-Desk palette + Manrope as the dashboard
+// (another full-screen back-office surface). Tokens are stamped HERE, where
+// the mixins live; AdminConsole.scss styles the chrome through these vars.
+.mcm-admin {
+  @include mcm-lobby-tokens-light;
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+  font-family: var(--mcm-font-ui);
+}
+.mcm-shell:has(.excalidraw.theme--dark) .mcm-admin,
+body:has(.excalidraw.theme--dark) .mcm-admin {
+  @include mcm-lobby-tokens-dark;
+}
+
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
 // the FULL-VIEWPORT home frame (not .mcm-3col — moved 06-12 per anh Luân:
 // "muốn nó liên tục… mọi thứ nhìn nó liền lạc") so header + all 3 columns
@@ -825,6 +838,18 @@
 
   &:hover:not(:disabled) {
     background: #b91c1c;
+  }
+}
+
+.mcm-call-controls__btn--rec-start {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, #ef4444 60%, transparent);
+  color: #b91c1c;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, #ef4444 12%, transparent);
+    border-color: #dc2626;
+    color: #991b1b;
   }
 }
 
@@ -6028,6 +6053,31 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 }
 
+// Header brand: the Canvas M wordmark + product name.
+.mcm-lobby__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.mcm-lobby__logo-img {
+  height: 24px;
+  width: auto;
+  object-fit: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  // Black wordmark art — invert to near-white on the dark (Olive-Royal) glass.
+  .mcm-shell:has(.excalidraw.theme--dark) & {
+    filter: invert(1) brightness(1.9);
+  }
+}
+.mcm-lobby__title {
+  @include t-title;
+  color: var(--mcm-text);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
 // Secondary header entries ("Use the canvas solo" / "Join by link") —
 // quiet ghost capsules: no border, 32px tall, same hover wash as the
 // icon buttons so the whole right rail speaks one language.
@@ -6543,6 +6593,12 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 // Left: sign-in form (theme-aware via --mcm-* tokens). Right: green brand
 // hero. Matches the MAP reference; refined-minimal, not flashy.
 .mcm-login {
+  // Glass-Desk palette + Manrope — the login is the front door, so it speaks
+  // the EXACT same visual language as the dashboard. Tokens are stamped here
+  // (login lives outside .mcm-lobby) and flipped to the Olive-Royal dark set
+  // when the app theme is dark.
+  @include mcm-lobby-tokens-light;
+  font-family: var(--mcm-font-ui);
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -6550,34 +6606,146 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(
-      900px 520px at 16% 8%,
-      rgba(21, 128, 61, 0.12),
-      transparent 60%
-    ),
-    var(--mcm-bg);
+  color: var(--mcm-text);
+  // Base desk; the living glow comes from the two animated orbs below.
+  background: var(--mcm-bg);
+  overflow: hidden;
 
-  &__card {
-    width: min(960px, 94vw);
-    min-height: min(600px, 88vh);
-    display: flex;
-    border-radius: 22px;
-    overflow: hidden;
-    border: 1px solid var(--mcm-hairline-2);
-    box-shadow: var(--mcm-elev);
-    animation: mcm-login-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  body:has(.excalidraw.theme--dark) & {
+    @include mcm-lobby-tokens-dark;
   }
 
-  // ----- left: form -----
+  // ----- ambient luxury glow: two huge blurred orbs that slowly drift +
+  // breathe behind the (transparent-edged) card. Pure transform/opacity so
+  // they stay cheap; the frosted form pane re-blurs them = living glass.
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(64px);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform;
+  }
+  &::before {
+    width: 52vw;
+    height: 52vw;
+    left: -10vw;
+    top: -16vw;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--mcm-accent) 32%, transparent),
+      transparent 68%
+    );
+    animation: mcm-login-drift-a 19s ease-in-out infinite alternate;
+  }
+  &::after {
+    width: 56vw;
+    height: 56vw;
+    right: -12vw;
+    bottom: -18vw;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--mcm-lux) 30%, transparent),
+      transparent 68%
+    );
+    animation: mcm-login-drift-b 24s ease-in-out infinite alternate;
+  }
+
+  &__card {
+    position: relative;
+    z-index: 1;
+    width: min(940px, 94vw);
+    min-height: min(560px, 86vh);
+    max-height: 92vh;
+    display: flex;
+    border-radius: var(--mcm-radius-xl);
+    overflow: hidden;
+    // Deep floating elevation + the Glass-Desk highlight (specular top edge).
+    box-shadow: var(--mcm-highlight), var(--mcm-shadow-3),
+      0 44px 88px -24px rgba(0, 0, 0, 0.6);
+    animation: mcm-login-in var(--mcm-dur-enter) var(--mcm-ease) both;
+
+    // Static specular 1px edge (always-on premium hairline), painted above
+    // both panes so the whole card reads as one frosted-glass slab.
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: inherit;
+      padding: 1px;
+      background: var(--mcm-glass-stroke);
+      -webkit-mask: linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    // A soft champagne light that travels slowly around the perimeter: one
+    // bright arc inside a conic gradient whose start angle animates 0deg→360.
+    // The angle interpolates only because --mcm-login-angle is registered via
+    // @property below (otherwise custom props jump, not animate).
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      border-radius: inherit;
+      padding: 1px;
+      background: conic-gradient(
+        from var(--mcm-login-angle, 0deg),
+        transparent 0deg,
+        transparent 72deg,
+        color-mix(in srgb, var(--mcm-lux) 75%, #fff) 92deg,
+        rgba(255, 255, 255, 0.95) 104deg,
+        color-mix(in srgb, var(--mcm-lux) 70%, transparent) 118deg,
+        transparent 140deg,
+        transparent 360deg
+      );
+      -webkit-mask: linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+      // The conic repaints every frame (its `from` angle animates via the
+      // registered @property). Pin it to its own backing store so that repaint
+      // stays confined to this masked 1px ring and never forces the two heavy
+      // backdrop-filter panes (blur 48/50px) to re-sample the scene.
+      transform: translateZ(0);
+      will-change: background;
+      animation: mcm-login-border-travel 8s linear infinite;
+    }
+  }
+
+  // ----- left: form (frosted glass) -----
   &__form-pane {
     position: relative;
+    z-index: 1;
     flex: 1 1 50%;
     min-width: 0;
+    // Frosted pane: translucent surface + heavy backdrop blur over the desk
+    // scene behind the (transparent) card. Opaque fallback where unsupported.
     background: var(--mcm-surface);
-    padding: 46px 48px;
+    padding: 34px 42px;
     display: flex;
     flex-direction: column;
     justify-content: center;
+    // Safety net: if a short viewport can't fit the form + 9 quick-login
+    // accounts, the pane scrolls internally instead of stretching the card
+    // past the screen (the old "login page too long" bug).
+    overflow-y: auto;
+
+    @supports (backdrop-filter: blur(1px)) or
+      (-webkit-backdrop-filter: blur(1px)) {
+      background: color-mix(in srgb, var(--mcm-surface) 78%, transparent);
+      -webkit-backdrop-filter: blur(48px) saturate(1.7);
+      backdrop-filter: blur(48px) saturate(1.7);
+    }
   }
 
   &__topbar {
@@ -6589,32 +6757,32 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   &__brand {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 4px;
+    gap: 11px;
+    margin-bottom: 7px;
   }
 
-  &__logo {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(145deg, #19a24a, #0c7a39);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.4px;
-    box-shadow: 0 6px 16px rgba(16, 122, 57, 0.35);
+  &__logo-img {
+    height: 28px;
+    width: auto;
+    object-fit: contain;
+    -webkit-user-select: none;
+    user-select: none;
+    // Wordmark art is solid black on transparent — crisp on the light form
+    // pane, but invisible in dark mode. Invert to near-white when the app
+    // theme is dark (same `:has(.theme--dark)` signal the rest of MCM uses).
+    body:has(.excalidraw.theme--dark) & {
+      filter: invert(1) brightness(1.9);
+    }
   }
 
   &__brand-name {
     @include t-title;
     color: var(--mcm-text);
+    letter-spacing: -0.01em;
   }
 
   &__dev {
-    margin: 0 0 26px;
+    margin: 0 0 18px;
     font-size: 12px;
     font-style: italic;
     color: var(--mcm-text-faint);
@@ -6627,7 +6795,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   }
 
   &__subtitle {
-    margin: 5px 0 24px;
+    margin: 4px 0 20px;
     font-size: 14px;
     color: var(--mcm-text-soft);
   }
@@ -6635,7 +6803,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   &__form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 13px;
   }
 
   &__field {
@@ -6645,30 +6813,33 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   }
 
   &__label {
-    font-size: 12.5px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
     color: var(--mcm-text-soft);
   }
 
   &__input {
     box-sizing: border-box;
     width: 100%;
-    padding: 13px 15px;
-    border-radius: 11px;
+    padding: 12px 14px;
+    border-radius: var(--mcm-radius-md);
     border: 1px solid var(--mcm-hairline);
-    background: var(--mcm-surface-2);
+    background: var(--mcm-surface-0);
     color: var(--mcm-text);
     font-size: 14.5px;
     font-family: inherit;
     outline: none;
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+    transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+      box-shadow var(--mcm-dur-base) var(--mcm-ease);
 
     &::placeholder {
       color: var(--mcm-text-faint);
     }
     &:focus {
       border-color: var(--mcm-accent);
-      box-shadow: 0 0 0 3px var(--mcm-accent-soft);
+      box-shadow: var(--mcm-ring);
     }
     &--error {
       border-color: var(--mcm-danger);
@@ -6686,21 +6857,25 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     appearance: none;
     cursor: pointer;
     border: none;
-    padding: 14px;
-    border-radius: 12px;
+    padding: 13px;
+    border-radius: var(--mcm-radius-md);
     font-size: 15px;
     font-weight: 650;
     color: #fff;
-    background: linear-gradient(180deg, #3b82f6, #2563eb);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.32);
-    transition: filter 180ms ease, transform 160ms ease, box-shadow 180ms ease;
+    background: var(--mcm-accent);
+    box-shadow: 0 8px 20px
+      color-mix(in srgb, var(--mcm-accent) 34%, transparent);
+    transition: filter var(--mcm-dur-base) var(--mcm-ease),
+      transform var(--mcm-dur-fast) var(--mcm-ease),
+      box-shadow var(--mcm-dur-base) var(--mcm-ease);
 
     &:hover:not(:disabled) {
-      filter: brightness(1.06);
+      filter: brightness(1.07);
     }
     &:active:not(:disabled) {
       transform: translateY(1px);
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+      box-shadow: 0 4px 12px
+        color-mix(in srgb, var(--mcm-accent) 28%, transparent);
     }
     &:disabled {
       opacity: 0.5;
@@ -6718,7 +6893,8 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     cursor: pointer;
     align-self: center;
     font-size: 12.5px;
-    color: var(--mcm-accent, #2563eb);
+    font-weight: 600;
+    color: var(--mcm-accent);
     padding: 4px;
 
     &:hover {
@@ -6730,23 +6906,27 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   &__magic-sent {
     margin: 8px 0 4px;
     padding: 14px 16px;
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--mcm-accent, #2563eb) 10%, transparent);
-    color: var(--mcm-text, #1b1b1f);
+    border-radius: var(--mcm-radius-md);
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-text);
     font-size: 13.5px;
     line-height: 1.5;
   }
 
   &__help {
-    margin: 20px 0 0;
+    margin: 16px 0 0;
     text-align: center;
     font-size: 12.5px;
     color: var(--mcm-text-faint);
   }
 
-  // ----- right: hero -----
+  // ----- right: hero (brand showcase panel) -----
+  // A self-contained deep-violet panel — the brand accent, identical in both
+  // themes (white text always reads). The desk neutral flips light/dark; this
+  // accent panel stays constant so the product identity is steady.
   &__hero {
     position: relative;
+    z-index: 1;
     overflow: hidden;
     flex: 1 1 50%;
     min-width: 0;
@@ -6754,32 +6934,105 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     align-items: center;
     padding: 48px 44px;
     color: #fff;
-    background: linear-gradient(158deg, #0a3a2a 0%, #11623f 46%, #16863f 100%);
+    // Frosted olive-black GLASS over the card's wordmark + the animated desk:
+    // semi-transparent so the brand mark glows up softly from underneath, the
+    // heavy blur turning it into pressed-under-glass typography. Opaque-ish
+    // fallback where backdrop-filter is unsupported.
+    background: linear-gradient(
+      157deg,
+      rgba(9, 12, 7, 0.74) 0%,
+      rgba(18, 23, 16, 0.66) 52%,
+      rgba(27, 33, 21, 0.6) 100%
+    );
+
+    @supports (backdrop-filter: blur(1px)) or
+      (-webkit-backdrop-filter: blur(1px)) {
+      background: linear-gradient(
+        157deg,
+        rgba(9, 12, 7, 0.52) 0%,
+        rgba(18, 23, 16, 0.44) 52%,
+        rgba(27, 33, 21, 0.38) 100%
+      );
+      -webkit-backdrop-filter: blur(50px) saturate(1.5);
+      backdrop-filter: blur(50px) saturate(1.5);
+    }
 
     &::before {
       content: "";
       position: absolute;
       inset: 0;
+      // Champagne-gold dawn top-right + cool olive glow bottom-left — the
+      // only colour on the slab, so it reads expensive, not flat black.
       background: radial-gradient(
-        620px 360px at 78% 12%,
-        rgba(255, 255, 255, 0.16),
-        transparent 65%
-      );
+          560px 380px at 82% 6%,
+          rgba(214, 192, 138, 0.22),
+          transparent 60%
+        ),
+        radial-gradient(
+          460px 380px at 4% 106%,
+          rgba(126, 146, 96, 0.18),
+          transparent 60%
+        );
       pointer-events: none;
     }
   }
 
-  &__hero-watermark {
+  // Brand wordmark on the PAGE background (z-index 0, behind the card + the
+  // animated orbs sit at this same level). It shows directly in the dark
+  // margins and is revealed — softly frosted — through the card's translucent
+  // glass panes. Sized to the viewport, anchored bottom-right, breathing.
+  // Hi-res source keeps it crisp at this scale.
+  &__watermark {
     position: absolute;
-    right: -18px;
-    bottom: -56px;
-    font-size: 210px;
-    font-weight: 800;
-    line-height: 1;
-    letter-spacing: -0.04em;
-    color: rgba(255, 255, 255, 0.055);
+    z-index: 0;
+    right: -2%;
+    bottom: -3%;
+    width: min(64vw, 1200px);
+    height: auto;
+    object-fit: contain;
     pointer-events: none;
+    -webkit-user-select: none;
     user-select: none;
+    // Black art → warm-white wordmark; breathing (ẩn hiện).
+    filter: brightness(0) invert(1);
+    opacity: 0.12;
+    // Promote to its own compositor layer so the 8s opacity breathe is a GPU
+    // layer-alpha tween — no per-frame raster of this ~1200px filtered image
+    // (the brightness/invert filter is rasterized once and cached).
+    will-change: opacity;
+    animation: mcm-login-breathe 8s var(--mcm-ease) infinite;
+  }
+
+  // ----- cinematic intro -----
+  // Full-screen dark stage shown on first mount: the wordmark reveals in the
+  // centre, holds, then dissolves and the stage fades to hand off to the card.
+  // Rendered only while the React `intro` flag is true (skipped under
+  // reduced-motion). Compositor-only (opacity + transform).
+  &__intro {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    // Near-black cinema with a soft spotlight behind the mark.
+    background: radial-gradient(
+      62% 62% at 50% 44%,
+      #15160f 0%,
+      #070805 58%,
+      #030402 100%
+    );
+    animation: mcm-intro-bg 2.4s var(--mcm-ease) both;
+  }
+  &__intro-logo {
+    width: min(44vw, 480px);
+    height: auto;
+    object-fit: contain;
+    // Black art → white wordmark on the dark stage.
+    filter: brightness(0) invert(1);
+    will-change: opacity, transform;
+    animation: mcm-intro-logo 2.4s var(--mcm-ease) both;
   }
 
   &__hero-inner {
@@ -6819,13 +7072,15 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     flex-shrink: 0;
     width: 38px;
     height: 38px;
-    border-radius: 11px;
+    border-radius: var(--mcm-radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 17px;
-    background: rgba(255, 255, 255, 0.12);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #e6d4a4;
+    background: rgba(214, 192, 138, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(214, 192, 138, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
   }
 
   &__feature-text {
@@ -6853,6 +7108,83 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+// Registered so the traveling-border light can interpolate its angle (a bare
+// custom property would jump 0→360 instead of sweeping).
+@property --mcm-login-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes mcm-login-border-travel {
+  to {
+    --mcm-login-angle: 360deg;
+  }
+}
+
+// Ambient background orbs — slow drift + scale, ease-in-out alternate.
+@keyframes mcm-login-drift-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(7vw, 6vh) scale(1.14);
+  }
+}
+@keyframes mcm-login-drift-b {
+  0% {
+    transform: translate(0, 0) scale(1.06);
+  }
+  100% {
+    transform: translate(-6vw, -5vh) scale(0.92);
+  }
+}
+
+// Watermark wordmark fading in/out — wider range now it's a deliberate
+// oversized art-typo element, not just a faint mark.
+@keyframes mcm-login-breathe {
+  0%,
+  100% {
+    opacity: 0.07;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+// Cinematic intro — the wordmark reveals (fade + scale up from below 1), holds
+// with a slow push-in, then dissolves zooming out; the dark stage fades last.
+@keyframes mcm-intro-logo {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  62% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+  84% {
+    opacity: 0;
+    transform: scale(1.09);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.09);
+  }
+}
+@keyframes mcm-intro-bg {
+  0%,
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
   }
 }
 
@@ -6995,9 +7327,12 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   gap: 3px;
 }
 
-// Login demo quick-pick (the Architectural AI R&D Center team).
+// Login demo quick-pick — compact flat grid of all 9 demo accounts. One
+// short chip per account (avatar + name + role badge); the division / title /
+// email ride the tooltip so the card stays short instead of stacking a
+// labelled block per division (the old "login too long" layout).
 .mcm-login__demo {
-  margin-top: 18px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -7009,28 +7344,13 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   text-transform: uppercase;
   color: var(--mcm-text-faint);
 }
-// One block per DIVISION — label + a compact 2-col grid of accounts, so 9
-// demo users (incl. the cross-department test trio) fit without scrolling.
-.mcm-login__demo-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.mcm-login__demo-group-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--mcm-text-faint);
-  opacity: 0.8;
-}
 .mcm-login__demo-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
 }
 .mcm-login__demo-user {
   appearance: none;
@@ -7038,62 +7358,62 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 8px 10px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--mcm-hairline-2);
+  border-radius: var(--mcm-radius-sm);
+  background: var(--mcm-surface-2);
   text-align: left;
-  transition: background 160ms ease;
+  transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+    border-color var(--mcm-dur-fast) var(--mcm-ease);
 
-  &:hover {
-    background: var(--mcm-surface-2);
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mcm-accent) 9%, var(--mcm-surface-2));
+    border-color: var(--mcm-accent-soft);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 }
 .mcm-login__demo-avatar {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--mcm-accent-soft);
   color: var(--mcm-accent);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
-}
-.mcm-login__demo-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+
+  &--admin {
+    background: var(--mcm-warning-soft);
+    color: var(--mcm-warning);
+  }
 }
 .mcm-login__demo-name {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 13.5px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   font-weight: 600;
   color: var(--mcm-text);
-}
-.mcm-login__demo-host {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--mcm-accent-soft);
-  color: var(--mcm-accent);
-}
-.mcm-login__demo-meta {
-  font-size: 11.5px;
-  color: var(--mcm-text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.mcm-login__demo-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mcm-accent);
+
+  &--admin {
+    color: var(--mcm-warning);
+  }
 }
 
 // "Resume meeting" banner on the project home.
@@ -12411,6 +12731,18 @@ body:has(.excalidraw.theme--dark) {
   .mcm-lobby *,
   .mcm-lobby *::before,
   .mcm-lobby *::after,
+  .mcm-login,
+  .mcm-login *,
+  .mcm-login::before,
+  .mcm-login::after,
+  .mcm-login *::before,
+  .mcm-login *::after,
+  .mcm-admin,
+  .mcm-admin *,
+  .mcm-admin::before,
+  .mcm-admin::after,
+  .mcm-admin *::before,
+  .mcm-admin *::after,
   .mcm-pp-overlay *,
   .mcm-cmodal-ov *,
   .mcm-swatches--pop,

@@ -242,8 +242,11 @@ export const MeetingLobby = () => {
       <div className="mcm-lobby__home">
         <header className="mcm-lobby__top">
           <div className="mcm-lobby__brand">
-            <span className="mcm-lobby__logo">◳</span>
-            <span className="mcm-lobby__title">MAP CanvasMeet</span>
+            <img
+              src="/canvas-m.png"
+              alt="Canvas M"
+              className="mcm-lobby__logo-img"
+            />
           </div>
           <div className="mcm-lobby__top-actions">
             {/* Cluster 1 — uniform 32px round icon buttons. Bell = pending

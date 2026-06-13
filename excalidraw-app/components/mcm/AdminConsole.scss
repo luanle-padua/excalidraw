@@ -1,5 +1,8 @@
 // Admin console — full-screen back-office overlay (shown when the logged-in
-// user has role "admin"). Reuses the MCM design tokens.
+// user has role "admin"). Rides the Glass-Desk design system: tokens + Manrope
+// are stamped on `.mcm-admin` in MeetingShell.scss (where the mixins live);
+// this file styles the chrome through those CSS vars — glass header, paper
+// cards with ring-in-shadow elevation, sunken inputs, concentric radii.
 
 .mcm-admin {
   position: fixed;
@@ -7,67 +10,161 @@
   z-index: 100;
   display: flex;
   flex-direction: column;
-  background: var(--mcm-bg, #f5f5f7);
-  color: var(--mcm-text, #1b1b1f);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  color: var(--mcm-text);
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  // Desk: solid bg + two faint static washes (mirrors the dashboard desk).
+  background: radial-gradient(
+      900px 520px at 16% -6%,
+      color-mix(in srgb, var(--mcm-accent) 8%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      820px 560px at 92% 104%,
+      color-mix(in srgb, var(--mcm-lux) 9%, transparent),
+      transparent 62%
+    ),
+    var(--mcm-bg);
 
+  // Large faint Canvas M wordmark sunk into the bottom-right corner — pure
+  // decoration, sits behind every panel (z-index 0). Black art is inverted to
+  // near-white on the dark Olive-Royal desk.
+  &::after {
+    content: "";
+    position: absolute;
+    right: -34px;
+    bottom: -30px;
+    width: min(920px, 64vw);
+    height: 440px;
+    background: url("/canvas-m.png") no-repeat right bottom / contain;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+    // Breathing fade in/out (ẩn hiện) — same gentle rhythm as the login hero.
+    animation: mcm-admin-breathe 7.5s var(--mcm-ease, ease) infinite;
+
+    // Black art → invert to near-white on the dark Olive-Royal desk.
+    body:has(.excalidraw.theme--dark) & {
+      filter: invert(1);
+    }
+  }
+
+  // ----- top bar: floating glass chrome -----
+  // Intentional two-row header: row 1 = brand (left) + account controls
+  // (right); row 2 = the full-width tab strip. Stays a clean 2 rows in every
+  // language instead of the labels wrapping into a ragged pile.
   &__top {
+    position: relative;
+    z-index: 3;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 16px;
-    height: 56px;
-    padding: 0 18px;
-    background: var(--mcm-surface, #fff);
-    border-bottom: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
+    column-gap: 16px;
+    row-gap: 8px;
+    min-height: 58px;
+    padding: 9px 18px;
     flex-shrink: 0;
+    background: var(--mcm-glass-bg);
+    box-shadow: var(--mcm-highlight);
+
+    @supports (backdrop-filter: blur(1px)) or
+      (-webkit-backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr);
+      // saturate() must be string-escaped — dart-sass otherwise reads it as
+      // its own color function and chokes on the var(). brightness() is safe.
+      -webkit-backdrop-filter: blur(var(--mcm-glass-blur))
+        #{"saturate(var(--mcm-glass-sat))"} brightness(var(--mcm-glass-bright, 1));
+      backdrop-filter: blur(var(--mcm-glass-blur))
+        #{"saturate(var(--mcm-glass-sat))"} brightness(var(--mcm-glass-bright, 1));
+    }
+
+    // Hairline along the bottom edge only (no full outline).
+    &::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0;
+      height: 1px;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        var(--mcm-hairline) 12%,
+        var(--mcm-hairline) 88%,
+        transparent
+      );
+      pointer-events: none;
+    }
   }
 
   &__brand {
+    order: 0;
     display: flex;
     align-items: center;
-    gap: 9px;
-    font-size: 14px;
+    gap: 10px;
+
+    strong {
+      font-size: 14px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
   }
-  &__logo {
-    background: #1b1b1f;
-    color: #fff;
-    font-weight: 800;
-    font-size: 11px;
-    padding: 3px 6px;
-    border-radius: 6px;
-    letter-spacing: 0.5px;
+  &__logo-img {
+    height: 22px;
+    width: auto;
+    object-fit: contain;
+    -webkit-user-select: none;
+    user-select: none;
+    // Black wordmark → near-white on the dark (Olive-Royal) glass.
+    body:has(.excalidraw.theme--dark) & {
+      filter: invert(1) brightness(1.9);
+    }
   }
 
+  // Row 2 — full-width tab strip. flex-basis:100% forces it onto its own line
+  // below the brand/actions row; it scrolls horizontally (rare) instead of
+  // wrapping into extra rows when labels are long (e.g. Vietnamese).
   &__tabs {
+    order: 2;
+    flex-basis: 100%;
     display: flex;
+    flex-wrap: nowrap;
     gap: 4px;
-    margin-left: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
   &__tab {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
     border: 0;
     background: transparent;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+    color: var(--mcm-text-soft);
+    font-family: inherit;
     font-size: 13px;
     font-weight: 600;
     padding: 7px 12px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm);
     cursor: pointer;
-    transition: background-color 140ms, color 140ms;
+    transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+      color var(--mcm-dur-fast) var(--mcm-ease);
 
     &:hover {
-      background: var(--mcm-surface-2, #f0f0f3);
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
+      color: var(--mcm-text);
     }
     &.--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
-      color: var(--mcm-accent, #6965db);
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
     }
   }
 
   &__top-actions {
+    order: 1;
     margin-left: auto;
     display: flex;
     align-items: center;
@@ -75,62 +172,98 @@
   }
 
   &__body {
+    position: relative;
+    z-index: 1;
     flex: 1;
     min-height: 0;
     overflow: auto;
-    padding: 22px;
+    padding: 24px 22px;
+
+    // Center the content column — was left-skewed with a big empty gutter on
+    // wide screens. Every top-level block shares one centered max-width so
+    // headings, tables and cards line up on the same left/right edges.
+    > * {
+      max-width: 1240px;
+      margin-left: auto;
+      margin-right: auto;
+    }
   }
 
-  // ----- dashboard cards -----
+  // ----- dashboard stat cards (paper, ring-in-shadow elevation) -----
   &__cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    max-width: 900px;
+    gap: 14px;
+    max-width: 940px;
   }
   &__card {
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
-    border-radius: 14px;
-    padding: 20px;
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-lg);
+    padding: 18px 20px;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    box-shadow: var(--mcm-shadow-1);
+    transition: box-shadow var(--mcm-dur-base) var(--mcm-ease),
+      transform var(--mcm-dur-base) var(--mcm-ease);
+
+    &:hover {
+      box-shadow: var(--mcm-shadow-2);
+      transform: translateY(-2px);
+    }
   }
   &__card-num {
-    font-size: 32px;
-    font-weight: 750;
+    font-size: 30px;
+    font-weight: 700;
     line-height: 1;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.01em;
   }
   &__card-label {
-    font-size: 13px;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    font-size: 12.5px;
+    color: var(--mcm-text-soft);
   }
 
   // Tables, status pills, row-action buttons and the rounded table shell all
   // come from the shared design system (.mcm-table / .mcm-tablecard / .mcm-pill
   // / .mcm-btn / .mcm-icon-btn in MeetingShell.scss) — admin uses those classes
-  // directly so every table/badge/button matches the rest of the app. Only
-  // admin-specific chrome (top bar, tabs, dashboard cards, settings, meeting
-  // detail) is styled below.
+  // directly, so with the Glass-Desk tokens stamped on .mcm-admin they match
+  // the dashboard automatically. Only admin-specific chrome is styled here.
+
+  // Admin tables left-align action clusters so the buttons sit directly under
+  // the (left-aligned) ACTIONS header instead of floating at the far right —
+  // header + buttons share one column edge. Admin-scoped: other surfaces keep
+  // the shared trailing-cluster convention.
+  .mcm-table__actions {
+    justify-content: flex-start;
+  }
 
   &__newuser {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px 14px;
-    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+    border-bottom: 1px solid var(--mcm-hairline-2);
     flex-wrap: wrap;
 
     input,
     select {
-      height: 32px;
-      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      border-radius: 8px;
-      padding: 0 10px;
+      height: 34px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-sm);
+      padding: 0 11px;
       font-size: 13px;
-      background: var(--mcm-bg, #fff);
-      color: var(--mcm-text, #1b1b1f);
+      font-family: inherit;
+      background: var(--mcm-surface-0);
+      color: var(--mcm-text);
+      outline: none;
+      transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+        box-shadow var(--mcm-dur-base) var(--mcm-ease);
+
+      &:focus {
+        border-color: var(--mcm-accent);
+        box-shadow: var(--mcm-ring);
+      }
     }
     input {
       flex: 1;
@@ -143,12 +276,12 @@
     align-items: center;
     gap: 12px;
     padding: 10px 14px;
-    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+    border-bottom: 1px solid var(--mcm-hairline-2);
   }
   &__count {
     font-size: 12.5px;
     font-weight: 600;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    color: var(--mcm-text-soft);
   }
 
   &__settings {
@@ -164,24 +297,36 @@
   &__field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
 
     > span {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 650;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--mcm-text-soft);
     }
     input {
-      height: 34px;
-      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      border-radius: 9px;
-      padding: 0 11px;
+      height: 36px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-md);
+      padding: 0 12px;
       font-size: 13.5px;
-      background: var(--mcm-bg, #fff);
-      color: var(--mcm-text, #1b1b1f);
+      font-family: inherit;
+      background: var(--mcm-surface-0);
+      color: var(--mcm-text);
+      outline: none;
+      transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+        box-shadow var(--mcm-dur-base) var(--mcm-ease);
+
+      &:focus {
+        border-color: var(--mcm-accent);
+        box-shadow: var(--mcm-ring);
+      }
     }
     small {
       font-size: 11.5px;
-      color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+      color: var(--mcm-text-faint);
     }
 
     &--row {
@@ -193,23 +338,28 @@
         width: 18px;
         height: 18px;
         flex: none;
+        accent-color: var(--mcm-accent);
       }
       > span {
         font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        font-size: 13px;
+        color: var(--mcm-text);
       }
     }
   }
 
   &__pad {
-    padding: 22px;
-    max-width: 920px;
+    padding: 0;
+    max-width: 1240px;
   }
   &__center {
     text-align: center;
   }
   &__note {
     font-size: 12.5px;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    color: var(--mcm-text-soft);
     margin: 0 0 14px;
   }
   &__h4 {
@@ -224,23 +374,27 @@
 
     a {
       font-size: 13px;
-      color: var(--mcm-accent, #2563eb);
+      font-weight: 600;
+      color: var(--mcm-accent);
       text-decoration: none;
       padding: 7px 12px;
-      border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-      border-radius: 9px;
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-sm);
+      transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
+        border-color var(--mcm-dur-fast) var(--mcm-ease);
 
       &:hover {
-        background: var(--mcm-surface-2, #f0f0f3);
+        background: var(--mcm-accent-soft);
+        border-color: var(--mcm-accent-soft);
       }
     }
   }
 
   code {
     font-size: 12px;
-    background: var(--mcm-surface-2, #f0f0f3);
+    background: var(--mcm-surface-2);
     padding: 1px 6px;
-    border-radius: 5px;
+    border-radius: var(--mcm-radius-xs);
   }
 
   // ----- meeting detail -----
@@ -250,20 +404,17 @@
     align-items: center;
     margin-bottom: 14px;
   }
-
-  // Right-side action cluster in a detail head (compliance open + delete).
   &__detail-actions {
     display: flex;
     align-items: center;
     gap: 8px;
   }
 
-  // AI summary block (admin meeting detail) — long-form text, keep the
-  // model's own line breaks.
+  // AI summary block — long-form text, keep the model's own line breaks.
   &__summary {
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
-    border-radius: 12px;
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-md);
+    box-shadow: var(--mcm-shadow-1);
     padding: 14px 18px;
     font-size: 13.5px;
     line-height: 1.55;
@@ -274,12 +425,13 @@
     display: block;
     margin-top: 10px;
     font-size: 11.5px;
-    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+    color: var(--mcm-text-faint);
   }
 
   &__detail-title {
     font-size: 22px;
-    font-weight: 750;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     margin: 0 0 6px;
     display: flex;
     align-items: center;
@@ -291,9 +443,9 @@
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 12px 24px;
     margin: 0 0 6px;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
-    border-radius: 12px;
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-md);
+    box-shadow: var(--mcm-shadow-1);
     padding: 16px 18px;
 
     > div {
@@ -304,14 +456,25 @@
     dt {
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.4px;
-      color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
-      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--mcm-text-soft);
+      font-weight: 650;
     }
     dd {
       margin: 0;
       font-size: 13.5px;
       line-height: 1.4;
     }
+  }
+}
+
+// Watermark wordmark fading in/out (ẩn hiện).
+@keyframes mcm-admin-breathe {
+  0%,
+  100% {
+    opacity: 0.04;
+  }
+  50% {
+    opacity: 0.1;
   }
 }

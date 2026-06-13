@@ -7,13 +7,16 @@ import { useT } from "../../i18n/mcm";
 // by `import.meta.env.DEV` (statically replaced by Vite), so this chunk and
 // the demo passwords it pulls in never reach production builds.
 
-// Internal-team demo accounts (the 5 seeded R&D users) share this initial
-// password, so clicking a quick-login button signs in with one click.
+// Internal-team demo accounts share this initial password, so clicking a
+// quick-login button signs in with one click. Admin has its own (per-account
+// `password` override in DEMO_USERS).
 const DEMO_PASSWORD = "MapMeet@2026";
 
 /**
- * One-click quick-login grid for the seeded demo accounts, grouped by
- * division. Dev builds only — see the guard note above.
+ * One-click quick-login for the seeded demo accounts. Compact flat grid (all
+ * accounts in a tight multi-column grid, one line each) so the login card
+ * stays short — division / title / email ride the tooltip instead of taking
+ * vertical space. Dev builds only — see the guard note above.
  */
 export const DevQuickLogin = ({
   onPick,
@@ -27,46 +30,46 @@ export const DevQuickLogin = ({
   return (
     <div className="mcm-login__demo">
       <span className="mcm-login__demo-title">{t("login.demoTitle")}</span>
-      {/* Grouped by DIVISION (a compact 2-col grid per group) so the
-          cross-department test accounts read as separate teams. */}
-      {[...new Set(DEMO_USERS.map((u) => u.division))].map((div) => (
-        <div key={div} className="mcm-login__demo-group">
-          <span className="mcm-login__demo-group-label">{div}</span>
-          <ul className="mcm-login__demo-list">
-            {DEMO_USERS.filter((u) => u.division === div).map((u) => (
-              <li key={u.email}>
-                <button
-                  type="button"
-                  className="mcm-login__demo-user"
-                  onClick={() => onPick(u.email, u.password ?? DEMO_PASSWORD)}
-                  title={`${u.title} · ${u.email}`}
-                  disabled={disabled}
+      <ul className="mcm-login__demo-list">
+        {DEMO_USERS.map((u) => (
+          <li key={u.email}>
+            <button
+              type="button"
+              className="mcm-login__demo-user"
+              onClick={() => onPick(u.email, u.password ?? DEMO_PASSWORD)}
+              title={`${u.name} · ${u.title} · ${u.division} · ${u.email}`}
+              disabled={disabled}
+            >
+              <span
+                className={`mcm-login__demo-avatar${
+                  u.isAdmin ? " mcm-login__demo-avatar--admin" : ""
+                }`}
+              >
+                {u.name.charAt(0)}
+              </span>
+              <span className="mcm-login__demo-name">{u.name}</span>
+              {u.isHost && (
+                <span
+                  className="mcm-login__demo-badge"
+                  title={t("login.host")}
+                  aria-label={t("login.host")}
                 >
-                  <span className="mcm-login__demo-avatar">
-                    {u.name.charAt(0)}
-                  </span>
-                  <span className="mcm-login__demo-info">
-                    <span className="mcm-login__demo-name">
-                      {u.name}
-                      {u.isHost && (
-                        <span className="mcm-login__demo-host">
-                          <Crown size={11} /> {t("login.host")}
-                        </span>
-                      )}
-                      {u.isAdmin && (
-                        <span className="mcm-login__demo-host">
-                          <ShieldCheck size={11} /> Admin
-                        </span>
-                      )}
-                    </span>
-                    <span className="mcm-login__demo-meta">{u.title}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+                  <Crown size={11} />
+                </span>
+              )}
+              {u.isAdmin && (
+                <span
+                  className="mcm-login__demo-badge mcm-login__demo-badge--admin"
+                  title="Admin"
+                  aria-label="Admin"
+                >
+                  <ShieldCheck size={11} />
+                </span>
+              )}
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
