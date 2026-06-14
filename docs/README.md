@@ -32,6 +32,8 @@ backend Cloudflare Worker + D1 + R2. Bắt đầu 2026-05-08.
 | 06-05 | Screen share + audio qua Daily.co; Supabase Auth |
 | 06-10 | Phase 4.5 scheduling + siết quyền server-enforced + 3 audit dữ liệu |
 | 06-11 | P1 hạ tầng Cloudflare remote LIVE + architecture.md + master plan 4 nhóm |
+| 06-12 | Design-system **Glass Desk** cho dashboard (wallpaper + calendar/notes + color/icon) |
+| 06-15 | Rebrand **Canvas M** + Glass-Desk login/admin + luồng login-bằng-link (merge từ feature branch) |
 
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 

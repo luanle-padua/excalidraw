@@ -45,4 +45,4 @@ Typography: Display 24/700 · Title 16/650 · Number 17/700 tnum · Body 13.5/45
 
 ## Trạng thái implement
 
-Triển khai 06-12 bằng workflow `wf_d94801ef-60a` (B1 token layer → B2-5 MeetingShell surfaces ∥ B6 ProjectManager+toggle ∥ B7 CalendarX ∥ B8 NotificationBell → verify). Xem progress log 2026-06-12 cho kết quả + những gì lệch spec.
+Triển khai 06-12 bằng workflow `wf_d94801ef-60a` (B1 token layer → B2-5 MeetingShell surfaces ∥ B6 ProjectManager+toggle ∥ B7 CalendarX ∥ B8 NotificationBell → verify); landed trên master qua commit `997000cf "update giao dien dashboard"`. Đợt 06-15 mở rộng hệ kính sang **màn login + admin console** kèm rebrand **Canvas M** + luồng login-bằng-link — xem `logs/2026-06-15.md` (gồm tóm tắt phần dashboard 06-12 + kết quả review/merge).
