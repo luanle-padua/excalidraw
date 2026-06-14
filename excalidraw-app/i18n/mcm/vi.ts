@@ -439,10 +439,8 @@ export const vi = {
     noMembers: "Chưa có thành viên",
     owner: "Chủ dự án",
     delete: "Xóa dự án",
-    deleteConfirm:
-      'Xóa dự án "{name}"? Hành động này không thể hoàn tác.',
-    deleteNotEmpty:
-      "Phải xóa hết cuộc họp trong dự án trước khi xóa dự án.",
+    deleteConfirm: 'Xóa dự án "{name}"? Hành động này không thể hoàn tác.',
+    deleteNotEmpty: "Phải xóa hết cuộc họp trong dự án trước khi xóa dự án.",
     deleteFailed: "Không xóa được dự án.",
     filterAll: "Tất cả",
     filterLive: "Đang diễn ra",

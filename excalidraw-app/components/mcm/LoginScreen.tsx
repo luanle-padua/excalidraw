@@ -179,225 +179,225 @@ export const LoginScreen = () => {
 
       {!intro && (
         <div className="mcm-login__card">
-        {/* Left: sign-in form */}
-        <section className="mcm-login__form-pane">
-          <div className="mcm-login__topbar">
-            <LangThemeSwitcher />
-          </div>
+          {/* Left: sign-in form */}
+          <section className="mcm-login__form-pane">
+            <div className="mcm-login__topbar">
+              <LangThemeSwitcher />
+            </div>
 
-          <div className="mcm-login__brand">
-            <img
-              src="/canvas-m.png"
-              alt="Canvas M"
-              decoding="async"
-              className="mcm-login__logo-img"
-            />
-          </div>
-          <p className="mcm-login__dev">{t("login.dev")}</p>
-
-          <h1 className="mcm-login__title">{t("login.title")}</h1>
-          <p className="mcm-login__subtitle">{t("login.subtitle")}</p>
-
-          {linkAccepted && !magicSent && (
-            <p className="mcm-login__magic-sent">{t("login.linkAccepted")}</p>
-          )}
-
-          {magicSent ? (
-            <p className="mcm-login__magic-sent">
-              {t("login.magicSent", { email: email.trim() })}
-            </p>
-          ) : mode === "link" ? (
-            <form className="mcm-login__form" onSubmit={submitLink}>
-              <label className="mcm-login__field">
-                <span className="mcm-login__label">
-                  {t("login.linkLabel")}
-                </span>
-                <input
-                  type="text"
-                  className={`mcm-login__input${
-                    error ? " mcm-login__input--error" : ""
-                  }`}
-                  placeholder={t("login.linkPlaceholder")}
-                  value={linkValue}
-                  autoFocus
-                  onChange={(e) => {
-                    setLinkValue(e.target.value);
-                    setError(null);
-                  }}
-                />
-              </label>
-
-              {error && <p className="mcm-login__error">{error}</p>}
-
-              <button
-                type="submit"
-                className="mcm-login__submit"
-                disabled={!linkValue.trim()}
-              >
-                {t("login.linkContinue")}
-              </button>
-
-              <button
-                type="button"
-                className="mcm-login__guest-toggle"
-                onClick={() => {
-                  setMode("password");
-                  setError(null);
-                }}
-              >
-                {t("login.usePassword")}
-              </button>
-            </form>
-          ) : mode === "password" ? (
-            <form className="mcm-login__form" onSubmit={signInPassword}>
-              <label className="mcm-login__field">
-                <span className="mcm-login__label">
-                  {t("login.emailLabel")}
-                </span>
-                <input
-                  type="email"
-                  className={`mcm-login__input${
-                    error ? " mcm-login__input--error" : ""
-                  }`}
-                  placeholder={t("login.emailPlaceholder")}
-                  value={email}
-                  autoFocus
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError(null);
-                  }}
-                />
-              </label>
-
-              <label className="mcm-login__field">
-                <span className="mcm-login__label">
-                  {t("login.passwordLabel")}
-                </span>
-                <input
-                  ref={passwordRef}
-                  type="password"
-                  className="mcm-login__input"
-                  placeholder={t("login.passwordPlaceholder")}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError(null);
-                  }}
-                />
-              </label>
-
-              {error && <p className="mcm-login__error">{error}</p>}
-
-              <button
-                type="submit"
-                className="mcm-login__submit"
-                disabled={loading || !email.trim() || !password}
-              >
-                {loading ? t("login.signingIn") : t("login.signIn")}
-              </button>
-
-              <button
-                type="button"
-                className="mcm-login__guest-toggle"
-                onClick={() => {
-                  setMode("magic");
-                  setError(null);
-                }}
-              >
-                {t("login.guestToggle")}
-              </button>
-
-              <button
-                type="button"
-                className="mcm-login__guest-toggle"
-                onClick={() => {
-                  setMode("link");
-                  setError(null);
-                }}
-              >
-                {t("login.linkToggle")}
-              </button>
-            </form>
-          ) : (
-            <form className="mcm-login__form" onSubmit={sendMagicLink}>
-              <label className="mcm-login__field">
-                <span className="mcm-login__label">
-                  {t("login.emailLabel")}
-                </span>
-                <input
-                  type="email"
-                  className={`mcm-login__input${
-                    error ? " mcm-login__input--error" : ""
-                  }`}
-                  placeholder={t("login.emailPlaceholder")}
-                  value={email}
-                  autoFocus
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setError(null);
-                  }}
-                />
-              </label>
-
-              {error && <p className="mcm-login__error">{error}</p>}
-
-              <button
-                type="submit"
-                className="mcm-login__submit"
-                disabled={loading || !email.trim()}
-              >
-                {loading ? t("login.signingIn") : t("login.sendMagicLink")}
-              </button>
-
-              <button
-                type="button"
-                className="mcm-login__guest-toggle"
-                onClick={() => {
-                  setMode("password");
-                  setError(null);
-                }}
-              >
-                {t("login.usePassword")}
-              </button>
-            </form>
-          )}
-
-          {DevQuickLogin && !magicSent && mode !== "link" && (
-            <Suspense fallback={null}>
-              <DevQuickLogin
-                onPick={(mail, pass) => {
-                  setEmail(mail);
-                  void doSignIn(mail, pass);
-                }}
-                disabled={loading}
+            <div className="mcm-login__brand">
+              <img
+                src="/canvas-m.png"
+                alt="Canvas M"
+                decoding="async"
+                className="mcm-login__logo-img"
               />
-            </Suspense>
-          )}
+            </div>
+            <p className="mcm-login__dev">{t("login.dev")}</p>
 
-          <p className="mcm-login__help">{t("login.needHelp")}</p>
-        </section>
+            <h1 className="mcm-login__title">{t("login.title")}</h1>
+            <p className="mcm-login__subtitle">{t("login.subtitle")}</p>
 
-        {/* Right: brand hero — translucent frosted glass over the card's
-            watermark + the animated desk behind it. */}
-        <aside className="mcm-login__hero" aria-hidden="true">
-          <div className="mcm-login__hero-inner">
-            <h2 className="mcm-login__hero-title">{t("login.heroTitle")}</h2>
-            <p className="mcm-login__hero-sub">{t("login.heroSubtitle")}</p>
-            <ul className="mcm-login__features">
-              {features.map((f) => (
-                <li key={f.title} className="mcm-login__feature">
-                  <span className="mcm-login__feature-icon">
-                    <f.Icon size={18} />
+            {linkAccepted && !magicSent && (
+              <p className="mcm-login__magic-sent">{t("login.linkAccepted")}</p>
+            )}
+
+            {magicSent ? (
+              <p className="mcm-login__magic-sent">
+                {t("login.magicSent", { email: email.trim() })}
+              </p>
+            ) : mode === "link" ? (
+              <form className="mcm-login__form" onSubmit={submitLink}>
+                <label className="mcm-login__field">
+                  <span className="mcm-login__label">
+                    {t("login.linkLabel")}
                   </span>
-                  <div className="mcm-login__feature-text">
-                    <strong>{f.title}</strong>
-                    <span>{f.desc}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
+                  <input
+                    type="text"
+                    className={`mcm-login__input${
+                      error ? " mcm-login__input--error" : ""
+                    }`}
+                    placeholder={t("login.linkPlaceholder")}
+                    value={linkValue}
+                    autoFocus
+                    onChange={(e) => {
+                      setLinkValue(e.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+
+                {error && <p className="mcm-login__error">{error}</p>}
+
+                <button
+                  type="submit"
+                  className="mcm-login__submit"
+                  disabled={!linkValue.trim()}
+                >
+                  {t("login.linkContinue")}
+                </button>
+
+                <button
+                  type="button"
+                  className="mcm-login__guest-toggle"
+                  onClick={() => {
+                    setMode("password");
+                    setError(null);
+                  }}
+                >
+                  {t("login.usePassword")}
+                </button>
+              </form>
+            ) : mode === "password" ? (
+              <form className="mcm-login__form" onSubmit={signInPassword}>
+                <label className="mcm-login__field">
+                  <span className="mcm-login__label">
+                    {t("login.emailLabel")}
+                  </span>
+                  <input
+                    type="email"
+                    className={`mcm-login__input${
+                      error ? " mcm-login__input--error" : ""
+                    }`}
+                    placeholder={t("login.emailPlaceholder")}
+                    value={email}
+                    autoFocus
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+
+                <label className="mcm-login__field">
+                  <span className="mcm-login__label">
+                    {t("login.passwordLabel")}
+                  </span>
+                  <input
+                    ref={passwordRef}
+                    type="password"
+                    className="mcm-login__input"
+                    placeholder={t("login.passwordPlaceholder")}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+
+                {error && <p className="mcm-login__error">{error}</p>}
+
+                <button
+                  type="submit"
+                  className="mcm-login__submit"
+                  disabled={loading || !email.trim() || !password}
+                >
+                  {loading ? t("login.signingIn") : t("login.signIn")}
+                </button>
+
+                <button
+                  type="button"
+                  className="mcm-login__guest-toggle"
+                  onClick={() => {
+                    setMode("magic");
+                    setError(null);
+                  }}
+                >
+                  {t("login.guestToggle")}
+                </button>
+
+                <button
+                  type="button"
+                  className="mcm-login__guest-toggle"
+                  onClick={() => {
+                    setMode("link");
+                    setError(null);
+                  }}
+                >
+                  {t("login.linkToggle")}
+                </button>
+              </form>
+            ) : (
+              <form className="mcm-login__form" onSubmit={sendMagicLink}>
+                <label className="mcm-login__field">
+                  <span className="mcm-login__label">
+                    {t("login.emailLabel")}
+                  </span>
+                  <input
+                    type="email"
+                    className={`mcm-login__input${
+                      error ? " mcm-login__input--error" : ""
+                    }`}
+                    placeholder={t("login.emailPlaceholder")}
+                    value={email}
+                    autoFocus
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError(null);
+                    }}
+                  />
+                </label>
+
+                {error && <p className="mcm-login__error">{error}</p>}
+
+                <button
+                  type="submit"
+                  className="mcm-login__submit"
+                  disabled={loading || !email.trim()}
+                >
+                  {loading ? t("login.signingIn") : t("login.sendMagicLink")}
+                </button>
+
+                <button
+                  type="button"
+                  className="mcm-login__guest-toggle"
+                  onClick={() => {
+                    setMode("password");
+                    setError(null);
+                  }}
+                >
+                  {t("login.usePassword")}
+                </button>
+              </form>
+            )}
+
+            {DevQuickLogin && !magicSent && mode !== "link" && (
+              <Suspense fallback={null}>
+                <DevQuickLogin
+                  onPick={(mail, pass) => {
+                    setEmail(mail);
+                    void doSignIn(mail, pass);
+                  }}
+                  disabled={loading}
+                />
+              </Suspense>
+            )}
+
+            <p className="mcm-login__help">{t("login.needHelp")}</p>
+          </section>
+
+          {/* Right: brand hero — translucent frosted glass over the card's
+            watermark + the animated desk behind it. */}
+          <aside className="mcm-login__hero" aria-hidden="true">
+            <div className="mcm-login__hero-inner">
+              <h2 className="mcm-login__hero-title">{t("login.heroTitle")}</h2>
+              <p className="mcm-login__hero-sub">{t("login.heroSubtitle")}</p>
+              <ul className="mcm-login__features">
+                {features.map((f) => (
+                  <li key={f.title} className="mcm-login__feature">
+                    <span className="mcm-login__feature-icon">
+                      <f.Icon size={18} />
+                    </span>
+                    <div className="mcm-login__feature-text">
+                      <strong>{f.title}</strong>
+                      <span>{f.desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
         </div>
       )}
     </div>
