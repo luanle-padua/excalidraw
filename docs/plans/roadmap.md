@@ -1,6 +1,6 @@
 # MCM Roadmap — các Phase đang follow
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: 2026-06-10 (Phase 4.5 ✅ + hardening — xem `logs/2026-06-10.md`; kế tiếp: production data theo `production-data-plan.md`).
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-15** (rà lại toàn bộ: G1+G4 gần trọn sau đợt 06-11; chèn workstream **Glass-Desk redesign + rebrand Canvas M** 06-12/06-15 — xem `logs/2026-06-15.md`; kế tiếp: đóng nốt G1/G4 → G2 admin → G3 remote + Phase 6).
 
 ## ✅ Đã xong
 
@@ -21,11 +21,11 @@ Bỏ audio mesh P2P (không scale) → audio chạy **Daily SFU** (scale N ngư�
 
 ### Phase 4 — Host control + per-meeting membership (gần xong)
 Vai trò host (chốt 2026-06-05) — **gắn với recording bảo mật** (chỉ host + người được duyệt mới tải được). Thiết kế đầy đủ (organizer vs host, acting-host, lifecycle, **lên lịch họp**): **[host-and-scheduling.md](../specs/host-and-scheduling.md)** (bàn 2026-06-08).
-- [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng. *(Khác màn "chờ Start" đã có ở 4.5 — waiting room là duyệt TỪNG khách khi meeting ĐANG live.)*
-- [x] **Mời theo LINK** (mở link + login) *(06-09)*. *(Mời theo email cụ thể = sau.)*
-- [x] **End meeting for all** — host kết thúc → meeting thành *finished* cho cả phòng *(06-08; ghi `status='finished'` chuẩn từ 06-10)*.
-- [ ] **Co-host** + chuyển host khi host rời. *(Acting-host runtime election đã có; co-host chỉ định trước = chưa.)*
-- [x] **Kick / mute** participant *(06-08 — soft enforcement, xem dev-phase-notes)*.
+- [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng. *(Khác màn "chờ Start" đã có ở 4.5 — waiting room là duyệt TỪNG khách khi meeting ĐANG live.)* **Hiện trạng:** switch trong ScheduleMeetingForm đang **disabled + nhãn "sắp có"** (06-11) — chưa làm thật.
+- [x] **Mời theo LINK** (mở link + login) *(06-09)*. *(Mời theo email cụ thể = sau.)* **+ Login bằng link** ngay tại màn đăng nhập *(06-15: dán `ID,KEY` → login → auto-join)*.
+- [x] **End meeting for all** — host kết thúc → meeting thành *finished* cho cả phòng *(06-08; ghi `status='finished'` chuẩn từ 06-10; lan tới member qua verify-registry từ 06-11)*.
+- [~] **Co-host** + chuyển host khi host rời. *(✅ Chỉ định co-host trước trong form Create/Edit + **End đã đọc role** (06-11). ❌ Còn: **election live chưa đọc role cohost cho kick/mute** — cần room server validate, xem track I-2.)*
+- [x] **Kick / mute** participant *(06-08 — soft enforcement, xem dev-phase-notes)*. **+ Revoke = kick** *(06-11: bỏ khỏi invitee → văng khỏi phòng live, poll 60s)*.
 - [x] **Membership** (D1): `project_member` + `meeting_invitee` (0008) → Worker authz per-meeting/project + Daily-token check *(06-09)*.
 
 ### Phase 4.5 — Scheduling (lên lịch họp) ✅ (06-09 → 06-10)
@@ -36,6 +36,12 @@ Chốt 2026-06-08, ship xong 2026-06-10:
 - [x] **Màn "chờ host Start"** (`WaitingForStart` + gate trong `startCollaboration`): mở link khi chưa Start → nội bộ thấy nút **Bắt đầu** (luật acting-host), khách **poll 5s** tới khi live thì tự vào; meeting huỷ → thông báo *(06-10)*.
 - [x] **Dời lịch / Huỷ** (organizer, trong detail panel; legacy meeting không có organizer → nội bộ được phép) *(06-10)*.
 - Để sau: email mời tự động · calendar sync (.ics) · recurring · waiting room per-guest (Phase 4).
+
+### Workstream UI — Glass-Desk redesign + rebrand "Canvas M" ✅ (06-12 → 06-15)
+Ngoài plan gốc — yêu cầu anh Luân "redesign UI/UX như app Apple, trend 2026". Design-system **Glass Desk** (`plans/glass-desk-dashboard-2026.md`): content giấy đặc, khung điều hướng kính Liquid Glass.
+- [x] **Dashboard** (06-12, commit `997000cf`): token Glass-Desk, **wallpaper** (preset/gradient/upload, per-browser), **CalendarX + ghi chú** (`GET/PUT /v1/notes` day|meeting), **color/icon** project+meeting (migration `0018`, cosmetic miễn guard), ColorMenu/EmojiMenu.
+- [x] **Login + Admin Console** Glass-Desk + **rebrand "MAP CanvasMeet" → "Canvas M"** (logo `public/canvas-m.png`; acronym MCM / prefix `mcm-` giữ) + **luồng login bằng link** (06-15, merge từ `feature/canvas-m-login-admin-ui`, đã push). *(Verify: typecheck/eslint/build pass + team review 6 agent, không regression.)*
+- Còn: **quét i18n lại** (đang **tạm dừng** tới khi UI chốt — chuỗi mới hardcode tiếng Việt) · **test tay login-link** 2 account.
 
 ### Phase 5 — Recording → R2 (auth-gated)
 - [ ] **Daily cloud recording** (audio+screen đều trên Daily) → webhook `recording.ready` → **Worker copy về R2 private** (Daily không ghi thẳng R2 — chỉ AWS S3).
@@ -59,7 +65,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - **I-2. Realtime = socket.io 1 instance** (`room/` — SPOF, không scale ngang, HTTP) → **Durable Objects** (June plan, chưa vào roadmap).
 - **I-3. Deploy production** — chưa có **CI/CD** (Pages + `wrangler deploy`), **domain thật**, **staging env**. Đang dev-machine + cloudflared quick-tunnel (URL đổi mỗi lần).
 - **I-4. Disaster recovery** — **D1 backup** + **R2 versioning** chưa có; D1 migration chạy tay (`wrangler d1 execute`).
-- **I-5. Observability** — Sentry có **config** (`sentry-production.yml`) nhưng **CHƯA wire `@sentry/browser` vào app**; server-side logging/alerting chưa có.
+- **I-5. Observability** — client `@sentry/browser` THỰC RA **đã wire sẵn** (`excalidraw-app/sentry.ts` + `TopErrorBoundary.tsx`, kế thừa Excalidraw — chỉ init khi có DSN env); **CHƯA xác nhận DSN/env prod**. Server-side logging/alerting (Worker + room server) **chưa có**.
 - **I-6. Runbooks** — deploy / key-rotation / incident-response chưa có.
 
 ### 🟠 Phase 6 — Production hardening (gom các việc trước go-live)
