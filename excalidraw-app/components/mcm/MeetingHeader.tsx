@@ -405,7 +405,7 @@ export const MeetingHeader = ({
       <div className="mcm-header__brand">
         <div className="mcm-header__brand-mark">M</div>
         <div className="mcm-header__brand-name">
-          <strong>MAP CANVAS MEET</strong>
+          <strong>Canvas M</strong>
           <span>(MCM)</span>
         </div>
       </div>
