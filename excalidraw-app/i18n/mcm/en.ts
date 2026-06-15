@@ -95,6 +95,9 @@ export const en: Widened<typeof vi> = {
     errRevoke: "Couldn't revoke the guest.",
     statusActive: "Active",
     statusRevoked: "Revoked",
+    pickFromList: "Project guests",
+    pickSearch: "Search guests by name / company…",
+    pickEmpty: "No project guests yet — issue one in the guest manager",
     manageNav: "Guest manager",
     manageTitle: "Guest manager (all projects)",
     manageHint:

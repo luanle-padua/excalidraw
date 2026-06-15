@@ -106,6 +106,10 @@ export const vi = {
     errRevoke: "Thu hồi khách không thành công.",
     statusActive: "Đang hoạt động",
     statusRevoked: "Đã thu hồi",
+    pickFromList: "Khách dự án",
+    pickSearch: "Tìm khách theo tên / công ty…",
+    pickEmpty:
+      "Dự án chưa có khách — hãy cấp ID khách trong phần quản lý khách",
     manageNav: "Quản lý khách",
     manageTitle: "Quản lý khách (tất cả dự án)",
     manageHint:

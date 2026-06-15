@@ -102,6 +102,9 @@ export const ko: Widened<typeof vi> = {
     errRevoke: "게스트 취소에 실패했습니다.",
     statusActive: "활성",
     statusRevoked: "취소됨",
+    pickFromList: "프로젝트 게스트",
+    pickSearch: "이름 / 회사로 게스트 검색…",
+    pickEmpty: "아직 프로젝트 게스트가 없습니다 — 게스트 관리에서 발급하세요",
     manageNav: "게스트 관리",
     manageTitle: "게스트 관리 (모든 프로젝트)",
     manageHint:

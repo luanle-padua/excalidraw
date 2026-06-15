@@ -12,12 +12,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { generateCollaborationLinkData } from "../../data";
-import { listClients, type Client } from "../../data/clients";
 import {
   getDirectory,
   inviteToMeeting,
   type DirectoryUser,
 } from "../../data/invite";
+import { listProjectGuests, type ProjectGuest } from "../../data/projectGuests";
 import { registerMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
@@ -95,32 +95,40 @@ export const ScheduleMeetingForm = ({
   const [dir, setDir] = useState<DirectoryUser[]>([]);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
-  const [clientEmail, setClientEmail] = useState("");
-  const [clients, setClients] = useState<Client[]>([]);
-  const [clientQ, setClientQ] = useState("");
+  // PROJECT-SCOPED guests — the invitable external contacts for THIS project
+  // (replaces the old cross-department shared client list). A guest is invited
+  // by their synthetic `login` (their JWT identity), never their real_email.
+  const [guests, setGuests] = useState<ProjectGuest[]>([]);
+  const [guestQ, setGuestQ] = useState("");
   const [addToProject, setAddToProject] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void getDirectory().then(setDir);
-    void listClients().then(setClients);
-  }, []);
+    void listProjectGuests(projectId).then(setGuests);
+  }, [projectId]);
 
-  // Saved clients (with an email) not already picked, filtered by the search —
-  // invite straight from the synced client list instead of retyping.
-  const clientMatches = useMemo(() => {
-    const n = clientQ.trim().toLowerCase();
-    return clients
-      .filter((c) => c.email && !selected.has(c.email.toLowerCase()))
+  // Friendly display name for a guest: representative label + company.
+  const guestName = (g: ProjectGuest) =>
+    g.company ? `${g.label ?? g.login} · ${g.company}` : g.label ?? g.login;
+
+  // Active project guests not already picked, filtered by the search — invite
+  // straight from the project's issued guests (matched on their login).
+  const guestMatches = useMemo(() => {
+    const n = guestQ.trim().toLowerCase();
+    return guests
       .filter(
-        (c) =>
+        (g) => g.status === "active" && !selected.has(g.login.toLowerCase()),
+      )
+      .filter(
+        (g) =>
           !n ||
-          c.name.toLowerCase().includes(n) ||
-          (c.company ?? "").toLowerCase().includes(n) ||
-          (c.email ?? "").toLowerCase().includes(n),
+          (g.label ?? "").toLowerCase().includes(n) ||
+          (g.company ?? "").toLowerCase().includes(n) ||
+          (g.real_email ?? "").toLowerCase().includes(n),
       )
       .slice(0, 30);
-  }, [clients, clientQ, selected]);
+  }, [guests, guestQ, selected]);
 
   const filtered = useMemo(() => {
     // Normalise punctuation/spacing so "div 1" matches "Div. 1", and search the
@@ -151,14 +159,10 @@ export const ScheduleMeetingForm = ({
       n.delete(email);
       return n;
     });
-  const addClient = () => {
-    const e = clientEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || selected.has(e)) {
-      return;
-    }
-    add({ email: e, name: e, kind: "guest" });
-    setClientEmail("");
-  };
+  // Add a project guest to the invite list BY THEIR LOGIN (the JWT identity
+  // `meeting_invitee`/`canSeeMeeting` match on), with a friendly display name.
+  const addGuest = (g: ProjectGuest) =>
+    add({ email: g.login.toLowerCase(), name: guestName(g), kind: "guest" });
 
   const create = async () => {
     if (!title.trim() || saving) {
@@ -477,10 +481,9 @@ export const ScheduleMeetingForm = ({
         </section>
 
         {/* ── ZONE 4 · PEOPLE ──────────────────────────────────────────
-            Selected invitees (shared PeopleGrid: internal vs clients,
+            Selected invitees (shared PeopleGrid: internal vs guests,
             division clusters, real avatars) + directory search, the
-            Members picker, the synced client list and the free guest
-            email — all the pre-existing pieces, recomposed. */}
+            Members picker, and this project's issued guests. */}
         <section className="mcm-nmf__zone">
           <h3 className="mcm-mdp__sec">
             {t("folder.secPeople")}
@@ -496,15 +499,15 @@ export const ScheduleMeetingForm = ({
                   s.kind === "internal"
                     ? dir.find((x) => x.email === s.email)
                     : undefined;
-                const cl =
+                const g =
                   s.kind === "guest"
-                    ? clients.find((x) => x.email?.toLowerCase() === s.email)
+                    ? guests.find((x) => x.login.toLowerCase() === s.email)
                     : undefined;
                 return {
                   email: s.email,
-                  name: u?.name ?? cl?.name ?? s.name,
+                  name: u?.name ?? g?.label ?? s.name,
                   title: u?.title ?? null,
-                  group: u?.division ?? cl?.company ?? null,
+                  group: u?.division ?? g?.company ?? null,
                   kind: s.kind,
                   avatar: u?.avatar ?? null,
                 };
@@ -554,61 +557,38 @@ export const ScheduleMeetingForm = ({
             )}
           </ul>
 
+          {/* PROJECT guests — issued per project in the guest manager, invited
+              here BY LOGIN (their JWT identity). No free-typed email box: a
+              guest must be issued first, so invites always resolve to a real
+              project-scoped identity (strict per-department confidentiality). */}
           <label className="mcm-invite__label">
             <Briefcase size={13} style={{ verticalAlign: "-2px" }} />{" "}
-            {t("clients.pickFromList")}
+            {t("projGuest.pickFromList")}
           </label>
           <div className="mcm-invite__search">
             <Search size={14} />
             <input
-              value={clientQ}
-              onChange={(e) => setClientQ(e.target.value)}
-              placeholder={t("clients.pickSearch")}
+              value={guestQ}
+              onChange={(e) => setGuestQ(e.target.value)}
+              placeholder={t("projGuest.pickSearch")}
             />
           </div>
           <ul className="mcm-invite__list">
-            {clientMatches.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    add({
-                      email: c.email!.toLowerCase(),
-                      name: c.company ? `${c.name} · ${c.company}` : c.name,
-                      kind: "guest",
-                    })
-                  }
-                >
-                  <strong>{c.name}</strong>
+            {guestMatches.map((g) => (
+              <li key={g.id}>
+                <button type="button" onClick={() => addGuest(g)}>
+                  <strong>{g.label ?? g.login}</strong>
                   <span>
-                    {[c.company, c.email].filter(Boolean).join(" · ") ||
-                      c.email}
+                    {[g.company, g.real_email].filter(Boolean).join(" · ") ||
+                      g.login}
                   </span>
                 </button>
               </li>
             ))}
-            {clientMatches.length === 0 && (
-              <li className="mcm-invite__empty">{t("clients.pickEmpty")}</li>
+            {guestMatches.length === 0 && (
+              <li className="mcm-invite__empty">{t("projGuest.pickEmpty")}</li>
             )}
           </ul>
-
-          <label className="mcm-invite__label">{t("invite.client")}</label>
-          <div className="mcm-invite__client">
-            <input
-              type="email"
-              value={clientEmail}
-              onChange={(e) => setClientEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addClient()}
-              placeholder={t("invite.clientPlaceholder")}
-            />
-            <button
-              type="button"
-              className="mcm-btn mcm-btn--primary mcm-btn--sm"
-              onClick={addClient}
-            >
-              {t("invite.add")}
-            </button>
-          </div>
 
           {hasInternal && (
             <label className="mcm-invite__check">
