@@ -11,6 +11,7 @@
 MAP CanvasMeet (MCM) là công cụ họp nội bộ xây trên **fork Excalidraw**: app client (`excalidraw-app/`) "đắp" shell meeting (`MeetingShell`) quanh editor gốc (`packages/excalidraw`, alias qua Vite, build thẳng từ source). Toàn bộ là **1 SPA không router** — điều hướng bằng URL hash (`#room=<roomId>,<roomKey>`) + jotai atoms.
 
 Backend gồm 2 nửa:
+
 - **Room server** (`room/`, Node Express + socket.io, port 3002 dev): relay realtime "dumb" (chỉ forward ciphertext) + proxy AI/STT/TURN.
 - **Cloudflare Worker** (`worker/`, Hono, `mcm-storage`): API `/v1/*` có JWT, persistence **R2** (bytes) + **D1** (metadata/registry). **Hai môi trường song song (P1 xong 06-11):** dev = miniflare local qua cloudflared tunnel (`meeting.ps1` chạy 4 process: vite :3001, room :3002, worker :8787, tunnel); remote = deploy thật tại **`https://mcm-storage.rnd-ai.workers.dev`** (D1 `mcm-db` APAC 16/16 migrations, R2 `mcm-storage`, 4 secrets) — remote DB còn trống, client dev vẫn trỏ local, cutover = đổi `VITE_APP_STORAGE_URL`.
 
@@ -66,7 +67,7 @@ Nội dung meeting (scene/chat/transcript/library) **E2E-encrypted bằng `roomK
 
 ### 2.2 Realtime collab + persistence trong phòng
 
-- `collab/Collab.tsx` (~3160 dòng) + `collab/Portal.tsx`: mọi broadcast encrypt AES-GCM client-side; room server chỉ forward `server-broadcast` → `client-broadcast`. Sự kiện: `init-room/join-room/first-in-room/new-user/room-user-change` + relay `rtc-signal`, TURN proxy, các WS_SUBTYPES (INIT/UPDATE/CHAT/LIBRARY_FILE*/RAISE_HAND/SCREEN_SHARE/STT_SEGMENT/USER_PROFILE/HOST_COMMAND/RECORDING_STATE…).
+- `collab/Collab.tsx` (~3160 dòng) + `collab/Portal.tsx`: mọi broadcast encrypt AES-GCM client-side; room server chỉ forward `server-broadcast` → `client-broadcast`. Sự kiện: `init-room/join-room/first-in-room/new-user/room-user-change` + relay `rtc-signal`, TURN proxy, các WS_SUBTYPES (INIT/UPDATE/CHAT/LIBRARY_FILE\*/RAISE_HAND/SCREEN_SHARE/STT_SEGMENT/USER_PROFILE/HOST_COMMAND/RECORDING_STATE…).
 - Sync: broadcast incremental theo `version`, full-sync throttle 20s; reconcile = `restoreElements` + `reconcileElements` + bump version. Join phòng: **eager prefetch** scene từ R2 song song với socket, fallback 5s.
 - Persistence qua Worker (`data/storage.ts`; `data/firebase.ts` chỉ là shim tên legacy): scene throttle 20s (reconcile với bản R2 trước khi PUT, từ chối ghi scene rỗng), chat debounce 800ms, transcript 5s, library 1.2s. **Flush khi rời phòng** (`flushPendingRoomSaves`, mới 06-11) chống mất dữ liệu cửa sổ debounce cuối; `resetScene()` chống contamination chéo phòng.
 - **Host election hoàn toàn client-side** (`data/userProfile.ts`): (1) match `host_email` registry → (2) legacy match name → (3) acting host = internal vào sớm nhất → (4) joinedAt nhỏ nhất chỉ khi không ai có email; phòng toàn guest → hostless. `HOST_COMMAND` END/KICK được peer tự validate với election local; MUTE trusted (low-harm).
@@ -142,7 +143,7 @@ Reopen → loadLibrary blob + hydrate per-file R2 song song → merge IDB → re
 ### Bảng D1 (12, migrations 0001→0016, runner `worker/migrate.mjs` + `schema_version`)
 
 | Bảng | Vai trò |
-|---|---|
+| --- | --- |
 | `project` | folder; owner = `host_email` (stamp JWT) |
 | `meeting` | registry, `id == roomId`; status canonical; `room_key` managed (trade-off test phase); `ai_summary` server-readable |
 | `file` | index per-file R2 trong meeting (kind/name/size) |
@@ -160,7 +161,7 @@ Reopen → loadLibrary blob + hydrate per-file R2 song song → merge IDB → re
 ### R2 key prefixes
 
 | Prefix | Mã hoá | Nội dung |
-|---|---|---|
+| --- | --- | --- |
 | `scenes/<roomId>/current` | E2E roomKey | scene blob `[u32 ver][ivLen][iv][cipher]` |
 | `chats/<roomId>/current` | E2E roomKey | chat log |
 | `library/<roomId>/current` | E2E roomKey | manifest DXF/IFC/PDF (slim) |
@@ -174,18 +175,21 @@ Reopen → loadLibrary blob + hydrate per-file R2 song song → merge IDB → re
 ## 5. Ranh giới server-enforced vs client-soft + known gaps
 
 ### Server-enforced (Worker — thật)
+
 - JWT bắt buộc mọi `/v1/*` (trừ health); admin gate re-check độc lập.
 - `canSeeMeeting`/roomGate invited-only (bỏ internal-allow); `confidential` invitee-only; `projectAccess` full/partial/null; guest không thấy folder.
 - Organizer-only PATCH/cancel/delete; owner-only project; state machine + race-safe 409; `finished` immutable metadata; organizer/host stamp từ JWT; tombstone 410 + cascade delete.
 - Daily token gate membership (`DAILY_API_KEY` server-only); My Files internal + ownership + 50MB 413; compliance open = audit-before-access; `internal_domains` từ D1.
 
 ### Client-soft (dev-phase, prod phải nâng cấp)
+
 - **Host election + mọi quyền host** hoàn toàn client-side (payload E2E, server không validate); `USER_PROFILE`/host claim spoofable; kick = client tự rời (vào lại được bằng link); mute = soft-mute.
 - **Review read-only** = `viewModeEnabled` client; blob PUT scenes/chats/library vào meeting `finished` **chưa bị Worker chặn** (chỉ chặn deleted 410).
 - **Room server socket.io không auth** — ai có roomId join relay được (nội dung vẫn E2E); endpoints AI/STT/translate trên room server không có gate riêng; CORS Worker `*`.
 - UI gates (nút Edit/Start/Folder, `INTERNAL_DOMAINS` mirror, lock file library theo username) chỉ là UX.
 
 ### Known gaps còn mở (từ docs-roadmap 06-11)
+
 - ~~Remote chưa tồn tại~~ → **(06-11) P1 XONG**: D1/R2/Worker remote live tại `mcm-storage.rnd-ai.workers.dev`, song song local dev; còn lại của track = cutover client (`VITE_APP_STORAGE_URL`) + Pages hosting + khoá CORS/rate-limit/password.
 - `room_key` plaintext trong D1 + `mcm:lastMeeting:v1` localStorage — chưa E2E thật.
 - Rate-limit chưa có; password demo hardcode; Sentry chưa wire; backup/DR chưa bật; Daily room mồ côi không bị xoá; 2 Daily room/meeting chưa gộp; mesh WebRTC dead code chờ dọn.
@@ -197,7 +201,7 @@ Reopen → loadLibrary blob + hydrate per-file R2 song song → merge IDB → re
 ## 6. Kiến trúc đích June demo vs hiện trạng
 
 | Hạng mục | Đích (plan 2026-06-01) | Hiện trạng 06-11 |
-|---|---|---|
+| --- | --- | --- |
 | Hosting client | Cloudflare Pages | Vite dev :3001 + cloudflared quick-tunnel |
 | Realtime | **Durable Object `MeetingRoom`** (raw WS + Hibernation, adapter `RoomSocket`) | socket.io 1 instance trên `room/` (Node, SPOF) — track I-2 |
 | AI/STT/TURN | Port lên Worker, `wrangler secret` | Vẫn room server, keys trong `room/.env.development` — track I-1 |

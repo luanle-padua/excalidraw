@@ -27,7 +27,7 @@ Parity được định nghĩa bằng 4 bất biến — vi phạm cái nào là
 **Chỗ HIỆN ĐANG lệch parity** (dữ liệu nghiệp vụ nằm sai tầng — phân loại từ audit §1.4):
 
 | Datum (key) | Loại | Phán quyết |
-|---|---|---|
+| --- | --- | --- |
 | `mcm:transcript:<roomId>`, `mcm:summary:<roomId>` | **DATA** | 🔴 phải lên server (R2 + D1 index) — P0.3 |
 | Recording `.webm` (MeetingRecorder.ts:171) | **DATA** | 🔴 upload R2 `recordings/` thay vì download — P0.4 |
 | Avatar upload (data URL local) | **DATA** | 🟠 R2 `avatars/<user_id>` — P2 |
@@ -44,7 +44,7 @@ D1 hiện có 10 bảng (audit §1.1). **Bảng cần thêm:** `recording(id, me
 **Bảng prefix R2 chuẩn (naming convention chốt):**
 
 | Prefix | Nội dung | Mã hoá | D1 index | Admin đọc? |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `scenes/<roomId>/current` | canvas | E2E room_key | `meeting.scene_r2_key` | ❌ ciphertext |
 | `files/<roomId>/<fileId>` | ảnh/PDF/DXF/GLB | E2E room_key | bảng `file` | ❌ |
 | `chats/<roomId>/current` | chat log | E2E room_key | — (key suy ra) | ❌ |
@@ -87,7 +87,7 @@ Hiện trạng: 0001–0014 chạy tay, `package.json` chỉ có script cho 0001
 ### P0 — Parity cấu trúc NGAY trên local (không cần tài khoản Cloudflare, rủi ro thấp)
 
 | # | Việc | File/lệnh | Trạng thái |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | P0.1 | ✅ (06-10) `0015_p0_parity.sql` (schema_version + tombstone + ai_summary + seed internal_domains) + **`worker/migrate.mjs`** (`node migrate.mjs` / `--remote` / `--status`); local đã track 16/16 | `worker/schema/`, `worker/migrate.mjs` | XONG |
 | P0.2 | ✅ (06-10) Worker đọc `system_settings.internal_domains` (cache per-isolate 60s, refresh trong JWT middleware, fallback hardcode khi bảng trống) | `worker/src/index.ts` | XONG (client session.ts còn hardcode — display only) |
 | P0.3 | ✅ (06-10) `PUT/GET /v1/transcripts/:roomId` (E2E như chats, sau roomGate); **summary đổi thành cột D1 `meeting.ai_summary`** (POST `/v1/meetings/:id/summary`) — phục vụ AI summary-first; client persist + auto-summary on End | worker + client transcription | XONG |
@@ -118,7 +118,7 @@ Hiện trạng: 0001–0014 chạy tay, `package.json` chỉ có script cho 0001
 ## 6. Bảng đích "datum → nơi lưu" (một dòng một loại)
 
 | Datum | Đích | Ghi chú |
-|---|---|---|
+| --- | --- | --- |
 | Identity, password, role, HR metadata, avatar-ref | **Supabase** | SoR; `app_metadata.role` chỉ service-key |
 | Profile mirror (`user_profile`), project, meeting, file-index, recording-index, invitee, member, participant, client, note, settings, audit_log, schema_version | **D1** | mọi quan hệ key bằng `user_id` (email = display/claim) |
 | Scene, files, chat, library, transcript, summary | **R2** (E2E room_key) | prefix §2; admin quản vòng đời, không đọc |

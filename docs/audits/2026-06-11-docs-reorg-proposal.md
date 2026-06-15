@@ -1,9 +1,6 @@
 # Đề xuất tổ chức lại thư mục `docs/` — 2026-06-11
 
-> **Trạng thái: ĐỀ XUẤT — chưa di chuyển/sửa file nào.** Khảo sát 20 file `.md` trong `docs/`
-> (lệnh `Get-ChildItem`, đọc đầu file + headings từng file, grep toàn bộ cross-reference).
-> Mục tiêu: anh Luân (không phải dân CS) mở `docs/` ra là biết **đọc gì trước, đọc gì sau theo tiến trình dự án**,
-> file mới sinh ra biết bỏ vào đâu.
+> **Trạng thái: ĐỀ XUẤT — chưa di chuyển/sửa file nào.** Khảo sát 20 file `.md` trong `docs/` (lệnh `Get-ChildItem`, đọc đầu file + headings từng file, grep toàn bộ cross-reference). Mục tiêu: anh Luân (không phải dân CS) mở `docs/` ra là biết **đọc gì trước, đọc gì sau theo tiến trình dự án**, file mới sinh ra biết bỏ vào đâu.
 
 ---
 
@@ -12,7 +9,7 @@
 Sau 10 ngày phát triển, `docs/` đang trộn lẫn 5 vai trò khác nhau trong cùng 1 thư mục phẳng:
 
 | Vai trò | Đặc điểm | File |
-|---|---|---|
+| --- | --- | --- |
 | **Nhật ký ngày (daily log)** | Tên `YYYY-MM-DD.md`, ghi lại 1 phiên làm việc — tư liệu lịch sử, KHÔNG cập nhật lại | `2026-05-08.md`, `2026-05-29.md`, `2026-06-02.md`, `2026-06-05.md`, `2026-06-10.md`, `2026-06-11.md` |
 | **Plan đang sống** | Cập nhật liên tục, là "việc cần làm / thứ tự làm" | `master-plan-4-groups.md`, `roadmap.md`, `production-data-plan.md`, `dev-phase-notes.md`, `2026-06-01-plan-ha-tang-cloudflare.md` (plan gốc, phần lớn đã thực thi) |
 | **Spec thiết kế** | Mô tả "hệ thống PHẢI hoạt động thế nào", sống lâu, ít đổi | `host-and-scheduling.md`, `admin-console.md`, `user-data-model.md`, `supabase-setup.md` (hướng dẫn cấu hình) |
@@ -21,8 +18,8 @@ Sau 10 ngày phát triển, `docs/` đang trộn lẫn 5 vai trò khác nhau tro
 
 **Về "đã lỗi thời":** không file nào đáng xoá, nhưng 2 file cần dán banner cảnh báo khi di chuyển:
 
-- `data-architecture-audit.md` — nhiều finding (§2, §3, §4, §5) **đã được fix trong P0+P1**; chính `phase-review-2026-06-11.md` §B đã đề xuất dán banner *"snapshot sáng 06-10, trạng thái sống xem production-data-plan §5"* để khỏi fix lại lần hai.
-- `2026-06-01-plan-ha-tang-cloudflare.md` — kế hoạch hạ tầng gốc; P1 remote đã XONG 06-11, một số chi tiết (Cloudflare Access, task theo tuần) đã bị thay bằng quyết định mới (Supabase Auth, master-plan-4-groups). Giữ làm tư liệu "vì sao chọn Cloudflare", dán banner *"plan gốc 06-01 — trạng thái sống xem roadmap.md track I + production-data-plan §5"*.
+- `data-architecture-audit.md` — nhiều finding (§2, §3, §4, §5) **đã được fix trong P0+P1**; chính `phase-review-2026-06-11.md` §B đã đề xuất dán banner _"snapshot sáng 06-10, trạng thái sống xem production-data-plan §5"_ để khỏi fix lại lần hai.
+- `2026-06-01-plan-ha-tang-cloudflare.md` — kế hoạch hạ tầng gốc; P1 remote đã XONG 06-11, một số chi tiết (Cloudflare Access, task theo tuần) đã bị thay bằng quyết định mới (Supabase Auth, master-plan-4-groups). Giữ làm tư liệu "vì sao chọn Cloudflare", dán banner _"plan gốc 06-01 — trạng thái sống xem roadmap.md track I + production-data-plan §5"_.
 
 ---
 
@@ -61,7 +58,7 @@ docs/
 ### Bảng đích đến + lý do (từng file)
 
 | # | File hiện tại | Đích đề xuất | Lý do (1 dòng) |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `2026-05-08.md` | `logs/2026-05-08.md` | Nhật ký phiên đầu tiên (realtime collab + tunnel) — tư liệu lịch sử thuần. |
 | 2 | `2026-05-29.md` | `logs/2026-05-29.md` | Nhật ký phiên AI bot + attribution — lịch sử thuần. |
 | 3 | `2026-06-01-plan-ha-tang-cloudflare.md` | `plans/2026-06-01-plan-ha-tang-cloudflare.md` | Là PLAN (dù tên có ngày) — plan hạ tầng gốc tháng 6, vẫn được architecture.md trỏ tới; dán banner "phần lớn đã thực thi". |
@@ -84,7 +81,7 @@ docs/
 | 20 | `user-feature-audit-2026-06-11.md` | `audits/2026-06-11-user-feature-audit.md` | Khảo sát 6 hành trình user tại 06-11 — point-in-time, checklist (d) sẽ tick dần nhưng bảng inventory là snapshot. |
 | — | `docs-reorg-proposal.md` (file này) | `audits/2026-06-11-docs-reorg-proposal.md` | Chính nó cũng là đề xuất point-in-time — sau khi thực thi xong thì chuyển vào audits/ làm tư liệu. |
 
-**Nguyên tắc phân loại nhanh** (khi phân vân): *file có ngày trong tên hoặc "chốt ngày X" → audits/ hoặc logs/; file phải mở ra cập nhật mỗi khi làm xong việc → plans/; file mô tả "hệ thống hoạt động thế nào" → specs/; file do agent sinh → generated/.*
+**Nguyên tắc phân loại nhanh** (khi phân vân): _file có ngày trong tên hoặc "chốt ngày X" → audits/ hoặc logs/; file phải mở ra cập nhật mỗi khi làm xong việc → plans/; file mô tả "hệ thống hoạt động thế nào" → specs/; file do agent sinh → generated/._
 
 ---
 
@@ -95,7 +92,7 @@ Grep toàn bộ `](...)` và mention `docs/...` trong docs + code. Chia 3 nhóm:
 ### 3a. Link Markdown thật (tương đối) — GÃY, PHẢI sửa khi di chuyển
 
 | File chứa link (vị trí mới) | Dòng | Link hiện tại | Sửa thành |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `specs/admin-console.md` | 3 | `](roadmap.md)` | `](../plans/roadmap.md)` |
 | `plans/dev-phase-notes.md` | 3 | `](host-and-scheduling.md)` | `](../specs/host-and-scheduling.md)` |
 | `plans/dev-phase-notes.md` | 3 | `](admin-console.md)` | `](../specs/admin-console.md)` |
@@ -104,16 +101,17 @@ Grep toàn bộ `](...)` và mention `docs/...` trong docs + code. Chia 3 nhóm:
 | `audits/2026-06-10-data-architecture-audit.md` | 5 | `](dev-phase-notes.md)` | `](../plans/dev-phase-notes.md)` |
 | `audits/2026-06-10-data-architecture-audit.md` | 5 | `](admin-console.md)` | `](../specs/admin-console.md)` |
 | `audits/2026-06-10-data-architecture-audit.md` | 45, 102 | `](user-data-model.md)` ×2 | `](../specs/user-data-model.md)` |
-| `plans/production-data-plan.md` | 3 | `](data-architecture-audit.md)` | `](../audits/2026-06-10-data-architecture-audit.md)` *(đổi cả tên)* |
+| `plans/production-data-plan.md` | 3 | `](data-architecture-audit.md)` | `](../audits/2026-06-10-data-architecture-audit.md)` _(đổi cả tên)_ |
 | `plans/production-data-plan.md` | 3 | `](user-data-model.md)` | `](../specs/user-data-model.md)` |
-| `plans/master-plan-4-groups.md` | 3 | `](phase-review-2026-06-11.md)` | `](../audits/2026-06-11-phase-review.md)` *(đổi cả tên)* |
-| `plans/master-plan-4-groups.md` | 3 | `](admin-feature-proposals-2026-06-11.md)` | `](../audits/2026-06-11-admin-feature-proposals.md)` *(đổi cả tên)* |
-| `plans/master-plan-4-groups.md` | 3, 9 | `](user-feature-audit-2026-06-11.md)` ×2 | `](../audits/2026-06-11-user-feature-audit.md)` *(đổi cả tên)* |
+| `plans/master-plan-4-groups.md` | 3 | `](phase-review-2026-06-11.md)` | `](../audits/2026-06-11-phase-review.md)` _(đổi cả tên)_ |
+| `plans/master-plan-4-groups.md` | 3 | `](admin-feature-proposals-2026-06-11.md)` | `](../audits/2026-06-11-admin-feature-proposals.md)` _(đổi cả tên)_ |
+| `plans/master-plan-4-groups.md` | 3, 9 | `](user-feature-audit-2026-06-11.md)` ×2 | `](../audits/2026-06-11-user-feature-audit.md)` _(đổi cả tên)_ |
 | `plans/roadmap.md` | 14 | `](supabase-setup.md)` | `](../specs/supabase-setup.md)` |
 | `plans/roadmap.md` | 23 | `](host-and-scheduling.md)` | `](../specs/host-and-scheduling.md)` |
 | `plans/roadmap.md` | 49 | `](admin-console.md)` | `](../specs/admin-console.md)` |
 
 **Link TỰ LÀNH** (2 file đi cùng nhau vào cùng thư mục — không cần sửa):
+
 - `2026-06-11.md:3` → `](2026-06-10.md)` — cả hai cùng vào `logs/`.
 - `host-and-scheduling.md:3` → `](admin-console.md)` — cả hai cùng vào `specs/`.
 - `dev-phase-notes.md:3` → `](roadmap.md)` — cả hai cùng vào `plans/`.
@@ -121,7 +119,7 @@ Grep toàn bộ `](...)` và mention `docs/...` trong docs + code. Chia 3 nhóm:
 ### 3b. Mention dạng text/backtick `docs/...` trong docs — không phải hyperlink nhưng NÊN sửa (kẻo người đọc/agent lạc đường)
 
 | File | Dòng | Mention | Xử lý |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `roadmap.md` | 3 | `docs/YYYY-MM-DD.md`, `2026-06-10.md`, `production-data-plan.md` | Sửa → `docs/logs/YYYY-MM-DD.md`, `logs/2026-06-10.md` (production-data-plan cùng plans/, giữ nguyên). |
 | `architecture.md` | 5 | `docs/roadmap.md`, `docs/dev-phase-notes.md`, `docs/production-data-plan.md`, `docs/host-and-scheduling.md`, `docs/2026-06-01-plan-ha-tang-cloudflare.md` | Generated — sẽ tự đúng ở lần regenerate; sửa tay tạm 5 path cũng được. |
 | `phase-review-2026-06-11.md` | 72–90, 100 | ~18 mention `docs/roadmap.md`, `docs/production-data-plan.md`, `docs/data-architecture-audit.md`, `docs/dev-phase-notes.md`, `docs/host-and-scheduling.md`, `docs/admin-console.md` | Là snapshot lịch sử — chấp nhận để nguyên, chỉ cần dòng đầu file ghi "đường dẫn trong bảng là vị trí cũ trước reorg 06-11". |
@@ -135,14 +133,13 @@ Grep toàn bộ `](...)` và mention `docs/...` trong docs + code. Chia 3 nhóm:
 **Trong code (comment — nên sửa cùng đợt di chuyển):**
 
 | File code | Dòng | Trỏ tới | Sửa thành |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `excalidraw-app/components/mcm/meetingStatus.ts` | 2 | `docs/host-and-scheduling.md` | `docs/specs/host-and-scheduling.md` |
 | `excalidraw-app/components/mcm/WaitingForStart.tsx` | 16 | `docs/host-and-scheduling.md` | `docs/specs/host-and-scheduling.md` |
 | `excalidraw-app/data/userProfile.ts` | 263 | `docs/host-and-scheduling.md` | `docs/specs/host-and-scheduling.md` |
 | `excalidraw-app/data/userProfile.ts` | 428, 435 | `docs/user-data-model.md` | `docs/specs/user-data-model.md` |
 
-**Trong memory của Claude (ngoài repo — nhắc agent phiên sau cập nhật khi thực thi reorg):**
-7 file memory đang trỏ `docs/...` đường dẫn cũ: `MEMORY.md`, `project_mcm-overview.md`, `project_mcm-dev-phase.md` (→ dev-phase-notes), `project_mcm-finished-meeting-immutable.md`, `reference_mcm-architecture-doc.md` (→ architecture.md), `reference_mcm-progress-log.md` (→ vị trí daily log), `reference_mcm-review-mode-entry.md`.
+**Trong memory của Claude (ngoài repo — nhắc agent phiên sau cập nhật khi thực thi reorg):** 7 file memory đang trỏ `docs/...` đường dẫn cũ: `MEMORY.md`, `project_mcm-overview.md`, `project_mcm-dev-phase.md` (→ dev-phase-notes), `project_mcm-finished-meeting-immutable.md`, `reference_mcm-architecture-doc.md` (→ architecture.md), `reference_mcm-progress-log.md` (→ vị trí daily log), `reference_mcm-review-mode-entry.md`.
 
 ---
 
@@ -151,31 +148,23 @@ Grep toàn bộ `](...)` và mention `docs/...` trong docs + code. Chia 3 nhóm:
 ```markdown
 # MAP CanvasMeet — Tài liệu dự án
 
-Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat + AI bot,
-dịch/STT, viewer DXF/IFC/PDF, screen share (Daily.co), auth Supabase,
-backend Cloudflare Worker + D1 + R2. Bắt đầu 2026-05-08.
+Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat + AI bot, dịch/STT, viewer DXF/IFC/PDF, screen share (Daily.co), auth Supabase, backend Cloudflare Worker + D1 + R2. Bắt đầu 2026-05-08.
 
 ## Đọc theo thứ tự này (người mới / quay lại sau nghỉ)
 
-1. **`generated/architecture.md`** — Bức tranh hệ thống HIỆN TẠI (sinh tự động
-   2026-06-11). Hiểu cái gì đang chạy trước khi đọc kế hoạch.
-2. **`plans/master-plan-4-groups.md`** — Việc SẮP LÀM, chia 4 nhóm, thứ tự đã
-   chốt với anh Luân 06-11. Đây là "kim chỉ nam" hiện hành.
+1. **`generated/architecture.md`** — Bức tranh hệ thống HIỆN TẠI (sinh tự động 2026-06-11). Hiểu cái gì đang chạy trước khi đọc kế hoạch.
+2. **`plans/master-plan-4-groups.md`** — Việc SẮP LÀM, chia 4 nhóm, thứ tự đã chốt với anh Luân 06-11. Đây là "kim chỉ nam" hiện hành.
 3. **`plans/roadmap.md`** — Phase nào xong / đang dở (nguồn chuẩn duy nhất về phase).
-4. **`plans/production-data-plan.md`** + **`plans/dev-phase-notes.md`** —
-   Kế hoạch dữ liệu production và danh sách "việc tạm cần finalize".
-5. **`specs/`** — Đọc KHI CẦN chi tiết thiết kế: host & lịch họp
-   (`host-and-scheduling.md`), admin console (`admin-console.md`),
-   model user (`user-data-model.md`), cấu hình auth (`supabase-setup.md`).
-6. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần
-   hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
+4. **`plans/production-data-plan.md`** + **`plans/dev-phase-notes.md`** — Kế hoạch dữ liệu production và danh sách "việc tạm cần finalize".
+5. **`specs/`** — Đọc KHI CẦN chi tiết thiết kế: host & lịch họp (`host-and-scheduling.md`), admin console (`admin-console.md`), model user (`user-data-model.md`), cấu hình auth (`supabase-setup.md`).
+6. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
 7. **`logs/`** — Nhật ký từng phiên làm việc (tiếng Việt), chi tiết kỹ thuật
-   + gotchas. Tra cứu khi cần biết "hôm đó đã làm gì, vướng gì".
+   - gotchas. Tra cứu khi cần biết "hôm đó đã làm gì, vướng gì".
 
 ## Dòng thời gian dự án (qua logs/)
 
 | Ngày | Mốc |
-|---|---|
+| --- | --- |
 | 05-08 | Realtime collab chạy được qua Cloudflare Tunnel |
 | 05-29 | AI bot trong canvas + attribution tác giả |
 | 06-01 | Chốt kế hoạch hạ tầng Cloudflare serverless (plans/2026-06-01-…) |
@@ -187,15 +176,11 @@ backend Cloudflare Worker + D1 + R2. Bắt đầu 2026-05-08.
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 
 - `logs/YYYY-MM-DD.md` — nhật ký ngày; viết xong KHÔNG sửa lại (trừ typo).
-- `audits/YYYY-MM-DD-<chủ-đề>.md` — báo cáo/đề xuất point-in-time; chốt xong
-  ĐÓNG BĂNG; nếu sau này stale thì dán banner trỏ tới doc sống, không sửa nội dung.
-- `plans/<tên-không-ngày>.md` — kế hoạch sống; dòng đầu file luôn có
-  "Cập nhật lần cuối: YYYY-MM-DD".
-- `specs/<tên-không-ngày>.md` — thiết kế sống; sửa trực tiếp khi quyết định đổi,
-  ghi "(cập nhật YYYY-MM-DD)" cạnh mục đổi.
+- `audits/YYYY-MM-DD-<chủ-đề>.md` — báo cáo/đề xuất point-in-time; chốt xong ĐÓNG BĂNG; nếu sau này stale thì dán banner trỏ tới doc sống, không sửa nội dung.
+- `plans/<tên-không-ngày>.md` — kế hoạch sống; dòng đầu file luôn có "Cập nhật lần cuối: YYYY-MM-DD".
+- `specs/<tên-không-ngày>.md` — thiết kế sống; sửa trực tiếp khi quyết định đổi, ghi "(cập nhật YYYY-MM-DD)" cạnh mục đổi.
 - `generated/` — KHÔNG sửa tay; regenerate bằng agent rồi ghi đè.
-- Link giữa các doc: luôn dùng đường dẫn tương đối (`../specs/…`) để click được
-  trên GitHub/editor.
+- Link giữa các doc: luôn dùng đường dẫn tương đối (`../specs/…`) để click được trên GitHub/editor.
 - Tên file: kebab-case, không dấu, tiếng Anh cho plans/specs; nội dung tiếng Việt OK.
 ```
 

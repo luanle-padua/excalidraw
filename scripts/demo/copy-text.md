@@ -11,16 +11,19 @@
 ### Beat 1b — 3 notes trên 3 zoom regions
 
 #### Note #1 — Luân, VN, copy DXF zoom vào **phòng ngủ chính**
+
 ```
 Phòng ngủ cần thêm cửa sổ
 ```
 
 #### Note #2 — Dojin, KR, copy DXF zoom vào **phòng tắm**
+
 ```
 화장실 출입구 위치 변경
 ```
 
 #### Note #3 — Elon, EN, copy DXF zoom vào **bếp**
+
 ```
 Add a kitchen island here?
 ```
@@ -28,11 +31,12 @@ Add a kitchen island here?
 ### Beat 1c — note trên PDF (page 2)
 
 #### Note PDF — Dojin, KR, gần khu vực tower diagram
+
 ```
 타워 높이 18m 맞나요?
 ```
 
-> Sau khi gõ xong, Elon select note này → click **🌐 Dịch** → translate widget tự sinh dòng tiếng Anh phía dưới. Nội dung Anh predict: *"Is the tower height correct at 18m?"* (Gemini generated, không cần copy).
+> Sau khi gõ xong, Elon select note này → click **🌐 Dịch** → translate widget tự sinh dòng tiếng Anh phía dưới. Nội dung Anh predict: _"Is the tower height correct at 18m?"_ (Gemini generated, không cần copy).
 
 ---
 
@@ -45,21 +49,25 @@ Add a kitchen island here?
 > **Context:** anh + đội đang review suite phòng ngủ chính của Villa Riverside — master bedroom 13'8 × 14, master bath với double vanity, W.I.C. 7 × 5'11, sliding glass door 6068 ra phía bắc. Mọi message ở dưới tied vào layout này.
 
 #### Msg #1 — Luân (VN) gõ
+
 ```
 Master bedroom 13'8 x 14 — đề xuất nới W.I.C thêm 1 foot mỗi chiều, lấy bớt từ hành lang
 ```
 
 #### Msg #2 — Dojin (KR) reply
+
 ```
 좋습니다. 그런데 마스터 욕실 더블 세면대 배관은 천장 위로 올리는 게 안전합니다
 ```
 
 #### Msg #3 — Elon (EN) reply
+
 ```
 Sounds good. Could the S.G.D open onto a small balcony? It'd be perfect for morning coffee.
 ```
 
 #### Msg #4 — Luân (VN) close
+
 ```
 Chốt — mở rộng W.I.C 8x6, thêm balcony qua S.G.D 6068. Em gửi update tuần sau
 ```
@@ -69,7 +77,7 @@ Chốt — mở rộng W.I.C 8x6, thêm balcony qua S.G.D 6068. Em gửi update 
 > Mình không gõ những đoạn này — em sẽ inject thẳng vào transcript log qua collabAPI để xuất hiện như đã được STT. Đối thoại tied vào master suite layout — bedroom 13'8 × 14, master bath với double vanity, W.I.C., S.G.D 6068.
 
 | t | Speaker | Lang | Text |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | ~8 | Luân | VN | `Mình review suite phòng ngủ chính — bedroom, master bath, và walk-in closet ở giữa` |
 | ~14.5 | Elon | EN | `The sliding door on the north — does it open onto something?` |
 | ~23 | Luân | VN | `Cửa S.G.D 6068 ra ban công, hướng ra vườn sau — lấy sáng tốt` |
@@ -84,12 +92,14 @@ Chốt — mở rộng W.I.C 8x6, thêm balcony qua S.G.D 6068. Em gửi update 
 ## VIGNETTE 3 — AI Summary
 
 > Không cần copy text. AI summary tự generate từ:
+>
 > - chatLogAtom (4 messages từ Vignette 2a)
 > - transcriptionLogAtom (6 segments từ Vignette 2b)
 >
 > Anh chỉ click "Biên bản" → modal mở → "Tạo tóm tắt" (regenerate summary) → đợi ~3-5s → Gemini xuất bản summary.
 >
 > Predict summary content (Gemini sẽ generate, không hard-code):
+>
 > - **Quyết định:** mở rộng master bedroom 1.5m về phía vườn; di dời cửa phòng tắm sang bắc; giữ bếp open-plan.
 > - **Việc cần làm:** Luân gửi bản update tuần sau.
 > - **Ngôn ngữ summary:** theo `preferredLanguageAtom` của người mở modal — Luân thấy tiếng Việt, Dojin Hàn, Elon Anh.
@@ -98,14 +108,14 @@ Chốt — mở rộng W.I.C 8x6, thêm balcony qua S.G.D 6068. Em gửi update 
 
 ## Phụ lục — strings ngắn tiện copy
 
-| | VN | KR | EN |
-|---|---|---|---|
-| Vietnamese sample (phòng ngủ) | `Phòng ngủ cần thêm cửa sổ` | | |
-| Korean sample (toilet door) | | `화장실 출입구 위치 변경` | |
-| English sample (kitchen) | | | `Add a kitchen island here?` |
-| Vietnamese sample (translate test) | `Tôi nghĩ phòng khách hơi nhỏ` | | |
-| Korean sample (translate test) | | `천장 높이가 충분합니까` | |
-| English sample (translate test) | | | `The natural lighting looks great` |
+|  | VN | KR | EN |
+| --- | --- | --- | --- |
+| Vietnamese sample (phòng ngủ) | `Phòng ngủ cần thêm cửa sổ` |  |  |
+| Korean sample (toilet door) |  | `화장실 출입구 위치 변경` |  |
+| English sample (kitchen) |  |  | `Add a kitchen island here?` |
+| Vietnamese sample (translate test) | `Tôi nghĩ phòng khách hơi nhỏ` |  |  |
+| Korean sample (translate test) |  | `천장 높이가 충분합니까` |  |
+| English sample (translate test) |  |  | `The natural lighting looks great` |
 
 ---
 

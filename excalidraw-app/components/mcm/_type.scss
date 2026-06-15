@@ -22,9 +22,8 @@
 // Font tokens are CSS custom properties (declared on .mcm-lobby + portal
 // roots in MeetingShell.scss); mixins reference them with a hard fallback
 // so a portal root that misses the stamp still renders Manrope.
-$mcm-font-ui-stack: "Manrope", -apple-system, BlinkMacSystemFont,
-  "SF Pro Text", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Roboto,
-  sans-serif;
+$mcm-font-ui-stack: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Text",
+  "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Roboto, sans-serif;
 $mcm-font-display-num-stack: "Fraunces", Georgia, serif; // digits ONLY
 
 // 32/320 — thin large hero, the Swiss signature. Login hero only.

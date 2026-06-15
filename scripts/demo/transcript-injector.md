@@ -31,9 +31,9 @@
   // props nên không tìm thấy bằng walk-up-the-chain.
   const findCollabAPI = () => {
     const root =
-      document.querySelector('.excalidraw-container') || document.body;
+      document.querySelector(".excalidraw-container") || document.body;
     if (!root) return null;
-    const fk = Object.keys(root).find((k) => k.startsWith('__reactFiber'));
+    const fk = Object.keys(root).find((k) => k.startsWith("__reactFiber"));
     if (!fk) return null;
     let top = root[fk];
     while (top.return) top = top.return;
@@ -43,8 +43,8 @@
       const sn = f && f.stateNode;
       if (
         sn &&
-        typeof sn === 'object' &&
-        typeof sn.publishSTTSegment === 'function'
+        typeof sn === "object" &&
+        typeof sn.publishSTTSegment === "function"
       ) {
         return sn;
       }
@@ -54,24 +54,36 @@
     return null;
   };
   const collab = findCollabAPI();
-  if (!collab) { console.error('collabAPI not found'); return; }
+  if (!collab) {
+    console.error("collabAPI not found");
+    return;
+  }
 
   // Mimic real STT latency: 1-2s between "speaker finishes" and
   // "transcript appears". Scales with sentence length (Deepgram-ish).
   // 50ms per char, clamped 1000-2000ms. Same math on all 3 tabs so
   // turn-taking timing stays natural.
-  const latency = (text) =>
-    Math.min(2000, Math.max(1000, text.length * 50));
+  const latency = (text) => Math.min(2000, Math.max(1000, text.length * 50));
   const segments = [
-    { delay:    0, text: 'Mình review suite phòng ngủ chính — bedroom, master bath, và walk-in closet ở giữa' },
-    { delay: 15000, text: 'Cửa S.G.D 6068 ra ban công, hướng ra vườn sau — lấy sáng tốt' },
-    { delay: 38000, text: 'OK mình mở rộng W.I.C thành 8x6, lấy từ hành lang' },
+    {
+      delay: 0,
+      text: "Mình review suite phòng ngủ chính — bedroom, master bath, và walk-in closet ở giữa",
+    },
+    {
+      delay: 15000,
+      text: "Cửa S.G.D 6068 ra ban công, hướng ra vườn sau — lấy sáng tốt",
+    },
+    { delay: 38000, text: "OK mình mở rộng W.I.C thành 8x6, lấy từ hành lang" },
   ];
-  console.log(`[LUÂN] queued ${segments.length} segments — first one in ${(STARTUP_DELAY+latency(segments[0].text))/1000}s. Tắt F12 + start recording NGAY.`);
+  console.log(
+    `[LUÂN] queued ${segments.length} segments — first one in ${
+      (STARTUP_DELAY + latency(segments[0].text)) / 1000
+    }s. Tắt F12 + start recording NGAY.`,
+  );
   for (const s of segments) {
     setTimeout(() => {
-      collab.publishSTTSegment({ text: s.text, lang: 'vi', ts: Date.now() });
-      console.log('[LUÂN] →', s.text);
+      collab.publishSTTSegment({ text: s.text, lang: "vi", ts: Date.now() });
+      console.log("[LUÂN] →", s.text);
     }, STARTUP_DELAY + s.delay + latency(s.text));
   }
 })();
@@ -87,9 +99,9 @@
   // pass qua props.
   const findCollabAPI = () => {
     const root =
-      document.querySelector('.excalidraw-container') || document.body;
+      document.querySelector(".excalidraw-container") || document.body;
     if (!root) return null;
-    const fk = Object.keys(root).find((k) => k.startsWith('__reactFiber'));
+    const fk = Object.keys(root).find((k) => k.startsWith("__reactFiber"));
     if (!fk) return null;
     let top = root[fk];
     while (top.return) top = top.return;
@@ -99,8 +111,8 @@
       const sn = f && f.stateNode;
       if (
         sn &&
-        typeof sn === 'object' &&
-        typeof sn.publishSTTSegment === 'function'
+        typeof sn === "object" &&
+        typeof sn.publishSTTSegment === "function"
       ) {
         return sn;
       }
@@ -110,22 +122,31 @@
     return null;
   };
   const collab = findCollabAPI();
-  if (!collab) { console.error('collabAPI not found'); return; }
+  if (!collab) {
+    console.error("collabAPI not found");
+    return;
+  }
 
   // Mimic real STT latency: 1-2s between "speaker finishes" and
   // "transcript appears". Scales with sentence length (Deepgram-ish).
   // 50ms per char, clamped 1000-2000ms. Same math on all 3 tabs so
   // turn-taking timing stays natural.
-  const latency = (text) =>
-    Math.min(2000, Math.max(1000, text.length * 50));
+  const latency = (text) => Math.min(2000, Math.max(1000, text.length * 50));
   const segments = [
-    { delay: 23000, text: '마스터 욕실 더블 세면대 배관은 천장으로 올리는 게 좋겠습니다' },
+    {
+      delay: 23000,
+      text: "마스터 욕실 더블 세면대 배관은 천장으로 올리는 게 좋겠습니다",
+    },
   ];
-  console.log(`[DOJIN] queued ${segments.length} segments — first one in ${(STARTUP_DELAY+segments[0].delay+latency(segments[0].text))/1000}s.`);
+  console.log(
+    `[DOJIN] queued ${segments.length} segments — first one in ${
+      (STARTUP_DELAY + segments[0].delay + latency(segments[0].text)) / 1000
+    }s.`,
+  );
   for (const s of segments) {
     setTimeout(() => {
-      collab.publishSTTSegment({ text: s.text, lang: 'ko', ts: Date.now() });
-      console.log('[DOJIN] →', s.text);
+      collab.publishSTTSegment({ text: s.text, lang: "ko", ts: Date.now() });
+      console.log("[DOJIN] →", s.text);
     }, STARTUP_DELAY + s.delay + latency(s.text));
   }
 })();
@@ -141,9 +162,9 @@
   // pass qua props.
   const findCollabAPI = () => {
     const root =
-      document.querySelector('.excalidraw-container') || document.body;
+      document.querySelector(".excalidraw-container") || document.body;
     if (!root) return null;
-    const fk = Object.keys(root).find((k) => k.startsWith('__reactFiber'));
+    const fk = Object.keys(root).find((k) => k.startsWith("__reactFiber"));
     if (!fk) return null;
     let top = root[fk];
     while (top.return) top = top.return;
@@ -153,8 +174,8 @@
       const sn = f && f.stateNode;
       if (
         sn &&
-        typeof sn === 'object' &&
-        typeof sn.publishSTTSegment === 'function'
+        typeof sn === "object" &&
+        typeof sn.publishSTTSegment === "function"
       ) {
         return sn;
       }
@@ -164,23 +185,35 @@
     return null;
   };
   const collab = findCollabAPI();
-  if (!collab) { console.error('collabAPI not found'); return; }
+  if (!collab) {
+    console.error("collabAPI not found");
+    return;
+  }
 
   // Mimic real STT latency: 1-2s between "speaker finishes" and
   // "transcript appears". Scales with sentence length (Deepgram-ish).
   // 50ms per char, clamped 1000-2000ms. Same math on all 3 tabs so
   // turn-taking timing stays natural.
-  const latency = (text) =>
-    Math.min(2000, Math.max(1000, text.length * 50));
+  const latency = (text) => Math.min(2000, Math.max(1000, text.length * 50));
   const segments = [
-    { delay:  7000, text: 'The sliding door on the north — does it open onto something?' },
-    { delay: 31000, text: "Walk-in closet at 7 by 5'11 feels tight. Can we push it out?" },
+    {
+      delay: 7000,
+      text: "The sliding door on the north — does it open onto something?",
+    },
+    {
+      delay: 31000,
+      text: "Walk-in closet at 7 by 5'11 feels tight. Can we push it out?",
+    },
   ];
-  console.log(`[ELON] queued ${segments.length} segments — first one in ${(STARTUP_DELAY+segments[0].delay+latency(segments[0].text))/1000}s.`);
+  console.log(
+    `[ELON] queued ${segments.length} segments — first one in ${
+      (STARTUP_DELAY + segments[0].delay + latency(segments[0].text)) / 1000
+    }s.`,
+  );
   for (const s of segments) {
     setTimeout(() => {
-      collab.publishSTTSegment({ text: s.text, lang: 'en', ts: Date.now() });
-      console.log('[ELON] →', s.text);
+      collab.publishSTTSegment({ text: s.text, lang: "en", ts: Date.now() });
+      console.log("[ELON] →", s.text);
     }, STARTUP_DELAY + s.delay + latency(s.text));
   }
 })();
@@ -193,7 +226,7 @@
 `t = 0` là lúc anh nhấn Enter. Mỗi segment hiển thị tại `STARTUP_DELAY + delay + latency`. `latency` = `min(2000, max(1000, text.length × 50))ms`, mimic STT real.
 
 | t (~s) | Speaker | Lang | Câu |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0 | — | — | Anh nhấn Enter cả 3 tab. **Tắt F12 + start recording NGAY** |
 | ~8 | Luân | vi | `Mình review suite phòng ngủ chính — bedroom, master bath, và walk-in closet ở giữa` |
 | ~14.5 | Elon | en | `The sliding door on the north — does it open onto something?` |

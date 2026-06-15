@@ -37,7 +37,7 @@ Run once via MCP, leave the browser tabs open:
 **Active tab(s):** Tab L (foreground) · Tabs D + E watch
 
 | t | Tab | Action | Implementation |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0:00 | L | Drag `floorplan.dxf` from library onto canvas centre | `MeetingLibrary` drag → drop API: simulate pointer drag from the library tile to canvas centre |
 | 0:03 | — | DXF anchor renders, layer panel auto-appears | wait for `.mcm-dxf-anchor` to mount; pause ~1.5s |
 | 0:05 | L | Switch to rectangle tool (press `R`) | `browser_press_key` `r` |
@@ -48,7 +48,7 @@ Run once via MCP, leave the browser tabs open:
 | 0:18 | E | Click Luân's avatar in participants strip → follow-mode | `browser_evaluate` click on Tab E |
 | 0:20 | E | Viewport snaps to Luân's view — wide shot showing cloud + image + arrow | hold camera |
 | 0:24 | E | Press Esc to release follow | `browser_press_key` `Escape` |
-| **Cut** | | | |
+| **Cut** |  |  |  |
 
 **Camera note:** keep Tab L full-frame for 0:00–0:18, then split-screen briefly to show Tab E mirroring at 0:20.
 
@@ -59,7 +59,7 @@ Run once via MCP, leave the browser tabs open:
 **Active tab(s):** all 3
 
 | t | Tab | Action | Implementation |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 0:25 | L | Select the DXF anchor | click on anchor centre |
 | 0:27 | L | Ctrl+D twice → 3 copies appear | `browser_press_key` `Control+d` ×2 |
 | 0:29 | L | Drag copies into 3 horizontal slots (left/centre/right) | drag each copy to scene coords (200,800), (700,800), (1200,800) |
@@ -73,7 +73,7 @@ Run once via MCP, leave the browser tabs open:
 | 1:03 | D | Same on copy #2 around the bathroom door | scripted |
 | 1:07 | E | Same on copy #3 in the centre of the kitchen | scripted |
 | 1:11 | — | Wide shot: 3 anchors side by side, each with a cloud + a note in 3 languages | hold camera 3s |
-| **Cut** | | | |
+| **Cut** |  |  |  |
 
 **Camera note:** this is the killer "3 people in parallel" moment. Keep the wide shot from 1:11 for ~3s before cutting.
 
@@ -84,7 +84,7 @@ Run once via MCP, leave the browser tabs open:
 **Active tab(s):** Tab D (acts) · Tab E (translates)
 
 | t | Tab | Action | Implementation |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1:15 | D | Drag `architecture-spec.pdf` from library to canvas (below the DXFs) | library drag → drop at scene (700,1200) |
 | 1:18 | — | PDF page-1 renders | wait for `.mcm-pdf-anchor` |
 | 1:20 | D | Click anchor → focus toolbar appears → click Next | scripted |
@@ -93,7 +93,7 @@ Run once via MCP, leave the browser tabs open:
 | 1:32 | E | Click Dojin's note to select it → translate widget appears → click "Dịch" | scripted |
 | 1:38 | — | Translation text appears below note: `"Is the tower height correct at 18m?"` | wait for child element to render |
 | 1:42 | — | Wide shot: PDF + Korean note + English translation underneath | hold 3s |
-| **Cut** | | | |
+| **Cut** |  |  |  |
 
 ---
 
@@ -102,7 +102,7 @@ Run once via MCP, leave the browser tabs open:
 **Active tab(s):** Tab L (drives) · Tabs D + E watch
 
 | t | Tab | Action | Implementation |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1:45 | L | Drag `master-bedroom-ref.jpg` from library (a second copy, separate from the one in 1a) | library drag → drop at scene (300,1500) |
 | 1:48 | — | Image renders | wait |
 | 1:50 | L | Click the stamp button in the toolbar (4th icon in the extras row) | `browser_evaluate` to click `.mcm-deco-trigger--stamp` |
@@ -113,7 +113,7 @@ Run once via MCP, leave the browser tabs open:
 | 2:01 | L | Drag the group to a new position (~150px right) | pointer drag |
 | 2:05 | — | Camera: stamp visibly moves WITH the bedroom image — the "ADHESION" moment | hold 3s |
 | 2:08 | E | (Wide shot) Tab R (Elon or Dojin) shows the same move propagated | hold 2s |
-| **Cut. End of Vignette 1.** | | | |
+| **Cut. End of Vignette 1.** |  |  |  |
 
 **Camera note:** beat 1d is short but it's the ONLY moment that proves the new stamp behavior. Linger on the drag at 2:01–2:05 — that's the punchline.
 
@@ -134,8 +134,8 @@ Anchors live in `scripts/demo/scene-fast-forward.ts` (TBD — written alongside 
 
 ## Setup locked
 
-| | |
-|---|---|
+|  |  |
+| --- | --- |
 | **Asset folder** | `excalidraw-app/test-fixtures/demo/` — `floorplan.dxf` · `architecture-spec.pdf` · `master-bedroom-ref.jpg` |
 | **Stamps** | Chibi-animals — `/decorations/stamps/01.png` → `12.png` (built-in) |
 | **Avatars** | Luân `lib:48.png` · Dojin `lib:27.png` · Elon `lib:71.png` |

@@ -6,11 +6,11 @@
 
 ## 0. Opening hook (8–10s)
 
-| Style | VN | EN |
-|---|---|---|
-| Direct | `Một cuộc họp. Một bản vẽ.` | `One meeting. One canvas.` |
-| Promise | `Họp xong là xong.` | `From sketch to decision.` |
-| Inviting | `Cả đội. Cùng một trang.` | `Every voice on one canvas.` |
+| Style    | VN                          | EN                           |
+| -------- | --------------------------- | ---------------------------- |
+| Direct   | `Một cuộc họp. Một bản vẽ.` | `One meeting. One canvas.`   |
+| Promise  | `Họp xong là xong.`         | `From sketch to decision.`   |
+| Inviting | `Cả đội. Cùng một trang.`   | `Every voice on one canvas.` |
 
 > Recommend Direct cho VN, From sketch to decision cho EN.
 
@@ -20,23 +20,23 @@
 
 ### Title card
 
-| Option | VN | EN |
-|---|---|---|
-| A | `Cùng vẽ. Cùng góp ý.` | `Draw together. Decide together.` |
-| B | `Một bản vẽ — cả đội` | `One drawing. Every voice.` |
-| C | `Cùng làm việc, đúng nghĩa` | `Real-time, side by side.` |
+| Option | VN                          | EN                                |
+| ------ | --------------------------- | --------------------------------- |
+| A      | `Cùng vẽ. Cùng góp ý.`      | `Draw together. Decide together.` |
+| B      | `Một bản vẽ — cả đội`       | `One drawing. Every voice.`       |
+| C      | `Cùng làm việc, đúng nghĩa` | `Real-time, side by side.`        |
 
 ### Beat 1a — Khoanh vùng + hình tham khảo
 
-| | VN | EN |
-|---|---|---|
-| Action | `Khoanh chỗ. Kéo hình.` | `Highlight. Reference. Done.` |
-| Description | `Đánh dấu là rõ.` | `Mark a spot, drop a reference.` |
+|             | VN                      | EN                               |
+| ----------- | ----------------------- | -------------------------------- |
+| Action      | `Khoanh chỗ. Kéo hình.` | `Highlight. Reference. Done.`    |
+| Description | `Đánh dấu là rõ.`       | `Mark a spot, drop a reference.` |
 
 ### Beat 1b — 3 copy DXF, 3 chi tiết, 3 ghi chú
 
-| | VN | EN |
-|---|---|---|
+|  | VN | EN |
+| --- | --- | --- |
 | Action | `Mỗi người một chi tiết.` | `Same plan. Different focus.` |
 | Description | `Ba người, ba góc nhìn.` | `Three engineers. One drawing. Their own zoom.` |
 
@@ -47,7 +47,7 @@
 #### Sub-beat 1c-i — Mở PDF lên canvas, lật trang
 
 | Style | VN | EN |
-|---|---|---|
+| --- | --- | --- |
 | Action (em vote) | `Bản spec mở thẳng trên canvas.` | `Specs live on the canvas.` |
 | Action alt | `Lật trang ngay tại chỗ.` | `Flip the page, in place.` |
 | Description | `Mỗi trang — một góc nhìn riêng cho từng người.` | `Different page for every viewer.` |
@@ -56,7 +56,7 @@
 #### Sub-beat 1c-ii — Note trên PDF
 
 | Style | VN | EN |
-|---|---|---|
+| --- | --- | --- |
 | Action (em vote) | `Ghi chú trên PDF. Như trên giấy.` | `Annotate any PDF, like paper.` |
 | Action alt | `Viết thẳng lên trang.` | `Write on the page.` |
 | Description | `Spec, bản vẽ, tài liệu — đều ghi được.` | `Notes go where the drawing is.` |
@@ -65,7 +65,7 @@
 #### Sub-beat 1c-iii — Mark / khoanh / dịch trên PDF
 
 | Style | VN | EN |
-|---|---|---|
+| --- | --- | --- |
 | Action (em vote) | `Khoanh chỗ — dịch luôn.` | `Mark it. Translate it.` |
 | Action alt | `Đánh dấu, ai cũng hiểu.` | `Mark it once, everyone gets it.` |
 | Description | `Note tiếng Hàn — đồng nghiệp đọc tiếng Anh ngay dưới.` | `Korean note, English translation, inline.` |
@@ -73,9 +73,9 @@
 
 ### Beat 1d — Hình + stamp dính luôn
 
-| | VN | EN |
-|---|---|---|
-| Action | `Đóng dấu — dính luôn.` | `Stamp it. It stays.` |
+|             | VN                             | EN                            |
+| ----------- | ------------------------------ | ----------------------------- |
+| Action      | `Đóng dấu — dính luôn.`        | `Stamp it. It stays.`         |
 | Description | `Hình di chuyển, dấu đi theo.` | `Stamps move with the image.` |
 
 ---
@@ -84,25 +84,25 @@
 
 ### Title card
 
-| Option | VN | EN |
-|---|---|---|
-| A | `Ba ngôn ngữ. Một cuộc họp.` | `Three languages. One meeting.` |
-| B | `Không rào cản ngôn ngữ.` | `No language barriers.` |
-| C | `Gõ tiếng bạn. Hiểu tiếng tôi.` | `Type yours. I read mine.` |
+| Option | VN                              | EN                              |
+| ------ | ------------------------------- | ------------------------------- |
+| A      | `Ba ngôn ngữ. Một cuộc họp.`    | `Three languages. One meeting.` |
+| B      | `Không rào cản ngôn ngữ.`       | `No language barriers.`         |
+| C      | `Gõ tiếng bạn. Hiểu tiếng tôi.` | `Type yours. I read mine.`      |
 
 > Em vote option A — VN/EN đều rất Apple, ngắn và có nhịp.
 
 ### Beat 2a — Chat live translate
 
-| | VN | EN |
-|---|---|---|
+|  | VN | EN |
+| --- | --- | --- |
 | Action | `Gõ một lần. Đọc theo ngôn ngữ của bạn.` | `Type once. Read in your language.` |
 | Description | `Mỗi tin nhắn, mỗi người đọc một thứ tiếng.` | `Each message, every reader's language.` |
 
 ### Beat 2b — Live transcript
 
-| | VN | EN |
-|---|---|---|
+|  | VN | EN |
+| --- | --- | --- |
 | Action | `Nói gì, hiện đó. Trên cả ba ngôn ngữ.` | `Speak. See. Read. In every language.` |
 | Description | `Bản ghi trực tiếp — và đã được dịch sẵn.` | `Live captions. Already translated.` |
 
@@ -112,18 +112,18 @@
 
 ### Title card
 
-| Option | VN | EN |
-|---|---|---|
-| A | `Cuộc họp tự tóm tắt.` | `The meeting writes itself.` |
-| B | `Họp xong, biên bản đã sẵn.` | `End the call. The notes are ready.` |
-| C | `AI viết. Anh duyệt.` | `AI drafts. You approve.` |
+| Option | VN                           | EN                                   |
+| ------ | ---------------------------- | ------------------------------------ |
+| A      | `Cuộc họp tự tóm tắt.`       | `The meeting writes itself.`         |
+| B      | `Họp xong, biên bản đã sẵn.` | `End the call. The notes are ready.` |
+| C      | `AI viết. Anh duyệt.`        | `AI drafts. You approve.`            |
 
 > Em vote A — line "tự tóm tắt" / "writes itself" có cảm giác magic mà không khoa trương.
 
 ### Sub-beat — Summary card reveal
 
-| | VN | EN |
-|---|---|---|
+|  | VN | EN |
+| --- | --- | --- |
 | Action | `Quyết định. Việc cần làm. Trong vài giây.` | `Decisions. Action items. In seconds.` |
 | Description | `Từ chat + transcript, AI tự rút ý chính.` | `Pulled from chat and transcript, automatically.` |
 
@@ -132,7 +132,7 @@
 ## 4. End card (5–8s)
 
 | Option | VN | EN |
-|---|---|---|
+| --- | --- | --- |
 | A | `MAP CanvasMeet.` + sub `Họp cùng nhau. Quyết cùng nhau.` | `MAP CanvasMeet.` + sub `Design reviews, reimagined.` |
 | B | `MAP CanvasMeet.` + sub `Một bản vẽ. Cả đội.` | `MAP CanvasMeet.` + sub `One canvas. Every team.` |
 | C | `MAP CanvasMeet.` + sub `Demo nội bộ — version preview.` | `MAP CanvasMeet.` + sub `Internal preview build.` |

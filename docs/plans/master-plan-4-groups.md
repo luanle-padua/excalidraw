@@ -10,7 +10,8 @@
 
 > Audit 06-11 ([user-feature-audit-2026-06-11.md](../audits/2026-06-11-user-feature-audit.md)): **96 tính năng — 41 🟢 / 43 🟡 / 8 🔴 / 4 ⚪** (≈87% dùng được). Nợ tụ ở 2 pattern: lỗi bị nuốt im lặng (`data/*.ts` trả `[]/null/false`) và ~40 chuỗi hardcode né hệ i18n.
 
-**🔴 Phải xử (mất niềm tin / mất dữ liệu):** — *8/9 xong trong đợt 06-11*
+**🔴 Phải xử (mất niềm tin / mất dữ liệu):** — _8/9 xong trong đợt 06-11_
+
 - [x] **Tạo meeting fail im lặng** — `registerMeeting` giờ check `ok` (`ScheduleMeetingForm.tsx:173`) → báo lỗi thật.
 - [x] **Upload tài liệu trong review mode = MẤT DỮ LIỆU placebo** — chốt **review = chỉ Chat** (06-11): tab library biến khỏi sidebar, mọi đường chèn file gỡ; worker chặn blob PUT vào finished (grace 10').
 - [x] **Sửa project "lưu giả"** — gate owner + báo lỗi khi 403 (06-11 "Quản lý dự án" rework).
@@ -18,7 +19,8 @@
 - [x] **Quick-login password hardcode trong bundle** — tách `DevQuickLogin` lazy sau `import.meta.env.DEV`; **build prod grep 0 hit password** (verify 06-11). Revoke-live = kick (06-11).
 - [~] **Co-host election**: ✅ form chỉ định + **End đã đọc role** (06-11); ❌ **election live vẫn chưa đọc role `cohost` cho kick/mute** → cần room server validate (track I-2). **CÒN MỞ.**
 
-**🟡 Polish đáng giá nhất (⏱ = 1 buổi):** — *đã xong cả 5 trong đợt 06-11*
+**🟡 Polish đáng giá nhất (⏱ = 1 buổi):** — _đã xong cả 5 trong đợt 06-11_
+
 - [x] ⏱ Toast lỗi chung — **AppToast** mới cho mọi thao tác từng câm (mở meeting, tạo project, invite, đổi màu…).
 - [x] Empty-state nói dối khi mất mạng → "Không tải được — thử lại" (commit `84c913d9`).
 - [x] Quét i18n ~70 chuỗi hardcode (commit `195c25f7`). **LƯU Ý: i18n nay TẠM DỪNG** cho redesign — chuỗi UI mới (wallpaper/calendar/login-link) đang hardcode tiếng Việt, gom 1 đợt cuối khi UI chốt.
@@ -26,11 +28,13 @@
 - [x] ⏱ Bug chèn trùng IFC/PDF — guard bằng `customData.mcmType` (Collab.tsx).
 
 **Khác:**
-- [ ] **Test mic thật 2 máy** → verify remote-mute icon → dọn mesh WebRTC dead code (`AudioRoom`/`AudioPeer`/`turnConfig`). *(⚠️ `MCMAssistant`/`AIToolsPanel` giờ có tham chiếu trong MeetingShell.tsx — cần xác nhận đã mount hay vẫn dead.)*
+
+- [ ] **Test mic thật 2 máy** → verify remote-mute icon → dọn mesh WebRTC dead code (`AudioRoom`/`AudioPeer`/`turnConfig`). _(⚠️ `MCMAssistant`/`AIToolsPanel` giờ có tham chiếu trong MeetingShell.tsx — cần xác nhận đã mount hay vẫn dead.)_
 - [ ] **Waiting room per-guest** (Phase 4 leftover) — đi cùng việc làm thật switch phòng chờ.
 - [ ] (sau demo) P5 recording: Daily cloud recording → webhook → R2 auth-gated.
 
-**Bổ sung 06-11 chiều (yêu cầu anh Luân khi test):** — *đã xong toàn bộ (06-11 §9)*
+**Bổ sung 06-11 chiều (yêu cầu anh Luân khi test):** — _đã xong toàn bộ (06-11 §9)_
+
 - [x] **Chuông mời vào họp LIVE** — MeetingDueNotice ưu tiên meeting live mình được mời trực tiếp chưa join.
 - [x] **Notification center ở dashboard** — **NotificationBell** (toolbar lobby): badge pending + panel Accept/Decline từng lời mời; route `POST /v1/me/invitations/:id/respond`.
 - [x] **Bug: invite trong meeting không thêm invitee** — root cause: 2 nút InvitePanel vô hình (portal thoát scope token) → stamp token lên portal root.
@@ -58,7 +62,7 @@
 ## GROUP 4 — DATA (nền móng, xen kẽ với G1/G2)
 
 - [x] **Chặn blob PUT vào meeting `finished`** ở Worker — enforce thật, **grace window 10'** từ `updated_at` để không gãy flush-on-leave (06-11).
-- [ ] **Revoke invitee khi LIVE → huỷ Daily token** (token còn sống 4h sau revoke). *(App-layer đã kick qua poll 60s từ 06-11, nhưng Daily token CHƯA bị thu hồi → vẫn còn mở.)* **CÒN MỞ.**
+- [ ] **Revoke invitee khi LIVE → huỷ Daily token** (token còn sống 4h sau revoke). _(App-layer đã kick qua poll 60s từ 06-11, nhưng Daily token CHƯA bị thu hồi → vẫn còn mở.)_ **CÒN MỞ.**
 - [~] **Doc hygiene:** một phần đã sửa (06-11 + bản rà 06-15 này); `data-architecture-audit.md` vẫn cần banner "snapshot 06-10". **Còn vài chỗ stale.**
 - [ ] **Index D1 cho blob** chats/library/transcripts (PUT hiện ghi R2 KHÔNG tạo row D1 — verify 06-15 vẫn thiếu) — tiền đề G2 gói 3. **CÒN MỞ.**
 - [x] **Migration mới đã land:** `0016_user_files` + `0017_user_file_meta` (My Files tags/visibility) + `0018_color_icon` (project/meeting cosmetic). Route `GET/PUT /v1/notes` (ghi chú lịch).

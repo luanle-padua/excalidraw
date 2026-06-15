@@ -72,10 +72,10 @@
       background: var(--mcm-glass-bg-tr);
       // saturate() must be string-escaped — dart-sass otherwise reads it as
       // its own color function and chokes on the var(). brightness() is safe.
-      -webkit-backdrop-filter: blur(var(--mcm-glass-blur))
-        #{"saturate(var(--mcm-glass-sat))"} brightness(var(--mcm-glass-bright, 1));
-      backdrop-filter: blur(var(--mcm-glass-blur))
-        #{"saturate(var(--mcm-glass-sat))"} brightness(var(--mcm-glass-bright, 1));
+      -webkit-backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"}
+        brightness(var(--mcm-glass-bright, 1));
+      backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"}
+        brightness(var(--mcm-glass-bright, 1));
     }
 
     // Hairline along the bottom edge only (no full outline).

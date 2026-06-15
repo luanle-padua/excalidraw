@@ -107,7 +107,6 @@
   text-shadow: 0 1px 2px rgba(8, 10, 7, 0.7), 0 0 12px rgba(8, 10, 7, 0.85);
 }
 
-
 // ----- PICKER POPOVER ------------------------------------------------------
 .mcm-wallp {
   position: relative;
@@ -151,8 +150,7 @@
     @supports (backdrop-filter: blur(1px)) {
       background: var(--mcm-glass-bg-tr);
       // #{}-escape: dart-sass intercepts bare saturate() as a color fn.
-      backdrop-filter: blur(var(--mcm-glass-blur))
-        #{"saturate(var(--mcm-glass-sat))"}
+      backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"}
         brightness(var(--mcm-glass-bright, 1));
     }
 

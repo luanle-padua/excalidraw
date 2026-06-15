@@ -15,7 +15,7 @@ Liên quan: [user-data-model.md](../specs/user-data-model.md) (phần định da
 ### 1.1 D1 (worker/schema/0001–0013) — metadata + cấu trúc thư mục
 
 | Bảng | Khóa | Ai ghi (route trong `worker/src/index.ts`) | Authoritative? |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `project` | `id` UUID | `POST/PATCH /v1/projects` (mọi JWT hợp lệ — xem §3.4) | ✅ nguồn duy nhất cho folder |
 | `meeting` | `id` = roomId | `POST /v1/meetings` (internal), `PATCH /v1/meetings/:id` (organizer/state-machine), upsert ngầm từ `PUT /v1/scenes/:roomId` (index.ts:282) | ✅ — `status` canonical từ 0013 |
 | `file` | `id` = fileId; FK meeting/project (chỉ khai báo ở 0001) | upsert từ `PUT /v1/files/:roomId/:fileId` (index.ts:375) | ✅ index của R2 `files/` |
@@ -32,13 +32,13 @@ Không bảng nào (ngoài `meeting`/`file` ở 0001) khai báo FOREIGN KEY; **k
 ### 1.2 R2 (bucket `mcm-storage`) — bytes
 
 | Prefix (key builder index.ts:135-138) | Nội dung | Mã hoá | Admin đọc được? |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `scenes/<roomId>/current` | scene canvas | E2E client-side với room key (`storage.ts`) | ❌ ciphertext (nhưng xem ghi chú room_key) |
 | `files/<roomId>/<fileId>` | ảnh/PDF/DXF/GLB/thumb | encrypt + compress client-side | ❌ |
 | `chats/<roomId>/current` | log chat | E2E room key (storage.ts:265-292) | ❌ |
 | `library/<roomId>/current` | manifest DXF/IFC/PDF + bytes nguồn | E2E room key | ❌ |
 
-⚠️ "E2E" hiện là **managed-key**: `meeting.room_key` nằm ngay trong D1 (0001, ghi chú TEST PHASE) → server/ops về lý thuyết giải mã được mọi blob; admin console chỉ là *cố tình không trả* `room_key`/`scene_r2_key` (index.ts:1551). Đây là trade-off đã ghi ở dev-phase-notes ("`room_key` lưu D1 — chưa E2E thật").
+⚠️ "E2E" hiện là **managed-key**: `meeting.room_key` nằm ngay trong D1 (0001, ghi chú TEST PHASE) → server/ops về lý thuyết giải mã được mọi blob; admin console chỉ là _cố tình không trả_ `room_key`/`scene_r2_key` (index.ts:1551). Đây là trade-off đã ghi ở dev-phase-notes ("`room_key` lưu D1 — chưa E2E thật").
 
 Ngoài 4 prefix trên R2 **không có gì khác** (chưa có `avatars/` — vẫn là TODO trong userProfile.ts).
 
@@ -49,7 +49,7 @@ Identity + profile HR (`user_metadata`: name/title/division/company/emp_no/avata
 ### 1.4 Trình duyệt (localStorage / sessionStorage / IndexedDB) — đây là chỗ "để ở local" nhiều nhất
 
 | Key | Nội dung | Có bản DB không? |
-|---|---|---|
+| --- | --- | --- |
 | `excalidraw`, `excalidraw-state`, `excalidraw-collab` | scene cache + appState + username (LocalData) | Có (R2 scene) khi ở trong meeting; canvas solo ngoài meeting = **chỉ local** |
 | IDB `files-db` / `excalidraw-library` / `excalidraw-ttd-chats` | file bytes cache, library cá nhân, TTD chats | library cá nhân = chỉ local |
 | IDB `mcm:meetingLibrary:<roomId>` (+ deleted list) (meetingLibrary.ts:107) | cache thư viện DXF/IFC/PDF của phòng | Có (R2 `library/`) — IDB là cache |
@@ -75,7 +75,7 @@ Daily.co giữ state riêng: room `<roomId>` + `<roomId>-audio` được tạo o
 ## 2. Vi phạm single-source-of-truth
 
 | # | Datum | Các bản sao | Bản authoritative | Mức độ |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | **Transcript + AI summary** | localStorage duy nhất | — KHÔNG CÓ | 🔴 dữ liệu nghiệp vụ chỉ sống trong 1 trình duyệt; đổi máy/clear cache = mất; admin & người khác trong meeting không xem được; mâu thuẫn với "finished meeting = review đầy đủ" |
 | 2 | **Recording .webm** | máy host duy nhất | — KHÔNG CÓ | 🔴 như trên (Phase 5 đã định làm, ghi nhận để khỏi quên) |
 | 3 | **Internal domain** | hardcode `@mapgroup.co.kr` ở worker (index.ts:142) + `session.ts` + `AdminConsole.tsx` defaults **và** `system_settings.internal_domains` | hiện tại = HARDCODE (D1 setting bị bỏ qua) | 🔴 admin sửa setting tưởng có hiệu lực nhưng không — sai lệch nguy hiểm vì nó quyết định authz |
@@ -110,13 +110,13 @@ Daily.co giữ state riêng: room `<roomId>` + `<roomId>-audio` được tạo o
 ## 4. Admin coverage matrix (Console `components/mcm/AdminConsole.tsx` + `/v1/admin/*`)
 
 | Dữ liệu | Xem được | Quản lý được | Thiếu |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Supabase users | ✅ list (proxy index.ts:1416) | ✅ create / role / password / disable / delete | sửa user_metadata (title/division) chưa có UI |
 | `meeting` | ✅ list + detail (1529, 1552; ẩn room_key đúng) | ✅ delete (kèm cascade R2 — nhưng thiếu, §3.1); PATCH admin-bypass có ở API nhưng **console không có UI sửa** | restore/repair meeting; xoá kèm invitee/participant/note |
 | `project` | ⚠️ chỉ thấy `project_name` dính trên row meeting | ❌ không list, không sửa, **không xoá** | tab Projects: list/rename/transfer-owner/delete-cascade |
 | `project_member` | ❌ | ❌ (không có endpoint) | xem roster + thu hồi membership |
 | `meeting_invitee` | ❌ trong console (endpoint `/v1/meetings/:id/invitees` tồn tại, admin pass, nhưng admin meeting detail (1552-1581) không trả invitees và UI không gọi) | ❌ | thêm invitees vào admin meeting detail |
-| `meeting_participant` | ✅ trong meeting detail + analytics | — (log, không cần sửa) | |
+| `meeting_participant` | ✅ trong meeting detail + analytics | — (log, không cần sửa) |  |
 | `note` | ❌ (per-user by design) | ❌ | GDPR export/delete theo user (đã ghi dev-phase-notes) |
 | `client` | ✅ tab Clients | ✅ create/delete | edit row; link sang account nếu guest có login |
 | `audit_log` | ✅ (200 dòng cuối, index.ts:1637) | — | pagination/filter/export |

@@ -1,7 +1,6 @@
 # Khảo sát tính năng người dùng MAP CanvasMeet — 2026-06-11
 
-> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`).
-> Tổng hợp từ 6 báo cáo khảo sát theo hành trình (login-home, meeting-mgmt, in-room-collab, in-room-media-ai, documents, guest-xp), đọc code thật tại commit 2026-06-11. Bối cảnh: **polish "chuẩn chỉnh" trước, cutover lên remote sau** (P1 worker remote đã live, DB trống, dev vẫn local).
+> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`). Tổng hợp từ 6 báo cáo khảo sát theo hành trình (login-home, meeting-mgmt, in-room-collab, in-room-media-ai, documents, guest-xp), đọc code thật tại commit 2026-06-11. Bối cảnh: **polish "chuẩn chỉnh" trước, cutover lên remote sau** (P1 worker remote đã live, DB trống, dev vẫn local).
 >
 > Chú giải độ chín: 🟢 chín (dùng được, tin được) · 🟡 chạy nhưng thô (thiếu i18n / lỗi im lặng / cạnh sắc) · 🔴 placebo hoặc hỏng làm mất niềm tin / mất dữ liệu · ⚪ dead code / không có UI (người dùng không chạm tới).
 >
@@ -14,7 +13,7 @@
 ### Hành trình 1 — Vào app & màn hình chính
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Login email + password | login-home | 🟢 | 1 message lỗi chung cho sai pass / mất mạng |
 | Quick-login demo (chọn user, pass chung) | login-home | 🔴 | Password (kể cả admin) hardcode trong bundle client — ai đọc bundle cũng login được thành nhân viên thật (`LoginScreen.tsx:21`, `demoUsers.ts:31`) |
 | Magic-link cho khách | login-home, guest-xp | 🟡 | Lỗi Supabase hiện raw tiếng Anh; sau "đã gửi" không có nút quay lại; **rủi ro va chạm `#room` vs `#access_token` chưa test** |
@@ -36,7 +35,7 @@
 ### Hành trình 2 — Tạo & quản lý meeting
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | ScheduleMeetingForm (UI 4 zone, double-submit guard) | meeting-mgmt | 🟢 | — |
 | **Tạo meeting — kết quả bị bỏ qua** | meeting-mgmt | 🔴 | `registerMeeting` trả false khi lỗi nhưng form đóng như thành công → meeting "đã tạo" không tồn tại |
 | Validate lịch (ngày trống / quá khứ / duration âm) | meeting-mgmt | 🟡 | Schedule không bắt buộc ngày; không chặn quá khứ; duration gõ tay được số âm |
@@ -62,7 +61,7 @@
 ### Hành trình 3 — Trong phòng (collab cơ bản)
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Join → start-gate route (scheduled/live/finished/cancelled) | in-room, guest-xp | 🟢 | Nhưng **fail-open**: worker chết → `getMeeting` null → meeting finished mở qua raw link vào EDITABLE |
 | WaitingForStart (Start nội bộ / khách poll 5s) | in-room, guest-xp | 🟢 | Start fail vì mạng → nút im lặng |
 | MeetingHeader (title/edit, đồng hồ, đếm người) | in-room | 🟢 | — |
@@ -87,7 +86,7 @@
 ### Hành trình 4 — Trong phòng (media + AI)
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Present (screen share, lazy-join, lock 1 người) | media-ai | 🟡 | **Lỗi phía người present câm hoàn toàn** — status "error" + errorMessage không component nào render |
 | Xem màn hình share (ScreenSharePane, PiP) | media-ai | 🟢 | — |
 | Audio call (Join/Mute/Leave, listener-only khi không mic) | media-ai | 🟡 | State machine + Retry tốt nhưng **mọi message lỗi hardcode tiếng Việt** — khách Hàn/Anh gặp lỗi mic đọc tiếng Việt |
@@ -103,7 +102,7 @@
 ### Hành trình 5 — Tài liệu kỹ thuật
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Upload thư viện phòng (picker + kéo thả) | documents | 🟡 | Lỗi đọc ảnh chỉ console; không giới hạn size client; alert format lạ hardcode VN |
 | Bake IFC → GLB + thumbnail | documents | 🟡 | Bake nhiều giây **không spinner** → user bấm lại tạo bản trùng |
 | UI thư viện (search/filter/sort/group) | documents | 🟡 | i18n lẩu 2 thứ tiếng: empty/search hardcode VN, section/chip hardcode EN |
@@ -124,7 +123,7 @@
 ### Hành trình 6 — Khách ngoài
 
 | Tính năng | Hành trình | Độ chín | Vấn đề chính |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **"Gửi lời mời" cho khách** | guest-xp | 🔴 | Worker chỉ ghi D1, **không gửi email nào** — nhãn "Gửi lời mời ✓" đánh lừa organizer rằng khách đã được báo |
 | Login bắt buộc giữ `#room` (password path) | guest-xp | 🟢 | — |
 | Chờ start (poll 5s, tự join khi live) | guest-xp | 🟢 | — |
@@ -187,6 +186,7 @@ Những thứ placebo / hỏng làm người dùng **mất niềm tin hoặc m�
 ## (d) CHECKLIST CHUẨN CHỈNH TRƯỚC CUTOVER
 
 ### Tin được (hết placebo, lỗi có tiếng nói)
+
 - [ ] Tạo meeting fail → giữ form + báo lỗi (không đóng giả thành công)
 - [ ] Ẩn / dán nhãn "(sắp có)" 2 toggle Waiting room & Recording; sửa docs đang hứa "host duyệt"
 - [ ] Gỡ hoặc disable 3 nút Share / Layout / More
@@ -199,6 +199,7 @@ Những thứ placebo / hỏng làm người dùng **mất niềm tin hoặc m�
 - [ ] End-for-all / Present / dịch canvas: fail phải hiện thông báo, không câm
 
 ### Mượt (loading / empty state thật thà)
+
 - [ ] Phân biệt "trống thật" vs "mất kết nối" ở ProjectBrowser, Calendar, My Files (+ nút thử lại)
 - [ ] Toast lỗi chung cho thao tác im lặng (mở meeting, tạo project, đổi màu, join)
 - [ ] Spinner khi bake IFC / ingest file lớn + cảnh báo trước khi rời phòng lúc đang upload
@@ -208,6 +209,7 @@ Những thứ placebo / hỏng làm người dùng **mất niềm tin hoặc m�
 - [ ] Day note lưu fail phải báo; loading "…" → skeleton
 
 ### Đủ tiếng (i18n — khách Hàn/Anh không thấy tiếng Việt trần)
+
 - [ ] Lỗi mic/audio (`AudioRoomController`, `DailyAudio`) — ưu tiên số 1
 - [ ] `RecordingControls` toàn bộ
 - [ ] `TextTranslateOverlay`, `CanvasNavWidget`, StickerPicker, RevisionCloud
@@ -217,6 +219,7 @@ Những thứ placebo / hỏng làm người dùng **mất niềm tin hoặc m�
 - [ ] Vét chuỗi vặt: "Admin", "Resize", "Host của cuộc họp", `title="Recording"`, aria các nút
 
 ### Khách ngoài OK
+
 - [ ] Test thật magic-link với link `#room` (va chạm 2 hash) trước khi mời khách
 - [ ] Ẩn ô "Tạo project" + nút Invite với guest
 - [ ] Dòng giải thích hostless: "Chờ nhân viên MAP vào để bắt đầu/điều khiển cuộc họp"
@@ -227,12 +230,12 @@ Những thứ placebo / hỏng làm người dùng **mất niềm tin hoặc m�
 
 ## (e) Thống kê độ chín
 
-| Độ chín | Số tính năng |
-|---|---|
-| 🟢 chín | **41** |
-| 🟡 thô | **43** |
-| 🔴 placebo/hỏng | **8** |
-| ⚪ dead code / không UI | **4** |
-| **Tổng** | **96** |
+| Độ chín                 | Số tính năng |
+| ----------------------- | ------------ |
+| 🟢 chín                 | **41**       |
+| 🟡 thô                  | **43**       |
+| 🔴 placebo/hỏng         | **8**        |
+| ⚪ dead code / không UI | **4**        |
+| **Tổng**                | **96**       |
 
 Tỷ lệ 🟢+🟡 (dùng được) ≈ 87%. Nền tảng (i18n typed 3 thứ tiếng, registry state machine, sync/restore tài liệu, review-gate) đã vững; nợ tập trung ở **lỗi bị nuốt im lặng** (pattern `data/*.ts` trả `[]`/`null`/`false`) và **~40 chuỗi hardcode né hệ i18n**. Xử xong 9 mục 🔴 + cụm toast/i18n là đủ "chuẩn chỉnh" để cutover.

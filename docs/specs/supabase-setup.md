@@ -15,7 +15,7 @@ Kiến trúc: client đăng nhập bằng Supabase → nhận **access_token (JW
 ## 2. Lấy keys (Project Settings → API / API Keys)
 
 | Key | Dùng ở đâu | Bí mật? |
-|---|---|---|
+| --- | --- | --- |
 | **Project URL** | client + worker | không |
 | **anon / publishable key** | client (gắn vào supabase-js) | công khai theo thiết kế (chỉ làm được gì RLS cho phép) |
 | **secret key** (`sb_secret_…`) | CHỈ server-side (seed user / admin) | 🔴 BÍ MẬT — không bao giờ lên git/client |
@@ -26,21 +26,25 @@ Kiến trúc: client đăng nhập bằng Supabase → nhận **access_token (JW
 ## 3. Cấu hình env (đều gitignored — KHÔNG commit)
 
 **Client** — `excalidraw/.env.local` (Vite `envDir: "../"` → đọc file ở **repo root**, không phải `excalidraw-app/`):
+
 ```
 VITE_SUPABASE_URL=https://hwirblsheoodmjgarumf.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key>
 ```
 
 **Worker** — `excalidraw/worker/.dev.vars` (cho `wrangler dev`):
+
 ```
 SUPABASE_URL=https://hwirblsheoodmjgarumf.supabase.co
 SUPABASE_SERVICE_API_KEY=sb_secret_…   # chỉ để seed user, KHÔNG dùng trong runtime gate
 ```
+
 > Worker gate chỉ cần `SUPABASE_URL` (để dựng issuer + JWKS). `SUPABASE_SERVICE_API_KEY` chỉ cho script seed.
 
 ## 4. Cách Worker verify (đã code — `worker/src/index.ts`)
 
 Middleware `app.use("/v1/*", …)` (sau `cors`, trước routes):
+
 - Bỏ qua `/v1/health` (public).
 - Đọc `Authorization: Bearer <jwt>` → thiếu = **401**.
 - `jose` `createRemoteJWKSet(<JWKS url>)` + `jwtVerify(token, jwks, { issuer: "<url>/auth/v1", audience: "authenticated" })` → sai/hết hạn = **401**.
@@ -52,10 +56,12 @@ Client gắn token: `data/fetchWithAuth.ts` (đọc `supabase.auth.getSession()`
 ## 5. Seed user nội bộ
 
 Script: **`scripts/seed-supabase-users.mjs`** (dùng admin API + secret key).
+
 ```
 cd excalidraw
 node scripts/seed-supabase-users.mjs
 ```
+
 - Tạo 5 user "Architectural AI R&D Center" (từ `user.csv`): 유훈/루안/장도진/전희진/진효원 @mapgroup.co.kr.
 - **Mật khẩu mặc định: `MapMeet@2026`** (đổi sau / sửa `DEFAULT_PASSWORD` trong script). `email_confirm: true` → đăng nhập ngay.
 - `user_metadata`: name (Hàn) / display_name / title / company / division → app hiện **tên Hàn**.
@@ -74,7 +80,7 @@ node scripts/seed-supabase-users.mjs
 - [ ] **Magic-link email**: built-in của Supabase bị **rate-limit mạnh** (~vài/giờ) + dễ vào spam → cấu hình **SMTP riêng** (Authentication → Email) cho khách hàng thật.
 - [ ] Khoá **CORS Worker** về origin thật (đang `*`).
 - [ ] Đổi mật khẩu mặc định của user nội bộ / bắt đổi lần đầu.
-- [ ] (Phase 4) **per-meeting membership** + waiting room — Supabase mới cho *danh tính*, luật "ai vào meeting nào" phải tự viết (D1 + check `userId`/email trong Worker).
+- [ ] (Phase 4) **per-meeting membership** + waiting room — Supabase mới cho _danh tính_, luật "ai vào meeting nào" phải tự viết (D1 + check `userId`/email trong Worker).
 
 ## 8. Troubleshooting
 

@@ -5,7 +5,7 @@ Hướng dẫn này giúp bật chức năng **Worker tự gửi email** cho kh�
 Có 2 thứ cần đặt:
 
 | Tên | Là gì | Đặt ở đâu |
-|---|---|---|
+| --- | --- | --- |
 | `RESEND_API_KEY` | **Bí mật** — chìa khoá tài khoản Resend | `wrangler secret put` (KHÔNG ghi vào git) |
 | `RESEND_FROM` | Địa chỉ người gửi (ví dụ `Canvas M <onboarding@resend.dev>`) | `worker/wrangler.jsonc` mục `vars` (đã có sẵn placeholder) |
 
@@ -15,7 +15,7 @@ Có 2 thứ cần đặt:
 
 1. Đăng nhập **https://resend.com** (bạn đã có tài khoản).
 2. Vào **API Keys** (menu bên trái) → **Create API Key**.
-3. Đặt tên bất kỳ (vd `mcm-worker`), quyền để mặc định **Full access** (hoặc *Sending access*), bấm **Add**.
+3. Đặt tên bất kỳ (vd `mcm-worker`), quyền để mặc định **Full access** (hoặc _Sending access_), bấm **Add**.
 4. Resend hiện key dạng `re_xxxxxxxx...` **một lần duy nhất** — copy ngay và giữ kín. Nếu lỡ mất, tạo key mới.
 
 > Đừng dán key này vào bất kỳ file nào trong repo. Nó chỉ sống trong "secret" của Cloudflare.
@@ -52,6 +52,7 @@ RESEND_FROM=Canvas M <onboarding@resend.dev>
 Resend cho sẵn người gửi dùng chung **`onboarding@resend.dev`**. Để nguyên `RESEND_FROM` như placeholder ở trên là gửi được liền, **không phải cấu hình tên miền gì cả**.
 
 Lưu ý của chế độ test:
+
 - Trong khi tài khoản chưa "verify domain", Resend có thể **chỉ cho gửi tới chính email bạn đã đăng ký Resend**. Đủ để bạn tự kiểm tra luồng gửi.
 - Thư có thể vào mục **Spam/Quảng cáo** — đó là bình thường ở giai đoạn test.
 - Xem log từng email đã gửi tại Resend → **Emails** (thành công / lỗi / mở thư).

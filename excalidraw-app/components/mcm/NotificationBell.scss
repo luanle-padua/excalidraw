@@ -65,8 +65,7 @@
     @supports (backdrop-filter: blur(1px)) {
       background: var(--mcm-glass-bg-tr);
       // #{}-escape: dart-sass intercepts bare saturate() as a color fn.
-      backdrop-filter: blur(var(--mcm-glass-blur))
-        #{"saturate(var(--mcm-glass-sat))"};
+      backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"};
     }
 
     &::before {

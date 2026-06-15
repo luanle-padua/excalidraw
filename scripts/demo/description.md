@@ -6,8 +6,8 @@
 
 ## 1. Elevator pitch (1 dòng)
 
-| | |
-|---|---|
+|  |  |
+| --- | --- |
 | **VN** | `MAP CanvasMeet — họp design review trên cùng một bản vẽ, không rào cản ngôn ngữ.` |
 | **EN** | `MAP CanvasMeet — real-time design reviews on a shared canvas, in every language.` |
 
@@ -30,9 +30,11 @@ One meeting. Every language.
 ## 3. Description (3 câu) — dùng cho video description, social caption, intranet post
 
 ### VN
+
 > MAP CanvasMeet là không gian làm việc realtime cho các buổi design review của MAP Architects. Trong demo này, ba nhân viên giả định — Luân (Việt), Dojin (Hàn), Elon (Anh) — cùng xem một mặt bằng, ghi chú trên từng chi tiết, và trao đổi qua chat & transcript bằng đúng tiếng mẹ đẻ của mỗi người. Mọi tin nhắn và lời nói được dịch real-time, để không ai phải dừng lại giải thích.
 
 ### EN
+
 > MAP CanvasMeet is a real-time workspace built for the design reviews at MAP Architects. In this demo, three fictional teammates — Luân (Vietnamese), Dojin (Korean), Elon (English) — review the same floor plan together: each marks up their own zoomed region, chats in their native language, and reads everyone else in theirs. Every message and every spoken word is translated live, so no one stops to explain.
 
 ---
@@ -40,6 +42,7 @@ One meeting. Every language.
 ## 4. Long description (paragraph) — dùng cho website / pitch deck
 
 ### VN
+
 > **MAP CanvasMeet** là công cụ họp design review nội bộ được phát triển cho MAP Architects. Toàn bộ cuộc họp diễn ra trên **một canvas chung** — đội kiến trúc kéo bản vẽ DXF, PDF spec và hình ảnh tham khảo lên thẳng canvas, khoanh revision cloud quanh khu vực cần sửa, đóng dấu trực tiếp lên hình ảnh. Mỗi người có thể zoom vào chi tiết riêng của bản vẽ — copy DXF cho từng góc cần xem — và mọi thay đổi đều **sync realtime** với đồng nghiệp.
 >
 > **Đặc biệt với PDF spec & tài liệu kỹ thuật**: PDF không còn là file đính kèm phải tải về — nó hiển thị **trực tiếp trên canvas** như một bản vẽ. Mỗi người có thể **lật trang riêng** (Luân xem mặt bằng trang 1 trong khi Dojin đang đọc spec ở trang 5), **viết note trực tiếp lên trang**, và **khoanh revision cloud** xung quanh chi tiết cần thắc mắc. Mỗi note hoặc mark đều có nút **Dịch** — gõ tiếng Hàn, đồng nghiệp click → bản dịch tiếng Anh hiện ngay phía dưới.
@@ -49,6 +52,7 @@ One meeting. Every language.
 > Demo này thể hiện 3 nhân vật giả định cùng review một mặt bằng biệt thự với 3 ngôn ngữ làm việc khác nhau.
 
 ### EN
+
 > **MAP CanvasMeet** is an internal design-review tool built for MAP Architects. The whole meeting happens on **one shared canvas** — the architecture team drags DXF drawings, PDF specs, and reference images directly onto it, draws revision clouds over problem areas, and stamps directly onto images. Each participant can zoom into their own region of the plan — duplicate the DXF for their angle of focus — and every change **syncs in real time** with everyone else.
 >
 > **PDF specs and technical docs, in particular**, are no longer attachments to download — they render **directly on the canvas** like any other drawing. Each person can **flip pages independently** (Luân stays on the floor plan, page 1, while Dojin is reading the spec on page 5), **write notes straight on the page**, and **mark up revision clouds** around the detail in question. Every note or mark has a **Translate** button — write in Korean, a teammate clicks → the English translation appears inline beneath it.
@@ -62,6 +66,7 @@ One meeting. Every language.
 ## 5. VO script (30s narration) — nếu anh muốn voice-over thay vì silent
 
 ### VN (đọc khoảng 28s, tốc độ thường)
+
 ```
 (0:00) MAP CanvasMeet — không gian họp realtime cho design review.
 
@@ -78,6 +83,7 @@ khoanh chỗ cần sửa, ghi chú trên cả PDF lẫn hình ảnh.
 ```
 
 ### EN (~28s)
+
 ```
 (0:00) MAP CanvasMeet — real-time design reviews, on a shared canvas.
 
@@ -98,6 +104,7 @@ marks up what needs fixing, annotates PDFs and images alike.
 ## 6. Feature list (cho website / pitch)
 
 ### Cùng làm việc trên một bản vẽ
+
 - **DXF anchors** trực tiếp trên canvas, có layer panel + per-anchor zoom (mỗi copy lưu pan/zoom riêng — mỗi người focus vào chi tiết của mình)
 - **PDF viewer trên canvas**:
   - Hiển thị trực tiếp page-by-page như bản vẽ — không cần tải về
@@ -109,16 +116,19 @@ marks up what needs fixing, annotates PDFs and images alike.
 - **Stamp dính lên hình**: stamp tự group với hình ảnh bên dưới — kéo hình, stamp đi theo
 
 ### Communication không rào cản
+
 - Auto-translate chat: gõ một lần, mỗi peer đọc theo ngôn ngữ của mình
 - Note trên canvas có nút "Dịch" — translate dạng inline child element
 - Live transcript có dịch realtime
 - Hỗ trợ VN / KR / EN
 
 ### Họp xong, biên bản đã sẵn
+
 - AI summary tự rút quyết định + việc cần làm từ chat + transcript log
 - Recording cuộc họp (host-only) tải về dạng webm
 
 ### Tiện ích khác
+
 - Host election tự động (link sharer = host)
 - Follow-mode: xem viewport của đồng nghiệp khác
 - Library tài liệu chung, sync khi peer mới join
@@ -130,10 +140,12 @@ marks up what needs fixing, annotates PDFs and images alike.
 Em vote dùng combo này nếu anh chỉ cần 2 thứ:
 
 **Tagline:**
+
 ```
 Một bản vẽ. Cả đội.
 Một cuộc họp. Ba ngôn ngữ.
 ```
 
 **Description:**
+
 > MAP CanvasMeet là không gian design review realtime cho MAP Architects. Trong demo, ba nhân vật giả định — Luân (Việt), Dojin (Hàn), Elon (Anh) — cùng review một mặt bằng, mở PDF spec ngay trên canvas, ghi chú và khoanh chỗ trên từng chi tiết, và trao đổi bằng đúng ngôn ngữ của mỗi người. Chat, note trên canvas, note trên PDF, và transcript đều được dịch realtime — không ai phải dừng lại giải thích.

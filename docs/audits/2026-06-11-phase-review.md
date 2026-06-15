@@ -1,9 +1,6 @@
 # Phase Review — Tổng hợp rà soát toàn bộ kế hoạch (2026-06-11)
 
-> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`).
-> Tổng hợp từ 5 báo cáo audit cùng ngày: **roadmap-tracks**, **production-data**, **dev-phase-notes**, **feature-phases**, **admin-ops**.
-> Bối cảnh: P1 (hạ tầng remote Cloudflare) vừa xong sáng nay → unlock cutover client + Pages + backup thật.
-> File này KHÔNG sửa doc nào khác — chỉ liệt kê chỗ cần sửa để người/phiên sau quyết.
+> Đường dẫn `docs/...` trong file là vị trí CŨ trước reorg docs 06-11 (xem `docs/README.md`). Tổng hợp từ 5 báo cáo audit cùng ngày: **roadmap-tracks**, **production-data**, **dev-phase-notes**, **feature-phases**, **admin-ops**. Bối cảnh: P1 (hạ tầng remote Cloudflare) vừa xong sáng nay → unlock cutover client + Pages + backup thật. File này KHÔNG sửa doc nào khác — chỉ liệt kê chỗ cần sửa để người/phiên sau quyết.
 
 Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch code) · ❓ không verify được bằng code.
 
@@ -14,12 +11,12 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ### A1. Tính năng (Phase 1–5, 4.5, A)
 
 | # | Hạng mục | Trạng thái | Ghi chú | Nguồn báo cáo |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 1 | P1 Screen share (Daily.co) | ✅ | lazy-join 2nd call object, verified live | roadmap |
 | 2 | P2 Audio → Daily SFU | ✅ | caveat: **chưa test mic 2 máy thật** (AU1+H6 ❓); mesh dead code chưa dọn | roadmap, dev-phase-notes |
 | 3 | P3 Supabase Auth | ✅ | Worker JWKS gate `/v1/*`, remote smoke 06-11 no-token→401 | roadmap |
-| 4 | P4 — Mời theo link + login giữ `#room` | ✅ | | roadmap, feature-phases |
-| 5 | P4 — End-for-all → finished (state machine 409) | ✅ | | roadmap, feature-phases |
+| 4 | P4 — Mời theo link + login giữ `#room` | ✅ |  | roadmap, feature-phases |
+| 5 | P4 — End-for-all → finished (state machine 409) | ✅ |  | roadmap, feature-phases |
 | 6 | P4 — Membership D1 + authz per-meeting + Daily-token gate | ✅ | `canSeeMeeting`, 0008, roomGate | roadmap, feature-phases |
 | 7 | P4 — Acting-host election (email → internal → HOSTLESS) | ✅ | server-side validate chưa có (chỉ client validate END/KICK) | feature-phases, dev-phase-notes |
 | 8 | P4 — Kick / Mute | ✅ (soft) | client-side, spoofable — đúng như doc ghi nhận | roadmap, feature-phases |
@@ -34,7 +31,7 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ### A2. Data plan (QĐ + P0–P3)
 
 | # | Hạng mục | Trạng thái | Ghi chú | Nguồn |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 16 | QĐ1 compliance open · QĐ2 My Files · QĐ3 confidential enforce | ✅ | verified code đầy đủ | production-data |
 | 17 | QĐ4 AI summary-first | 🟡 | cột D1 + route + auto-recap ✅; đích "/chatbot lên Worker enforce scope" ⬜ — **mồ côi** (chỉ nằm trong QĐ4/I-1, không có dòng phase) | production-data |
 | 18 | P0.1–P0.6 (schema_version, internal_domains, transcript R2, tombstone 410, project delete/member) | ✅ | P0.4 recording chủ động "để sau" = P5 | production-data |
@@ -45,17 +42,17 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ### A3. Hạ tầng / hardening / dọn dẹp (I, P6, Dọn)
 
 | # | Hạng mục | Trạng thái | Ghi chú | Nguồn |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | 22 | I-1 AI/STT/TURN → Worker | ⬜ | đường `wrangler secret` đã chứng minh → chi phí giảm; **TURN nên XOÁ cùng mesh thay vì port** | roadmap, dev-phase-notes |
 | 23 | I-2 socket.io → Durable Objects | ⬜ | room/ vẫn 1 instance Node, **socket.io không auth** (gap mồ côi nếu DO trễ) | roadmap, dev-phase-notes |
 | 24 | I-3 Deploy production | 🟡 | Worker remote LIVE ✅; còn: **Pages hosting client, cutover `VITE_APP_STORAGE_URL`, CI/CD, domain, staging** | roadmap, dev-phase-notes |
 | 25 | I-4 DR: backup D1 + R2 versioning | ⬜ (unlock) | vế "migration chạy tay" trong doc đã chết (migrate.mjs từ 06-10) | roadmap, admin-ops |
 | 26 | I-5 Observability | 🟡 | **Workers Logs ĐÃ bật** (`observability.enabled=true`, hiệu lực từ deploy hôm nay — chưa doc nào ghi); Sentry wired nhưng DSN upstream → hiệu lực MCM = 0 | roadmap, dev-phase-notes, admin-ops |
 | 27 | I-6 Runbooks | ⬜ | mầm sẵn: log 06-11 §6 (gotcha deploy-trước-secrets) + production-data-plan | roadmap |
-| 28 | P6 — Khoá CORS (`origin:"*"` worker L70) | ⬜ | | roadmap, dev-phase-notes |
+| 28 | P6 — Khoá CORS (`origin:"*"` worker L70) | ⬜ |  | roadmap, dev-phase-notes |
 | 29 | P6 — Rate-limiting (Worker + room) | ⬜ | 0 hit toàn repo | roadmap, dev-phase-notes |
 | 30 | P6 — Rotate keys + password hardcode | 🟡 | `wrangler secret` xong 4 secret; rotate chưa; room keys vẫn `.env`; `DEMO_PASSWORD`/`MapAdmin@2026` + quick-login còn nguyên | roadmap, dev-phase-notes |
-| 31 | P6 — SMTP / token refresh 4h / scene size limit | ⬜ | | roadmap |
+| 31 | P6 — SMTP / token refresh 4h / scene size limit | ⬜ |  | roadmap |
 | 32 | P6 — Daily-token check membership | ✅ | **xong 06-09 — roadmap quên gạch** (💀) | roadmap vs dev-phase-notes |
 | 33 | Dọn — Mesh dead code (AudioRoom/AudioPeer/turnConfig) | ⬜ | ràng buộc: `DailyAudio.ts`/`audioState.ts` import **type** từ AudioRoom — phải tách type trước; chờ test mic | dev-phase-notes |
 | 34 | Dọn — Gộp 2 Daily room (`<id>` / `<id>-audio`) | ⬜ | tiền đề bắt buộc của P5 cloud recording | dev-phase-notes, feature-phases |
@@ -71,7 +68,7 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ### B1. Doc nói CÒN MỞ nhưng code ĐÃ XONG
 
 | # | File doc | Chỗ cần sửa | Sự thật |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `docs/roadmap.md` | P6.g "Daily-token check membership" ⬜ | Xong 06-09 (`canSeeMeeting` trong `/v1/daily/token`); dev-phase-notes đã tick — gạch ✅ |
 | 2 | `docs/roadmap.md` | P4.d "Co-host + chuyển host" ⬜ toàn phần | Designation ĐÃ ship (create 06-10 + `EditMeetingForm.tsx` 06-11) — tách 2 dòng: designation ✅ / quyền live + transfer ⬜ |
 | 3 | `docs/roadmap.md` | I-3 "chưa có gì" | Worker ĐÃ deploy thật `mcm-storage.rnd-ai.workers.dev` — sửa thành: còn Pages + cutover + CI/CD + domain + staging |
@@ -93,7 +90,7 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ### B2. Doc claim DONE / ngầm-done nhưng CHƯA verify được
 
 | # | Mục | Vấn đề |
-|---|---|---|
+| --- | --- | --- |
 | 1 | P1 secrets + migrate-remote | Tin theo log 06-11, auditor không kiểm trực tiếp được từ máy local — smoke lại khi cutover |
 | 2 | Test mic 2 máy (AU1) + remote mute icon (H6) | ❓ test thủ công, chưa có dấu vết đã chạy — gộp 1 buổi test |
 | 3 | Co-host designation (EditMeetingForm) | Code có, **chưa test live 2 account** |
@@ -118,7 +115,7 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ## C. MÂU THUẪN giữa các doc
 
 | # | Mâu thuẫn | Phân xử |
-|---|---|---|
+| --- | --- | --- |
 | 1 | roadmap P6.g ⬜ vs dev-phase-notes [x] 06-09 | Notes đúng — roadmap sửa |
 | 2 | roadmap P4.d "co-host chưa" vs log 06-10/11 (designation ship) | Log đúng — roadmap tách 2 dòng |
 | 3 | roadmap I-5 "chưa wire Sentry" vs code (wired nhưng vô hiệu cho MCM) | Cả hai nửa-đúng — sửa wording "MCM chưa có Sentry project riêng" |
@@ -135,7 +132,7 @@ Ký hiệu: ✅ xong · 🟡 một phần · ⬜ chưa · 💀 stale (doc lệch
 ## D. ĐỀ XUẤT THỨ TỰ VIỆC KẾ TIẾP (demo tháng 6 trước, hardening sau)
 
 | TT | Việc | Lý do | Effort | Phụ thuộc | Đơn giản-để-maintain? |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | 1 | **"P1.5 Cutover & hardening tối thiểu"**: deploy client lên **Pages**, trỏ `VITE_APP_STORAGE_URL` sang Worker remote, **khoá CORS** về origin Pages, đổi 2 password hardcode (`MapMeet@2026`/`MapAdmin@2026`) | Demo tháng 6 CẦN chạy trên URL thật; P1 vừa unlock; CORS `*` + password hardcode không thể mang đi demo. Đặt tên phase rõ — hiện đang mồ côi không chủ | 1–2 ngày | P1 ✅ | ✅ Pages = managed, zero server |
 | 2 | **Realtime cho demo**: quyết DO (I-2) vs host tạm room server (Node trên 1 máy/tunnel/VPS). Đề xuất: **host tạm cho demo, DO làm sau** | room/ hiện local-only → demo ngoài LAN sẽ chết; DO 3-5 ngày là rủi ro sát demo. Nếu chọn host tạm: thêm gate auth tối thiểu cho socket.io (mồ côi B3#6) | tạm: 1 buổi · DO: 3–5 ngày | #1 (cùng đợt cutover) | Host tạm = nợ ngắn hạn chấp nhận được; DO mới là đích managed — sau demo |
 | 3 | **Backup quick-win**: bật R2 versioning + xác nhận Time Travel retention (free tier!) + script `wrangler d1 export --remote` định kỳ | VỪA UNLOCK hôm nay; rẻ nhất khi DB còn trống; audit dặn sẵn "bật ngay khi có remote"; có backup TRƯỚC khi demo đổ dữ liệu thật | 1 buổi | P1 ✅ | ✅ thuần managed features, gần như zero maintain |

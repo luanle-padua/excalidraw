@@ -1,10 +1,10 @@
 # Design System "Glass Desk" — MCM Dashboard 2026
 
-> Chốt 2026-06-12 bởi team 6 agents (research Liquid Glass + khảo sát token + 3 design director + judge). Yêu cầu gốc của anh Luân: "redesign UI/UX của toàn bộ trang dashboard - a muốn nó giống như app của Apple design, trend 2026". Khung lấy từ hướng **Liquid Glass Faithful** (44/50), ghép sự tiết chế của **HIG Refined** (blur budget 3, scrim không blur, text-soft solid, ring-trong-shadow, tabular-nums) và chi tiết của **Spatial 2026** (--mcm-kind-* có cặp dark, đèn rail trên meeting card, FAB hover translateY).
+> Chốt 2026-06-12 bởi team 6 agents (research Liquid Glass + khảo sát token + 3 design director + judge). Yêu cầu gốc của anh Luân: "redesign UI/UX của toàn bộ trang dashboard - a muốn nó giống như app của Apple design, trend 2026". Khung lấy từ hướng **Liquid Glass Faithful** (44/50), ghép sự tiết chế của **HIG Refined** (blur budget 3, scrim không blur, text-soft solid, ring-trong-shadow, tabular-nums) và chi tiết của **Spatial 2026** (--mcm-kind-\* có cặp dark, đèn rail trên meeting card, FAB hover translateY).
 >
 > Bản đầy đủ (bảng điểm 3 hướng + spec từng mục) nằm trong kết quả workflow `wf_dee5dfa3-013`; file này là bản tóm lược vận hành — đủ để maintain/mở rộng đúng hệ.
 
-**Tên nội bộ:** "Glass Desk" — *bàn giấy đặc, khung kính nổi*. Content (cards, list, calendar) luôn là giấy đặc; chỉ KHUNG điều hướng (header, sidebar, overlay) là kính Liquid Glass.
+**Tên nội bộ:** "Glass Desk" — _bàn giấy đặc, khung kính nổi_. Content (cards, list, calendar) luôn là giấy đặc; chỉ KHUNG điều hướng (header, sidebar, overlay) là kính Liquid Glass.
 
 **Phạm vi:** mọi thứ trong `.mcm-lobby` (dashboard). KHÔNG đụng canvas họp.
 
@@ -31,7 +31,7 @@
 ## Vật liệu theo surface
 
 | Surface | Vật liệu |
-|---|---|
+| --- | --- |
 | Header `.mcm-lobby__top`, Sidebar `.mcm-nav` | KÍNH (mcm-glass; sidebar nổi margin 12px, radius-lg, nav active = wash + bar dọc 3px capsule) |
 | Modal panel, popover/user-menu/swatches, toast, bell dropdown | KÍNH (overlay slot; toast có rail semantic 3px thay nền đỏ đặc; scrim ĐẶC không blur) |
 | Meeting card, My Files, ProjectManager, Calendar, day panel | GIẤY ĐẶC (mcard: bỏ stripe trái → đèn rail 2.5×36px top-center màu meeting; LIVE ring tĩnh 2 lớp; My Files/PMgr de-box: section card + divider hairline-2 + hover wash) |

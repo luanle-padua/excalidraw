@@ -2,9 +2,7 @@
 
 > ⚠️ **Plan gốc 06-01 — phần lớn đã thực thi (P1 remote LIVE 06-11).** Một số chi tiết (Cloudflare Access, task theo tuần) đã bị thay bằng quyết định mới (Supabase Auth, [master-plan-4-groups.md](master-plan-4-groups.md)). Giữ làm tư liệu "vì sao chọn Cloudflare" — trạng thái sống xem [roadmap.md](roadmap.md) track I + [production-data-plan.md](production-data-plan.md) §5.
 >
-> Mục tiêu: tháng 6/2026 hoàn thiện **phần hạ tầng** của MAP CanvasMeet để demo.
-> Phần tính năng (collab, audio, STT/dịch, viewer DXF/PDF/IFC, AI bot) coi như xong —
-> đây là kế hoạch chuyển từ mô hình *"máy dev + quick tunnel"* sang **Cloudflare serverless**.
+> Mục tiêu: tháng 6/2026 hoàn thiện **phần hạ tầng** của MAP CanvasMeet để demo. Phần tính năng (collab, audio, STT/dịch, viewer DXF/PDF/IFC, AI bot) coi như xong — đây là kế hoạch chuyển từ mô hình _"máy dev + quick tunnel"_ sang **Cloudflare serverless**.
 
 ## 1. Phạm vi (đã chốt với chủ dự án 01/06)
 
@@ -13,10 +11,9 @@
 1. **URL ổn định + always-on** — không phụ thuộc máy dev bật.
 2. **Persist scene** — reload / đóng phòng không mất canvas.
 3. **Auth + room management** — SSO email công ty, danh sách phòng, lịch, host.
-4. *(Trượt được)* **Video conferencing** — giữ audio-only nếu thiếu thời gian.
+4. _(Trượt được)_ **Video conferencing** — giữ audio-only nếu thiếu thời gian.
 
-**Nơi chạy:** Cloudflare serverless. **Realtime:** Durable Objects (raw WebSocket) — KHÔNG dùng
-Containers/VPS. Đường thuần serverless, scale-to-zero, rẻ nhất; đánh đổi là refactor transport lớn nhất.
+**Nơi chạy:** Cloudflare serverless. **Realtime:** Durable Objects (raw WebSocket) — KHÔNG dùng Containers/VPS. Đường thuần serverless, scale-to-zero, rẻ nhất; đánh đổi là refactor transport lớn nhất.
 
 ## 2. Kiến trúc đích
 
@@ -39,14 +36,11 @@ Containers/VPS. Đường thuần serverless, scale-to-zero, rẻ nhất; đánh
                    D1 (danh sách phòng / lịch / host / metadata)    │  ← Room mgmt (Tuần 3)
 ```
 
-**Nguyên tắc giữ nguyên:** E2E encryption client-side không đổi. Hash `#room=<roomId>,<roomKey>`
-giữ nguyên; `roomKey` là AES-GCM key, server (DO + R2) chỉ thấy ciphertext.
+**Nguyên tắc giữ nguyên:** E2E encryption client-side không đổi. Hash `#room=<roomId>,<roomKey>` giữ nguyên; `roomKey` là AES-GCM key, server (DO + R2) chỉ thấy ciphertext.
 
 ## 3. Insight then chốt khiến DO khả thi
 
-Relay hiện tại ([room/src/index.ts](../../room/src/index.ts), socket.io) **chỉ xử lý ~7 event transport** —
-toàn bộ message phong phú (`WS_SUBTYPES` UPDATE / MOUSE_LOCATION / CHAT / STT / LIBRARY / …) nằm
-**bên trong blob mã hoá E2E**, relay không decode. Vậy DO **không** phải reimplement 20+ subtype, chỉ relay lại blob.
+Relay hiện tại ([room/src/index.ts](../../room/src/index.ts), socket.io) **chỉ xử lý ~7 event transport** — toàn bộ message phong phú (`WS_SUBTYPES` UPDATE / MOUSE_LOCATION / CHAT / STT / LIBRARY / …) nằm **bên trong blob mã hoá E2E**, relay không decode. Vậy DO **không** phải reimplement 20+ subtype, chỉ relay lại blob.
 
 Event transport cần port (xem [app_constants.ts](../../excalidraw-app/app_constants.ts) + [room/src/index.ts](../../room/src/index.ts):904–1038):
 
@@ -65,13 +59,11 @@ Event transport cần port (xem [app_constants.ts](../../excalidraw-app/app_cons
 | `broadcast-unfollow` | Khi follow-room rỗng | như cũ |
 | `disconnecting` | Cập nhật presence + dọn follow | hook `webSocketClose` của DO |
 
-**`socket.id` là load-bearing** (presence, `follow@<id>`, `rtc-signal.to/from` đều key theo nó) →
-DO phải tự **mint connection-id ổn định** mỗi WS và gắn vào `ws.serializeAttachment()` (sống qua hibernation).
+**`socket.id` là load-bearing** (presence, `follow@<id>`, `rtc-signal.to/from` đều key theo nó) → DO phải tự **mint connection-id ổn định** mỗi WS và gắn vào `ws.serializeAttachment()` (sống qua hibernation).
 
 ## 4. Chiến lược giảm sửa client: adapter `RoomSocket`
 
-Thay vì sửa khắp [Collab.tsx](../../excalidraw-app/collab/Collab.tsx) + [Portal.tsx](../../excalidraw-app/collab/Portal.tsx),
-viết **một adapter** `RoomSocket` phơi đúng subset API của `socket.io-client` mà code đang dùng:
+Thay vì sửa khắp [Collab.tsx](../../excalidraw-app/collab/Collab.tsx) + [Portal.tsx](../../excalidraw-app/collab/Portal.tsx), viết **một adapter** `RoomSocket` phơi đúng subset API của `socket.io-client` mà code đang dùng:
 
 ```
 .on(event, cb)  .off(event, cb)  .once(event, cb)
@@ -82,6 +74,7 @@ sự kiện nội bộ: "connect", "connect_error"
 ```
 
 Backing bằng raw `WebSocket` tới DO. Điểm chạm tối thiểu:
+
 - [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):690–715 — thay `import socketIOClient` + `socketIOClient(...)` bằng `new RoomSocket(wsUrl, roomId)`.
 - [Portal.tsx](../../excalidraw-app/collab/Portal.tsx):27 `socket: Socket` → `socket: RoomSocket`. Phần còn lại của Portal/Collab gần như giữ nguyên vì API trùng.
 
@@ -101,15 +94,12 @@ payload (khi bin=true) = [iv 12 byte][ciphertext...]   // chính là encryptedDa
 
 ### Reconnect & hibernation
 
-- Dùng **WebSocket Hibernation API** của DO (`state.acceptWebSocket(ws)`, handler `webSocketMessage/Close/Error`)
-  → DO ngủ khi không có message, không tính tiền wall-clock khi idle.
-- `RoomSocket` tự reconnect (backoff) khi WS rớt; re-`join-room`. Lưu ý `socketInitialized`
-  ([Portal.tsx](../../excalidraw-app/collab/Portal.tsx):28) reset đúng như flow `first-in-room` cũ.
+- Dùng **WebSocket Hibernation API** của DO (`state.acceptWebSocket(ws)`, handler `webSocketMessage/Close/Error`) → DO ngủ khi không có message, không tính tiền wall-clock khi idle.
+- `RoomSocket` tự reconnect (backoff) khi WS rớt; re-`join-room`. Lưu ý `socketInitialized` ([Portal.tsx](../../excalidraw-app/collab/Portal.tsx):28) reset đúng như flow `first-in-room` cũ.
 
 ## 5. Persist scene — thay lớp Firebase
 
-Interface persist gói gọn **6 hàm** trong [data/firebase.ts](../../excalidraw-app/data/firebase.ts), gọi tại
-[Collab.tsx](../../excalidraw-app/collab/Collab.tsx):279/287/474/495/1044, [App.tsx](../../excalidraw-app/App.tsx):470, [data/index.ts](../../excalidraw-app/data/index.ts):425:
+Interface persist gói gọn **6 hàm** trong [data/firebase.ts](../../excalidraw-app/data/firebase.ts), gọi tại [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):279/287/474/495/1044, [App.tsx](../../excalidraw-app/App.tsx):470, [data/index.ts](../../excalidraw-app/data/index.ts):425:
 
 | Hàm | Vai trò | Map sang Cloudflare |
 | --- | --- | --- |
@@ -120,8 +110,7 @@ Interface persist gói gọn **6 hàm** trong [data/firebase.ts](../../excalidra
 | `saveFilesToFirebase({prefix, files})` | Lưu asset (ảnh/IFC/PDF) | `PUT /files/...` → R2 `files/rooms/<roomId>/<fileId>` |
 | `loadFilesFromFirebase(prefix, key, ids)` | Tải asset | `GET /files/...` → R2 |
 
-→ Tạo `excalidraw-app/data/storage.ts` cùng **chữ ký y hệt**, sửa import ở 3 file trên (hoặc re-export
-từ `firebase.ts` để zero-churn). Backend: Worker route đọc/ghi R2; metadata (version, updatedAt) vào D1.
+→ Tạo `excalidraw-app/data/storage.ts` cùng **chữ ký y hệt**, sửa import ở 3 file trên (hoặc re-export từ `firebase.ts` để zero-churn). Backend: Worker route đọc/ghi R2; metadata (version, updatedAt) vào D1.
 
 **Giữ E2E:** client vẫn `encryptData(roomKey, ...)` trước khi gửi; R2 chỉ chứa ciphertext — đúng mô hình hiện tại.
 
@@ -151,8 +140,7 @@ CREATE TABLE memberships (                 -- ai được vào phòng nào (nế
 );
 ```
 
-UI tối thiểu cho demo: trang "Phòng của tôi" (list từ `rooms`), nút *Tạo phòng* (sinh roomId+roomKey, ghi D1),
-nút *Vào*. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
+UI tối thiểu cho demo: trang "Phòng của tôi" (list từ `rooms`), nút _Tạo phòng_ (sinh roomId+roomKey, ghi D1), nút _Vào_. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
 
 ## 7. Auth — Cloudflare Access
 
@@ -163,22 +151,25 @@ nút *Vào*. Lịch họp có thể chỉ hiển thị, chưa cần nhắc.
 ## 8. Task breakdown theo tuần
 
 **Tuần 1 (02–08/06) · Deploy nền tảng + URL ổn định**
+
 - [ ] `wrangler` project; build `excalidraw-app` → Cloudflare Pages; gắn custom domain.
-- [ ] Worker router khung; port `/chatbot` `/translate` `/translate-batch` `/summarize` `/turn-credentials`
-      từ [room/src/index.ts](../../room/src/index.ts) sang Worker `fetch` (Gemini key = Worker secret).
-- [ ] *Mốc:* mở app qua domain thật, AI/dịch chạy; collab tạm vẫn dùng relay cũ.
+- [ ] Worker router khung; port `/chatbot` `/translate` `/translate-batch` `/summarize` `/turn-credentials` từ [room/src/index.ts](../../room/src/index.ts) sang Worker `fetch` (Gemini key = Worker secret).
+- [ ] _Mốc:_ mở app qua domain thật, AI/dịch chạy; collab tạm vẫn dùng relay cũ.
 
 **Tuần 2 (09–15/06) · Realtime → Durable Objects** ⭐ lõi
+
 - [ ] DO `MeetingRoom`: Hibernation API, mint connection-id, relay 7 event + presence + follow + rtc-signal.
 - [ ] `RoomSocket` adapter (client) + envelope wire format; thay socketIOClient ở [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):690–715.
 - [ ] Reconnect/backoff; verify cursor + follow-view + audio signaling.
-- [ ] *Mốc:* 2–3 máy collab realtime qua DO, gỡ hẳn room server Node.
+- [ ] _Mốc:_ 2–3 máy collab realtime qua DO, gỡ hẳn room server Node.
 
 **Tuần 3 (16–22/06) · Persist + Room management**
+
 - [ ] `data/storage.ts` (6 hàm) + Worker R2 routes; verify reload không mất canvas + asset.
 - [ ] D1 schema + Worker CRUD phòng; UI "Phòng của tôi" + tạo/vào phòng.
 
 **Tuần 4 (23–29/06) · Auth + hoàn thiện**
+
 - [ ] Bật Cloudflare Access; Worker verify Access JWT → email; gắn host/permission.
 - [ ] Dọn debug (Eruda, `console.log` [App.tsx](../../excalidraw-app/App.tsx):328 & [Collab.tsx](../../excalidraw-app/collab/Collab.tsx):524, `DEBUG=*` ở room cũ).
 - [ ] Test end-to-end + kịch bản demo.

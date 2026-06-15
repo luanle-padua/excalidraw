@@ -39,10 +39,10 @@
       linear-gradient(var(--ibm-blue), var(--ibm-blue)),
       linear-gradient(var(--ibm-blue), var(--ibm-blue)),
       linear-gradient(var(--ibm-blue), var(--ibm-blue));
-    background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px,
-      2px 15px, 15px 2px, 2px 15px;
-    background-position: top left, top left, top right, top right,
-      bottom left, bottom left, bottom right, bottom right;
+    background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px, 2px 15px,
+      15px 2px, 2px 15px;
+    background-position: top left, top left, top right, top right, bottom left,
+      bottom left, bottom right, bottom right;
     // pointer-events stays none so Excalidraw owns selection / drag.
   }
 

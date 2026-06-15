@@ -5,7 +5,7 @@ _Cập nhật 2026-06-10. Liên quan: bug "mọi tài khoản trùng avatar" (đ
 ## 1. Hiện trạng — dữ liệu user đang nằm ở đâu
 
 | Nơi lưu | Nội dung | Khóa |
-|---|---|---|
+| --- | --- | --- |
 | **Supabase Auth** `user_metadata` | `name`, `display_name`, `title`, `division`, `department`, `company`, `emp_no` (seed từ CSV — `scripts/seed-from-csv.mjs`); **mới thêm `avatar`** (`"lib:NN.png"`) | `user.id` (UUID) + email |
 | **Supabase Auth** `app_metadata` | `role: "admin"` (gate admin console, Worker re-check) | UUID |
 | **localStorage** `mcm:userProfile:v1` | `{username, company, avatar, email}` — cache hồ sơ + nguồn broadcast | **1 key / TRÌNH DUYỆT** (không theo tài khoản) |

@@ -144,7 +144,12 @@
   --mcm-dur-base: 180ms;
   --mcm-dur-enter: 240ms;
   --mcm-ease: cubic-bezier(0.2, 0, 0, 1);
-  --mcm-ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1); // popover/swatches/toast enter only
+  --mcm-ease-spring: cubic-bezier(
+    0.34,
+    1.25,
+    0.64,
+    1
+  ); // popover/swatches/toast enter only
 }
 @mixin mcm-lobby-tokens-dark {
   // Only the values that differ from light (radius/kind-light=dark? kind
@@ -223,8 +228,7 @@
     // #{}-escape: bare saturate() is intercepted by dart-sass as its own
     // color function (expects a number, chokes on var()) — emit literally.
     // brightness() is not a Sass builtin, safe bare.
-    backdrop-filter: blur(var(--mcm-glass-blur))
-      #{"saturate(var(--mcm-glass-sat))"}
+    backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"}
       brightness(var(--mcm-glass-bright, 1));
   }
   &::before {
@@ -583,7 +587,11 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
     // Active = this user is currently presenting (screen share live).
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 16%,
+        transparent
+      );
       color: var(--mcm-accent, #6965db);
 
       &:hover {
@@ -880,7 +888,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &.mcm-call-controls__btn--raised {
     background: color-mix(in srgb, var(--mcm-warning) 18%, var(--mcm-surface));
     color: #b45309;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mcm-warning) 45%, transparent),
+    box-shadow: inset 0 0 0 1px
+        color-mix(in srgb, var(--mcm-warning) 45%, transparent),
       0 0 0 0 transparent;
 
     .mcm-call-controls__raise-emoji {
@@ -1377,8 +1386,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 0 2px var(--mcm-surface),
-      0 2px 4px rgba(245, 158, 11, 0.45);
+    box-shadow: 0 0 0 2px var(--mcm-surface), 0 2px 4px rgba(245, 158, 11, 0.45);
     z-index: 2;
   }
 
@@ -1387,13 +1395,13 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   // bar is horizontally scrolled). Subtle gold ring, doesn't fight
   // the existing speaking / raised / followed states.
   &--host &__avatar {
-    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
-      0 0 0 2px #fbbf24,
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px #fbbf24,
       0 1px 2px rgba(0, 0, 0, 0.1);
   }
 
   &--raised &__avatar {
-    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25), 0 0 0 2px var(--mcm-warning),
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 0 0 2px var(--mcm-warning),
       0 0 0 4px color-mix(in srgb, var(--mcm-warning) 24%, transparent),
       0 1px 2px rgba(0, 0, 0, 0.1);
   }
@@ -1426,7 +1434,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   @keyframes mcm-follow-pulse {
-    0%, 100% {
+    0%,
+    100% {
       box-shadow: 0 0 0 2px var(--mcm-surface),
         0 2px 5px color-mix(in srgb, var(--mcm-accent) 35%, transparent);
     }
@@ -1812,7 +1821,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     &--selected {
       border-color: var(--mcm-accent, #6965db);
       box-shadow: 0 0 0 2px var(--mcm-surface),
-        0 0 0 4px color-mix(in srgb, var(--mcm-accent, #6965db) 30%, transparent);
+        0 0 0 4px
+          color-mix(in srgb, var(--mcm-accent, #6965db) 30%, transparent);
     }
   }
 
@@ -3012,8 +3022,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     transform-origin: 50% 90%; // pivots near the needle tip
     filter: drop-shadow(0 5px 7px rgba(0, 0, 0, 0.38))
       drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18));
-    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      filter 180ms, opacity 180ms;
+    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 180ms,
+      opacity 180ms;
     animation: mcm-pin-stick 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
     svg {
@@ -3069,8 +3079,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     transform: rotate(var(--tape-rotation, 0deg));
     transform-origin: 50% 50%;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28));
-    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      filter 180ms;
+    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 180ms;
     animation: mcm-tape-stick 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
     img {
@@ -3114,8 +3123,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     transform-origin: 50% 50%;
     filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35))
       drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
-    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      filter 180ms;
+    transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 180ms;
     animation: mcm-sticker-stick 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
     img {
@@ -3244,8 +3252,13 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 }
 
 @keyframes mcm-deco-trigger-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
 }
 
 // Placing ghost — translucent preview of the picked asset that follows
@@ -3428,24 +3441,18 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   // on Y so it reads as "being pressed onto" the canvas rather than
   // sliding in flat.
   0% {
-    transform: rotate(var(--sticker-rotation, 0deg))
-      perspective(400px)
-      rotateY(35deg)
-      scale(1.5);
+    transform: rotate(var(--sticker-rotation, 0deg)) perspective(400px)
+      rotateY(35deg) scale(1.5);
     opacity: 0;
   }
   60% {
-    transform: rotate(var(--sticker-rotation, 0deg))
-      perspective(400px)
-      rotateY(0)
-      scale(1.08);
+    transform: rotate(var(--sticker-rotation, 0deg)) perspective(400px)
+      rotateY(0) scale(1.08);
     opacity: 1;
   }
   100% {
-    transform: rotate(var(--sticker-rotation, 0deg))
-      perspective(400px)
-      rotateY(0)
-      scale(1);
+    transform: rotate(var(--sticker-rotation, 0deg)) perspective(400px)
+      rotateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -3634,10 +3641,10 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
       linear-gradient(var(--ibm-blue), var(--ibm-blue)),
       linear-gradient(var(--ibm-blue), var(--ibm-blue)),
       linear-gradient(var(--ibm-blue), var(--ibm-blue));
-    background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px,
-      2px 15px, 15px 2px, 2px 15px;
-    background-position: top left, top left, top right, top right,
-      bottom left, bottom left, bottom right, bottom right;
+    background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px, 2px 15px,
+      15px 2px, 2px 15px;
+    background-position: top left, top left, top right, top right, bottom left,
+      bottom left, bottom right, bottom right;
     // pointer-events stays none so Excalidraw owns selection / drag.
   }
 
@@ -3725,7 +3732,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     font-size: 12px;
     font-style: italic;
-    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 80%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--mcm-surface-2, #f0f0f3) 80%,
+      transparent
+    );
   }
 
   // Focused state — when user picked "Edit" from the context menu.
@@ -4111,7 +4122,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     font-size: 12px;
     font-style: italic;
-    background: color-mix(in srgb, var(--mcm-surface-2, #f0f0f3) 80%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--mcm-surface-2, #f0f0f3) 80%,
+      transparent
+    );
   }
 
   &__anchor--focused {
@@ -4497,7 +4512,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     transition: background-color 140ms, color 140ms;
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 14%,
+        transparent
+      );
       color: var(--mcm-danger, #dc2626);
     }
   }
@@ -4515,7 +4534,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     flex-shrink: 0;
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 12%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 12%,
+        transparent
+      );
       color: var(--mcm-danger, #dc2626);
     }
   }
@@ -4557,7 +4580,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
     }
@@ -4900,7 +4927,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 8%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 8%,
+        transparent
+      );
     }
   }
 
@@ -4994,7 +5025,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   bottom: 16px;
   z-index: 6;
   pointer-events: none; // children opt-in so the widget doesn't
-                        // swallow pointer events outside its visible boxes
+  // swallow pointer events outside its visible boxes
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -5040,7 +5071,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     }
 
     &--active {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
       color: var(--mcm-accent, #6965db);
     }
 
@@ -5087,8 +5122,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     overflow: hidden;
     cursor: crosshair;
     touch-action: none;
-    animation: mcm-canvas-nav-popin 160ms cubic-bezier(0.34, 1.56, 0.64, 1)
-      both;
+    animation: mcm-canvas-nav-popin 160ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
     svg {
       display: block;
@@ -5183,11 +5217,19 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     &--stale {
       border-radius: 8px;
       border-right: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
-      background: color-mix(in srgb, var(--mcm-warning) 18%, var(--mcm-surface, #fff));
+      background: color-mix(
+        in srgb,
+        var(--mcm-warning) 18%,
+        var(--mcm-surface, #fff)
+      );
       color: #b45309;
 
       &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--mcm-warning) 28%, var(--mcm-surface, #fff));
+        background: color-mix(
+          in srgb,
+          var(--mcm-warning) 28%,
+          var(--mcm-surface, #fff)
+        );
       }
     }
   }
@@ -5386,7 +5428,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-accent, #6965db);
 
     &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        transparent
+      );
     }
   }
 
@@ -5437,8 +5483,12 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 }
 
 @keyframes mcm-recording-spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -6095,8 +6145,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  transition: background-color var(--mcm-dur-fast, 120ms)
-      var(--mcm-ease, ease),
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
     color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
   &:hover {
@@ -6139,8 +6188,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   padding: 0 9px;
   border-radius: var(--mcm-radius-pill, 999px);
   font-size: 11.5px;
-  transition: background-color var(--mcm-dur-fast, 120ms)
-      var(--mcm-ease, ease),
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
     color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
   &:hover {
@@ -6161,8 +6209,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   border: 0;
   border-radius: var(--mcm-radius-pill, 999px);
   background: transparent;
-  transition: background-color var(--mcm-dur-fast, 120ms)
-    var(--mcm-ease, ease);
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
   &:hover {
     background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
@@ -6315,7 +6362,10 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--mcm-scrim, rgba(0, 0, 0, 0.5)); // solid scrim, never blurred
+  background: var(
+    --mcm-scrim,
+    rgba(0, 0, 0, 0.5)
+  ); // solid scrim, never blurred
 
   &__panel {
     // Glass pane; the controls inside stay solid surfaces.
@@ -7537,7 +7587,10 @@ body:has(.excalidraw.theme--dark) {
   // them, making the drawer open invisibly behind the home (the "click does
   // nothing" bug).
   z-index: 1200;
-  background: var(--mcm-scrim, rgba(0, 0, 0, 0.28)); // solid scrim, never blurred
+  background: var(
+    --mcm-scrim,
+    rgba(0, 0, 0, 0.28)
+  ); // solid scrim, never blurred
   display: flex;
   justify-content: flex-end;
 }
@@ -9658,9 +9711,7 @@ body:has(.excalidraw.theme--dark) {
   // falling through to the UA ButtonFace grey + black text: off-token in
   // light, unreadable blob on the dark olive surfaces. Default the bare
   // variant to the --secondary look so every text button rides tokens.
-  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
-      .mcm-btn--ghost
-    ):not(.mcm-btn--danger) {
+  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(.mcm-btn--ghost):not(.mcm-btn--danger) {
     background: var(--mcm-surface-2);
     border-color: var(--mcm-hairline);
     color: var(--mcm-text);
@@ -9685,9 +9736,7 @@ body:has(.excalidraw.theme--dark) {
   // sitting inside solid cards/panels inherit these too — harmless, the
   // surface behind them is opaque. Primary (accent) stays SOLID above.
   .mcm-btn--secondary,
-  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
-      .mcm-btn--ghost
-    ):not(.mcm-btn--danger) {
+  .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(.mcm-btn--ghost):not(.mcm-btn--danger) {
     background: color-mix(in srgb, var(--mcm-surface) 72%, transparent);
   }
   .mcm-btn--ghost:hover:not(:disabled) {
@@ -10112,7 +10161,11 @@ body:has(.excalidraw.theme--dark) {
   // soft wash that keeps text legible in both themes while making each
   // meeting's colour read at a glance. --mcard-color is the user/​status hue.
   // Paper card: no border — a 1px tint ring rides INSIDE the shadow.
-  background: color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 10%, var(--mcm-surface));
+  background: color-mix(
+    in srgb,
+    var(--mcard-color, var(--mcm-accent)) 10%,
+    var(--mcm-surface)
+  );
   border: 0;
   border-radius: var(--mcm-radius-md, 12px);
   box-shadow: 0 0 0 1px
@@ -10124,7 +10177,11 @@ body:has(.excalidraw.theme--dark) {
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 0 0 1px
-        color-mix(in srgb, var(--mcard-color, var(--mcm-accent)) 30%, transparent),
+        color-mix(
+          in srgb,
+          var(--mcard-color, var(--mcm-accent)) 30%,
+          transparent
+        ),
       var(--mcm-shadow-2, 0 6px 16px rgba(0, 0, 0, 0.08));
   }
 
@@ -10516,7 +10573,10 @@ body:has(.excalidraw.theme--dark) {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: var(--mcm-scrim, rgba(0, 0, 0, 0.4)); // solid scrim, never blurred
+  background: var(
+    --mcm-scrim,
+    rgba(0, 0, 0, 0.4)
+  ); // solid scrim, never blurred
 }
 .mcm-mpick {
   width: 440px;
@@ -10864,7 +10924,11 @@ body:has(.excalidraw.theme--dark) {
     display: grid;
     place-items: center;
     border-radius: 50%;
-    background: color-mix(in srgb, var(--pa, var(--mcm-accent)) 18%, var(--mcm-surface));
+    background: color-mix(
+      in srgb,
+      var(--pa, var(--mcm-accent)) 18%,
+      var(--mcm-surface)
+    );
     color: var(--pa, var(--mcm-accent));
     font-size: 9px;
     font-weight: 700;
@@ -10905,8 +10969,7 @@ body:has(.excalidraw.theme--dark) {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--mcm-dur-fast, 120ms)
-    var(--mcm-ease, ease);
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
   &:hover,
   &[aria-expanded="true"] {
@@ -10926,7 +10989,11 @@ body:has(.excalidraw.theme--dark) {
   place-items: center;
   border-radius: 50%;
   overflow: hidden;
-  background: color-mix(in srgb, var(--pa, var(--mcm-accent)) 16%, var(--mcm-surface));
+  background: color-mix(
+    in srgb,
+    var(--pa, var(--mcm-accent)) 16%,
+    var(--mcm-surface)
+  );
   color: var(--pa, var(--mcm-accent));
   // Hairline lux ring — the "signed-in identity" gets the champagne detail.
   box-shadow: 0 0 0 1px
@@ -11080,7 +11147,11 @@ body:has(.excalidraw.theme--dark) {
     }
 
     &:hover {
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 10%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 10%,
+        transparent
+      );
     }
   }
 }
@@ -11171,9 +11242,14 @@ body:has(.excalidraw.theme--dark) {
   gap: 6px;
   max-width: 100%;
   padding: 3px 9px 3px 4px;
-  border: 1px solid color-mix(in srgb, var(--pa, var(--mcm-accent)) 32%, var(--mcm-hairline));
+  border: 1px solid
+    color-mix(in srgb, var(--pa, var(--mcm-accent)) 32%, var(--mcm-hairline));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pa, var(--mcm-accent)) 7%, var(--mcm-surface));
+  background: color-mix(
+    in srgb,
+    var(--pa, var(--mcm-accent)) 7%,
+    var(--mcm-surface)
+  );
   line-height: 1.2;
 
   &__ava {
@@ -11724,7 +11800,11 @@ body:has(.excalidraw.theme--dark) {
 
     &--private {
       color: var(--mcm-danger, #dc2626);
-      background: color-mix(in srgb, var(--mcm-danger, #dc2626) 9%, transparent);
+      background: color-mix(
+        in srgb,
+        var(--mcm-danger, #dc2626) 9%,
+        transparent
+      );
 
       &:hover {
         border-color: color-mix(
@@ -12691,9 +12771,7 @@ body:has(.excalidraw.theme--dark) {
   // wins the specificity tie).
   .mcm-lobby .mcm-btn--secondary,
   .mcm-lobby
-    .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(
-      .mcm-btn--ghost
-    ):not(.mcm-btn--danger),
+    .mcm-btn:not(.mcm-btn--primary):not(.mcm-btn--secondary):not(.mcm-btn--ghost):not(.mcm-btn--danger),
   .mcm-lobby .mcm-select {
     background: var(--mcm-surface-2);
   }
