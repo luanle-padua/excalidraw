@@ -352,7 +352,7 @@ export const ko: Widened<typeof vi> = {
     create: "생성",
     selectProject: "회의를 보려면 프로젝트를 선택하세요",
     noMeetings: "이 프로젝트에는 아직 회의가 없습니다",
-    newMeetingInProject: "+ 새 회의",
+    newMeetingInProject: "새 회의",
     schedule: "일정 잡기",
     detail: "상세",
     meetingTitle: "회의 제목",

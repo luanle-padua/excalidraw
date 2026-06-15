@@ -365,7 +365,7 @@ export const vi = {
     create: "Tạo",
     selectProject: "Chọn một dự án để xem các cuộc họp",
     noMeetings: "Dự án này chưa có cuộc họp",
-    newMeetingInProject: "+ Cuộc họp mới",
+    newMeetingInProject: "Cuộc họp mới",
     schedule: "Lên lịch",
     detail: "Chi tiết",
     meetingTitle: "Tiêu đề cuộc họp",

@@ -345,7 +345,7 @@ export const en: Widened<typeof vi> = {
     create: "Create",
     selectProject: "Pick a project to see its meetings",
     noMeetings: "No meetings in this project yet",
-    newMeetingInProject: "+ New meeting",
+    newMeetingInProject: "New meeting",
     schedule: "Schedule",
     detail: "Details",
     meetingTitle: "Meeting title",
