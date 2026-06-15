@@ -278,6 +278,10 @@ export type SocketUpdateDataSource = {
        *  END_MEETING. The targeted client acts on itself (leaves / self-mutes);
        *  everyone else ignores a command not aimed at them. */
       target?: SocketId;
+      /** The sender holds server-verified PROJECT authority (leader / division
+       *  head / deputy) — so peers accept their KICK even when socket host-
+       *  election landed on someone else (anh Luân 06-15). */
+      fromAuthority?: boolean;
     };
   };
   AUDIO_STATE: {

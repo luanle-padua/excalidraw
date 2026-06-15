@@ -498,6 +498,7 @@ class Portal {
   broadcastHostCommand = (cmd: {
     action: "END_MEETING" | "KICK" | "MUTE" | "UNMUTE";
     target?: SocketId;
+    fromAuthority?: boolean;
   }) => {
     if (this.socket?.id) {
       const data: SocketUpdateDataSource["HOST_COMMAND"] = {
@@ -506,6 +507,7 @@ class Portal {
           hostSocketId: this.socket.id as SocketId,
           action: cmd.action,
           ...(cmd.target ? { target: cmd.target } : {}),
+          ...(cmd.fromAuthority ? { fromAuthority: true } : {}),
         },
       };
       return this._broadcastSocketData(data as SocketUpdateData);

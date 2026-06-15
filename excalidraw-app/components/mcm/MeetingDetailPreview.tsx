@@ -144,12 +144,14 @@ export const MeetingDetailPreview = ({
   }, [refresh]);
 
   const status = normalizeMeetingStatus(d?.status);
-  // Organizer manages the meeting (legacy rows without organizer_email fall
-  // back to internal-allow — the worker enforces the same rule).
+  // Organizer OR project authority (leader / head / deputy — server-computed
+  // viewer_is_authority) manages the meeting; legacy rows without organizer_email
+  // fall back to internal-allow. The worker enforces the same rule.
   const canManage = canManageMeeting(
     session?.email,
     d?.organizer_email ?? null,
     isInternalEmail(session?.email),
+    !!d?.viewer_is_authority,
   );
   const showLifecycle = !!d && canManage && status === "scheduled";
   // Edit only for the organizer, and only while the meeting takes edits

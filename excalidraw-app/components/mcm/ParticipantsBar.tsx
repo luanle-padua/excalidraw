@@ -789,10 +789,13 @@ export const ParticipantsBar = ({
   const iAmHost =
     !session?.isGuest &&
     ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
+  // fromAuthority lets peers accept a KICK from a project authority (leader /
+  // head / deputy) even when socket host-election landed on someone else.
   const doKick = (tile: Tile) =>
     collabAPI?.portal.broadcastHostCommand({
       action: "KICK",
       target: tile.id as SocketId,
+      fromAuthority: viewerAuthority,
     });
   const doMute = (tile: Tile) => {
     // Drive off the REAL broadcast state (peerAudio → tile.micOn/inCall), not a
@@ -801,6 +804,7 @@ export const ParticipantsBar = ({
     collabAPI?.portal.broadcastHostCommand({
       action: muted ? "UNMUTE" : "MUTE",
       target: tile.id as SocketId,
+      fromAuthority: viewerAuthority,
     });
   };
 

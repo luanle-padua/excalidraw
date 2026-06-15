@@ -51,17 +51,23 @@ export const isFinishedStatus = (
   return n === "finished" || n === "cancelled";
 };
 
-/** "User tạo meeting mới edit được meeting" — the ORGANIZER owns edits
- *  (content, schedule, invitees). Legacy meetings predating organizer_email
- *  fall back to internal-allow so they aren't permanently unmanageable
- *  (mirrors the worker's rule — the server re-checks all of this). */
+/** Who may edit a meeting (content, schedule, invitees, co-host). The ORGANIZER
+ *  owns it, AND — anh Luân 06-15 — anyone with PROJECT authority over it (the
+ *  project leader / co-operator / division head / deputy / admin), so a head can
+ *  set a co-host on a meeting a co-operator created. Legacy meetings predating
+ *  organizer_email fall back to internal-allow. The server re-checks all of this
+ *  (PATCH gate = organizer OR project authority). */
 export const canManageMeeting = (
   myEmail: string | null | undefined,
   organizerEmail: string | null | undefined,
   isInternal: boolean,
+  isAuthority = false,
 ): boolean => {
   if (!myEmail) {
     return false;
+  }
+  if (isAuthority) {
+    return true;
   }
   return organizerEmail
     ? organizerEmail.toLowerCase() === myEmail.toLowerCase()

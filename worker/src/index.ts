@@ -350,7 +350,8 @@ const projectAccess = async (
       `SELECT 1 FROM project p
          LEFT JOIN division d ON d.id = p.lead_division_id
         WHERE p.id = ?1
-          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2
+               OR lower(d.deputy_email) = ?2)
         LIMIT 1`,
     )
     .bind(projectId, e)
@@ -419,7 +420,9 @@ const canManageProject = async (
             WHERE id = ?1 AND lower(leader_email) = ?2) AS leader,
          (SELECT 1 FROM division d
             JOIN project p ON p.lead_division_id = d.id
-            WHERE p.id = ?1 AND lower(d.head_email) = ?2) AS head`,
+            WHERE p.id = ?1
+              AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2))
+           AS head`,
     )
     .bind(projectId, me)
     .first<{
@@ -457,7 +460,9 @@ const isProjectLeadership = async (
             WHERE id = ?1 AND lower(leader_email) = ?2) AS leader,
          (SELECT 1 FROM division d
             JOIN project p ON p.lead_division_id = d.id
-            WHERE p.id = ?1 AND lower(d.head_email) = ?2) AS head`,
+            WHERE p.id = ?1
+              AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2))
+           AS head`,
     )
     .bind(projectId, me)
     .first<{
@@ -488,7 +493,9 @@ const isDivisionHeadOfProject = async (
     .prepare(
       `SELECT 1 FROM division d
          JOIN project p ON p.lead_division_id = d.id
-        WHERE p.id = ?1 AND lower(d.head_email) = ?2 LIMIT 1`,
+        WHERE p.id = ?1
+          AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2)
+        LIMIT 1`,
     )
     .bind(projectId, me)
     .first());
@@ -537,7 +544,8 @@ const isMeetingProjectAuthority = async (
          JOIN project p ON p.id = m.project_id
          LEFT JOIN division d ON d.id = p.lead_division_id
         WHERE m.id = ?1
-          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2
+               OR lower(d.deputy_email) = ?2)
         LIMIT 1`,
     )
     .bind(roomId, me)
@@ -908,7 +916,7 @@ app.get("/v1/projects", async (c) => {
   // (Phase 2) extend manage to the project leader + leading-division head, and
   // is_head gates the "assign leader" UI.
   const leadCols = `(lower(p.leader_email) = ?1) AS is_leader,
-         (d.head_email IS NOT NULL AND lower(d.head_email) = ?1) AS is_head`;
+         (lower(d.head_email) = ?1 OR lower(d.deputy_email) = ?1) AS is_head`;
   const memberStmt = host
     ? c.env.DB.prepare(
         `SELECT ${mcols}, pm.role AS my_role, ${leadCols} FROM project p
@@ -949,6 +957,7 @@ app.get("/v1/projects", async (c) => {
       `SELECT ${mcols}, ${leadCols} FROM project p
        LEFT JOIN division d ON d.id = p.lead_division_id
        WHERE lower(p.leader_email) = ?1 OR lower(d.head_email) = ?1
+          OR lower(d.deputy_email) = ?1
        ORDER BY p.updated_at DESC LIMIT 200`,
     )
       .bind(e)
@@ -1418,19 +1427,21 @@ app.post("/v1/meetings", async (c) => {
   if (!b.roomId) {
     return c.json({ error: "roomId required" }, 400);
   }
-  // You may only FILE a meeting under a project you can actually reach. Without
-  // this, any internal user could POST {roomId:<own>, projectId:<another
-  // department's confidential project>} and inject a (default non-confidential)
-  // meeting card + its blobs into that foreign folder, visible to all its
-  // members. projectAccess === 'full' = admin or a project_member. (Audit H2.)
+  // ORGANIZING a meeting inside a project is a MANAGEMENT act (anh Luân 06-15:
+  // "co-operator chịu trách nhiệm tổ chức cuộc họp"): only the project's
+  // managers — admin · head · deputy · leader · co-operator — may create one.
+  // A plain participate-only member joins meetings, doesn't open them. This
+  // also closes audit H2 (can't inject a card into a foreign department's
+  // folder — canManageProject is strictly tighter than membership).
   if (b.projectId) {
-    const acc = await projectAccess(
-      c.env.DB,
-      c.get("email"),
-      c.get("role"),
-      b.projectId,
-    );
-    if (acc !== "full") {
+    if (
+      !(await canManageProject(
+        c.env.DB,
+        b.projectId,
+        c.get("email"),
+        c.get("role"),
+      ))
+    ) {
       return c.json({ error: "forbidden project" }, 403);
     }
   }

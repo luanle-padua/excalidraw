@@ -36,6 +36,7 @@ import {
 } from "../../data/projects";
 import { markReviewRoom } from "../../data/reviewMode";
 import { isInternalEmail, sessionAtom } from "../../data/session";
+import { meetingViewerAuthorityAtom } from "../../data/userProfile";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
@@ -237,11 +238,13 @@ export const MeetingHeader = ({
   // internal user — registering on first save claims them properly. Review
   // mode (finished) never edits.
   const session = useAtomValue(sessionAtom);
+  const viewerAuthority = useAtomValue(meetingViewerAuthorityAtom);
   const canEditMeeting =
     canManageMeeting(
       session?.email,
       meetingInfo?.organizerEmail ?? null,
       isInternalEmail(session?.email),
+      viewerAuthority,
     ) && isEditableMeetingStatus(meetingInfo?.status);
 
   const viewOnly = useAtomValue(meetingViewOnlyAtom);

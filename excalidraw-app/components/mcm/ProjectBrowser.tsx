@@ -249,11 +249,15 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // ban khác) is browse-filtered, not ours to create meetings in or edit.
   const isMemberProject = (p: Project | null): boolean =>
     !!p && p.access !== "invitee";
-  // The project a new meeting attaches to: the open one if we're a member,
-  // else the first project we actually belong to.
-  const targetProject = isMemberProject(selectedProject)
+  // ORGANIZING a meeting is a MANAGEMENT act (anh Luân 06-15): only a project's
+  // managers — leader · co-operator · head · deputy · admin (server-computed
+  // can_manage) — may create one in it; a plain participant just joins.
+  const canManageProj = (p: Project | null): boolean => !!p?.can_manage;
+  // The project a new meeting attaches to: the open one if we may manage it,
+  // else the first project we manage.
+  const targetProject = canManageProj(selectedProject)
     ? selectedProject
-    : projects.find((p) => isMemberProject(p)) ?? null;
+    : projects.find((p) => canManageProj(p)) ?? null;
 
   const contextLabel = selectedProject
     ? selectedProject.name
@@ -411,6 +415,13 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
       session?.email,
       m.organizer_email ?? null,
       isInternalEmail(session?.email),
+      // Project authority (leader / co-operator / head / deputy) may also edit +
+      // set co-host — derived from the parent project's can_manage.
+      canManageProj(
+        (m.project_id
+          ? projects.find((p) => p.id === m.project_id)
+          : selectedProject) ?? selectedProject,
+      ),
     ) &&
     isEditableMeetingStatus(m.status);
 
@@ -829,7 +840,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             targetProject &&
             !detailRoomId &&
             !editRoomId &&
-            (!selectedProject || isMemberProject(selectedProject)) && (
+            (!selectedProject || canManageProj(selectedProject)) && (
               <button
                 type="button"
                 className="mcm-btn mcm-btn--primary mcm-btn--sm"

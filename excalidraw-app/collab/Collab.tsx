@@ -1403,13 +1403,17 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.HOST_COMMAND: {
-            const { hostSocketId, action, target } = decryptedData.payload;
+            const { hostSocketId, action, target, fromAuthority } =
+              decryptedData.payload;
             const mySocketId = this.portal.socket?.id;
             // KICK must come from the host we locally elect — blocks a rogue
             // peer from kicking someone. If our election is unresolved (null)
-            // we accept (host-only UI in practice). MUTE/UNMUTE stay trusted:
-            // they're target-scoped and low-harm.
-            if (action === "KICK") {
+            // we accept (host-only UI in practice). EXCEPTION: a sender with
+            // server-verified PROJECT authority (leader / head / deputy —
+            // fromAuthority) is accepted even when election landed elsewhere,
+            // so a division head can always kick (anh Luân 06-15). MUTE/UNMUTE
+            // stay trusted: they're target-scoped and low-harm.
+            if (action === "KICK" && !fromAuthority) {
               const localHost = appJotaiStore.get(hostSocketIdAtom);
               if (localHost && hostSocketId !== localHost) {
                 break;
