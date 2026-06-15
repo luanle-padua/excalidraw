@@ -539,6 +539,8 @@ export const vi = {
     roleParticipant: "Thành viên",
     makeManager: "Cấp quyền quản lý",
     removeManager: "Thu quyền quản lý",
+    makeLeader: "Đặt làm trưởng dự án",
+    makeLeaderConfirm: "Đặt {{email}} làm trưởng dự án mới?",
     roleChangeFailed: "Không đổi được vai trò.",
     delete: "Xóa dự án",
     deleteConfirm: 'Xóa dự án "{name}"? Hành động này không thể hoàn tác.',

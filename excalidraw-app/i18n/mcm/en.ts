@@ -511,6 +511,8 @@ export const en: Widened<typeof vi> = {
     roleParticipant: "Participant",
     makeManager: "Make manager",
     removeManager: "Remove manager",
+    makeLeader: "Make leader",
+    makeLeaderConfirm: "Make {{email}} the new project leader?",
     roleChangeFailed: "Couldn't change the role.",
     delete: "Delete project",
     deleteConfirm: 'Delete project "{name}"? This cannot be undone.',

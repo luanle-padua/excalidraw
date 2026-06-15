@@ -517,6 +517,8 @@ export const ko: Widened<typeof vi> = {
     roleParticipant: "참여자",
     makeManager: "매니저 지정",
     removeManager: "매니저 해제",
+    makeLeader: "프로젝트 리더 지정",
+    makeLeaderConfirm: "{{email}} 님을 새 프로젝트 리더로 지정할까요?",
     roleChangeFailed: "역할을 변경하지 못했습니다.",
     delete: "프로젝트 삭제",
     deleteConfirm: '"{name}" 프로젝트를 삭제할까요? 되돌릴 수 없습니다.',

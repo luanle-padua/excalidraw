@@ -343,6 +343,21 @@ const projectAccess = async (
   if (member) {
     return "full";
   }
+  // Phase 2: the designated leader and the leading division's HEAD see the whole
+  // folder too (manage implies full visibility) — without needing a member row.
+  const lead = await db
+    .prepare(
+      `SELECT 1 FROM project p
+         LEFT JOIN division d ON d.id = p.lead_division_id
+        WHERE p.id = ?1
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
+        LIMIT 1`,
+    )
+    .bind(projectId, e)
+    .first();
+  if (lead) {
+    return "full";
+  }
   if (!isInternalEmail(e)) {
     return null;
   }
@@ -389,11 +404,91 @@ const canManageProject = async (
   if (!me) {
     return false;
   }
+  // Manage = a manager-tier member ('owner'/'manager'), OR the designated
+  // project leader (project.leader_email), OR the HEAD of the project's leading
+  // division (project.lead_division_id → division.head_email). The last two are
+  // Phase 2: a division head manages every project their division leads WITHOUT
+  // being added as a member (anh Luân 06-15).
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT 1 FROM project_member
+            WHERE project_id = ?1 AND email = ?2
+              AND role IN ('owner','manager')) AS mgr,
+         (SELECT 1 FROM project
+            WHERE id = ?1 AND lower(leader_email) = ?2) AS leader,
+         (SELECT 1 FROM division d
+            JOIN project p ON p.lead_division_id = d.id
+            WHERE p.id = ?1 AND lower(d.head_email) = ?2) AS head`,
+    )
+    .bind(projectId, me)
+    .first<{
+      mgr: number | null;
+      leader: number | null;
+      head: number | null;
+    }>();
+  return !!(row?.mgr || row?.leader || row?.head);
+};
+
+// Is the caller in the LEADERSHIP of this project — admin, the project leader
+// (leader_email or a 'owner' member), or the HEAD of the leading division?
+// Distinct from canManageProject: it EXCLUDES a delegated 'manager', because
+// leadership actions (designate/replace a manager, delete the project) belong
+// to the leader/head — a manager must not mint more managers.
+const isProjectLeadership = async (
+  db: D1Database,
+  projectId: string,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT 1 FROM project_member
+            WHERE project_id = ?1 AND email = ?2 AND role = 'owner') AS owner,
+         (SELECT 1 FROM project
+            WHERE id = ?1 AND lower(leader_email) = ?2) AS leader,
+         (SELECT 1 FROM division d
+            JOIN project p ON p.lead_division_id = d.id
+            WHERE p.id = ?1 AND lower(d.head_email) = ?2) AS head`,
+    )
+    .bind(projectId, me)
+    .first<{
+      owner: number | null;
+      leader: number | null;
+      head: number | null;
+    }>();
+  return !!(row?.owner || row?.leader || row?.head);
+};
+
+// Is the caller the HEAD of this project's leading division (or admin)? ONLY the
+// head (or admin) assigns/replaces the project LEADER — a leader can't hand off
+// their own leadership.
+const isDivisionHeadOfProject = async (
+  db: D1Database,
+  projectId: string,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
   return !!(await db
     .prepare(
-      `SELECT 1 FROM project_member
-       WHERE project_id = ?1 AND email = ?2
-         AND role IN ('owner','manager') LIMIT 1`,
+      `SELECT 1 FROM division d
+         JOIN project p ON p.lead_division_id = d.id
+        WHERE p.id = ?1 AND lower(d.head_email) = ?2 LIMIT 1`,
     )
     .bind(projectId, me)
     .first());
@@ -691,9 +786,14 @@ app.post("/v1/projects", async (c) => {
   const owner = email?.toLowerCase() ?? null;
   const id = crypto.randomUUID();
   const ts = now();
+  // The creator is the project leader; the leading division defaults to their
+  // home department (user_division) so that department's HEAD inherits manage
+  // (Phase 2). NULL division if the creator isn't mapped — leader/admin-managed.
   await c.env.DB.prepare(
-    `INSERT INTO project (id, name, host_email, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?4)`,
+    `INSERT INTO project
+       (id, name, host_email, leader_email, lead_division_id, created_at, updated_at)
+     VALUES (?1, ?2, ?3, ?3,
+             (SELECT division_id FROM user_division WHERE email = ?3), ?4, ?4)`,
   )
     .bind(id, name.trim(), owner, ts)
     .run();
@@ -736,6 +836,7 @@ app.get("/v1/projects", async (c) => {
         ...p,
         my_role: "admin",
         can_manage: true,
+        can_assign_leader: true,
       })),
     });
   }
@@ -749,16 +850,22 @@ app.get("/v1/projects", async (c) => {
     .map((col) => `p.${col}`)
     .join(", ");
   // pm.role rides along so the client can gate management (can_manage) and
-  // render the viewer's own badge without a second round-trip.
+  // render the viewer's own badge without a second round-trip. is_leader/is_head
+  // (Phase 2) extend manage to the project leader + leading-division head, and
+  // is_head gates the "assign leader" UI.
+  const leadCols = `(lower(p.leader_email) = ?1) AS is_leader,
+         (d.head_email IS NOT NULL AND lower(d.head_email) = ?1) AS is_head`;
   const memberStmt = host
     ? c.env.DB.prepare(
-        `SELECT ${mcols}, pm.role AS my_role FROM project p
+        `SELECT ${mcols}, pm.role AS my_role, ${leadCols} FROM project p
          JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+         LEFT JOIN division d ON d.id = p.lead_division_id
          WHERE p.host_email = ?2 ORDER BY p.updated_at DESC`,
       ).bind(e, host)
     : c.env.DB.prepare(
-        `SELECT ${mcols}, pm.role AS my_role FROM project p
+        `SELECT ${mcols}, pm.role AS my_role, ${leadCols} FROM project p
          JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
+         LEFT JOIN division d ON d.id = p.lead_division_id
          ORDER BY p.updated_at DESC LIMIT 200`,
       ).bind(e);
   const { results: memberRows } = await memberStmt.all<
@@ -767,11 +874,39 @@ app.get("/v1/projects", async (c) => {
   const projects: Record<string, unknown>[] = memberRows.map((p) => ({
     ...p,
     access: "member",
-    // Management = same role check as canManageProject (owner or manager).
-    can_manage: p.my_role === "owner" || p.my_role === "manager",
+    // Manage = manager-tier role OR project leader OR leading-division head
+    // (mirrors canManageProject). Assign-leader = head only (admin handled above).
+    can_manage:
+      p.my_role === "owner" ||
+      p.my_role === "manager" ||
+      !!p.is_leader ||
+      !!p.is_head,
+    can_assign_leader: !!p.is_head,
   }));
   if (isInternalEmail(e) && !host) {
     const memberIds = new Set(projects.map((p) => p.id as string));
+    // Phase 2 LEAD arm: projects the caller leads or whose division they head,
+    // but isn't a member of — surfaced so a head sees every project their
+    // division leads on their own dashboard, with full manage.
+    const { results: leadRows } = await c.env.DB.prepare(
+      `SELECT ${mcols}, ${leadCols} FROM project p
+       LEFT JOIN division d ON d.id = p.lead_division_id
+       WHERE lower(p.leader_email) = ?1 OR lower(d.head_email) = ?1
+       ORDER BY p.updated_at DESC LIMIT 200`,
+    )
+      .bind(e)
+      .all<Record<string, unknown>>();
+    for (const p of leadRows) {
+      if (!memberIds.has(p.id as string)) {
+        memberIds.add(p.id as string);
+        projects.push({
+          ...p,
+          access: "lead",
+          can_manage: true,
+          can_assign_leader: !!p.is_head,
+        });
+      }
+    }
     const { results: invitedRows } = await c.env.DB.prepare(
       // Participant arm carries the revoked-invite VETO (see projectAccess).
       `SELECT DISTINCT ${mcols} FROM project p
@@ -791,7 +926,12 @@ app.get("/v1/projects", async (c) => {
     for (const p of invitedRows) {
       if (!memberIds.has(p.id as string)) {
         // Invitee = participate-only on someone else's folder; never manage.
-        projects.push({ ...p, access: "invitee", can_manage: false });
+        projects.push({
+          ...p,
+          access: "invitee",
+          can_manage: false,
+          can_assign_leader: false,
+        });
       }
     }
   }
@@ -874,35 +1014,17 @@ app.patch("/v1/projects/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-// Shared owner check for the project-mutation routes below (admin bypasses).
-const isProjectOwner = async (
-  db: D1Database,
-  projectId: string,
-  email: string | undefined,
-): Promise<boolean> => {
-  const me = email?.toLowerCase();
-  if (!me) {
-    return false;
-  }
-  return !!(await db
-    .prepare(
-      `SELECT 1 FROM project_member
-       WHERE project_id = ?1 AND email = ?2 AND role = 'owner' LIMIT 1`,
-    )
-    .bind(projectId, me)
-    .first());
-};
-
-// Delete a project (owner or admin). An owner can only delete an EMPTY
-// project — its meetings must be disposed of first through the meeting
-// lifecycle (cancel → delete), so a folder delete can never silently take
-// finished meetings with it. Admins may force-cascade (ops/repair).
+// Delete a project (LEADERSHIP — admin, leader, or leading-division head; NOT a
+// delegated manager). A non-admin can only delete an EMPTY project — its
+// meetings must be disposed of first through the meeting lifecycle (cancel →
+// delete), so a folder delete can never silently take finished meetings with it.
+// Admins may force-cascade (ops/repair).
 app.delete("/v1/projects/:id", async (c) => {
   const id = c.req.param("id");
   const email = c.get("email");
   const isAdmin = c.get("role") === "admin";
-  if (!isAdmin && !(await isProjectOwner(c.env.DB, id, email))) {
-    return c.json({ error: "owner only" }, 403);
+  if (!(await isProjectLeadership(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "leadership only" }, 403);
   }
   const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
     .bind(id)
@@ -1027,19 +1149,16 @@ app.delete("/v1/projects/:id/members/:email", async (c) => {
   return c.json({ ok: true });
 });
 
-// Promote/demote a delegated MANAGER. Gated admin-OR-owner (a manager cannot
-// mint other managers — only the project leader/owner delegates). Body
+// Promote/demote a delegated MANAGER. Gated to LEADERSHIP (admin · leader ·
+// leading-division head) — a manager cannot mint other managers. Body
 // {role:'manager'|'member'}; 'owner' is NOT settable here (leader hand-off is
-// a stricter, later flow) and an OWNER row can't be re-roled via this route.
+// the separate /leader route) and an OWNER row can't be re-roled via this route.
 app.patch("/v1/projects/:id/members/:email/role", async (c) => {
   const id = c.req.param("id");
   const target = decodeURIComponent(c.req.param("email")).toLowerCase();
   const email = c.get("email");
-  if (
-    c.get("role") !== "admin" &&
-    !(await isProjectOwner(c.env.DB, id, email))
-  ) {
-    return c.json({ error: "owner only" }, 403);
+  if (!(await isProjectLeadership(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "leadership only" }, 403);
   }
   const b = await c.req
     .json<{ role?: string }>()
@@ -1072,6 +1191,50 @@ app.patch("/v1/projects/:id/members/:email/role", async (c) => {
     role: next,
   });
   return c.json({ ok: true, role: next });
+});
+
+// Assign / replace the project LEADER. ONLY the leading-division HEAD (or admin)
+// may do this — a leader can't hand off their own leadership (anh Luân 06-15:
+// "division head sẽ assign project leader"). Body {email}: an INTERNAL staff
+// email; it becomes project.leader_email (which grants full manage via
+// canManageProject) and is ensured to be a project_member so they show in the
+// roster. The previous leader keeps any explicit member role they already had.
+app.patch("/v1/projects/:id/leader", async (c) => {
+  const id = c.req.param("id");
+  const email = c.get("email");
+  if (!(await isDivisionHeadOfProject(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "division head only" }, 403);
+  }
+  const b = await c.req
+    .json<{ email?: string }>()
+    .catch(() => ({} as { email?: string }));
+  const leader = (b.email ?? "").trim().toLowerCase();
+  if (!leader || !isInternalEmail(leader)) {
+    return c.json({ error: "internal email required" }, 400);
+  }
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
+    .bind(id)
+    .first();
+  if (!exists) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const ts = now();
+  await c.env.DB.prepare(
+    `UPDATE project SET leader_email = ?2, updated_at = ?3 WHERE id = ?1`,
+  )
+    .bind(id, leader, ts)
+    .run();
+  // Make sure the new leader is on the roster (as a manager-tier member) — but
+  // never downgrade an existing 'owner'/'manager' row.
+  await c.env.DB.prepare(
+    `INSERT INTO project_member (project_id, email, role, added_by, added_at)
+     VALUES (?1, ?2, 'manager', ?3, ?4)
+     ON CONFLICT(project_id, email) DO NOTHING`,
+  )
+    .bind(id, leader, email ?? null, ts)
+    .run();
+  await logAudit(c.env.DB, email, "project.leader", id, { email: leader });
+  return c.json({ ok: true, leader });
 });
 
 // Meetings of a project, scoped by access level: "full" (member/admin) sees

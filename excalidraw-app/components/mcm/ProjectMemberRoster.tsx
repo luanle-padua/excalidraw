@@ -1,4 +1,4 @@
-import { ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
+import { Crown, ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { getDirectory, type DirectoryUser } from "../../data/invite";
@@ -7,6 +7,7 @@ import {
   listProjectMembers,
   removeProjectMember,
   setMemberRole,
+  setProjectLeader,
   type ProjectMember,
 } from "../../data/projects";
 import { isInternalEmail } from "../../data/session";
@@ -30,6 +31,7 @@ export const ProjectMemberRoster = ({
   projectId,
   canManage,
   isOwner,
+  canAssignLeader = false,
   extraAction,
 }: {
   projectId: string;
@@ -37,6 +39,8 @@ export const ProjectMemberRoster = ({
   canManage: boolean;
   /** Owner (leader) / admin — may promote/demote delegated managers. */
   isOwner: boolean;
+  /** Admin / leading-division head — may assign/replace the project leader. */
+  canAssignLeader?: boolean;
   /** Optional button rendered next to "Add member" (e.g. "Add guest"). */
   extraAction?: ReactNode;
 }) => {
@@ -88,8 +92,8 @@ export const ProjectMemberRoster = ({
     reload();
   };
 
-  // Owner-only: toggle a participant ⇄ delegated manager. The worker refuses
-  // to re-role an owner, so the management list below never offers it for one.
+  // Leadership (owner/leader/head): toggle a participant ⇄ delegated manager.
+  // The worker refuses to re-role an owner, so the list never offers it for one.
   const changeRole = async (email: string, role: "manager" | "member") => {
     const ok = await setMemberRole(projectId, email, role);
     if (!ok) {
@@ -98,6 +102,25 @@ export const ProjectMemberRoster = ({
     }
     reload();
   };
+
+  // Head-only: hand the project leadership to a member. Separate from the
+  // manager toggle — only the leading-division head (or admin) may do it.
+  const makeLeader = async (email: string) => {
+    if (!window.confirm(t("proj.makeLeaderConfirm", { email }))) {
+      return;
+    }
+    const ok = await setProjectLeader(projectId, email);
+    if (!ok) {
+      window.alert(t("proj.roleChangeFailed"));
+      return;
+    }
+    reload();
+  };
+
+  // The promote/delegate list shows to the project leadership (owner/leader) AND
+  // to the leading-division head — both delegate managers; only the head assigns
+  // the leader.
+  const canDelegate = isOwner || canAssignLeader;
 
   const confirmAdd = async (emails: string[]) => {
     const existing = new Set(members.map((m) => m.email.toLowerCase()));
@@ -139,8 +162,9 @@ export const ProjectMemberRoster = ({
         emptyLabel={t("proj.noMembers")}
       />
 
-      {/* Owner-only delegation list: per-row badge + make/remove manager. */}
-      {isOwner && manageable.length > 0 && (
+      {/* Leadership delegation list: per-row badge + make/remove manager, plus
+          a head-only "Make leader". */}
+      {canDelegate && manageable.length > 0 && (
         <ul className="mcm-roster__roles">
           {manageable.map((m) => {
             const u = directory.find((x) => x.email === m.email);
@@ -157,6 +181,15 @@ export const ProjectMemberRoster = ({
                 >
                   {roleLabel(m.role)}
                 </span>
+                {canAssignLeader && (
+                  <button
+                    type="button"
+                    className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
+                    onClick={() => void makeLeader(m.email)}
+                  >
+                    <Crown size={13} /> {t("proj.makeLeader")}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="mcm-btn mcm-btn--sm mcm-roster__role-btn"

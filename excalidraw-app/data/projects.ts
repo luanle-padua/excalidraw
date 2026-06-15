@@ -25,17 +25,21 @@ export type Project = {
   host_email: string | null;
   /** How the caller reaches this folder: "member" = full folder;
    *  "invitee" = internal user invited to / attended some meetings only —
-   *  the server already filters the meeting list down to those. */
-  access?: "member" | "invitee";
+   *  the server already filters the meeting list down to those;
+   *  "lead" = the caller leads it / heads its division but isn't a member. */
+  access?: "member" | "invitee" | "lead";
   /** The viewer's OWN role on this project, stamped server-side:
    *  "admin" | "owner" (leader) | "manager" | "member" (participate-only).
    *  Invitee rows carry none. Drives the badge + management gating. */
   my_role?: "admin" | "owner" | "manager" | "member";
   /** Whether the viewer may MANAGE this project (guests, members, edit
    *  metadata, danger zone). Computed server-side = canManageProject (admin
-   *  OR owner/manager). The client gates management UI on THIS, not on a
-   *  client-side owner guess — a plain member only participates. */
+   *  OR owner/manager OR project leader OR leading-division head). The client
+   *  gates management UI on THIS, not on a client-side guess. */
   can_manage?: boolean;
+  /** Whether the viewer may ASSIGN/REPLACE the project leader — admin or the
+   *  leading-division HEAD only. Gates the "Make leader" affordance. */
+  can_assign_leader?: boolean;
   code: string | null;
   client: string | null;
   location: string | null;
@@ -505,6 +509,27 @@ export const setMemberRole = async (
         projectId,
       )}/members/${encodeURIComponent(email)}/role`,
       { method: "PATCH", headers: json, body: JSON.stringify({ role }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Assign / replace the project LEADER (the leading-division HEAD or admin only —
+// the worker gates it). `email` becomes project.leader_email and is ensured to
+// be on the roster. A leader can't reassign their own leadership.
+export const setProjectLeader = async (
+  projectId: string,
+  email: string,
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/leader`,
+      { method: "PATCH", headers: json, body: JSON.stringify({ email }) },
     );
     return res.ok;
   } catch {

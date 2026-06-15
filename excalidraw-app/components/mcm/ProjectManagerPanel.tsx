@@ -157,6 +157,8 @@ export const ProjectManagerPanel = ({
         // Manage = admin / owner / delegated manager — gates guests + member
         // admin. Server-computed (can_manage); a plain participant is false.
         canManage={isAdmin || !!detail.can_manage}
+        // Assign leader = admin or the leading-division HEAD only.
+        canAssignLeader={isAdmin || !!detail.can_assign_leader}
         onBack={() => onManage(null)}
         onOpenMeetings={() => onOpenMeetings(detail.id)}
         onEdit={() => onEdit(detail)}
@@ -481,6 +483,7 @@ const ProjectDetail = ({
   project,
   isOwner,
   canManage,
+  canAssignLeader,
   onBack,
   onOpenMeetings,
   onEdit,
@@ -492,6 +495,8 @@ const ProjectDetail = ({
   isOwner: boolean;
   /** Admin / owner / manager — guests + member admin. */
   canManage: boolean;
+  /** Admin / leading-division head — may assign/replace the project leader. */
+  canAssignLeader: boolean;
   onBack: () => void;
   onOpenMeetings: () => void;
   onEdit: () => void;
@@ -709,6 +714,7 @@ const ProjectDetail = ({
             projectId={project.id}
             canManage={canManage}
             isOwner={isOwner}
+            canAssignLeader={canAssignLeader}
             extraAction={
               canManage ? (
                 <button
