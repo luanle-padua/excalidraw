@@ -88,6 +88,19 @@ export const isWritableElement = (
     (target.type === "text" ||
       target.type === "number" ||
       target.type === "password" ||
+      // text-entry types beyond the originals — without these, Excalidraw's
+      // global shortcut handler treats keystrokes here as canvas commands
+      // (e.g. Backspace/Delete deletes elements, "@" is swallowed). The MCM
+      // panels use type="email" + the date/time pickers, so they MUST count
+      // as writable. (MCM fix 06-15.)
+      target.type === "email" ||
+      target.type === "tel" ||
+      target.type === "url" ||
+      target.type === "date" ||
+      target.type === "time" ||
+      target.type === "datetime-local" ||
+      target.type === "month" ||
+      target.type === "week" ||
       target.type === "search")) ||
   (target instanceof HTMLElement && target.closest(".cm-editor") !== null);
 
