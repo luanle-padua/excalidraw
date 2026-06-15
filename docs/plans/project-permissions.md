@@ -57,6 +57,18 @@ Sống trong **ProjectManagerPanel → ProjectMemberRoster**. Mỗi member có *
 - **Phase 2:** bảng `division` + `project.lead_division_id`/`leader_email`; head kế thừa manage dự án phòng mình + đổi leader; AdminConsole gán head + project→division.
 - **Phase 3 (defer):** màn self-serve division-admin, leader-handoff, audit/notifications.
 
+## ✅ Mô hình CHỐT (06-15, brainstorm với anh Luân) — "đừng phức tạp"
+**Quản lý dự án — 4 cấp, quyền chảy theo chuỗi (không ma trận):**
+- **Head** (rank cao nhất phòng) · **Deputy** (rank 2, **NGANG head** — quản hết dự án phòng, assign leader) → tạo dự án + full-manage mọi dự án phòng.
+- **Leader** (mỗi dự án, head/deputy assign) · **Co-operator** (mỗi dự án, leadership chỉ định) → quản dự án + tổ chức họp + client.
+- **Member** = chỉ tham gia. **Tạo dự án** = Head/Deputy/admin. **Tạo cuộc họp** = canManageProject (Head/Deputy/Leader/Co-operator/admin), KHÔNG phải member thường.
+
+**Cuộc họp — host/co-host:**
+- **Host = NGƯỜI TẠO** cuộc họp (mặc định). Không gán host riêng.
+- **Leader/Deputy/Head tự động có quyền host** (End/kick/mute) trên mọi cuộc họp của dự án — `viewer_is_authority`, không cần chỉ định.
+- **Co-host = tùy chọn**: host HOẶC cấp trên đặt, chọn 1 nội bộ bất kỳ trong danh sách mời. Dùng khi trao quyền điều hành cho người NGOÀI chuỗi quản lý.
+- Kick/mute realtime: broadcast kèm `fromAuthority` → peer chấp nhận KICK của authority kể cả khi host bầu là người khác.
+
 ## ✅ Đã SHIP (06-15)
 - **Phase 1** (commit `4db1e587`): `canManageProject` (admin/owner/manager); tách participate↔manage; 6 guest routes + member routes + role-PATCH; cross-division joiner → participate-only. KHÔNG migration.
 - **Phase 2** (commit `40a7df27`): bảng `division`(head_email) + `user_division` (migration `0022`), `project.lead_division_id`/`leader_email` (migration `0023`, backfill từ host's division). Head tự suy từ **rank cao nhất** mỗi Division (`worker/scripts/derive-divisions.mjs`, 21 phòng/385 user). `canManageProject`/`projectAccess` nhận head+leader; `isProjectLeadership` (admin/owner/leader/head, KHÔNG manager) gate delete + delegate-manager; `PATCH /v1/projects/:id/leader` (head/admin) assign leader; GET /v1/projects có LEAD arm + `can_assign_leader`; UI "Make leader". Verified: 유훈 hyu@ = head AI R&D Center, tự thấy/quản project của Luân.
