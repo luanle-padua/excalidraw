@@ -818,7 +818,7 @@ app.post("/v1/projects", async (c) => {
 app.get("/v1/projects", async (c) => {
   const host = c.req.query("host");
   const isAdmin = c.get("role") === "admin";
-  const cols = `id, name, host_email, code, client, location, stage, type, branch, cover, description, color, icon, created_at, updated_at`;
+  const cols = `id, name, host_email, leader_email, lead_division_id, code, client, location, stage, type, branch, cover, description, color, icon, created_at, updated_at`;
   if (isAdmin) {
     const stmt = host
       ? c.env.DB.prepare(
@@ -836,6 +836,7 @@ app.get("/v1/projects", async (c) => {
         ...p,
         my_role: "admin",
         can_manage: true,
+        is_leadership: true,
         can_assign_leader: true,
       })),
     });
@@ -875,12 +876,15 @@ app.get("/v1/projects", async (c) => {
     ...p,
     access: "member",
     // Manage = manager-tier role OR project leader OR leading-division head
-    // (mirrors canManageProject). Assign-leader = head only (admin handled above).
+    // (mirrors canManageProject). Leadership EXCLUDES a plain co-operator
+    // ('manager') — it gates delete + delegating co-operators. Assign-leader =
+    // head only (admin handled above).
     can_manage:
       p.my_role === "owner" ||
       p.my_role === "manager" ||
       !!p.is_leader ||
       !!p.is_head,
+    is_leadership: p.my_role === "owner" || !!p.is_leader || !!p.is_head,
     can_assign_leader: !!p.is_head,
   }));
   if (isInternalEmail(e) && !host) {
@@ -903,6 +907,7 @@ app.get("/v1/projects", async (c) => {
           ...p,
           access: "lead",
           can_manage: true,
+          is_leadership: true,
           can_assign_leader: !!p.is_head,
         });
       }
@@ -930,6 +935,7 @@ app.get("/v1/projects", async (c) => {
           ...p,
           access: "invitee",
           can_manage: false,
+          is_leadership: false,
           can_assign_leader: false,
         });
       }
@@ -1235,6 +1241,57 @@ app.patch("/v1/projects/:id/leader", async (c) => {
     .run();
   await logAudit(c.env.DB, email, "project.leader", id, { email: leader });
   return c.json({ ok: true, leader });
+});
+
+// The division catalogue (id + name) — for the "phòng phụ trách" picker. Any
+// internal user may read it (it's just department names); guests get nothing.
+app.get("/v1/divisions", async (c) => {
+  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, name, head_email FROM division ORDER BY name COLLATE NOCASE`,
+  ).all();
+  return c.json({ divisions: results });
+});
+
+// Set / clear a project's LEADING DIVISION (which department owns it → whose
+// head manages it). LEADERSHIP-gated (admin · leader · current leading head):
+// moving a project hands control to another department's head, so a plain
+// co-operator must not do it. Body {divisionId: string|null}; null detaches the
+// project from any division (then only leader/admin manage). (anh Luân 06-15:
+// dự án phải thuộc đúng phòng, không auto theo người tạo.)
+app.patch("/v1/projects/:id/division", async (c) => {
+  const id = c.req.param("id");
+  const email = c.get("email");
+  if (!(await isProjectLeadership(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "leadership only" }, 403);
+  }
+  const b = await c.req
+    .json<{ divisionId?: string | null }>()
+    .catch(() => ({} as { divisionId?: string | null }));
+  const divisionId = b.divisionId ? String(b.divisionId).trim() : null;
+  if (divisionId) {
+    const ok = await c.env.DB.prepare(`SELECT 1 FROM division WHERE id = ?1`)
+      .bind(divisionId)
+      .first();
+    if (!ok) {
+      return c.json({ error: "unknown division" }, 400);
+    }
+  }
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
+    .bind(id)
+    .first();
+  if (!exists) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await c.env.DB.prepare(
+    `UPDATE project SET lead_division_id = ?2, updated_at = ?3 WHERE id = ?1`,
+  )
+    .bind(id, divisionId, now())
+    .run();
+  await logAudit(c.env.DB, email, "project.division", id, { divisionId });
+  return c.json({ ok: true, divisionId });
 });
 
 // Meetings of a project, scoped by access level: "full" (member/admin) sees

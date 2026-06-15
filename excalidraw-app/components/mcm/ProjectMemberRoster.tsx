@@ -30,15 +30,16 @@ import "./ProjectMemberRoster.scss";
 export const ProjectMemberRoster = ({
   projectId,
   canManage,
-  isOwner,
+  canLead,
   canAssignLeader = false,
   extraAction,
 }: {
   projectId: string;
-  /** Admin / owner / manager — may add + remove members. */
+  /** Admin / leader / co-operator / head — may add + remove members. */
   canManage: boolean;
-  /** Owner (leader) / admin — may promote/demote delegated managers. */
-  isOwner: boolean;
+  /** Leadership (admin / leader / head, NOT a co-operator) — may promote/demote
+   *  co-operators. */
+  canLead: boolean;
   /** Admin / leading-division head — may assign/replace the project leader. */
   canAssignLeader?: boolean;
   /** Optional button rendered next to "Add member" (e.g. "Add guest"). */
@@ -117,10 +118,9 @@ export const ProjectMemberRoster = ({
     reload();
   };
 
-  // The promote/delegate list shows to the project leadership (owner/leader) AND
-  // to the leading-division head — both delegate managers; only the head assigns
-  // the leader.
-  const canDelegate = isOwner || canAssignLeader;
+  // The promote/delegate list shows to the project LEADERSHIP (leader/head) —
+  // they delegate co-operators; only the head assigns the leader.
+  const canDelegate = canLead;
 
   const confirmAdd = async (emails: string[]) => {
     const existing = new Set(members.map((m) => m.email.toLowerCase()));

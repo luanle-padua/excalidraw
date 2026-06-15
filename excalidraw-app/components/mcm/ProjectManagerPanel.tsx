@@ -31,7 +31,13 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import { showAppToast } from "../../data/appToast";
-import { deleteProject, updateProject } from "../../data/projects";
+import {
+  deleteProject,
+  listDivisions,
+  setProjectDivision,
+  updateProject,
+  type Division,
+} from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
@@ -151,17 +157,18 @@ export const ProjectManagerPanel = ({
     return (
       <ProjectDetail
         project={detail}
-        // Owner = project leader / creator (or admin) — gates the owner-only
-        // surfaces (edit metadata, delete, promote/demote managers).
-        isOwner={isAdmin || detail.my_role === "owner"}
-        // Manage = admin / owner / delegated manager — gates guests + member
-        // admin. Server-computed (can_manage); a plain participant is false.
+        // Manage = admin / leader / co-operator / head — edit metadata, guests,
+        // members. Server-computed (can_manage); a plain participant is false.
         canManage={isAdmin || !!detail.can_manage}
+        // Leadership = admin / leader / head (NOT a co-operator) — delete,
+        // delegate co-operators, change the leading division.
+        isLeadership={isAdmin || !!detail.is_leadership}
         // Assign leader = admin or the leading-division HEAD only.
         canAssignLeader={isAdmin || !!detail.can_assign_leader}
         onBack={() => onManage(null)}
         onOpenMeetings={() => onOpenMeetings(detail.id)}
         onEdit={() => onEdit(detail)}
+        onRefresh={onProjectsChanged}
         onDeleted={() => {
           onManage(null);
           onProjectsChanged();
@@ -481,25 +488,29 @@ const Section = ({
 
 const ProjectDetail = ({
   project,
-  isOwner,
+  isLeadership,
   canManage,
   canAssignLeader,
   onBack,
   onOpenMeetings,
   onEdit,
+  onRefresh,
   onDeleted,
   onAssignCosmetic,
 }: {
   project: Project;
-  /** Owner (leader) / admin — edit metadata, delete, delegate managers. */
-  isOwner: boolean;
-  /** Admin / owner / manager — guests + member admin. */
+  /** Admin / leader / leading-division head (NOT a co-operator) — delete,
+   *  delegate co-operators, change the leading division. */
+  isLeadership: boolean;
+  /** Admin / leader / co-operator / head — guests + member admin + edit. */
   canManage: boolean;
   /** Admin / leading-division head — may assign/replace the project leader. */
   canAssignLeader: boolean;
   onBack: () => void;
   onOpenMeetings: () => void;
   onEdit: () => void;
+  /** Re-fetch the project list after an in-place change (division reassign). */
+  onRefresh: () => void;
   onDeleted: () => void;
   /** Save a colour/icon accent (panel owns the PATCH + in-place update). */
   onAssignCosmetic: (patch: {
@@ -515,6 +526,21 @@ const ProjectDetail = ({
   );
   const [cosmeticAnchor, setCosmeticAnchor] = useState<DOMRect | null>(null);
   const isInvitee = project.access === "invitee";
+
+  // Division catalogue for the "leading department" picker (leadership only).
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  useEffect(() => {
+    void listDivisions().then(setDivisions);
+  }, []);
+  const currentDivision =
+    divisions.find((d) => d.id === project.lead_division_id) ?? null;
+  const changeDivision = async (divisionId: string | null) => {
+    if (!(await setProjectDivision(project.id, divisionId))) {
+      window.alert(t("proj.divisionChangeFailed"));
+      return;
+    }
+    onRefresh();
+  };
 
   const toggleCosmeticMenu = (
     kind: "color" | "icon",
@@ -536,7 +562,9 @@ const ProjectDetail = ({
         [t("pmgr.metaBranch"), project.branch],
         [t("pmgr.metaType"), project.type],
         [t("pmgr.createdAt"), fmtCreated(project.created_at)],
-        [t("pmgr.ownerLabel"), project.host_email],
+        // "Owner" wording retired — the responsible person is the LEADER
+        // (defaults to the creator until a head reassigns it). (anh Luân 06-15)
+        [t("proj.roleOwner"), project.leader_email || project.host_email],
       ] as const,
     [project, t],
   );
@@ -660,7 +688,7 @@ const ProjectDetail = ({
                 )}
               </>
             )}
-            {isOwner && !isInvitee && (
+            {canManage && !isInvitee && (
               <button
                 type="button"
                 className="mcm-btn mcm-btn--sm"
@@ -702,6 +730,42 @@ const ProjectDetail = ({
         {project.description && (
           <p className="mcm-pdetail__desc">{project.description}</p>
         )}
+        {/* Leading department — whose head manages the project. Defaults to the
+            creator's division; leadership can refile it to the correct one (so
+            a head doesn't "cover" projects that aren't really their dept). */}
+        {!isInvitee && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              marginTop: 12,
+              maxWidth: 340,
+            }}
+          >
+            <span className="mcm-pdetail__meta-label">
+              {t("proj.leadDivision")}
+            </span>
+            {isLeadership ? (
+              <select
+                className="mcm-roster__in"
+                value={project.lead_division_id ?? ""}
+                onChange={(e) => void changeDivision(e.target.value || null)}
+              >
+                <option value="">{t("proj.leadDivisionNone")}</option>
+                {divisions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="mcm-pdetail__meta-value">
+                {currentDivision?.name || "—"}
+              </span>
+            )}
+          </div>
+        )}
       </Section>
 
       {/* Members — true membership only. An invitee detail never fetches
@@ -713,7 +777,7 @@ const ProjectDetail = ({
           <ProjectMemberRoster
             projectId={project.id}
             canManage={canManage}
-            isOwner={isOwner}
+            canLead={isLeadership}
             canAssignLeader={canAssignLeader}
             extraAction={
               canManage ? (
@@ -739,7 +803,7 @@ const ProjectDetail = ({
         </Section>
       )}
 
-      {isOwner && !isInvitee && (
+      {isLeadership && !isInvitee && (
         <Section title={t("pmgr.sectionDanger")} defaultOpen={false}>
           <div className="mcm-pdetail__danger">
             <span className="mcm-pdetail__danger-hint">

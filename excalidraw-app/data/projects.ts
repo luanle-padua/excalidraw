@@ -23,6 +23,11 @@ export type Project = {
   id: string;
   name: string;
   host_email: string | null;
+  /** The designated project LEADER (lower-cased email) — defaults to the
+   *  creator; the leading-division head reassigns it. Shown as "Trưởng dự án". */
+  leader_email?: string | null;
+  /** Which division leads the project (its head manages it). Nullable. */
+  lead_division_id?: string | null;
   /** How the caller reaches this folder: "member" = full folder;
    *  "invitee" = internal user invited to / attended some meetings only —
    *  the server already filters the meeting list down to those;
@@ -37,8 +42,12 @@ export type Project = {
    *  OR owner/manager OR project leader OR leading-division head). The client
    *  gates management UI on THIS, not on a client-side guess. */
   can_manage?: boolean;
+  /** Whether the viewer is in the project LEADERSHIP (admin / leader / leading-
+   *  division head — NOT a plain co-operator). Gates delete + delegating
+   *  co-operators + changing the leading division. */
+  is_leadership?: boolean;
   /** Whether the viewer may ASSIGN/REPLACE the project leader — admin or the
-   *  leading-division HEAD only. Gates the "Make leader" affordance. */
+   *  leading-division HEAD only. Gates the "Assign leader" affordance. */
   can_assign_leader?: boolean;
   code: string | null;
   client: string | null;
@@ -530,6 +539,43 @@ export const setProjectLeader = async (
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/leader`,
       { method: "PATCH", headers: json, body: JSON.stringify({ email }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+export type Division = { id: string; name: string; head_email: string | null };
+
+// The division catalogue (department names) — for the "leading division"
+// picker. Internal-only; empty when offline/unconfigured.
+export const listDivisions = async (): Promise<Division[]> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return [];
+  }
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/divisions`);
+    return res.ok ? (await res.json()).divisions ?? [] : [];
+  } catch {
+    return [];
+  }
+};
+
+// Set / clear which DIVISION leads a project (its head then manages it).
+// Leadership-gated server-side. `divisionId = null` detaches it. Used to file a
+// project under the correct department instead of the creator's default.
+export const setProjectDivision = async (
+  projectId: string,
+  divisionId: string | null,
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/division`,
+      { method: "PATCH", headers: json, body: JSON.stringify({ divisionId }) },
     );
     return res.ok;
   } catch {
