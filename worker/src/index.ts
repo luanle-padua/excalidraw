@@ -34,6 +34,8 @@ import { cors } from "hono/cors";
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { guestInviteEmail, sendEmail } from "./email";
+
 import type { MiddlewareHandler } from "hono";
 
 type Bindings = {
@@ -51,6 +53,11 @@ type Bindings = {
   // API for user management). Never sent to the client; gated behind the admin
   // role. Local: worker/.dev.vars · Prod: `wrangler secret put`.
   SUPABASE_SERVICE_API_KEY?: string;
+  // Resend — transactional email (guest invite link + credentials). API key is
+  // a SECRET (`wrangler secret put RESEND_API_KEY`, local: worker/.dev.vars);
+  // RESEND_FROM is a plain var in wrangler.jsonc ("Canvas M <addr>").
+  RESEND_API_KEY?: string;
+  RESEND_FROM?: string;
 };
 
 // Auth context attached by the JWT middleware for downstream handlers.
@@ -1556,6 +1563,116 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
     .run();
   await logAudit(c.env.DB, email, "meeting.revoke", roomId, { email: target });
   return c.json({ ok: true });
+});
+
+// Provision a GUEST login account so an EXTERNAL invitee can sign in without
+// any email delivery — the host then manually shares email + temp password +
+// meeting link. Auth: an authenticated INTERNAL user OR admin (the same rule
+// that gates inviting); external/guest callers are rejected. The target email
+// MUST be external — internal accounts are never created here (use the admin
+// console). The temp password is generated server-side, returned ONCE, and
+// NEVER logged. If the account already exists we can't recover its password,
+// so we report `existed: true` (no password) and the UI tells the host.
+app.post("/v1/guests", async (c) => {
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(role === "admin" || isInternalEmail(email))) {
+    return c.json({ ok: false, error: "forbidden" }, 403);
+  }
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ ok: false, error: "admin not configured" }, 503);
+  }
+  const b = await c.req
+    .json<{ email?: string; name?: string }>()
+    .catch(() => ({} as { email?: string; name?: string }));
+  const guestEmail = (b.email || "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+    return c.json({ ok: false, error: "invalid email" }, 400);
+  }
+  // Creating INTERNAL accounts here is forbidden — this route is guest-only.
+  if (isInternalEmail(guestEmail)) {
+    return c.json({ ok: false, error: "email is internal" }, 400);
+  }
+  // Strong random temp password — base64url of 16 random bytes (~22 chars,
+  // mixed case + digits + - _). Generated server-side, shown to the host once.
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const password = btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  const name = (b.name || "").trim();
+  const md: Record<string, unknown> = {};
+  if (name) {
+    md.display_name = name;
+    md.name = name;
+  }
+  const res = await supaAdmin(cr.url, cr.key, "POST", "/admin/users", {
+    email: guestEmail,
+    password,
+    email_confirm: true,
+    app_metadata: { role: "guest" },
+    user_metadata: md,
+  });
+  if (res.ok) {
+    await logAudit(c.env.DB, email, "guest.create", guestEmail);
+    // NOTE: never log `password`.
+    return c.json({ ok: true, existed: false, email: guestEmail, password });
+  }
+  // Already registered → Supabase 422 / "already been registered". We can't
+  // recover the existing password; tell the host the account already exists.
+  const detail = await res.text();
+  if (
+    res.status === 422 ||
+    /already.*registered|already exists/i.test(detail)
+  ) {
+    return c.json({ ok: true, existed: true, email: guestEmail });
+  }
+  return c.json({ ok: false, error: "create guest failed" }, 502);
+});
+
+// Email a guest their meeting link (+ optional login credentials) via Resend.
+// Same gate as creating a guest: internal staff or admin only. Optional —
+// hosts can still copy/paste the link manually if Resend isn't configured.
+app.post("/v1/guests/send-invite", async (c) => {
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(role === "admin" || isInternalEmail(email))) {
+    return c.json({ ok: false, error: "forbidden" }, 403);
+  }
+  const b = await c.req
+    .json<{
+      to?: string;
+      link?: string;
+      meetingTitle?: string;
+      password?: string;
+    }>()
+    .catch(() => ({} as Record<string, never>));
+  const to = (b.to || "").trim();
+  const link = (b.link || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || !link) {
+    return c.json({ ok: false, error: "invalid" }, 400);
+  }
+  const { subject, html, text } = guestInviteEmail({
+    meetingTitle: b.meetingTitle,
+    link,
+    email: to,
+    password: b.password,
+    appName: "Canvas M",
+  });
+  const r = await sendEmail(
+    {
+      RESEND_API_KEY: c.env.RESEND_API_KEY ?? "",
+      RESEND_FROM: c.env.RESEND_FROM ?? "",
+    },
+    { to, subject, html, text },
+  );
+  if (!r.ok) {
+    return c.json({ ok: false, error: r.error ?? "send failed" }, 502);
+  }
+  await logAudit(c.env.DB, email, "guest.invite_email", to);
+  return c.json({ ok: true, id: r.id });
 });
 
 // ORGANIZER delete — only a CANCELLED meeting may be deleted (the lifecycle's

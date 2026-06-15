@@ -4,8 +4,10 @@ import {
   BarChart3,
   Briefcase,
   Building2,
+  Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   DollarSign,
   Eye,
   FileText,
@@ -63,6 +65,7 @@ import {
   type AdminStorage,
   type AdminUser,
 } from "../../data/admin";
+import { createGuest } from "../../data/guests";
 import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
 import { isInternalEmail as isInternal, signOut } from "../../data/session";
 import { useT } from "../../i18n/mcm";
@@ -341,6 +344,17 @@ export const AdminConsole = () => {
   const [nuPassword, setNuPassword] = useState("");
   const [nuName, setNuName] = useState("");
   const [nuCompany, setNuCompany] = useState("");
+  // Guest-account provisioning (external invitee logins, no email delivery).
+  const [guEmail, setGuEmail] = useState("");
+  const [guName, setGuName] = useState("");
+  const [guBusy, setGuBusy] = useState(false);
+  const [guError, setGuError] = useState<string | null>(null);
+  const [guCopied, setGuCopied] = useState(false);
+  const [guCreds, setGuCreds] = useState<{
+    email: string;
+    password?: string;
+    existed: boolean;
+  } | null>(null);
   const [usersSort, setUsersSort] = useState<"rank" | "name">("rank");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggleGroup = (key: string) =>
@@ -438,6 +452,57 @@ export const AdminConsole = () => {
       setNuCompany("");
       void refreshUsers();
     }
+  };
+
+  const handleCreateGuest = async () => {
+    const e = guEmail.trim().toLowerCase();
+    if (!e || guBusy) {
+      return;
+    }
+    if (isInternal(e)) {
+      setGuError(t("guest.errInternal"));
+      return;
+    }
+    setGuBusy(true);
+    setGuError(null);
+    setGuCreds(null);
+    setGuCopied(false);
+    const r = await createGuest(e, guName.trim() || undefined);
+    setGuBusy(false);
+    if (!r.ok) {
+      setGuError(
+        r.status === 403
+          ? t("guest.errForbidden")
+          : r.status === 400
+          ? t("guest.errInvalid")
+          : t("guest.errNetwork"),
+      );
+      return;
+    }
+    setGuCreds({
+      email: r.email,
+      password: r.existed ? undefined : r.password,
+      existed: r.existed,
+    });
+    setGuEmail("");
+    setGuName("");
+    void refreshUsers();
+  };
+
+  const copyGuestCreds = async () => {
+    if (!guCreds) {
+      return;
+    }
+    const line = guCreds.password
+      ? `${guCreds.email} / ${guCreds.password}`
+      : guCreds.email;
+    try {
+      await navigator.clipboard.writeText(line);
+    } catch {
+      window.prompt(t("guest.copyAll"), line);
+    }
+    setGuCopied(true);
+    window.setTimeout(() => setGuCopied(false), 2000);
   };
 
   const toggleDisabled = async (u: AdminUser) => {
@@ -778,6 +843,77 @@ export const AdminConsole = () => {
                 {t("admin.create")}
               </button>
             </div>
+
+            {/* Guest account: external email + optional name → server-generated
+                temp password, shown once for the host to share manually. */}
+            <div className="mcm-admin__newuser">
+              <UserPlus size={16} />
+              <input
+                placeholder={t("guest.emailLabel")}
+                value={guEmail}
+                onChange={(e) => setGuEmail(e.target.value)}
+              />
+              <input
+                placeholder={t("guest.namePlaceholder")}
+                value={guName}
+                onChange={(e) => setGuName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                onClick={handleCreateGuest}
+                disabled={guBusy || !guEmail.trim()}
+              >
+                {guBusy ? t("guest.creating") : t("guest.create")}
+              </button>
+            </div>
+            {guError && (
+              <p role="alert" style={{ color: "#d04545", fontSize: "0.8rem" }}>
+                {guError}
+              </p>
+            )}
+            {guCreds && (
+              <div className="mcm-guest-creds">
+                <strong>{t("guest.title")}</strong>
+                {guCreds.existed ? (
+                  <p style={{ fontSize: "0.8rem", margin: "0.3rem 0 0" }}>
+                    {t("guest.existed")}
+                  </p>
+                ) : (
+                  <>
+                    <p
+                      style={{ fontSize: "0.78rem", margin: "0.3rem 0 0.4rem" }}
+                    >
+                      {t("guest.hint")}
+                    </p>
+                    <code
+                      style={{
+                        display: "block",
+                        userSelect: "all",
+                        wordBreak: "break-all",
+                        fontSize: "0.82rem",
+                        padding: "0.4rem 0.5rem",
+                        borderRadius: 6,
+                        background: "rgba(0,0,0,0.06)",
+                      }}
+                    >
+                      {t("guest.emailLabel")}: {guCreds.email}
+                      {"\n"}
+                      {t("guest.passwordLabel")}: {guCreds.password}
+                    </code>
+                    <button
+                      type="button"
+                      className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                      onClick={() => void copyGuestCreds()}
+                      style={{ marginTop: "0.4rem" }}
+                    >
+                      {guCopied ? <Check size={14} /> : <Copy size={14} />}
+                      {guCopied ? t("guest.copied") : t("guest.copyAll")}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="mcm-admin__toolbar">
               <span className="mcm-admin__count">

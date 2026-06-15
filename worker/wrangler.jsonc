@@ -20,6 +20,17 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
+  // Non-secret config. `RESEND_FROM` is the verified sender for outbound
+  // email via Resend (see docs/specs/email-resend.md). TEST phase uses
+  // Resend's shared sender (no DNS); switch to no-reply@mapgroup.co.kr after
+  // verifying the domain — no code change, just edit this value + redeploy.
+  // NOTE: the matching `RESEND_API_KEY` is a SECRET, never put here. Set it via
+  //   wrangler secret put RESEND_API_KEY
+  // (and worker/.dev.vars for local `wrangler dev`).
+  "vars": {
+    "RESEND_FROM": "Canvas M <onboarding@resend.dev>"
+  },
+
   "r2_buckets": [
     {
       "binding": "BUCKET",

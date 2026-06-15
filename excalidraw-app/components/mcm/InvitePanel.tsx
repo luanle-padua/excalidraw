@@ -1,15 +1,25 @@
-import { Briefcase, Check, Copy, Search, UserPlus, X } from "lucide-react";
+import {
+  Briefcase,
+  Check,
+  Copy,
+  Mail,
+  Search,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { createPortal } from "react-dom";
 
 import { getCollaborationLink } from "../../data";
 import { listClients, type Client } from "../../data/clients";
+import { createGuest, sendGuestInvite } from "../../data/guests";
 import {
   getDirectory,
   inviteToMeeting,
   type DirectoryUser,
 } from "../../data/invite";
+import { isInternalEmail } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 type Selected = { email: string; name: string; kind: "internal" | "guest" };
@@ -38,6 +48,20 @@ export const InvitePanel = ({
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Guest-account provisioning: credentials shown ONCE after a successful
+  // create so the host can paste them to the external guest.
+  const [guestBusy, setGuestBusy] = useState(false);
+  const [guestCreds, setGuestCreds] = useState<{
+    email: string;
+    password?: string;
+    existed: boolean;
+  } | null>(null);
+  const [guestError, setGuestError] = useState<string | null>(null);
+  const [guestCopied, setGuestCopied] = useState(false);
+  // Optional Resend send of the link + credentials straight to the guest.
+  const [guestSending, setGuestSending] = useState(false);
+  const [guestSent, setGuestSent] = useState(false);
+  const [guestSendErr, setGuestSendErr] = useState<string | null>(null);
 
   useEffect(() => {
     void getDirectory().then(setDir);
@@ -94,6 +118,79 @@ export const InvitePanel = ({
     }
     addOne({ email: e, name: e, kind: "guest" });
     setClientEmail("");
+  };
+
+  // The email currently typed in the external-client field, if it's a valid
+  // EXTERNAL address — the only case a guest login account can be provisioned.
+  const guestCandidate = useMemo(() => {
+    const e = clientEmail.trim().toLowerCase();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && !isInternalEmail(e) ? e : "";
+  }, [clientEmail]);
+
+  const makeGuest = async () => {
+    if (!guestCandidate || guestBusy) {
+      return;
+    }
+    setGuestBusy(true);
+    setGuestError(null);
+    setGuestCreds(null);
+    setGuestCopied(false);
+    const r = await createGuest(guestCandidate);
+    setGuestBusy(false);
+    if (!r.ok) {
+      setGuestError(
+        r.status === 403
+          ? t("guest.errForbidden")
+          : r.status === 400
+          ? t("guest.errInvalid")
+          : t("guest.errNetwork"),
+      );
+      return;
+    }
+    setGuestCreds({
+      email: r.email,
+      password: r.existed ? undefined : r.password,
+      existed: r.existed,
+    });
+    // Convenience: also queue the guest as an invitee so the host can send
+    // access in the same flow.
+    addOne({ email: guestCandidate, name: guestCandidate, kind: "guest" });
+  };
+
+  const copyGuestCreds = async () => {
+    if (!guestCreds) {
+      return;
+    }
+    const line = guestCreds.password
+      ? `${guestCreds.email} / ${guestCreds.password}`
+      : guestCreds.email;
+    try {
+      await navigator.clipboard.writeText(line);
+    } catch {
+      window.prompt(t("guest.copyAll"), line);
+    }
+    setGuestCopied(true);
+    window.setTimeout(() => setGuestCopied(false), 2000);
+  };
+
+  // Email the guest their meeting link (+ password) via Resend. Needs the room
+  // link, so only offered when a roomKey is present.
+  const sendGuestEmail = async () => {
+    if (!guestCreds || !roomKey || guestSending) {
+      return;
+    }
+    setGuestSending(true);
+    setGuestSendErr(null);
+    const link = getCollaborationLink({ roomId, roomKey });
+    const r = await sendGuestInvite(guestCreds.email, link, {
+      password: guestCreds.password,
+    });
+    setGuestSending(false);
+    if (r.ok) {
+      setGuestSent(true);
+    } else {
+      setGuestSendErr(t("guest.sendErr"));
+    }
   };
 
   const copyLink = async () => {
@@ -295,6 +392,100 @@ export const InvitePanel = ({
               {t("invite.add")}
             </button>
           </div>
+
+          {/* Provision a guest login account for the typed external email so
+              the guest can sign in without any invite email. */}
+          {guestCandidate && (
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+              onClick={() => void makeGuest()}
+              disabled={guestBusy}
+              style={{ marginTop: "0.25rem" }}
+            >
+              <UserPlus size={14} />
+              {guestBusy ? t("guest.creating") : t("guest.create")}
+            </button>
+          )}
+          {guestError && (
+            <p
+              role="alert"
+              style={{
+                color: "#d04545",
+                fontSize: "0.78rem",
+                margin: "0.4rem 0 0",
+              }}
+            >
+              {guestError}
+            </p>
+          )}
+          {guestCreds && (
+            <div className="mcm-guest-creds">
+              <strong>{t("guest.title")}</strong>
+              {guestCreds.existed ? (
+                <p style={{ fontSize: "0.78rem", margin: "0.3rem 0 0" }}>
+                  {t("guest.existed")}
+                </p>
+              ) : (
+                <>
+                  <p style={{ fontSize: "0.75rem", margin: "0.3rem 0 0.4rem" }}>
+                    {t("guest.hint")}
+                  </p>
+                  <code
+                    style={{
+                      display: "block",
+                      userSelect: "all",
+                      wordBreak: "break-all",
+                      fontSize: "0.8rem",
+                      padding: "0.4rem 0.5rem",
+                      borderRadius: 6,
+                      background: "rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    {t("guest.emailLabel")}: {guestCreds.email}
+                    {"\n"}
+                    {t("guest.passwordLabel")}: {guestCreds.password}
+                  </code>
+                  <button
+                    type="button"
+                    className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                    onClick={() => void copyGuestCreds()}
+                    style={{ marginTop: "0.4rem" }}
+                  >
+                    {guestCopied ? <Check size={14} /> : <Copy size={14} />}
+                    {guestCopied ? t("guest.copied") : t("guest.copyAll")}
+                  </button>
+                  {roomKey && (
+                    <button
+                      type="button"
+                      className="mcm-btn mcm-btn--primary mcm-btn--sm"
+                      onClick={() => void sendGuestEmail()}
+                      disabled={guestSending}
+                      style={{ marginTop: "0.4rem", marginLeft: "0.4rem" }}
+                    >
+                      {guestSent ? <Check size={14} /> : <Mail size={14} />}
+                      {guestSending
+                        ? t("guest.sending")
+                        : guestSent
+                        ? t("guest.sent")
+                        : t("guest.sendEmail")}
+                    </button>
+                  )}
+                  {guestSendErr && (
+                    <p
+                      style={{
+                        fontSize: "0.75rem",
+                        margin: "0.35rem 0 0",
+                        color: "var(--mcm-danger, #d33)",
+                      }}
+                    >
+                      {guestSendErr}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {hasInternal && (
             <label className="mcm-invite__check">
