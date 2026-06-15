@@ -57,8 +57,8 @@ Sống trong **ProjectManagerPanel → ProjectMemberRoster**. Mỗi member có *
 - **Phase 2:** bảng `division` + `project.lead_division_id`/`leader_email`; head kế thừa manage dự án phòng mình + đổi leader; AdminConsole gán head + project→division.
 - **Phase 3 (defer):** màn self-serve division-admin, leader-handoff, audit/notifications.
 
-## ⚠️ Cần anh Luân chốt trước khi code
-**Division head có MẶC ĐỊNH quyền manage trên MỌI dự án phòng mình lead** (khuyến nghị: **CÓ**, qua check `head_of_lead_division`) hay chỉ khi được add làm member? Khuyến nghị "CÓ" để khớp thực tế tổ chức.
+## ✅ Đã chốt (anh Luân, 06-15)
+**Division head CÓ quyền manage MẶC ĐỊNH trên MỌI dự án phòng mình lead** — qua check `head_of_lead_division` (Phase 2). Không cần add head làm member từng dự án.
 
 **File liên quan:** `worker/src/index.ts` (helper + gates ~734/837/900/932/1040/1694-2000/2040); migration `worker/schema/` (next = 0022).
 
