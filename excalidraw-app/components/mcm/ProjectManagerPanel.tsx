@@ -35,6 +35,7 @@ import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { ColorMenu, EmojiMenu, PROJECT_ICON_PRESETS } from "./ColorMenu";
+import { ProjectGuestRoster } from "./ProjectGuestRoster";
 import { ProjectMemberRoster } from "./ProjectMemberRoster";
 
 import "./ProjectManager.scss";
@@ -652,6 +653,18 @@ const ProjectDetail = ({
         <>
           <h3 className="mcm-pdetail__section-title">{t("proj.members")}</h3>
           <ProjectMemberRoster projectId={project.id} isOwner={isOwner} />
+        </>
+      )}
+
+      {/* Project-scoped guests — issue/reset/revoke/clean. Only a project
+          member/owner or admin reaches this (the worker gates the routes;
+          an invitee detail never renders it). */}
+      {!isInvitee && (
+        <>
+          <h3 className="mcm-pdetail__section-title">
+            {t("projGuest.section")}
+          </h3>
+          <ProjectGuestRoster projectId={project.id} />
         </>
       )}
 

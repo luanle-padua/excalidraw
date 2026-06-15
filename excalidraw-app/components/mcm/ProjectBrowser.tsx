@@ -11,7 +11,6 @@ import {
   Plus,
   Settings,
   SmilePlus,
-  Users,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
@@ -33,7 +32,6 @@ import { isInternalEmail, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { CalendarX } from "./CalendarX";
-import { ClientsManager } from "./ClientsManager";
 // Shared cosmetic popovers — extracted to their own file (UI-2) so the
 // project manager reuses the exact same menus as the meeting cards.
 import { ColorMenu, EmojiMenu } from "./ColorMenu";
@@ -201,7 +199,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const refreshCards = useCallback(async () => {
     setLoadingCards(true);
     try {
-      if (view === "myfiles" || view === "projects" || view === "clients") {
+      if (view === "myfiles" || view === "projects") {
         // These panels self-manage — no meeting cards in these views.
         setCards([]);
         setCardsFailed(false);
@@ -241,8 +239,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     view === "all" ||
     view === "invited" ||
     view === "myfiles" ||
-    view === "projects" ||
-    view === "clients"
+    view === "projects"
       ? null
       : projects.find((p) => p.id === view) ?? null;
   // True membership only — an "invitee" folder (mời vào 1 cuộc họp của phòng
@@ -263,8 +260,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     ? t("myfiles.title")
     : view === "projects"
     ? t("pmgr.title")
-    : view === "clients"
-    ? t("clients.navLabel")
     : t("cal.upcoming");
 
   const enterRoom = async (
@@ -615,25 +610,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               <span className="mcm-nav__item-label">{t("pmgr.navLabel")}</span>
             </button>
           )}
-          {/* Clients — external contact cards + provisioning a login account
-              for each. Internal staff only (Worker gates /v1/clients). */}
-          {isInternal && (
-            <button
-              type="button"
-              className={`mcm-nav__item${
-                view === "clients" ? " mcm-nav__item--active" : ""
-              }`}
-              onClick={() => {
-                setView("clients");
-                resetSubViews();
-              }}
-            >
-              <Users size={14} className="mcm-nav__item-icon" />
-              <span className="mcm-nav__item-label">
-                {t("clients.navLabel")}
-              </span>
-            </button>
-          )}
         </div>
         <div className="mcm-nav__section">
           <h3 className="mcm-nav__section-label">{t("header.projects")}</h3>
@@ -823,7 +799,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           {view !== "invited" &&
             view !== "myfiles" &&
             view !== "projects" &&
-            view !== "clients" &&
             targetProject &&
             !detailRoomId &&
             !editRoomId &&
@@ -842,8 +817,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-3col__middle-body mcm-scroll">
           {view === "myfiles" ? (
             <MyFilesPanel />
-          ) : view === "clients" ? (
-            <ClientsManager />
           ) : view === "projects" ? (
             <ProjectManagerPanel
               projects={projects}

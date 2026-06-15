@@ -14,4 +14,130 @@
     gap: 6px;
     margin-top: 2px;
   }
+
+  // ---- Project-scoped guests (Khách dự án) -------------------------------
+  &__hint {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--mcm-muted, #6b7280);
+  }
+
+  &__guestform {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+
+    input {
+      flex: 1 1 180px;
+      min-width: 140px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.12));
+      background: var(--mcm-input-bg, #fff);
+      font-size: 0.82rem;
+    }
+  }
+
+  &__empty {
+    margin: 2px 0;
+    font-size: 0.8rem;
+    color: var(--mcm-muted, #6b7280);
+  }
+
+  &__guests {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__guest {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: var(--mcm-subtle-bg, rgba(0, 0, 0, 0.035));
+  }
+
+  &__guest-main {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    min-width: 0;
+  }
+
+  &__guest-name {
+    font-weight: 600;
+    font-size: 0.84rem;
+  }
+
+  &__guest-login {
+    font-family: ui-monospace, monospace;
+    font-size: 0.76rem;
+    color: var(--mcm-muted, #6b7280);
+    word-break: break-all;
+  }
+
+  &__guest-sub {
+    font-size: 0.74rem;
+    color: var(--mcm-muted, #6b7280);
+  }
+
+  &__guest-actions {
+    display: inline-flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &__clean {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    color: var(--mcm-danger, #d33);
+  }
+}
+
+// Credentials shown ONCE after issuing/resetting a project guest.
+.mcm-guest-creds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--mcm-subtle-bg, rgba(0, 0, 0, 0.04));
+  border: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.1));
+
+  strong {
+    font-size: 0.84rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.76rem;
+    color: var(--mcm-muted, #6b7280);
+  }
+
+  code {
+    display: block;
+    white-space: pre-wrap;
+    user-select: all;
+    word-break: break-all;
+    font-size: 0.8rem;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  button {
+    align-self: flex-start;
+  }
 }

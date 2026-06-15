@@ -1,4 +1,4 @@
-import { Briefcase, KeyRound, Mail, Trash2, UserPlus } from "lucide-react";
+import { Briefcase, Mail, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -7,7 +7,6 @@ import {
   listClients,
   type Client,
 } from "../../data/clients";
-import { createGuest } from "../../data/guests";
 import { useT } from "../../i18n/mcm";
 
 import "./ClientsManager.scss";
@@ -27,8 +26,6 @@ export const ClientsManager = () => {
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
-  // Per-client login provisioning (createGuest) — which row is being created.
-  const [loginBusy, setLoginBusy] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -60,29 +57,6 @@ export const ClientsManager = () => {
       setEmail("");
       void refresh();
     }
-  };
-
-  // Provision a Supabase LOGIN for this client (external email + temp
-  // password, auto-confirmed) so they can sign in. Separate from the client
-  // contact card — see the DB note in data/guests.ts. Password is shown ONCE
-  // via a copyable prompt (the worker never stores/returns it again).
-  const makeLogin = async (cli: Client) => {
-    if (!cli.email || loginBusy) {
-      return;
-    }
-    setLoginBusy(cli.id);
-    const r = await createGuest(cli.email, cli.name);
-    setLoginBusy(null);
-    if (!r.ok) {
-      window.alert(t("guest.errNetwork"));
-      return;
-    }
-    if (r.existed) {
-      window.alert(t("guest.existed"));
-      return;
-    }
-    // Shown once — the host copies it from the prompt to send to the client.
-    window.prompt(t("guest.hint"), `${r.email} / ${r.password}`);
   };
 
   const remove = async (cli: Client) => {
@@ -173,18 +147,6 @@ export const ClientsManager = () => {
                 <td className="mcm-table__sub">{cli.created_by || "—"}</td>
                 <td className="mcm-table__sub">{fmtDate(cli.created_at)}</td>
                 <td className="mcm-table__actions">
-                  {cli.email && (
-                    <button
-                      type="button"
-                      className="mcm-icon-btn mcm-icon-btn--sm"
-                      title={t("guest.create")}
-                      aria-label={t("guest.create")}
-                      onClick={() => void makeLogin(cli)}
-                      disabled={loginBusy === cli.id}
-                    >
-                      <KeyRound size={14} />
-                    </button>
-                  )}
                   <button
                     type="button"
                     className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"

@@ -57,6 +57,40 @@ export const vi = {
     sent: "Đã gửi ✓",
     sendErr: "Gửi email không thành công (kiểm tra cấu hình Resend).",
   },
+  // ---------------- Project-scoped guests (mô hình mới 06-15) --------
+  // Khách theo DỰ ÁN, độc lập giữa các phòng ban. Host/admin cấp một ID
+  // đăng nhập tổng hợp (không phải email thật) cho riêng dự án đó.
+  projGuest: {
+    section: "Khách dự án",
+    hint: "Cấp ID khách riêng cho dự án này. Khách dùng ID để theo dự án qua mọi cuộc họp. Mỗi dự án độc lập — phòng ban khác không thấy.",
+    none: "Chưa có khách nào cho dự án này.",
+    labelLabel: "Tên hiển thị",
+    labelPlaceholder: "VD: Anh Nam (Tư vấn ABC)",
+    realEmailLabel: "Email thật (tuỳ chọn)",
+    realEmailPlaceholder: "nam@tuvanabc.com",
+    issue: "Cấp ID khách",
+    issuing: "Đang cấp…",
+    issued: "Đã cấp ID khách",
+    issuedHint:
+      "Gửi login + mật khẩu này cho khách. Chỉ hiện 1 lần — copy ngay.",
+    loginLabel: "Đăng nhập",
+    passwordLabel: "Mật khẩu",
+    copyCreds: "Copy login + mật khẩu",
+    copied: "Đã copy ✓",
+    reset: "Đặt lại mật khẩu",
+    resetDone: "Mật khẩu mới của khách",
+    revoke: "Thu hồi",
+    revokeConfirm: "Thu hồi khách {label}? Tài khoản sẽ bị xoá.",
+    clean: "Clean tất cả khách",
+    cleanConfirm:
+      "Xoá TẤT CẢ khách của dự án này? Mọi tài khoản khách sẽ bị xoá vĩnh viễn.",
+    cleanDone: "Đã xoá {count} khách",
+    errIssue: "Cấp ID khách không thành công.",
+    errReset: "Đặt lại mật khẩu không thành công.",
+    errRevoke: "Thu hồi khách không thành công.",
+    statusActive: "Đang hoạt động",
+    statusRevoked: "Đã thu hồi",
+  },
   invited: {
     title: "Được mời / Sắp tới",
     join: "Vào họp",

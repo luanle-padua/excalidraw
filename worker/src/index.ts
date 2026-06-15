@@ -283,7 +283,11 @@ const canSeeMeeting = async (
            AS invited,
          (SELECT 1 FROM project_member pm
             JOIN meeting m ON m.project_id = pm.project_id
-            WHERE m.id = ?1 AND pm.email = ?2) AS member`,
+            WHERE m.id = ?1 AND pm.email = ?2) AS member,
+         (SELECT 1 FROM project_guest pg
+            JOIN meeting m ON m.project_id = pg.project_id
+            WHERE m.id = ?1 AND pg.login = ?2 AND pg.status = 'active')
+           AS proj_guest`,
     )
     .bind(roomId, e)
     .first<{
@@ -292,6 +296,7 @@ const canSeeMeeting = async (
       owner: number | null;
       invited: number | null;
       member: number | null;
+      proj_guest: number | null;
     }>();
   if (!row?.registered) {
     // Ad-hoc room without a registry row — nothing to gate against.
@@ -299,10 +304,14 @@ const canSeeMeeting = async (
   }
   // Confidential meetings are INVITEE-ONLY (quyết định 06-10 #3): project
   // membership alone is not enough — the field is enforced, not decorative.
+  // A PROJECT GUEST (new model, 06-15) is treated EXACTLY like a project member
+  // for visibility: they follow the project into its normal meetings, but a
+  // confidential meeting stays invitee-only — a guest must never see more than
+  // an internal member would (to be in a confidential meeting, invite them).
   if ((row.conf ?? "").toLowerCase() === "confidential") {
     return !!(row.owner || row.invited);
   }
-  return !!(row.owner || row.invited || row.member);
+  return !!(row.owner || row.invited || row.member || row.proj_guest);
 };
 
 // Per-project access LEVEL (case "phòng ban này mời phòng ban khác"):
@@ -1675,6 +1684,269 @@ app.post("/v1/guests/send-invite", async (c) => {
   return c.json({ ok: true, id: r.id });
 });
 
+// ---- Project-scoped guests (new guest-access model, 06-15) ---------------
+// Guest access is PROJECT-SCOPED and INDEPENDENT per department — strict
+// confidentiality BETWEEN departments. A host (a member/owner of the project)
+// issues a SYNTHETIC Supabase login (never the guest's real email) + temp
+// password scoped to ONE project; the guest follows that project across ALL
+// its meetings. canSeeMeeting + /v1/me/meetings honour an `active` row. Admin
+// has FULL power everywhere (lists/issues/resets/revokes for ANY project) and
+// bypasses the per-department isolation.
+
+// Gate for every project-guest route: ADMIN, or a member/owner of the project.
+// Admin always passes regardless of membership (full power).
+const canManageProjectGuests = async (
+  db: D1Database,
+  projectId: string,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM project_member
+       WHERE project_id = ?1 AND email = ?2 LIMIT 1`,
+    )
+    .bind(projectId, me)
+    .first());
+};
+
+// Strong random temp password — base64url of 16 random bytes (~22 chars).
+// Generated server-side, returned ONCE to the host, NEVER logged.
+const genTempPassword = (): string => {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+};
+
+// List the project's ACTIVE guests (admin or a member/owner of the project).
+app.get("/v1/projects/:projectId/guests", async (c) => {
+  const projectId = c.req.param("projectId");
+  if (
+    !(await canManageProjectGuests(
+      c.env.DB,
+      projectId,
+      c.get("email"),
+      c.get("role"),
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, login, label, real_email, created_by, created_at, status
+       FROM project_guest
+      WHERE project_id = ?1 AND status = 'active'
+      ORDER BY created_at DESC`,
+  )
+    .bind(projectId)
+    .all();
+  return c.json({ guests: results });
+});
+
+// Issue a guest ID for the project: create a Supabase user with a SYNTHETIC
+// login (pg-<hex>@guest.canvasm.app) + temp password (email_confirm:true), then
+// insert the project_guest row. Returns { login, password, label } ONCE; the
+// password is never stored or logged. (admin or a member/owner of the project)
+app.post("/v1/projects/:projectId/guests", async (c) => {
+  const projectId = c.req.param("projectId");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const project = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
+    .bind(projectId)
+    .first();
+  if (!project) {
+    return c.json({ error: "project not found" }, 404);
+  }
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const b = await c.req
+    .json<{ label?: string; real_email?: string }>()
+    .catch(() => ({} as { label?: string; real_email?: string }));
+  const label = (b.label || "").trim();
+  const realEmail = (b.real_email || "").trim().toLowerCase();
+  if (realEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(realEmail)) {
+    return c.json({ error: "invalid email" }, 400);
+  }
+  // Synthetic login — 8 random hex chars under a fixed guest domain. NEVER the
+  // guest's real email; unique by construction (collision-retry below).
+  const synthLogin = () => {
+    const r = new Uint8Array(4);
+    crypto.getRandomValues(r);
+    const hex = [...r].map((x) => x.toString(16).padStart(2, "0")).join("");
+    return `pg-${hex}@guest.canvasm.app`;
+  };
+  const password = genTempPassword();
+  // Create the Supabase user; retry once on the (astronomically rare) login
+  // collision so a duplicate hex never blocks issuance.
+  let login = synthLogin();
+  let supaId = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await supaAdmin(cr.url, cr.key, "POST", "/admin/users", {
+      email: login,
+      password,
+      email_confirm: true,
+      app_metadata: { role: "guest", project_id: projectId },
+      user_metadata: label ? { display_name: label, name: label } : {},
+    });
+    if (res.ok) {
+      const created = (await res.json()) as { id?: string };
+      supaId = created.id ?? "";
+      break;
+    }
+    const detail = await res.text();
+    if (
+      attempt < 2 &&
+      (res.status === 422 || /already.*registered|already exists/i.test(detail))
+    ) {
+      login = synthLogin();
+      continue;
+    }
+    return c.json({ error: "create guest failed" }, 502);
+  }
+  const id = crypto.randomUUID();
+  await c.env.DB.prepare(
+    `INSERT INTO project_guest
+       (id, project_id, login, label, real_email, supa_id, created_by,
+        created_at, status)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'active')`,
+  )
+    .bind(
+      id,
+      projectId,
+      login,
+      label || null,
+      realEmail || null,
+      supaId || null,
+      email ?? null,
+      now(),
+    )
+    .run();
+  await logAudit(c.env.DB, email, "project_guest.create", projectId, { login });
+  // NOTE: never log `password`.
+  return c.json({ ok: true, id, login, password, label });
+});
+
+// Reset a guest's Supabase password — returns the new password ONCE.
+// (admin or a member/owner of the project)
+app.post("/v1/projects/:projectId/guests/:id/reset", async (c) => {
+  const projectId = c.req.param("projectId");
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const cr = adminCreds(c);
+  if (!cr) {
+    return c.json({ error: "admin not configured" }, 503);
+  }
+  const guest = await c.env.DB.prepare(
+    `SELECT supa_id, login FROM project_guest
+      WHERE id = ?1 AND project_id = ?2 AND status = 'active'`,
+  )
+    .bind(id, projectId)
+    .first<{ supa_id: string | null; login: string }>();
+  if (!guest) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const supaId = await resolveSupaId(cr, guest.supa_id, guest.login);
+  if (!supaId) {
+    return c.json({ error: "guest account missing" }, 404);
+  }
+  const password = genTempPassword();
+  const res = await supaAdmin(cr.url, cr.key, "PUT", `/admin/users/${supaId}`, {
+    password,
+  });
+  if (!res.ok) {
+    return c.json({ error: "reset failed" }, 502);
+  }
+  await logAudit(c.env.DB, email, "project_guest.reset", projectId, {
+    login: guest.login,
+  });
+  return c.json({ ok: true, login: guest.login, password });
+});
+
+// Revoke ONE guest — delete the Supabase user + the row.
+// (admin or a member/owner of the project)
+app.delete("/v1/projects/:projectId/guests/:id", async (c) => {
+  const projectId = c.req.param("projectId");
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const cr = adminCreds(c);
+  const guest = await c.env.DB.prepare(
+    `SELECT supa_id, login FROM project_guest
+      WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(id, projectId)
+    .first<{ supa_id: string | null; login: string }>();
+  if (!guest) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (cr) {
+    const supaId = await resolveSupaId(cr, guest.supa_id, guest.login);
+    if (supaId) {
+      await supaAdmin(cr.url, cr.key, "DELETE", `/admin/users/${supaId}`);
+    }
+  }
+  await c.env.DB.prepare(`DELETE FROM project_guest WHERE id = ?1`)
+    .bind(id)
+    .run();
+  await logAudit(c.env.DB, email, "project_guest.revoke", projectId, {
+    login: guest.login,
+  });
+  return c.json({ ok: true, deleted: id });
+});
+
+// Clean ALL guests of the project — the "done with the project" action.
+// Deletes every Supabase user + every row. (admin or a member/owner.)
+app.post("/v1/projects/:projectId/guests/clean", async (c) => {
+  const projectId = c.req.param("projectId");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const cr = adminCreds(c);
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, supa_id, login FROM project_guest WHERE project_id = ?1`,
+  )
+    .bind(projectId)
+    .all<{ id: string; supa_id: string | null; login: string }>();
+  if (cr) {
+    for (const g of results) {
+      const supaId = await resolveSupaId(cr, g.supa_id, g.login);
+      if (supaId) {
+        await supaAdmin(cr.url, cr.key, "DELETE", `/admin/users/${supaId}`);
+      }
+    }
+  }
+  await c.env.DB.prepare(`DELETE FROM project_guest WHERE project_id = ?1`)
+    .bind(projectId)
+    .run();
+  await logAudit(c.env.DB, email, "project_guest.clean", projectId, {
+    count: results.length,
+  });
+  return c.json({ ok: true, removed: results.length });
+});
+
 // ORGANIZER delete — only a CANCELLED meeting may be deleted (the lifecycle's
 // one disposal path: cancel first, then delete; finished stays immutable
 // forever, live/scheduled must be cancelled/ended first). Full cascade.
@@ -2004,6 +2276,15 @@ app.get("/v1/me/meetings", async (c) => {
            -- Confidential = invitee-only: plain project membership doesn't
            -- surface it (the organizer/invitee arms above still do).
            AND lower(COALESCE(mm.confidentiality, '')) <> 'confidential'
+       UNION
+       -- A PROJECT GUEST (new model, 06-15) follows their project's meetings
+       -- in their lobby — treated EXACTLY like a project member: confidential
+       -- meetings stay invitee-only (the invitee arm above surfaces one if the
+       -- guest was explicitly invited). A guest never sees more than a member.
+       SELECT mg.id FROM meeting mg
+         JOIN project_guest pg ON pg.project_id = mg.project_id
+         WHERE pg.login = ?1 AND pg.status = 'active'
+           AND lower(COALESCE(mg.confidentiality, '')) <> 'confidential'
      )
      ${order}`,
   )
@@ -2377,6 +2658,30 @@ const adminCreds = (c: { env: Bindings }) => {
   const url = c.env.SUPABASE_URL;
   const key = c.env.SUPABASE_SERVICE_API_KEY;
   return url && key ? { url, key } : null;
+};
+
+// Resolve a Supabase user id for a project-guest: prefer the cached `supa_id`
+// stamped at creation; fall back to a GoTrue lookup by login email (for rows
+// created before caching, or if the cache is empty). Returns "" if not found.
+const resolveSupaId = async (
+  cr: { url: string; key: string },
+  cached: string | null,
+  login: string,
+): Promise<string> => {
+  if (cached) {
+    return cached;
+  }
+  const res = await supaAdmin(
+    cr.url,
+    cr.key,
+    "GET",
+    `/admin/users?email=${encodeURIComponent(login)}`,
+  );
+  if (!res.ok) {
+    return "";
+  }
+  const data = (await res.json()) as { users?: { id?: string }[] };
+  return data.users?.[0]?.id ?? "";
 };
 
 // Record an admin mutation in the audit log (best-effort — never blocks).
