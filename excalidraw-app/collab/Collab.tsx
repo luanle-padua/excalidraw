@@ -766,6 +766,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // Drop the LEFT meeting's chat so it can't bleed into the next room;
       // the next room loads its own persisted history on join.
       appJotaiStore.set(chatMessagesAtom, []);
+      // Drop the LEFT meeting's LIBRARY SHELF too. hydrateMeetingFiles() MERGES
+      // the current atom into the next room's files (to survive the join-race
+      // where peer broadcasts land mid-handshake) — so if we leave this stale,
+      // meeting A's DXF/IFC/PDF/images bleed into EVERY next meeting's shelf.
+      // Per-room IndexedDB is untouched (roomId-keyed); only the in-memory atom
+      // is the cross-room leak. (Fix: "vào project nào cũng thấy file cũ", 06-15.)
+      appJotaiStore.set(meetingFilesAtom, []);
       this.setActiveRoomLink(null);
       this.collaborators = new Map();
       this.excalidrawAPI.updateScene({
