@@ -70,3 +70,64 @@ Tín hiệu giàu nhất (transcript đầy đủ) cố tình **E2E, server khô
 - Migration cộng dồn; regenerate `docs/architecture.md`, đừng sửa tay.
 
 > Liên quan: access model theo phòng ban (project-scoped guest) · `docs/plans/roadmap.md` (Phase 5 recording) · `docs/architecture.md`.
+
+---
+
+## Addendum 2026-06-15 — Nadella lens: own the learning loop (token capital)
+
+**Luận điểm Nadella (3 dòng):** AI tạo lần đầu một *cognitive loop* người ↔ máy; model sẽ liên tục **commoditize** chuyên môn của ai phơi nó ra. Nên mỗi công ty phải vừa xây **human capital** (phán đoán, quan hệ, pattern-recognition của người) vừa xây **token capital** (năng lực AI công ty **sở hữu**), và tài sản thật KHÔNG phải chọn model giỏi nhất mà là **sở hữu cái learning loop** nơi hai vốn này *compound* — đó mới là IP của firm. Bài test chủ quyền: **swap model generalist mà KHÔNG mất "company veteran"**.
+
+### 1. Hoà giải "đừng fine-tune" với "private RL" của Nadella — không hề mâu thuẫn
+
+Hai bên **nhắm vào hai vật khác nhau**, nên cùng đúng:
+- Doc bác bỏ **fine-tune 1 generalist chung trên data MỌI phòng ban** — việc này nướng fact Dept A + Dept B vào weights mà Worker authz **không thấy/lọc/thu hồi được**, phá đúng bức tường phòng ban cả access model dựng ra để giữ. Bác bỏ này **vẫn 100% đúng**.
+- Nadella tán thành **sở hữu cái loop** (evals + traces thật + KB + môi trường có kiểm soát) **portable across models**; private RL chỉ là **tuỳ chọn về sau**, chạy trên **một model + một scope mình kiểm soát**, **không bao giờ** là 1 model chung bôi qua ranh giới mật.
+
+**Quy tắc đã hoà giải:** giữ IP compound trong **LOOP, không trong WEIGHTS.** Loop (summary bất biến → rolling brief → Ask-this-project → traces bắt được → private evals) chính là "hill-climbing machine", **portable by design**. RL/fine-tune nếu có chỉ là tối ưu *per-scope* trên weights **vứt đi được**: phép thử là **xoá weights đó vẫn dựng lại được chuyên môn từ D1/R2.** Nếu không dựng lại được → đã trượt bài test chủ quyền. Vậy: deferred nhưng **architected-for**, không cấm vĩnh viễn.
+
+### 2. Những trụ cột MỚI doc cũ chưa nhấn đủ
+
+- **Model SOVEREIGNTY / portability (swap-the-model test).** Mỗi asset hỏi: *Claude biến mất mai này, mình MẤT gì?* Cái mất = IP kẹt trong weights người khác (fail). Cái còn = sống trong D1/R2 của mình (pass). Core của doc (summary D1 + brief + R2 snapshot + Ask) **đã pass by construction** — phải **đặt tên nó là IP của firm**. Cụ thể hoá: bọc model-call sau **một seam config `provider+model+version`** (chỗ Gemini `index.ts` ~2862 / ~3165) → swap là đổi config, không viết lại.
+- **Cái COMPOUNDING loop — bắt tín hiệu NGAY.** Doc hiện chỉ **lớn dần** (accumulate) chứ chưa **tốt dần** (compound). Q&A và brief-merge đang fire-and-forget → tín hiệu giàu nhất (câu hỏi thật + context truy hồi + câu trả lời + nó đúng/sai) **bốc hơi**. Không log = tự nguyện vứt đúng IP Nadella bảo phải hoard. Bắt **4 luồng rẻ**: thumbs ± / "copy answer" trên Ask; cặp before→after khi admin regenerate summary (risk #4); decision-reversed (cuộc N+k lật quyết định cuộc N — tín hiệu giàu nhất của firm kiến trúc); action-item lifecycle.
+- **PRIVATE EVALS trên business outcome, không phải benchmark ngoài.** Mỗi metric chỉ là **SQL aggregate** chạy weekly Cron, không cần ML: `decision_reversal_rate` · `action_followthrough_rate` · `ask_thumbs_up_rate` / `ask_used_rate` · phút *cuộc-xong → brief-ready* · edits-per-summary giảm dần · "rework tránh được" (Ask khơi lại quyết định cũ TRƯỚC khi họp re-litigate). Render lên trang dự án Glass Desk — đây là **scoreboard private-eval theo outcome của MAP**.
+- **ADMIN = token-capital steward.** "1 model của admin" = retrieval-scope mở rộng + audit (doc đã đúng), nay **đặt tên lại**: admin trông coi **cái loop** — prompts/glossary/eval-set/trace corpus. Tách hai scope compound: **CRAFT layer** (prompt schema, brief-merge prompt, glossary, eval set, question-patterns) **content-free → compound TOÀN firm** không lộ fact; **PROJECT FACTS** compound **cục bộ sau tường**, qua filter `project_id` server-side. *Chia sẻ phương pháp, rào fact.*
+
+### 3. Làm NGAY — rẻ, để compound từ ngày đầu (pre-RL)
+
+1. **Bền hoá** summary + brief-merge (vá fire-and-forget, audit #13): retry + cờ + Cron reconcile. Mất = mất IP vĩnh viễn.
+2. **Log traces từ ngày đầu** — 1 bảng `ai_signal` (migration **0020**, copy shape `audit_log` `0005`), cột `{kind, project_id, meeting_id, model+version, retrieved refs, prompt_version, output, rating, before/after, cost, latency, ts}`. `project_id` làm tín hiệu **thừa kế tường phòng ban**. Đây là nước cờ chủ quyền lợi-hại nhất, gần như free.
+3. **Version hoá prompts** (summary + brief-merge) thành artifact theo dõi trong repo — logic distillation là IP của firm.
+4. **Eval set nhỏ:** ~20-50 câu hỏi thật + đáp án người-duyệt qua 2-3 dự án; chạy mỗi lần swap model → biến "swap" từ niềm tin thành **test passed**. Đóng băng golden set ra R2.
+5. **Seam model-call** một interface config (đã nêu) → portability thành thao tác.
+6. **Tường phòng ban = filter lúc query, không bao giờ là thuộc tính weights** (doc đã bắt buộc) — đây cũng chính là cái khiến private RL *an toàn-về-sau* vì scope được trace corpus.
+
+### 4. Right-size cho firm nhỏ, non-CS PM — đừng over-build
+
+**KHÔNG** dựng private RL / fine-tune / vector-RAG / pipeline train bây giờ — đó là bẫy over-invest. Bản "own your learning loop" đúng cỡ MAP = **Phase 0-1.5 của doc + 1 bảng `ai_signal` + 1 file eval JSON**. Cái đó lấy ~90% IP compound ở **vài xu/cuộc**. Caveat thật: firm vài chục cuộc có thể **không bao giờ** đủ trace để bõ RL — *và ổn*. Mục đích do-now KHÔNG phải để rồi sẽ fine-tune; mà để **giữ OPTION chủ quyền** và làm product tốt hơn mỗi ngày qua evals/traces. "Đừng fine-tune" của doc đúng cho HÔM NAY; điều duy nhất Nadella sửa: **đừng vứt traces + eval set** — thứ cho phép mai này quyết định RL **có chủ đích**, hoặc bỏ qua mà chẳng mất gì. Giữ Vectorize/RAG (Phase 2) và mọi RL nặng **sau cổng "user thật sự đòi"**.
+
+---
+
+## Addendum 2026-06-15 (b) — Data → Tri thức TẬP ĐOÀN: dùng data cuộc họp ntn để AI HỌC + HIỂU
+
+> Tầm nhìn anh Luân: **KB cho cả tập đoàn**, data cuộc họp/dự án là **mỏ vàng**. Câu hỏi: dùng nó sao cho AI **học + hiểu**. Đáp: *understanding đến từ **cấu trúc + liên kết**, không phải nhồi transcript vào model.*
+
+### Data thô = nhiễu. 4 nấc biến nó thành tri thức AI hiểu được
+
+1. **TRÍCH XUẤT → fact có cấu trúc (nguyên tử).** Mỗi cuộc họp xong rút ra: *quyết định · việc cần làm (chủ trì/hạn/trạng thái) · câu hỏi mở · THỰC THỂ (người · dự án · bản vẽ · cấu kiện · vật liệu · nhà thầu) · tham chiếu cuộc/bản vẽ trước*. Nguyên tử KHÔNG phải transcript — mà là fact đã rút. **Trần chất lượng nằm ở đây** → prompt trích xuất là ưu tiên #1 (đã là Phase 0).
+2. **LIÊN KẾT → đồ thị, không phải đống file.** "Hiểu" cấp tập đoàn = nối: *quyết định → cuộc họp → dự án → bản vẽ/cấu kiện → người → đảo quyết định trước nào*. Một **graph quyết-định/thực-thể nhẹ** (lưu trong D1 theo `project_id` + `meeting_id` + entity) cho AI **truy nhân-quả + thấy pattern**, thay vì chỉ tìm text. Đây là lúc institutional memory thành **query được**.
+3. **CHƯNG CẤT → 2 tầng, một mạch (mấu chốt bảo mật tập đoàn).**
+   - **Per-project (mật, có tường):** bộ nhớ từng dự án; user/khách chỉ thấy phần mình — filter `project_id` server-side.
+   - **Firm-wide "practice memory" (admin chưng cất):** tri thức **đã khái quát hoá** — chi tiết tiêu chuẩn lặp lại, quyết định hay gặp, quy ước đặt tên, bài học, hiệu năng nhà thầu. **Đây mới là IP tập đoàn compound.** Khớp với split CRAFT-vs-FACTS của addendum (a): phần *content-free* (phương pháp/pattern) compound toàn firm tự do; còn **promote một FACT cụ thể lên tầng tập đoàn là QUYẾT ĐỊNH CÓ CHỦ ĐÍCH của admin** (admin full-power + audit) — abstract thành pattern, review nội dung, **không bao giờ tự động** chảy ngang qua tường. *Chia sẻ phương pháp, rào fact; vượt tường = admin cố ý + ghi audit.*
+4. **GIỮ TÍN HIỆU → để "học" thật.** Ở giai đoạn này **"AI học" = KB lớn dần (graph thêm fact) + feedback (câu trả lời nào dùng được, summary nào bị sửa, quyết định nào giữ vs bị đảo)** — bảng `ai_signal` của addendum (a). **Chưa train weights**; nhưng kiến trúc để private-RL là option mình làm chủ sau khi đã đủ traces.
+
+### Vì sao đây là cách ĐÚNG (không phải "đổ data cho AI")
+"Đổ" transcript thô vào model = đắt, không truy dẫn được, không scale, và **không hiểu** (model chỉ tóm). Trích-xuất→liên-kết→chưng-cất cho **tri thức truy nguyên + compound + portable** — đổi model nào cũng giữ (bài test chủ quyền). **Moat của tập đoàn = graph tri thức có cấu trúc + được sửa đúng + tầng practice-memory admin chưng cất**, nằm trong D1/R2 mình sở hữu.
+
+### Làm cho thành thật (đúng cỡ firm nhỏ)
+1. **Định "ontology" của hãng** — thế nào là *quyết định / action / bản vẽ / cấu kiện / vật liệu / nhà thầu* → trích xuất nhất quán (1 file schema, phần CRAFT compound firm).
+2. **Prompt trích xuất có cấu trúc** (Phase 0) → nguyên tử chất lượng.
+3. **Liên kết fact thành graph nhẹ** trong D1 (`project_id`+`meeting_id`+entity) — không cần graph-DB riêng, bảng quan hệ là đủ.
+4. **Admin chưng cất tầng firm-wide** định kỳ (Cron/thủ công) từ project memory → practice-memory, **có review + audit** khi promote fact.
+5. **Bật `ai_signal` từ ngày đầu** → nhiên liệu loop.
+
+> Tóm 1 câu: **trích xuất → liên kết (graph) → chưng cất lên tập đoàn (admin gác cổng) → giữ feedback.** Đó là cách data cuộc họp thành tri thức AI *hiểu*, và thành IP tập đoàn *compound* — vẫn giữ tường phòng ban.
