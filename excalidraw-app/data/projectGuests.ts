@@ -13,12 +13,30 @@ const STORAGE_URL =
     ? ""
     : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
 
+/** CRM-style contact details for a guest — all optional/free-text, stored in
+ *  D1 next to the synthetic login (never part of the Supabase auth identity).
+ *  `label` is the representative / contact person's name. */
+export type GuestContact = {
+  label: string | null; // đại diện / contact person
+  real_email: string | null; // email
+  company: string | null; // công ty
+  phone: string | null; // số điện thoại
+  address: string | null; // địa chỉ
+};
+
+/** What the host can submit when issuing or editing a guest's contact card. */
+export type GuestContactInput = {
+  label: string;
+  real_email?: string;
+  company?: string;
+  phone?: string;
+  address?: string;
+};
+
 /** One project guest as returned by the list endpoint. */
-export type ProjectGuest = {
+export type ProjectGuest = GuestContact & {
   id: string;
   login: string;
-  label: string | null;
-  real_email: string | null;
   created_by: string | null;
   created_at: number;
   status: string;
@@ -27,13 +45,11 @@ export type ProjectGuest = {
 /** One project guest in the CENTRALIZED manager — carries the owning project's
  *  id + name so the UI can group across projects. The server scopes the list to
  *  the caller's project memberships (admin sees all). */
-export type MyProjectGuest = {
+export type MyProjectGuest = GuestContact & {
   id: string;
   project_id: string;
   project_name: string;
   login: string;
-  label: string | null;
-  real_email: string | null;
   status: string;
   created_at: number;
 };
@@ -78,11 +94,11 @@ export const listMyProjectGuests = async (): Promise<MyProjectGuest[]> => {
   }
 };
 
-/** Issue a guest ID for the project — returns login + password ONCE. */
+/** Issue a guest ID for the project — returns login + password ONCE. The
+ *  contact card (label/email/company/phone/address) is persisted in D1. */
 export const issueProjectGuest = async (
   projectId: string,
-  label: string,
-  realEmail?: string,
+  contact: GuestContactInput,
 ): Promise<IssuedGuest | null> => {
   try {
     const res = await fetchWithAuth(
@@ -90,7 +106,13 @@ export const issueProjectGuest = async (
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ label, real_email: realEmail }),
+        body: JSON.stringify({
+          label: contact.label,
+          real_email: contact.real_email,
+          company: contact.company,
+          phone: contact.phone,
+          address: contact.address,
+        }),
       },
     );
     if (!res.ok) {
@@ -110,10 +132,41 @@ export const issueProjectGuest = async (
       id: d.id,
       login: d.login,
       password: d.password,
-      label: d.label ?? label,
+      label: d.label ?? contact.label,
     };
   } catch {
     return null;
+  }
+};
+
+/** Edit a guest's CONTACT card (label/email/company/phone/address). Pure D1
+ *  metadata update — never touches the synthetic login. Returns whether it
+ *  succeeded. */
+export const updateProjectGuest = async (
+  projectId: string,
+  id: string,
+  contact: GuestContactInput,
+): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/guests/${encodeURIComponent(id)}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          label: contact.label,
+          real_email: contact.real_email,
+          company: contact.company,
+          phone: contact.phone,
+          address: contact.address,
+        }),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
   }
 };
 

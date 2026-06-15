@@ -705,7 +705,7 @@ const ProjectDetail = ({
                 className="mcm-btn mcm-roster__add"
                 onClick={scrollToGuests}
               >
-                <UserPlus size={15} /> {t("projGuest.issue")}
+                <UserPlus size={15} /> {t("projGuest.addGuest")}
               </button>
             }
           />

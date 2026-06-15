@@ -16,34 +16,232 @@
   }
 
   // ---- Project-scoped guests (Khách dự án) -------------------------------
+  // The centralized "Quản lý khách" manager (.mcm-roster--manager) reuses
+  // every token/class below so the two surfaces read as the same product;
+  // it only adds the issue card, project-grouped sections, and empty state.
+  &--manager {
+    gap: 14px;
+  }
+
+  // The full-PAGE surface (GuestManager) renders directly inside the masked,
+  // self-clipping .mcm-3col__middle-body — so, like .mcm-myfiles, it must BE
+  // the scroll container and carry its own 16px edge padding. The top padding
+  // also clears the body's 14px scroll-edge fade, so the title/hint is never
+  // faded out underneath it (the per-project roster keeps the default flow —
+  // it lives inside a collapsible Section, not the masked frame).
+  &--page {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--mcm-hairline) transparent;
+    padding: 16px;
+  }
+
   &__hint {
     margin: 0;
     font-size: 0.78rem;
-    line-height: 1.45;
-    color: var(--mcm-muted, #6b7280);
+    line-height: 1.5;
+    color: var(--mcm-text-soft, #6b7280);
   }
 
-  &__guestform {
+  // Labeled field group (project / contact / detail) inside the issue card.
+  &__field {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__field-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--mcm-text-soft, #6b7280);
+  }
+
+  // Two-up responsive grid for the contact inputs (name+email / company+phone
+  // on a row each, address full-width). Collapses to one column when narrow.
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 10px;
+
+    @media (max-width: 520px) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  // Text inputs — consistent ~34px capsule with a SOFT (not pill) radius, the
+  // same shape as every other MCM form control. (Pill belongs on status chips
+  // and badges, never on text fields — Glass-Desk concentric-radii rule.)
+  &__in {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    height: 34px;
+    padding: 0 11px;
+    border-radius: var(--mcm-radius-sm, 10px);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    background: var(--mcm-surface, #fff);
+    color: var(--mcm-text, inherit);
+    font: inherit;
+    font-size: 0.82rem;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+
+    &::placeholder {
+      color: var(--mcm-text-faint, #9aa0aa);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--mcm-accent, #5e5ad8);
+      box-shadow: 0 0 0 3px
+        color-mix(in srgb, var(--mcm-accent, #5e5ad8) 18%, transparent);
+    }
+
+    // Address — span the full row.
+    &--wide {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__issue-btn {
+    align-self: flex-start;
+  }
+
+  // Issue form wrapped as a quiet "card" so it reads as a distinct action
+  // zone above the grouped list (manager only — harmless on the per-project
+  // roster, which never renders __issue).
+  &__issue {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: var(--mcm-radius-md, 14px);
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.035));
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
+  }
+
+  // Project picker — a CUSTOM themed dropdown (a native <select>'s option list
+  // can't be styled, so it showed as a bare white popup on the dark desk). The
+  // base .mcm-select uses a 999px pill radius; on a full-row box that's a giant
+  // oval, so we force the soft form radius + 34px height to match the inputs.
+  &__project-picker {
+    position: relative;
+    width: 100%;
+  }
+  &__project-select {
+    box-sizing: border-box;
+    display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    height: 34px;
+    padding: 0 8px 0 11px;
+    border-radius: var(--mcm-radius-sm, 10px);
+    cursor: pointer;
+    text-align: left;
 
-    input {
-      flex: 1 1 180px;
-      min-width: 140px;
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.12));
-      background: var(--mcm-input-bg, #fff);
-      font-size: 0.82rem;
+    .mcm-select__icon {
+      flex: 0 0 auto;
+      color: var(--mcm-text-soft, #6b7280);
     }
+  }
+  &__project-current {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.82rem;
+  }
+  &__project-caret {
+    flex: 0 0 auto;
+    color: var(--mcm-text-faint, #9ca3af);
+  }
+  &__project-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
+    border-radius: var(--mcm-radius-md, 12px);
+    box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.18));
+  }
+  &__project-opt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 9px;
+    border: none;
+    background: none;
+    border-radius: var(--mcm-radius-sm, 8px);
+    color: var(--mcm-text, #111);
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+
+    svg {
+      flex: 0 0 auto;
+      color: var(--mcm-text-soft, #6b7280);
+    }
+    &:hover {
+      background: var(--mcm-surface-2, rgba(0, 0, 0, 0.05));
+    }
+    &--active {
+      color: var(--mcm-accent, #5e5ad8);
+
+      svg {
+        color: var(--mcm-accent, #5e5ad8);
+      }
+    }
+  }
+  &__project-opt-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  &__project-empty {
+    padding: 8px 9px;
+    font-size: 0.8rem;
+    color: var(--mcm-text-soft, #6b7280);
   }
 
   &__empty {
     margin: 2px 0;
     font-size: 0.8rem;
-    color: var(--mcm-muted, #6b7280);
+    color: var(--mcm-text-soft, #6b7280);
+  }
+
+  // Full empty state (no guests anywhere) — centered, quiet, on-brand.
+  &__emptystate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--mcm-text-soft, #6b7280);
+
+    svg {
+      color: var(--mcm-text-faint, #b4b8c0);
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.82rem;
+    }
   }
 
   &__guests {
@@ -57,37 +255,93 @@
 
   &__guest {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 10px;
-    padding: 7px 10px;
-    border-radius: 8px;
-    background: var(--mcm-subtle-bg, rgba(0, 0, 0, 0.035));
+    padding: 9px 11px;
+    border-radius: var(--mcm-radius-sm, 10px);
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.035));
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.06));
+
+    // Inline edit takes the whole row as a vertical form.
+    &--editing {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
   }
 
+  // The guest's contact card: name + company chip / synthetic login / the
+  // contacts line (email · phone · address · company · date), stacked.
   &__guest-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  &__guest-head {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px 10px;
+    gap: 4px 8px;
     min-width: 0;
+
+    svg {
+      flex-shrink: 0;
+      color: var(--mcm-text-soft, #6b7280);
+    }
   }
 
   &__guest-name {
     font-weight: 600;
-    font-size: 0.84rem;
+    font-size: 0.86rem;
+    color: var(--mcm-text, inherit);
+  }
+
+  // Company shown as a quiet pill next to the representative's name.
+  &__guest-company {
+    padding: 1px 8px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcm-surface, rgba(0, 0, 0, 0.05));
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--mcm-text-soft, #6b7280);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__guest-login {
     font-family: ui-monospace, monospace;
-    font-size: 0.76rem;
-    color: var(--mcm-muted, #6b7280);
+    font-size: 0.74rem;
+    color: var(--mcm-text-soft, #6b7280);
     word-break: break-all;
   }
 
+  // Contacts line — email / phone / address / date, each icon-prefixed.
+  &__guest-contacts {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 3px 12px;
+    min-width: 0;
+  }
+
   &__guest-sub {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
     font-size: 0.74rem;
-    color: var(--mcm-muted, #6b7280);
+    color: var(--mcm-text-soft, #6b7280);
+
+    svg {
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
   }
 
   &__guest-actions {
@@ -96,27 +350,37 @@
     flex-shrink: 0;
   }
 
+  // Save / cancel row under the inline edit form.
+  &__edit-actions {
+    display: flex;
+    gap: 8px;
+  }
+
   &__clean {
-    align-self: flex-start;
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    margin-top: 2px;
+    flex-shrink: 0;
     color: var(--mcm-danger, #d33);
   }
 
+  // The per-project roster's standalone clean button sits below the list.
+  ul + &__clean {
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
   // ---- Centralized guest manager — guests grouped by project -------------
+  &__groups {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
   &__group {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding-top: 8px;
-    border-top: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.08));
-
-    &:first-of-type {
-      border-top: none;
-      padding-top: 0;
-    }
+    gap: 8px;
   }
 
   &__group-head {
@@ -124,12 +388,43 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.08));
   }
 
   &__group-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
     margin: 0;
-    font-size: 0.86rem;
+    font-size: 0.88rem;
     font-weight: 700;
+    color: var(--mcm-text, inherit);
+
+    svg {
+      flex-shrink: 0;
+      color: var(--mcm-text-soft, #6b7280);
+    }
+
+    > span:first-of-type {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  // Guest count badge next to the project name.
+  &__group-count {
+    flex-shrink: 0;
+    min-width: 18px;
+    padding: 1px 7px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.06));
+    color: var(--mcm-text-soft, #6b7280);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
   }
 }
 
@@ -139,18 +434,19 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--mcm-subtle-bg, rgba(0, 0, 0, 0.04));
-  border: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.1));
+  border-radius: var(--mcm-radius-sm, 10px);
+  background: var(--mcm-surface, #fff);
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
 
   strong {
     font-size: 0.84rem;
+    color: var(--mcm-text, inherit);
   }
 
   p {
     margin: 0;
     font-size: 0.76rem;
-    color: var(--mcm-muted, #6b7280);
+    color: var(--mcm-text-soft, #6b7280);
   }
 
   code {
@@ -161,7 +457,8 @@
     font-size: 0.8rem;
     padding: 8px 10px;
     border-radius: 6px;
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.06));
+    color: var(--mcm-text, inherit);
   }
 
   button {

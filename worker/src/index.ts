@@ -1742,7 +1742,8 @@ app.get("/v1/projects/:projectId/guests", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, login, label, real_email, created_by, created_at, status
+    `SELECT id, login, label, real_email, company, phone, address,
+            created_by, created_at, status
        FROM project_guest
       WHERE project_id = ?1 AND status = 'active'
       ORDER BY created_at DESC`,
@@ -1773,11 +1774,25 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
   if (!cr) {
     return c.json({ error: "admin not configured" }, 503);
   }
+  type GuestDetailBody = {
+    label?: string;
+    real_email?: string;
+    company?: string;
+    phone?: string;
+    address?: string;
+  };
   const b = await c.req
-    .json<{ label?: string; real_email?: string }>()
-    .catch(() => ({} as { label?: string; real_email?: string }));
+    .json<GuestDetailBody>()
+    .catch(() => ({} as GuestDetailBody));
   const label = (b.label || "").trim();
   const realEmail = (b.real_email || "").trim().toLowerCase();
+  // Optional CRM-style contact fields — free-text, capped so a runaway client
+  // can't bloat the row. NULL when blank (keeps the column clean for filtering).
+  const cap = (s: string | undefined, n: number) =>
+    (s || "").trim().slice(0, n) || null;
+  const company = cap(b.company, 200);
+  const phone = cap(b.phone, 64);
+  const address = cap(b.address, 400);
   if (realEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(realEmail)) {
     return c.json({ error: "invalid email" }, 400);
   }
@@ -1820,9 +1835,9 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
     `INSERT INTO project_guest
-       (id, project_id, login, label, real_email, supa_id, created_by,
-        created_at, status)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'active')`,
+       (id, project_id, login, label, real_email, company, phone, address,
+        supa_id, created_by, created_at, status)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'active')`,
   )
     .bind(
       id,
@@ -1830,6 +1845,9 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
       login,
       label || null,
       realEmail || null,
+      company,
+      phone,
+      address,
       supaId || null,
       email ?? null,
       now(),
@@ -1838,6 +1856,56 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
   await logAudit(c.env.DB, email, "project_guest.create", projectId, { login });
   // NOTE: never log `password`.
   return c.json({ ok: true, id, login, password, label });
+});
+
+// Edit a guest's CONTACT details (label/email/company/phone/address). This is a
+// pure D1 metadata update — it never touches the Supabase auth identity (the
+// synthetic login is immutable) and so needs no admin creds. Lets the host fill
+// in or correct the contact card after issuing. (admin or a member/owner.)
+app.patch("/v1/projects/:projectId/guests/:id", async (c) => {
+  const projectId = c.req.param("projectId");
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  type GuestPatchBody = {
+    label?: string;
+    real_email?: string;
+    company?: string;
+    phone?: string;
+    address?: string;
+  };
+  const b = await c.req
+    .json<GuestPatchBody>()
+    .catch(() => ({} as GuestPatchBody));
+  const realEmail = (b.real_email || "").trim().toLowerCase();
+  if (realEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(realEmail)) {
+    return c.json({ error: "invalid email" }, 400);
+  }
+  const cap = (s: string | undefined, n: number) =>
+    (s || "").trim().slice(0, n) || null;
+  const res = await c.env.DB.prepare(
+    `UPDATE project_guest
+        SET label = ?1, real_email = ?2, company = ?3, phone = ?4, address = ?5
+      WHERE id = ?6 AND project_id = ?7 AND status = 'active'`,
+  )
+    .bind(
+      cap(b.label, 200),
+      realEmail || null,
+      cap(b.company, 200),
+      cap(b.phone, 64),
+      cap(b.address, 400),
+      id,
+      projectId,
+    )
+    .run();
+  if (!res.meta.changes) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await logAudit(c.env.DB, email, "project_guest.update", projectId, { id });
+  return c.json({ ok: true, id });
 });
 
 // Reset a guest's Supabase password — returns the new password ONCE.
@@ -1968,7 +2036,8 @@ app.get("/v1/me/project-guests", async (c) => {
     role === "admin"
       ? await c.env.DB.prepare(
           `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
-                  pg.label, pg.real_email, pg.status, pg.created_at
+                  pg.label, pg.real_email, pg.company, pg.phone, pg.address,
+                  pg.status, pg.created_at
              FROM project_guest pg
              JOIN project p ON p.id = pg.project_id
             WHERE pg.status = 'active'
@@ -1976,7 +2045,8 @@ app.get("/v1/me/project-guests", async (c) => {
         ).all()
       : await c.env.DB.prepare(
           `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
-                  pg.label, pg.real_email, pg.status, pg.created_at
+                  pg.label, pg.real_email, pg.company, pg.phone, pg.address,
+                  pg.status, pg.created_at
              FROM project_guest pg
              JOIN project p ON p.id = pg.project_id
             WHERE pg.status = 'active'
