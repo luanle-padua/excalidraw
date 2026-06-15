@@ -147,13 +147,16 @@ export const ProjectManagerPanel = ({
   }, [manageProjectId, detail, projects.length, onManage]);
 
   if (detail) {
+    const isAdmin = !!session?.isAdmin;
     return (
       <ProjectDetail
         project={detail}
-        isOwner={
-          detail.host_email?.toLowerCase() === session?.email?.toLowerCase() ||
-          !!session?.isAdmin
-        }
+        // Owner = project leader / creator (or admin) — gates the owner-only
+        // surfaces (edit metadata, delete, promote/demote managers).
+        isOwner={isAdmin || detail.my_role === "owner"}
+        // Manage = admin / owner / delegated manager — gates guests + member
+        // admin. Server-computed (can_manage); a plain participant is false.
+        canManage={isAdmin || !!detail.can_manage}
         onBack={() => onManage(null)}
         onOpenMeetings={() => onOpenMeetings(detail.id)}
         onEdit={() => onEdit(detail)}
@@ -477,6 +480,7 @@ const Section = ({
 const ProjectDetail = ({
   project,
   isOwner,
+  canManage,
   onBack,
   onOpenMeetings,
   onEdit,
@@ -484,7 +488,10 @@ const ProjectDetail = ({
   onAssignCosmetic,
 }: {
   project: Project;
+  /** Owner (leader) / admin — edit metadata, delete, delegate managers. */
   isOwner: boolean;
+  /** Admin / owner / manager — guests + member admin. */
+  canManage: boolean;
   onBack: () => void;
   onOpenMeetings: () => void;
   onEdit: () => void;
@@ -693,29 +700,34 @@ const ProjectDetail = ({
       </Section>
 
       {/* Members — true membership only. An invitee detail never fetches
-          the roster (the worker would 403; no console noise). */}
+          the roster (the worker would 403; no console noise). A plain
+          participant sees the roster READ-ONLY (canManage=false → no Add/
+          remove/promote, no Add-guest shortcut). */}
       {!isInvitee && (
         <Section title={t("proj.members")}>
           <ProjectMemberRoster
             projectId={project.id}
+            canManage={canManage}
             isOwner={isOwner}
             extraAction={
-              <button
-                type="button"
-                className="mcm-btn mcm-roster__add"
-                onClick={scrollToGuests}
-              >
-                <UserPlus size={15} /> {t("projGuest.addGuest")}
-              </button>
+              canManage ? (
+                <button
+                  type="button"
+                  className="mcm-btn mcm-roster__add"
+                  onClick={scrollToGuests}
+                >
+                  <UserPlus size={15} /> {t("projGuest.addGuest")}
+                </button>
+              ) : undefined
             }
           />
         </Section>
       )}
 
-      {/* Project-scoped guests — issue/reset/revoke/clean. Only a project
-          member/owner or admin reaches this (the worker gates the routes;
-          an invitee detail never renders it). */}
-      {!isInvitee && (
+      {/* Project-scoped guests — issue/reset/revoke/clean. MANAGERS only
+          (admin/owner/manager); a plain participant never sees it (matches
+          the worker's canManageProject gate; an invitee never renders it). */}
+      {!isInvitee && canManage && (
         <Section id="proj-guest-section" title={t("projGuest.section")}>
           <ProjectGuestRoster projectId={project.id} />
         </Section>

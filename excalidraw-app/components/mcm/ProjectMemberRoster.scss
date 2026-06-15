@@ -15,6 +15,75 @@
     margin-top: 2px;
   }
 
+  // ---- Owner-only manager delegation list --------------------------------
+  // One row per non-owner member: name · role badge · make/remove manager.
+  &__roles {
+    list-style: none;
+    margin: 2px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__role-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.035));
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.06));
+  }
+
+  &__role-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84rem;
+    color: var(--mcm-text, inherit);
+  }
+
+  &__role-btn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  // Role badge (Leader / Manager / Participant) — quiet pill, tinted by tier.
+  &__badge {
+    flex-shrink: 0;
+    padding: 1px 9px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+
+    &--manager {
+      color: var(--mcm-accent, #5e5ad8);
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #5e5ad8) 14%,
+        transparent
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--mcm-accent, #5e5ad8) 28%,
+        transparent
+      );
+    }
+
+    &--participant {
+      color: var(--mcm-text-soft, #6b7280);
+      background: var(--mcm-surface, rgba(0, 0, 0, 0.04));
+      border-color: var(--mcm-hairline, rgba(0, 0, 0, 0.08));
+    }
+  }
+
   // ---- Project-scoped guests (Khách dự án) -------------------------------
   // The centralized "Quản lý khách" manager (.mcm-roster--manager) reuses
   // every token/class below so the two surfaces read as the same product;

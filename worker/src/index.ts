@@ -370,6 +370,35 @@ const projectAccess = async (
   return touched ? "partial" : null;
 };
 
+// MANAGEMENT gate — distinct from projectAccess (participate). True only for an
+// admin, or a project_member with a MANAGER-tier role ('owner' = project
+// leader/creator, or 'manager' = delegated manager). A plain 'member' is
+// PARTICIPATE-ONLY and never passes — this is the fix for the cross-division
+// joiner who was added as 'member' just to attend yet inherited guest/member
+// management (06-15). (Phase 1: no division-head / leader-column checks yet.)
+const canManageProject = async (
+  db: D1Database,
+  projectId: string,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM project_member
+       WHERE project_id = ?1 AND email = ?2
+         AND role IN ('owner','manager') LIMIT 1`,
+    )
+    .bind(projectId, me)
+    .first());
+};
+
 // Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
 // where any valid JWT could read room_key + scene + chat + library + files for
 // ANY meeting (Daily-token gating alone left the canvas wide open). Internal
@@ -672,7 +701,15 @@ app.get("/v1/projects", async (c) => {
           `SELECT ${cols} FROM project ORDER BY updated_at DESC LIMIT 200`,
         );
     const { results } = await stmt.all();
-    return c.json({ projects: results });
+    // Admin manages every project — the client gates its management UI on
+    // can_manage (see canManageProject; admin short-circuits to true).
+    return c.json({
+      projects: (results as Record<string, unknown>[]).map((p) => ({
+        ...p,
+        my_role: "admin",
+        can_manage: true,
+      })),
+    });
   }
   const email = c.get("email");
   if (!email) {
@@ -683,14 +720,16 @@ app.get("/v1/projects", async (c) => {
     .split(", ")
     .map((col) => `p.${col}`)
     .join(", ");
+  // pm.role rides along so the client can gate management (can_manage) and
+  // render the viewer's own badge without a second round-trip.
   const memberStmt = host
     ? c.env.DB.prepare(
-        `SELECT ${mcols} FROM project p
+        `SELECT ${mcols}, pm.role AS my_role FROM project p
          JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
          WHERE p.host_email = ?2 ORDER BY p.updated_at DESC`,
       ).bind(e, host)
     : c.env.DB.prepare(
-        `SELECT ${mcols} FROM project p
+        `SELECT ${mcols}, pm.role AS my_role FROM project p
          JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?1
          ORDER BY p.updated_at DESC LIMIT 200`,
       ).bind(e);
@@ -700,6 +739,8 @@ app.get("/v1/projects", async (c) => {
   const projects: Record<string, unknown>[] = memberRows.map((p) => ({
     ...p,
     access: "member",
+    // Management = same role check as canManageProject (owner or manager).
+    can_manage: p.my_role === "owner" || p.my_role === "manager",
   }));
   if (isInternalEmail(e) && !host) {
     const memberIds = new Set(projects.map((p) => p.id as string));
@@ -721,16 +762,18 @@ app.get("/v1/projects", async (c) => {
       .all<Record<string, unknown>>();
     for (const p of invitedRows) {
       if (!memberIds.has(p.id as string)) {
-        projects.push({ ...p, access: "invitee" });
+        // Invitee = participate-only on someone else's folder; never manage.
+        projects.push({ ...p, access: "invitee", can_manage: false });
       }
     }
   }
   return c.json({ projects });
 });
 
-// Editing a project's metadata is an OWNER privilege (admin bypasses).
-// Members browse + create meetings; only the owner reshapes the folder.
-// Closes audit finding #4 (any valid JWT could PATCH any project).
+// Editing a project's metadata is a MANAGE privilege — admin, owner (leader),
+// or a delegated manager (canManageProject). Plain members browse + create
+// meetings but never reshape the folder. Closes audit finding #4 (any valid
+// JWT could PATCH any project).
 app.patch("/v1/projects/:id", async (c) => {
   const id = c.req.param("id");
   const b = await c.req.json<{
@@ -762,19 +805,11 @@ app.patch("/v1/projects/:id", async (c) => {
     b.branch !== undefined ||
     b.cover !== undefined ||
     b.description !== undefined;
-  if (touchesContent && c.get("role") !== "admin") {
-    const me = c.get("email")?.toLowerCase();
-    const owner =
-      me &&
-      (await c.env.DB.prepare(
-        `SELECT 1 FROM project_member
-         WHERE project_id = ?1 AND email = ?2 AND role = 'owner' LIMIT 1`,
-      )
-        .bind(id, me)
-        .first());
-    if (!owner) {
-      return c.json({ error: "owner only" }, 403);
-    }
+  if (
+    touchesContent &&
+    !(await canManageProject(c.env.DB, id, c.get("email"), c.get("role")))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
   }
   await c.env.DB.prepare(
     `UPDATE project SET
@@ -895,16 +930,14 @@ app.get("/v1/projects/:id/members", async (c) => {
   return c.json({ members: results });
 });
 
-// Add members (owner/admin; INTERNAL emails only — a client is never a
-// project member, confidentiality by construction).
+// Add members (admin/owner/manager; INTERNAL emails only — a client is never a
+// project member, confidentiality by construction). A delegated manager may
+// help add participants (canManageProject), not just the owner.
 app.post("/v1/projects/:id/members", async (c) => {
   const id = c.req.param("id");
   const email = c.get("email");
-  if (
-    c.get("role") !== "admin" &&
-    !(await isProjectOwner(c.env.DB, id, email))
-  ) {
-    return c.json({ error: "owner only" }, 403);
+  if (!(await canManageProject(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "forbidden" }, 403);
   }
   const b = await c.req.json<{ emails?: string[] }>();
   const t = now();
@@ -927,17 +960,14 @@ app.post("/v1/projects/:id/members", async (c) => {
   return c.json({ ok: true, added });
 });
 
-// Remove a member (owner/admin). The LAST owner is unremovable — a project
-// must never become ownerless.
+// Remove a member (admin/owner/manager). The LAST owner is unremovable — a
+// project must never become ownerless.
 app.delete("/v1/projects/:id/members/:email", async (c) => {
   const id = c.req.param("id");
   const target = decodeURIComponent(c.req.param("email")).toLowerCase();
   const email = c.get("email");
-  if (
-    c.get("role") !== "admin" &&
-    !(await isProjectOwner(c.env.DB, id, email))
-  ) {
-    return c.json({ error: "owner only" }, 403);
+  if (!(await canManageProject(c.env.DB, id, email, c.get("role")))) {
+    return c.json({ error: "forbidden" }, 403);
   }
   const row = await c.env.DB.prepare(
     `SELECT role FROM project_member WHERE project_id = ?1 AND email = ?2`,
@@ -967,6 +997,53 @@ app.delete("/v1/projects/:id/members/:email", async (c) => {
     email: target,
   });
   return c.json({ ok: true });
+});
+
+// Promote/demote a delegated MANAGER. Gated admin-OR-owner (a manager cannot
+// mint other managers — only the project leader/owner delegates). Body
+// {role:'manager'|'member'}; 'owner' is NOT settable here (leader hand-off is
+// a stricter, later flow) and an OWNER row can't be re-roled via this route.
+app.patch("/v1/projects/:id/members/:email/role", async (c) => {
+  const id = c.req.param("id");
+  const target = decodeURIComponent(c.req.param("email")).toLowerCase();
+  const email = c.get("email");
+  if (
+    c.get("role") !== "admin" &&
+    !(await isProjectOwner(c.env.DB, id, email))
+  ) {
+    return c.json({ error: "owner only" }, 403);
+  }
+  const b = await c.req
+    .json<{ role?: string }>()
+    .catch(() => ({} as { role?: string }));
+  const next = b.role;
+  if (next !== "manager" && next !== "member") {
+    return c.json({ error: "invalid role" }, 400);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT role FROM project_member WHERE project_id = ?1 AND email = ?2`,
+  )
+    .bind(id, target)
+    .first<{ role: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  // An owner (leader) is never demoted to manager/member through this route —
+  // that would silently strip leadership. Hand-off is a separate flow.
+  if (row.role === "owner") {
+    return c.json({ error: "cannot change an owner's role" }, 409);
+  }
+  await c.env.DB.prepare(
+    `UPDATE project_member SET role = ?3
+     WHERE project_id = ?1 AND email = ?2`,
+  )
+    .bind(id, target, next)
+    .run();
+  await logAudit(c.env.DB, email, "project.member.role", id, {
+    email: target,
+    role: next,
+  });
+  return c.json({ ok: true, role: next });
 });
 
 // Meetings of a project, scoped by access level: "full" (member/admin) sees
@@ -1689,29 +1766,15 @@ app.post("/v1/guests/send-invite", async (c) => {
 // has FULL power everywhere (lists/issues/resets/revokes for ANY project) and
 // bypasses the per-department isolation.
 
-// Gate for every project-guest route: ADMIN, or a member/owner of the project.
-// Admin always passes regardless of membership (full power).
+// Gate for every project-guest route: ADMIN, or a MANAGER of the project.
+// Delegates to canManageProject — a plain participate-only member must NOT
+// pass (the cross-division-joiner bug fix, 06-15). Admin always passes.
 const canManageProjectGuests = async (
   db: D1Database,
   projectId: string,
   email: string | undefined,
   role: string | undefined,
-): Promise<boolean> => {
-  if (role === "admin") {
-    return true;
-  }
-  const me = email?.toLowerCase();
-  if (!me) {
-    return false;
-  }
-  return !!(await db
-    .prepare(
-      `SELECT 1 FROM project_member
-       WHERE project_id = ?1 AND email = ?2 LIMIT 1`,
-    )
-    .bind(projectId, me)
-    .first());
-};
+): Promise<boolean> => canManageProject(db, projectId, email, role);
 
 // Strong random temp password — base64url of 16 random bytes (~22 chars).
 // Generated server-side, returned ONCE to the host, NEVER logged.
@@ -2033,8 +2096,9 @@ app.post("/v1/projects/:projectId/guests/clean", async (c) => {
 // CENTRALIZED guest manager — every active guest the caller MAY MANAGE, in one
 // place (across all their projects). SCOPED SERVER-SIDE to project membership,
 // mirroring canManageProjectGuests exactly: admin sees ALL project guests (full
-// power); a regular user sees ONLY guests of projects they are a project_member
-// of (owner/member). The caller's project list is derived server-side from
+// power); a regular user sees ONLY guests of projects they MANAGE (a
+// project_member row with role owner/manager — a plain participate-only member
+// sees none). The caller's project list is derived server-side from
 // project_member — never trusted from the client — so a guest of a project the
 // caller can't manage is NEVER returned (between-department confidentiality).
 app.get("/v1/me/project-guests", async (c) => {
@@ -2045,8 +2109,8 @@ app.get("/v1/me/project-guests", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   // Admin → all active guests across every project. Else → only guests whose
-  // project_id is one the caller is a project_member of (the EXISTS subquery is
-  // the exact membership check from canManageProjectGuests, applied per row).
+  // project_id is one the caller MANAGES (the EXISTS subquery mirrors
+  // canManageProject — role owner/manager — applied per row).
   const { results } =
     role === "admin"
       ? await c.env.DB.prepare(
@@ -2068,6 +2132,7 @@ app.get("/v1/me/project-guests", async (c) => {
               AND EXISTS (
                 SELECT 1 FROM project_member pm
                  WHERE pm.project_id = pg.project_id AND pm.email = ?1
+                   AND pm.role IN ('owner','manager')
               )
             ORDER BY p.name COLLATE NOCASE, pg.created_at DESC`,
         )

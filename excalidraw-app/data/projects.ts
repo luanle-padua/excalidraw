@@ -27,6 +27,15 @@ export type Project = {
    *  "invitee" = internal user invited to / attended some meetings only —
    *  the server already filters the meeting list down to those. */
   access?: "member" | "invitee";
+  /** The viewer's OWN role on this project, stamped server-side:
+   *  "admin" | "owner" (leader) | "manager" | "member" (participate-only).
+   *  Invitee rows carry none. Drives the badge + management gating. */
+  my_role?: "admin" | "owner" | "manager" | "member";
+  /** Whether the viewer may MANAGE this project (guests, members, edit
+   *  metadata, danger zone). Computed server-side = canManageProject (admin
+   *  OR owner/manager). The client gates management UI on THIS, not on a
+   *  client-side owner guess — a plain member only participates. */
+  can_manage?: boolean;
   code: string | null;
   client: string | null;
   location: string | null;
@@ -472,6 +481,30 @@ export const removeProjectMember = async (
         projectId,
       )}/members/${encodeURIComponent(email)}`,
       { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+// Promote/demote a delegated manager (owner/admin only — the worker gates it).
+// `role` is 'manager' (delegate management) or 'member' (back to participate-
+// only). The worker refuses to re-role an owner.
+export const setMemberRole = async (
+  projectId: string,
+  email: string,
+  role: "manager" | "member",
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/members/${encodeURIComponent(email)}/role`,
+      { method: "PATCH", headers: json, body: JSON.stringify({ role }) },
     );
     return res.ok;
   } catch {

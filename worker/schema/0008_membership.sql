@@ -8,7 +8,9 @@
 CREATE TABLE IF NOT EXISTS project_member (
   project_id  TEXT NOT NULL,
   email       TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'member', -- 'owner' | 'member'
+  role        TEXT NOT NULL DEFAULT 'member', -- 'owner' | 'manager' | 'member'
+                                              -- (free TEXT, no CHECK — 'manager'
+                                              --  added 2026-06-15, no migration)
   added_by    TEXT,
   added_at    INTEGER NOT NULL,
   PRIMARY KEY (project_id, email)
