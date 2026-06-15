@@ -44,21 +44,6 @@ import "./Wallpaper.scss";
  * ad-hoc "New meeting" button so the app still works offline.)
  */
 
-/** Pull `{ roomId, roomKey }` out of whatever the user pasted: a full
- *  collab URL, a bare `#room=ID,KEY` fragment, or just `ID,KEY`. */
-const parseJoinInput = (
-  raw: string,
-): { roomId: string; roomKey: string } | null => {
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const match = trimmed.match(
-    /(?:#room=)?([a-zA-Z0-9_-]+),([a-zA-Z0-9_-]{20,})/,
-  );
-  return match ? { roomId: match[1], roomKey: match[2] } : null;
-};
-
 export const MeetingLobby = () => {
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -79,9 +64,6 @@ export const MeetingLobby = () => {
   // in-meeting shell but gets its own open state here so the dashboard
   // can edit the profile without entering a meeting.
   const [profileOpen, setProfileOpen] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
-  const [joinValue, setJoinValue] = useState("");
-  const [joinError, setJoinError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resume, setResume] = useState<{
     room: LastMeeting;
@@ -247,25 +229,6 @@ export const MeetingLobby = () => {
     }
   };
 
-  const join = async () => {
-    if (busy) {
-      return;
-    }
-    const data = parseJoinInput(joinValue);
-    if (!data) {
-      setJoinError(true);
-      return;
-    }
-    setJoinError(false);
-    setBusy(true);
-    try {
-      window.history.pushState({}, "", getCollaborationLink(data));
-      await collabAPI.startCollaboration(data);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div
       className="mcm-lobby"
@@ -310,13 +273,6 @@ export const MeetingLobby = () => {
               >
                 {t("lobby.solo")}
               </button>
-              <button
-                type="button"
-                className="mcm-lobby__join-toggle"
-                onClick={() => setJoinOpen((v) => !v)}
-              >
-                {t("lobby.joinByLink")}
-              </button>
             </div>
             <span className="mcm-lobby__top-sep" aria-hidden="true" />
             {/* Cluster 4 — signed-in identity: avatar chip → account menu
@@ -341,40 +297,6 @@ export const MeetingLobby = () => {
               <span>{resume.title || t("folder.meetingFallbackTitle")}</span>
             </span>
           </button>
-        )}
-
-        {joinOpen && (
-          <div className="mcm-lobby__join">
-            <input
-              type="text"
-              className={`mcm-lobby__input${
-                joinError ? " mcm-lobby__input--error" : ""
-              }`}
-              placeholder={t("lobby.joinPlaceholder")}
-              value={joinValue}
-              autoFocus
-              onChange={(e) => {
-                setJoinValue(e.target.value);
-                setJoinError(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  void join();
-                }
-              }}
-            />
-            <button
-              type="button"
-              className="mcm-lobby__join-btn"
-              onClick={join}
-              disabled={busy || !joinValue.trim()}
-            >
-              {t("lobby.join")}
-            </button>
-          </div>
-        )}
-        {joinError && (
-          <p className="mcm-lobby__error">{t("lobby.joinError")}</p>
         )}
 
         {IS_PROJECTS_CONFIGURED ? (

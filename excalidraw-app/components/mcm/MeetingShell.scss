@@ -9212,6 +9212,10 @@ body:has(.excalidraw.theme--dark) {
   &__middle-head {
     flex-shrink: 0;
     display: flex;
+    // Wrap when the middle column is squeezed (sidebar + 360px calendar floor)
+    // so the toolbar drops below the title instead of bleeding over the
+    // calendar column.
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
@@ -9971,10 +9975,15 @@ body:has(.excalidraw.theme--dark) {
 
 // ----- Middle-header toolbar (view toggle + sort) ------------------------
 .mcm-toolbar {
-  display: inline-flex;
+  display: flex;
+  // Shrink + wrap so segmented/sort/chips fold onto more lines inside a narrow
+  // middle column instead of overflowing into the calendar (the chips already
+  // wrap; the toolbar itself must be allowed to shrink for that to engage).
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 // Segmented control — grid ⇄ list. Two icon buttons in a hairline shell.
