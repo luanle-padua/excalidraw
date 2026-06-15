@@ -7860,6 +7860,33 @@ body:has(.excalidraw.theme--dark) {
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  // Section divider ("Trong phòng" / "Đã mời · chưa vào").
+  &__section {
+    @include t-micro;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+    padding: 10px 12px 4px;
+  }
+  &__list--invited {
+    flex: 0 0 auto;
+    padding-top: 0;
+  }
+  // Invited-but-absent rows read quieter than the live ones.
+  &__row--invited {
+    opacity: 0.72;
+    .mcm-pp__avatar {
+      filter: grayscale(0.3);
+    }
+  }
+  &__invited-status {
+    @include t-micro;
+    flex-shrink: 0;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--mcm-surface-2, rgba(0, 0, 0, 0.05));
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
+  }
   &__mic {
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.45));
     display: inline-flex;

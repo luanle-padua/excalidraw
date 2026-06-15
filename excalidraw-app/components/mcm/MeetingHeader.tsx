@@ -538,10 +538,11 @@ export const MeetingHeader = ({
         >
           <Settings size={18} />
         </button>
-        {/* No inviting into a finished meeting — the worker 409s it anyway;
-            don't offer a doomed panel in review. A GUEST never invites:
-            inviting is a host/organizer affordance (worker 403s the guest). */}
-        {!viewOnly && !isGuest && (
+        {/* Inviting is MEETING-MANAGEMENT (anh Luân 06-15: "mời đúng chuẩn
+            role") — only the organizer / host / co-host / project authority
+            (canEditMeeting), never a plain participant or guest, and not into a
+            finished meeting (canEditMeeting already excludes those). */}
+        {canEditMeeting && !viewOnly && (
           <button
             type="button"
             className="mcm-header__btn mcm-header__btn--primary"

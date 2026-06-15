@@ -552,6 +552,50 @@ const isMeetingProjectAuthority = async (
     .first());
 };
 
+// May the caller MANAGE a meeting's people (invite, set co-host, edit)? This is
+// the "meeting authority" set (anh Luân 06-15: "mời phải đúng chuẩn role"):
+// admin · organizer · designated host · a co-host · or project authority
+// (leader / head / deputy). A plain invited participant who can merely SEE the
+// meeting must NOT invite others. Legacy rows with no organizer_email fall back
+// to internal-allow (so pre-organizer meetings aren't unmanageable).
+const isMeetingManager = async (
+  db: D1Database,
+  roomId: string,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT organizer_email FROM meeting WHERE id = ?1) AS organizer,
+         (SELECT 1 FROM meeting
+            WHERE id = ?1 AND lower(host_email) = ?2) AS host,
+         (SELECT 1 FROM meeting_invitee
+            WHERE meeting_id = ?1 AND email = ?2
+              AND role = 'cohost' AND status <> 'revoked') AS cohost`,
+    )
+    .bind(roomId, me)
+    .first<{
+      organizer: string | null;
+      host: number | null;
+      cohost: number | null;
+    }>();
+  const isOrganizer = row?.organizer
+    ? row.organizer.toLowerCase() === me
+    : isInternalEmail(me); // legacy fallback (no organizer recorded)
+  if (isOrganizer || row?.host || row?.cohost) {
+    return true;
+  }
+  return isMeetingProjectAuthority(db, roomId, me);
+};
+
 // Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
 // where any valid JWT could read room_key + scene + chat + library + files for
 // ANY meeting (Daily-token gating alone left the canvas wide open). Internal
@@ -1841,14 +1885,12 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
   const roomId = c.req.param("roomId");
   const email = c.get("email");
   const role = c.get("role");
-  if (!(role === "admin" || isInternalEmail(email))) {
-    return c.json({ error: "forbidden" }, 403);
-  }
-  // The inviter must be able to SEE the meeting themselves — without this,
-  // any internal user could invite themselves into any meeting and the
-  // invited-only rule above would be decorative.
-  if (!(await canSeeMeeting(c.env.DB, email, role, roomId))) {
-    return c.json({ error: "forbidden" }, 403);
+  // Inviting people (and assigning co-host) is a MEETING-MANAGEMENT act — only
+  // the organizer / host / a co-host / project authority / admin (anh Luân
+  // 06-15: "mời phải đúng chuẩn role"). A plain participant who can merely SEE
+  // the meeting must not invite others.
+  if (!(await isMeetingManager(c.env.DB, roomId, email, role))) {
+    return c.json({ error: "meeting manager only" }, 403);
   }
   const b = await c.req.json<{
     invitees?: { email: string; role?: string }[];
@@ -1937,16 +1979,16 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
 });
 
 // Revoke an invite (soft — keep the row for audit, treated as no-access).
-// ORGANIZER-only (taking someone's access away is an edit of the meeting,
-// same rule as content edits); legacy rows without an organizer fall back to
-// internal-allow. Finished meetings are immutable.
+// MEETING-MANAGER only (organizer / host / co-host / project authority / admin)
+// — same rule as inviting; taking access away is managing the meeting's people.
+// Finished meetings are immutable.
 app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
   const roomId = c.req.param("roomId");
   const target = decodeURIComponent(c.req.param("email")).toLowerCase();
   const email = c.get("email");
   const role = c.get("role");
-  if (!(role === "admin" || isInternalEmail(email))) {
-    return c.json({ error: "forbidden" }, 403);
+  if (!(await isMeetingManager(c.env.DB, roomId, email, role))) {
+    return c.json({ error: "meeting manager only" }, 403);
   }
   const meeting = await c.env.DB.prepare(
     `SELECT status, organizer_email FROM meeting WHERE id = ?1`,
@@ -1959,12 +2001,6 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
   if (role !== "admin") {
     if (normalizeStatus(meeting.status) === "finished") {
       return c.json({ error: "meeting is finished (immutable)" }, 409);
-    }
-    const isOrganizer = meeting.organizer_email
-      ? meeting.organizer_email.toLowerCase() === email?.toLowerCase()
-      : isInternalEmail(email);
-    if (!isOrganizer) {
-      return c.json({ error: "organizer only" }, 403);
     }
   }
   await c.env.DB.prepare(

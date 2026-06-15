@@ -513,6 +513,7 @@ export const ko: Widened<typeof vi> = {
     noMembers: "아직 구성원이 없습니다",
     owner: "프로젝트 소유자",
     roleOwner: "리더",
+    roleDivisionAdmin: "부서장",
     roleManager: "공동 관리자",
     roleParticipant: "참여자",
     makeManager: "공동 관리자 지정",
@@ -677,6 +678,11 @@ export const ko: Widened<typeof vi> = {
     followingAria: "이 사람의 뷰를 따라가는 중",
     followingBanner: "{name} 님의 뷰를 따라가는 중",
     stopFollow: "중지",
+    inRoom: "회의실 내",
+    invited: "초대됨 · 미입장",
+    guestTag: "게스트",
+    statusInvited: "초대됨",
+    statusAccepted: "수락함",
   },
 
   profile: {

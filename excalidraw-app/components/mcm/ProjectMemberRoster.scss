@@ -82,6 +82,21 @@
       background: var(--mcm-surface, rgba(0, 0, 0, 0.04));
       border-color: var(--mcm-hairline, rgba(0, 0, 0, 0.08));
     }
+
+    // Division admin (head/deputy) — supreme, amber/gold so it reads above the
+    // project roles.
+    &--admin {
+      color: #b45309;
+      background: color-mix(in srgb, #f59e0b 16%, transparent);
+      border-color: color-mix(in srgb, #f59e0b 36%, transparent);
+    }
+
+    // Project leader — solid accent (stronger than a co-operator's tint).
+    &--leader {
+      color: #fff;
+      background: var(--mcm-accent, #5e5ad8);
+      border-color: var(--mcm-accent, #5e5ad8);
+    }
   }
 
   // ---- Project-scoped guests (Khách dự án) -------------------------------

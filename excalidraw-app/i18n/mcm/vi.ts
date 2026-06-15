@@ -534,6 +534,7 @@ export const vi = {
     removeMemberConfirm: "Gỡ {email} khỏi dự án?",
     noMembers: "Chưa có thành viên",
     owner: "Chủ dự án",
+    roleDivisionAdmin: "Trưởng phòng ban",
     roleOwner: "Trưởng dự án",
     roleManager: "Đồng quản lý",
     roleParticipant: "Thành viên",
@@ -701,6 +702,11 @@ export const vi = {
     followingAria: "Đang follow view của người này",
     followingBanner: "Đang follow {name} — view khoá theo họ",
     stopFollow: "Thoát",
+    inRoom: "Trong phòng",
+    invited: "Đã mời · chưa vào",
+    guestTag: "Khách",
+    statusInvited: "Đã mời",
+    statusAccepted: "Đã nhận",
   },
 
   profile: {

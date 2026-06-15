@@ -28,6 +28,12 @@ import {
   raisedHandsAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
+import {
+  getDirectory,
+  listInvitees,
+  type DirectoryUser,
+  type MeetingInvitee,
+} from "../../data/invite";
 import { sessionAtom } from "../../data/session";
 import {
   hostSocketIdAtom,
@@ -129,6 +135,9 @@ type Tile = {
   id: string;
   name: string;
   avatar: string;
+  /** Login email (lower-cased) when known — lets us match a present tile to an
+   *  invitee row so the "invited but not here yet" list excludes who's online. */
+  email?: string | null;
   isMe?: boolean;
   speaking: boolean;
   micOn: boolean;
@@ -403,18 +412,29 @@ const mockTile = (p: MockParticipant): Tile => ({
 
 const REACTION_TTL_MS = 3200;
 
-// Zoom-style participant management panel — a right-side drawer listing every
-// participant with clear, reliable host actions (mute / remove). This is the
-// precise surface for moderation; the avatar-bar hover buttons are just a
-// shortcut.
+/** A person who was invited but isn't currently in the room. */
+type InvitedRow = {
+  email: string;
+  name: string;
+  kind: "internal" | "guest";
+  /** They accepted the invite (vs merely invited) — a softer "expected" hint. */
+  accepted: boolean;
+};
+
+// Zoom-style participant management panel — a right-side drawer that lists, in
+// two clear sections, who's IN THE ROOM (online, with host actions) and who was
+// INVITED but hasn't joined yet. Moderation lives here; the avatar-bar hover
+// buttons are just a shortcut.
 const ParticipantsPanel = ({
   tiles,
+  invited,
   iAmHost,
   onClose,
   onMute,
   onKick,
 }: {
   tiles: Tile[];
+  invited: InvitedRow[];
   iAmHost: boolean;
   onClose: () => void;
   onMute: (tile: Tile) => void;
@@ -443,6 +463,9 @@ const ParticipantsPanel = ({
             <X size={18} />
           </button>
         </header>
+        {invited.length > 0 && (
+          <div className="mcm-pp__section">{t("participants.inRoom")}</div>
+        )}
         <ul className="mcm-pp__list">
           {tiles.map((p) => {
             const emoji = pickEmojiFor(p.id, p.name);
@@ -514,6 +537,45 @@ const ParticipantsPanel = ({
             );
           })}
         </ul>
+
+        {invited.length > 0 && (
+          <>
+            <div className="mcm-pp__section">
+              {t("participants.invited")} ({invited.length})
+            </div>
+            <ul className="mcm-pp__list mcm-pp__list--invited">
+              {invited.map((iv) => (
+                <li key={iv.email} className="mcm-pp__row mcm-pp__row--invited">
+                  <span
+                    className="mcm-pp__avatar"
+                    // eslint-disable-next-line react/forbid-dom-props
+                    style={{ background: gradientFor(iv.email) }}
+                  >
+                    <span aria-hidden="true">
+                      {pickEmojiFor(iv.email, iv.name)}
+                    </span>
+                  </span>
+                  <div className="mcm-pp__meta">
+                    <span className="mcm-pp__name">
+                      {iv.name}
+                      {iv.kind === "guest" && (
+                        <span className="mcm-pp__tag">
+                          {t("participants.guestTag")}
+                        </span>
+                      )}
+                    </span>
+                    <span className="mcm-pp__company">{iv.email}</span>
+                  </div>
+                  <span className="mcm-pp__invited-status">
+                    {iv.accepted
+                      ? t("participants.statusAccepted")
+                      : t("participants.statusInvited")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </aside>
     </div>,
     document.body,
@@ -573,6 +635,27 @@ export const ParticipantsBar = ({
   const [userToFollow, setUserToFollow] = useState<UserToFollow | null>(null);
   const panelOpen = useAtomValue(participantsPanelOpenAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
+
+  // The meeting's INVITEE roster (who was asked) — so the panel can show
+  // "invited but not here yet" next to who's online (anh Luân 06-15: "show
+  // người được mời, và người online một cách khoa học"). Internal-only (the
+  // worker 403s guests); refreshed when the panel opens. roomId is parsed from
+  // the live share link.
+  const roomId = activeRoomLink?.split("#room=")[1]?.split(",")[0] ?? null;
+  const [invitees, setInvitees] = useState<MeetingInvitee[]>([]);
+  const [directory, setDirectory] = useState<DirectoryUser[]>([]);
+  useEffect(() => {
+    if (!roomId || session?.isGuest) {
+      setInvitees([]);
+      return;
+    }
+    let alive = true;
+    void listInvitees(roomId).then((iv) => alive && setInvitees(iv));
+    void getDirectory().then((u) => alive && setDirectory(u));
+    return () => {
+      alive = false;
+    };
+  }, [roomId, session?.isGuest, panelOpen]);
 
   useEffect(() => {
     if (!excalidrawAPI) {
@@ -713,6 +796,7 @@ export const ParticipantsBar = ({
     id: selfSocketId,
     name: selfName,
     avatar: gradientFor(selfSocketId),
+    email: myProfile?.email ?? null,
     isMe: true,
     speaking: false, // local speaking not analysed in Phase 1
     micOn: selfInCall && !audioState.muted,
@@ -757,6 +841,7 @@ export const ParticipantsBar = ({
       id: socketId,
       name,
       avatar,
+      email: peerProfile?.email ?? null,
       speaking: peer?.speaking ?? false,
       micOn,
       inCall,
@@ -775,6 +860,28 @@ export const ParticipantsBar = ({
   }
 
   const inCallCount = tiles.filter((t) => t.inCall).length;
+
+  // Invited people NOT currently in the room (matched by email to online tiles)
+  // — the panel lists them under a separate "đã mời · chưa vào" section so it's
+  // clear who's expected vs who's actually here. Revoked/declined drop out.
+  const onlineEmails = new Set(
+    tiles.map((p) => p.email?.toLowerCase()).filter(Boolean) as string[],
+  );
+  const invitedOffline: InvitedRow[] = invitees
+    .filter(
+      (iv) =>
+        (iv.status === "invited" || iv.status === "accepted") &&
+        !!iv.email &&
+        !onlineEmails.has(iv.email.toLowerCase()),
+    )
+    .map((iv) => ({
+      email: iv.email,
+      name:
+        directory.find((d) => d.email.toLowerCase() === iv.email.toLowerCase())
+          ?.name ?? iv.email.split("@")[0],
+      kind: iv.kind,
+      accepted: iv.status === "accepted",
+    }));
 
   // NB: we deliberately do NOT render a custom "Đang follow X" banner
   // here — Excalidraw's UI layer already paints its own follow
@@ -836,6 +943,7 @@ export const ParticipantsBar = ({
       {panelOpen && (
         <ParticipantsPanel
           tiles={tiles}
+          invited={invitedOffline}
           iAmHost={iAmHost}
           onClose={() => setPanelOpen(false)}
           onMute={doMute}

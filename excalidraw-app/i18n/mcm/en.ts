@@ -507,6 +507,7 @@ export const en: Widened<typeof vi> = {
     noMembers: "No members yet",
     owner: "Project owner",
     roleOwner: "Leader",
+    roleDivisionAdmin: "Division admin",
     roleManager: "Co-operator",
     roleParticipant: "Participant",
     makeManager: "Make co-operator",
@@ -671,6 +672,11 @@ export const en: Widened<typeof vi> = {
     followingAria: "Following this person's view",
     followingBanner: "Following {name} — your view tracks theirs",
     stopFollow: "Stop",
+    inRoom: "In the room",
+    invited: "Invited · not joined",
+    guestTag: "Guest",
+    statusInvited: "Invited",
+    statusAccepted: "Accepted",
   },
 
   profile: {

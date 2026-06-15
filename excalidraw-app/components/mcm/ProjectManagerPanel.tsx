@@ -552,6 +552,14 @@ const ProjectDetail = ({
   }, []);
   const currentDivision =
     divisions.find((d) => d.id === project.lead_division_id) ?? null;
+  // Head + deputy of the project's division outrank every project role — badge
+  // them "Division admin" in the roster (anh Luân 06-15).
+  const divisionAdmins = [
+    currentDivision?.head_email,
+    currentDivision?.deputy_email,
+  ]
+    .filter((e): e is string => !!e)
+    .map((e) => e.toLowerCase());
 
   const toggleCosmeticMenu = (
     kind: "color" | "icon",
@@ -770,6 +778,7 @@ const ProjectDetail = ({
             canManage={canManage}
             canLead={isLeadership}
             canAssignLeader={canAssignLeader}
+            divisionAdmins={divisionAdmins}
             extraAction={
               canManage ? (
                 <button

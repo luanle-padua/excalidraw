@@ -41,6 +41,7 @@ export const ProjectMemberRoster = ({
   canManage,
   canLead,
   canAssignLeader = false,
+  divisionAdmins = [],
   extraAction,
 }: {
   projectId: string;
@@ -51,6 +52,10 @@ export const ProjectMemberRoster = ({
   canLead: boolean;
   /** Admin / leading-division head — may assign/replace the project leader. */
   canAssignLeader?: boolean;
+  /** Lower-cased emails of the project's division HEAD + DEPUTY — they outrank
+   *  every project role (supreme), so they're badged "Division admin" and never
+   *  offered assign-leader / make-co-operator (anh Luân 06-15). */
+  divisionAdmins?: string[];
   /** Optional button rendered next to "Add member" (e.g. "Add guest"). */
   extraAction?: ReactNode;
 }) => {
@@ -84,13 +89,31 @@ export const ProjectMemberRoster = ({
     members.filter((m) => m.role === "owner").map((m) => m.email),
   );
 
+  // A division HEAD/DEPUTY outranks every project role — they're the supreme
+  // "Division admin" on any project of their department, regardless of their
+  // project_member.role (anh Luân 06-15: "ghi a ấy là division admin").
+  const isDivAdmin = (email: string): boolean =>
+    divisionAdmins.includes(email.toLowerCase());
+
   // Human label for a member's role badge/tooltip.
-  const roleLabel = (role: string): string =>
-    role === "owner"
+  const roleLabel = (email: string, role: string): string =>
+    isDivAdmin(email)
+      ? t("proj.roleDivisionAdmin")
+      : role === "owner"
       ? t("proj.roleOwner")
       : role === "manager"
       ? t("proj.roleManager")
       : t("proj.roleParticipant");
+
+  // Badge tint variant for a member.
+  const roleVariant = (email: string, role: string): string =>
+    isDivAdmin(email)
+      ? "admin"
+      : role === "owner"
+      ? "leader"
+      : role === "manager"
+      ? "manager"
+      : "participant";
 
   const remove = (email: string) => {
     // The owner chip keeps its X (PeopleGrid passes one handler to every
@@ -159,10 +182,6 @@ export const ProjectMemberRoster = ({
     reload();
   };
 
-  // Only non-owner members can be promoted/demoted; surfaced to the owner as a
-  // compact action list under the grid (the grid itself stays identity-only).
-  const manageable = members.filter((m) => m.role !== "owner");
-
   return (
     <div className="mcm-roster">
       <PeopleGrid
@@ -175,9 +194,9 @@ export const ProjectMemberRoster = ({
             group: u?.division ?? null,
             kind: "internal" as const,
             avatar: u?.avatar ?? null,
-            // Badge/tooltip reflects the management tier (Leader/Manager/
-            // Participant), not just ownership.
-            tooltip: roleLabel(m.role),
+            // Badge/tooltip reflects the tier (Division admin / Leader /
+            // Co-operator / Participant).
+            tooltip: roleLabel(m.email, m.role),
           };
         })}
         onRemove={canManage ? remove : undefined}
@@ -185,26 +204,34 @@ export const ProjectMemberRoster = ({
         emptyLabel={t("proj.noMembers")}
       />
 
-      {/* Leadership delegation list: per-row badge + make/remove manager, plus
-          a head-only "Make leader". */}
-      {canDelegate && manageable.length > 0 && (
+      {/* Role list: EVERY member with their tier badge, so the leader shows
+          "Trưởng dự án", a head/deputy shows "Division admin", etc. Action
+          buttons appear only where they make sense — never on the leader (the
+          worker refuses to re-role an owner) nor on a division admin (supreme,
+          doesn't need assigning). */}
+      {canDelegate && members.length > 0 && (
         <ul className="mcm-roster__roles">
-          {manageable.map((m) => {
+          {members.map((m) => {
             const u = directory.find((x) => x.email === m.email);
+            const divAdmin = isDivAdmin(m.email);
+            const isOwner = m.role === "owner";
             const isManager = m.role === "manager";
+            // The leader (owner) and a division admin are fixed — badge only.
+            const actionable = !isOwner && !divAdmin;
             return (
               <li key={m.email} className="mcm-roster__role-row">
                 <span className="mcm-roster__role-name">
                   {u?.name ?? m.email.split("@")[0]}
                 </span>
                 <span
-                  className={`mcm-roster__badge mcm-roster__badge--${
-                    isManager ? "manager" : "participant"
-                  }`}
+                  className={`mcm-roster__badge mcm-roster__badge--${roleVariant(
+                    m.email,
+                    m.role,
+                  )}`}
                 >
-                  {roleLabel(m.role)}
+                  {roleLabel(m.email, m.role)}
                 </span>
-                {canAssignLeader && (
+                {actionable && canAssignLeader && (
                   <button
                     type="button"
                     className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
@@ -213,23 +240,25 @@ export const ProjectMemberRoster = ({
                     <Crown size={13} /> {t("proj.makeLeader")}
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
-                  onClick={() =>
-                    void changeRole(m.email, isManager ? "member" : "manager")
-                  }
-                >
-                  {isManager ? (
-                    <>
-                      <ShieldOff size={13} /> {t("proj.removeManager")}
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={13} /> {t("proj.makeManager")}
-                    </>
-                  )}
-                </button>
+                {actionable && (
+                  <button
+                    type="button"
+                    className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
+                    onClick={() =>
+                      void changeRole(m.email, isManager ? "member" : "manager")
+                    }
+                  >
+                    {isManager ? (
+                      <>
+                        <ShieldOff size={13} /> {t("proj.removeManager")}
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={13} /> {t("proj.makeManager")}
+                      </>
+                    )}
+                  </button>
+                )}
               </li>
             );
           })}
