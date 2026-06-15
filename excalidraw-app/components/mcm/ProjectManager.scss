@@ -499,6 +499,13 @@
   scrollbar-color: var(--mcm-hairline) transparent;
   animation: mcm-pmgr-in var(--mcm-dur-base) var(--mcm-ease);
 
+  // Scrolling flex column: each block keeps its natural height (the column
+  // scrolls) instead of being squeezed — fixes the cover/hero being shrunk to
+  // a sliver when the page (27-member roster + guests + danger) is tall.
+  > * {
+    flex-shrink: 0;
+  }
+
   &__back {
     align-self: flex-start;
     display: inline-flex;

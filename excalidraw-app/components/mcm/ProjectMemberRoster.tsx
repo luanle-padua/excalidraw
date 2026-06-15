@@ -1,5 +1,5 @@
 import { UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { getDirectory, type DirectoryUser } from "../../data/invite";
 import {
@@ -24,9 +24,12 @@ import "./ProjectMemberRoster.scss";
 export const ProjectMemberRoster = ({
   projectId,
   isOwner,
+  extraAction,
 }: {
   projectId: string;
   isOwner: boolean;
+  /** Optional button rendered next to "Add member" (e.g. "Add guest"). */
+  extraAction?: ReactNode;
 }) => {
   const t = useT();
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -102,14 +105,19 @@ export const ProjectMemberRoster = ({
         emptyLabel={t("proj.noMembers")}
       />
 
-      {isOwner && (
-        <button
-          type="button"
-          className="mcm-btn mcm-roster__add"
-          onClick={() => setPicking(true)}
-        >
-          <UserPlus size={15} /> {t("proj.addMember")}
-        </button>
+      {(isOwner || extraAction) && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {isOwner && (
+            <button
+              type="button"
+              className="mcm-btn mcm-roster__add"
+              onClick={() => setPicking(true)}
+            >
+              <UserPlus size={15} /> {t("proj.addMember")}
+            </button>
+          )}
+          {extraAction}
+        </div>
       )}
 
       {picking && (

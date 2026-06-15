@@ -25,6 +25,7 @@ import {
   Search,
   SmilePlus,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -456,13 +457,15 @@ export const ProjectManagerPanel = ({
 const Section = ({
   title,
   defaultOpen = true,
+  id,
   children,
 }: {
   title: string;
   defaultOpen?: boolean;
+  id?: string;
   children: ReactNode;
 }) => (
-  <details className="mcm-pdetail__section" open={defaultOpen}>
+  <details id={id} className="mcm-pdetail__section" open={defaultOpen}>
     <summary className="mcm-pdetail__section-title">
       <ChevronRight size={14} className="mcm-pdetail__section-chevron" />
       {title}
@@ -550,6 +553,18 @@ const ProjectDetail = ({
       showAppToast(t("proj.deleteFailed"));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // "Add guest" (sits next to Add member) jumps to the Project-guests section's
+  // issue form — opens it (if collapsed) and scrolls it into view.
+  const scrollToGuests = () => {
+    const el = document.getElementById(
+      "proj-guest-section",
+    ) as HTMLDetailsElement | null;
+    if (el) {
+      el.open = true;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -681,7 +696,19 @@ const ProjectDetail = ({
           the roster (the worker would 403; no console noise). */}
       {!isInvitee && (
         <Section title={t("proj.members")}>
-          <ProjectMemberRoster projectId={project.id} isOwner={isOwner} />
+          <ProjectMemberRoster
+            projectId={project.id}
+            isOwner={isOwner}
+            extraAction={
+              <button
+                type="button"
+                className="mcm-btn mcm-roster__add"
+                onClick={scrollToGuests}
+              >
+                <UserPlus size={15} /> {t("projGuest.issue")}
+              </button>
+            }
+          />
         </Section>
       )}
 
@@ -689,7 +716,7 @@ const ProjectDetail = ({
           member/owner or admin reaches this (the worker gates the routes;
           an invitee detail never renders it). */}
       {!isInvitee && (
-        <Section title={t("projGuest.section")}>
+        <Section id="proj-guest-section" title={t("projGuest.section")}>
           <ProjectGuestRoster projectId={project.id} />
         </Section>
       )}
