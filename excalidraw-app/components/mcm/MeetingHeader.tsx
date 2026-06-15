@@ -278,8 +278,14 @@ export const MeetingHeader = ({
     };
   }, [roomId, session?.email]);
 
+  // External project-scoped guest: host/organizer controls are hidden (the
+  // Worker also 403s them — this is the UX half). A guest keeps leave,
+  // transcript, present and their profile.
+  const isGuest = !!session?.isGuest;
+
   const myEmail = session?.email?.toLowerCase();
   const canEndMeeting =
+    !isGuest &&
     !!myEmail &&
     (meetingInfo?.hostEmail?.toLowerCase() === myEmail ||
       meetingInfo?.organizerEmail?.toLowerCase() === myEmail ||
@@ -492,9 +498,10 @@ export const MeetingHeader = ({
           )}
         </button>
         {/* A finished meeting is a CLOSED record — review offers no "share
-            this room" affordance (quyết định anh Luân 06-11). The server
-            already refuses guests; this removes the invitation to leak. */}
-        {!viewOnly && (
+            this room" affordance (quyết định anh Luân 06-11). A GUEST also
+            gets no "share this room": spreading a confidential room link is a
+            host affordance, not a client one. */}
+        {!viewOnly && !isGuest && (
           <button
             type="button"
             className="mcm-header__btn mcm-header__btn--ghost"
@@ -529,8 +536,9 @@ export const MeetingHeader = ({
           <Settings size={18} />
         </button>
         {/* No inviting into a finished meeting — the worker 409s it anyway;
-            don't offer a doomed panel in review. */}
-        {!viewOnly && (
+            don't offer a doomed panel in review. A GUEST never invites:
+            inviting is a host/organizer affordance (worker 403s the guest). */}
+        {!viewOnly && !isGuest && (
           <button
             type="button"
             className="mcm-header__btn mcm-header__btn--primary"

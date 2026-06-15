@@ -219,6 +219,17 @@ export const vi = {
     solo: "Dùng bảng vẽ một mình",
   },
 
+  // ---------------- Client portal (external guest lobby) -----------
+  portal: {
+    title: "Cuộc họp của bạn với MAP",
+    hello: "Chào {name}",
+    activeTitle: "Đang diễn ra / Sắp tới",
+    pastTitle: "Đã xong",
+    join: "Tham gia",
+    review: "Xem lại",
+    empty: "Chưa có cuộc họp nào — MAP sẽ thêm bạn vào đây.",
+  },
+
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "Xem lại (chỉ đọc) · cuộc họp đã xong — chỉ trích xuất",

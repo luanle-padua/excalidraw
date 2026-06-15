@@ -204,6 +204,17 @@ export const ko: Widened<typeof vi> = {
     solo: "혼자 캔버스 사용",
   },
 
+  // ---------------- Client portal (external guest lobby) -----------
+  portal: {
+    title: "MAP과의 회의",
+    hello: "{name}님, 안녕하세요",
+    activeTitle: "진행 중 / 예정",
+    pastTitle: "종료됨",
+    join: "참여",
+    review: "다시 보기",
+    empty: "아직 회의가 없습니다 — MAP이 여기에 추가해 드립니다.",
+  },
+
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "다시 보기 (읽기 전용) · 종료된 회의 — 추출만 가능",

@@ -28,6 +28,7 @@ import {
   raisedHandsAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
+import { sessionAtom } from "../../data/session";
 import {
   hostSocketIdAtom,
   peerAudioAtom,
@@ -550,6 +551,10 @@ export const ParticipantsBar = ({
   // payload. The link-sharer's sentinel `joinedAt = 1` ensures they
   // always win the election.
   const hostSocketId = useAtomValue(hostSocketIdAtom);
+  // A project-scoped guest is never a moderator — even if socket host-election
+  // momentarily lands on them, kick/mute stay hidden (the worker also refuses
+  // the host command server-side).
+  const session = useAtomValue(sessionAtom);
 
   // We live outside Excalidraw's internal provider tree, so we can't
   // call useUIAppState() — instead we subscribe to the imperative
@@ -775,7 +780,9 @@ export const ParticipantsBar = ({
   // badge + Esc handler give us our extra affordances; Excalidraw owns
   // the textual confirmation strip.
   // Host moderation: only the host can mute/kick, and only OTHER participants.
-  const iAmHost = !!hostSocketId && hostSocketId === selfSocketId;
+  // Guests are excluded from the host role entirely.
+  const iAmHost =
+    !!hostSocketId && hostSocketId === selfSocketId && !session?.isGuest;
   const doKick = (tile: Tile) =>
     collabAPI?.portal.broadcastHostCommand({
       action: "KICK",

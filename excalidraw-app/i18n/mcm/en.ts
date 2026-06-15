@@ -197,6 +197,17 @@ export const en: Widened<typeof vi> = {
     solo: "Use the canvas solo",
   },
 
+  // ---------------- Client portal (external guest lobby) -----------
+  portal: {
+    title: "Your meetings with MAP",
+    hello: "Hi {name}",
+    activeTitle: "Happening now / Upcoming",
+    pastTitle: "Finished",
+    join: "Join",
+    review: "Review",
+    empty: "No meetings yet — MAP will add you here.",
+  },
+
   // ---------------- Review (finished meeting) ----------------------
   review: {
     banner: "Reviewing (read-only) · meeting finished — extract only",

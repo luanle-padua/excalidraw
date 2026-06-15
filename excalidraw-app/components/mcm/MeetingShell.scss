@@ -6258,6 +6258,151 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   justify-content: center;
 }
 
+// ---------------- Client portal (external guest lobby) --------------
+// Minimal single-column "guest desk": brand header + the guest's invited
+// meetings, split active / past. Reuses the Glass-Desk paper-on-desk feel —
+// solid surface rows, no glass blur on the list (blur budget lives on the
+// lobby header above). Inherits all --mcm-* tokens from `.mcm-lobby`.
+.mcm-portal {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  padding: 32px 24px 48px;
+}
+
+.mcm-portal__inner {
+  width: 100%;
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mcm-portal__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mcm-portal__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--mcm-text);
+  letter-spacing: -0.01em;
+}
+
+.mcm-portal__hello {
+  margin: 0;
+  font-size: 14px;
+  color: var(--mcm-text-soft);
+}
+
+.mcm-portal__sections {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.mcm-portal__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcm-portal__section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mcm-text-soft);
+}
+
+.mcm-portal__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcm-portal__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--mcm-surface);
+  box-shadow: var(--mcm-shadow-1);
+}
+
+.mcm-portal__row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mcm-portal__row-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--mcm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcm-portal__row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--mcm-text-soft);
+}
+
+.mcm-portal__row-when {
+  font-variant-numeric: tabular-nums;
+}
+
+.mcm-portal__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--mcm-text-soft);
+
+  p {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+.mcm-portal__hint {
+  padding: 40px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--mcm-text-soft);
+}
+
+.mcm-portal__retry {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: var(--mcm-accent);
+  text-decoration: underline;
+}
+
 // ---------------- Project/meeting metadata + edit affordances --------
 .mcm-folder__project {
   display: flex;

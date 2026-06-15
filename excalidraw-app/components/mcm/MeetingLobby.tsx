@@ -22,6 +22,7 @@ import { useT } from "../../i18n/mcm";
 
 import { ActivityLog } from "./ActivityLog";
 import { AdminConsole } from "./AdminConsole";
+import { ClientPortal } from "./ClientPortal";
 import { LangSwitcher, ThemeToggle } from "./LangThemeSwitcher";
 import { LoginScreen } from "./LoginScreen";
 import { isFinishedStatus, normalizeMeetingStatus } from "./meetingStatus";
@@ -195,6 +196,13 @@ export const MeetingLobby = () => {
     return null;
   }
 
+  // External project-scoped guest: a stripped-down "guest lobby" — NEVER the
+  // staff ProjectBrowser. We keep the brand, LangSwitcher, ThemeToggle,
+  // UserMenu and the resume banner, but drop the staff chrome (WallpaperPicker,
+  // ActivityLog, NotificationBell, "use solo") and swap the dashboard for the
+  // single-column ClientPortal. Security is server-side; this is UX only.
+  const isGuest = session.isGuest;
+
   const startAdHoc = async () => {
     if (busy) {
       return;
@@ -254,27 +262,35 @@ export const MeetingLobby = () => {
                 invitations (to-do); History = personal action log (quyết
                 định 06-11); Image = wallpaper picker (06-12); Moon = theme
                 toggle. */}
+            {/* Staff-only chrome — a guest gets none of it (bell/history/
+                wallpaper/"use solo"). Theme toggle stays for everyone. */}
             <div className="mcm-lobby__top-cluster">
-              <NotificationBell />
-              <ActivityLog />
-              <WallpaperPicker />
+              {!isGuest && <NotificationBell />}
+              {!isGuest && <ActivityLog />}
+              {!isGuest && <WallpaperPicker />}
               <ThemeToggle />
             </div>
             <span className="mcm-lobby__top-sep" aria-hidden="true" />
             {/* Cluster 2 — VI/EN/KO mini segmented capsule. */}
             <LangSwitcher />
             <span className="mcm-lobby__top-sep" aria-hidden="true" />
-            {/* Cluster 3 — secondary entries as matching ghost capsules. */}
-            <div className="mcm-lobby__top-cluster">
-              <button
-                type="button"
-                className="mcm-lobby__join-toggle"
-                onClick={() => setDismissed(true)}
-              >
-                {t("lobby.solo")}
-              </button>
-            </div>
-            <span className="mcm-lobby__top-sep" aria-hidden="true" />
+            {/* Cluster 3 — secondary entries as matching ghost capsules.
+                "Use solo" is a staff affordance; a guest only joins meetings
+                they were invited to. */}
+            {!isGuest && (
+              <>
+                <div className="mcm-lobby__top-cluster">
+                  <button
+                    type="button"
+                    className="mcm-lobby__join-toggle"
+                    onClick={() => setDismissed(true)}
+                  >
+                    {t("lobby.solo")}
+                  </button>
+                </div>
+                <span className="mcm-lobby__top-sep" aria-hidden="true" />
+              </>
+            )}
             {/* Cluster 4 — signed-in identity: avatar chip → account menu
                 (read-only info, profile editor, sign out). */}
             <UserMenu
@@ -299,7 +315,11 @@ export const MeetingLobby = () => {
           </button>
         )}
 
-        {IS_PROJECTS_CONFIGURED ? (
+        {isGuest ? (
+          // A guest must NEVER mount the staff ProjectBrowser — the minimal
+          // ClientPortal lists only the meetings they were invited to.
+          <ClientPortal session={session} />
+        ) : IS_PROJECTS_CONFIGURED ? (
           <ProjectBrowser />
         ) : (
           <div className="mcm-lobby__fallback">

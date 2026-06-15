@@ -110,8 +110,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const screenShareInstance = useAtomValue(screenShareInstanceAtom);
 
   // The project browser (switch project / reopen / pull) is a host-only
-  // affordance for now — the host owns the project folder.
-  const isHost = !!mySocketId && hostSocketId === mySocketId;
+  // affordance for now — the host owns the project folder. A project-scoped
+  // GUEST never owns it (even on the off chance socket host-election lands on
+  // them): the folder reaches into the staff project surface.
+  const isHost =
+    !!mySocketId && hostSocketId === mySocketId && !session?.isGuest;
 
   // Present button state. We're presenting when our own Daily screen track is
   // live; the button locks (disabled) while a *different* participant presents.
