@@ -9089,6 +9089,17 @@ body:has(.excalidraw.theme--dark) {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, auto);
     overflow-y: auto;
+
+    // Stacked: the grid itself scrolls, and rows are auto-height. The
+    // middle body normally clips (overflow:hidden) so its child can
+    // self-scroll inside a bounded frame — but here the row is unbounded,
+    // so that clip would hide tall panels (e.g. the project-detail guests /
+    // danger zone). Let it flow into the page scroll instead.
+    .mcm-3col__middle-body {
+      overflow: visible;
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
   }
 
   &__sidebar {

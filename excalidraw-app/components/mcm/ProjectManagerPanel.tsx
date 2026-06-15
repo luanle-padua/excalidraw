@@ -41,6 +41,7 @@ import { ProjectMemberRoster } from "./ProjectMemberRoster";
 import "./ProjectManager.scss";
 
 import type { Project } from "../../data/projects";
+import type { ReactNode } from "react";
 
 type Props = {
   projects: Project[];
@@ -448,6 +449,28 @@ export const ProjectManagerPanel = ({
 
 // ---- Detail ----------------------------------------------------------------
 
+// Collapsible section — native <details> so each block (info / members /
+// guests / danger) can expand+collapse, keeping the long detail page tidy and
+// every section reachable without endless scrolling. Module-level = stable
+// identity (no remount of the children, so guest-form inputs keep focus).
+const Section = ({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) => (
+  <details className="mcm-pdetail__section" open={defaultOpen}>
+    <summary className="mcm-pdetail__section-title">
+      <ChevronRight size={14} className="mcm-pdetail__section-chevron" />
+      {title}
+    </summary>
+    <div className="mcm-pdetail__section-body">{children}</div>
+  </details>
+);
+
 const ProjectDetail = ({
   project,
   isOwner,
@@ -634,45 +657,45 @@ const ProjectDetail = ({
         <div className="mcm-pdetail__readonly-banner">{t("pmgr.readOnly")}</div>
       )}
 
-      <h3 className="mcm-pdetail__section-title">{t("pmgr.sectionInfo")}</h3>
-      <div className="mcm-pdetail__metagrid">
-        {metaCells.map(([label, value]) => (
-          <div className="mcm-pdetail__meta-cell" key={label}>
-            <span className="mcm-pdetail__meta-label">{label}</span>
-            <span className="mcm-pdetail__meta-value">{value || "—"}</span>
-          </div>
-        ))}
-      </div>
-      {project.description && (
-        <p className="mcm-pdetail__desc">{project.description}</p>
-      )}
+      <Section title={t("pmgr.sectionInfo")}>
+        <div className="mcm-pdetail__metagrid">
+          {metaCells.map(([label, value]) => (
+            <div className="mcm-pdetail__meta-cell" key={label}>
+              <span className="mcm-pdetail__meta-label">{label}</span>
+              <span
+                className={`mcm-pdetail__meta-value${
+                  value ? "" : " mcm-pdetail__meta-value--empty"
+                }`}
+              >
+                {value || "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+        {project.description && (
+          <p className="mcm-pdetail__desc">{project.description}</p>
+        )}
+      </Section>
 
       {/* Members — true membership only. An invitee detail never fetches
           the roster (the worker would 403; no console noise). */}
       {!isInvitee && (
-        <>
-          <h3 className="mcm-pdetail__section-title">{t("proj.members")}</h3>
+        <Section title={t("proj.members")}>
           <ProjectMemberRoster projectId={project.id} isOwner={isOwner} />
-        </>
+        </Section>
       )}
 
       {/* Project-scoped guests — issue/reset/revoke/clean. Only a project
           member/owner or admin reaches this (the worker gates the routes;
           an invitee detail never renders it). */}
       {!isInvitee && (
-        <>
-          <h3 className="mcm-pdetail__section-title">
-            {t("projGuest.section")}
-          </h3>
+        <Section title={t("projGuest.section")}>
           <ProjectGuestRoster projectId={project.id} />
-        </>
+        </Section>
       )}
 
       {isOwner && !isInvitee && (
-        <>
-          <h3 className="mcm-pdetail__section-title">
-            {t("pmgr.sectionDanger")}
-          </h3>
+        <Section title={t("pmgr.sectionDanger")} defaultOpen={false}>
           <div className="mcm-pdetail__danger">
             <span className="mcm-pdetail__danger-hint">
               {t("pmgr.dangerDeleteHint")}
@@ -686,7 +709,7 @@ const ProjectDetail = ({
               <Trash2 size={14} /> {t("proj.delete")}
             </button>
           </div>
-        </>
+        </Section>
       )}
     </div>
   );
