@@ -90,6 +90,10 @@ export const vi = {
     errRevoke: "Thu hồi khách không thành công.",
     statusActive: "Đang hoạt động",
     statusRevoked: "Đã thu hồi",
+    manageNav: "Quản lý khách",
+    manageTitle: "Quản lý khách (tất cả dự án)",
+    pickProject: "Chọn dự án",
+    noneAll: "Chưa có khách nào trong các dự án của bạn.",
   },
   invited: {
     title: "Được mời / Sắp tới",

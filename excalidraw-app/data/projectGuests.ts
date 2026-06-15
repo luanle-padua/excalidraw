@@ -24,6 +24,20 @@ export type ProjectGuest = {
   status: string;
 };
 
+/** One project guest in the CENTRALIZED manager — carries the owning project's
+ *  id + name so the UI can group across projects. The server scopes the list to
+ *  the caller's project memberships (admin sees all). */
+export type MyProjectGuest = {
+  id: string;
+  project_id: string;
+  project_name: string;
+  login: string;
+  label: string | null;
+  real_email: string | null;
+  status: string;
+  created_at: number;
+};
+
 /** Credentials shown to the host ONCE — never recoverable afterwards. */
 export type IssuedGuest = {
   id: string;
@@ -40,6 +54,21 @@ export const listProjectGuests = async (
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/guests`,
     );
+    if (!res.ok) {
+      return [];
+    }
+    return (await res.json()).guests ?? [];
+  } catch {
+    return [];
+  }
+};
+
+/** CENTRALIZED list — every active guest the caller may manage, across all
+ *  their projects (admin: across all projects). Scoped SERVER-SIDE to project
+ *  membership; the worker never trusts a client-supplied project list. */
+export const listMyProjectGuests = async (): Promise<MyProjectGuest[]> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/project-guests`);
     if (!res.ok) {
       return [];
     }

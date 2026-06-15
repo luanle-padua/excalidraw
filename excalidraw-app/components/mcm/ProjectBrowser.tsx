@@ -11,6 +11,7 @@ import {
   Plus,
   Settings,
   SmilePlus,
+  UsersRound,
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 
@@ -36,6 +37,7 @@ import { CalendarX } from "./CalendarX";
 // project manager reuses the exact same menus as the meeting cards.
 import { ColorMenu, EmojiMenu } from "./ColorMenu";
 import { EditMeetingForm } from "./EditMeetingForm";
+import { GuestManager } from "./GuestManager";
 import { MeetingDetailPreview } from "./MeetingDetailPreview";
 import { meetingColor, personColor, statusBucket } from "./meetingColors";
 import {
@@ -54,10 +56,10 @@ import { buildProjectFields } from "./metadataFields";
 import type { MeetingSummary, Project } from "../../data/projects";
 
 // "all" = my whole calendar · "invited" = invitations · "myfiles" = the
-// personal document shelf (internal only) · "projects" = the project
-// management page (reserved id — never collides with project UUIDs) ·
-// else a project id (its meeting list).
-type View = "all" | "invited" | "myfiles" | "projects" | string;
+// personal document shelf (internal only) · "guests" = the centralized guest
+// manager (internal only) · "projects" = the project management page (reserved
+// id — never collides with project UUIDs) · else a project id (meeting list).
+type View = "all" | "invited" | "myfiles" | "guests" | "projects" | string;
 
 // Middle-column presentation controls (persisted in component state).
 type ViewMode = "grid" | "list";
@@ -199,7 +201,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const refreshCards = useCallback(async () => {
     setLoadingCards(true);
     try {
-      if (view === "myfiles" || view === "projects") {
+      if (view === "myfiles" || view === "guests" || view === "projects") {
         // These panels self-manage — no meeting cards in these views.
         setCards([]);
         setCardsFailed(false);
@@ -239,6 +241,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     view === "all" ||
     view === "invited" ||
     view === "myfiles" ||
+    view === "guests" ||
     view === "projects"
       ? null
       : projects.find((p) => p.id === view) ?? null;
@@ -258,6 +261,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     ? t("invited.title")
     : view === "myfiles"
     ? t("myfiles.title")
+    : view === "guests"
+    ? t("projGuest.manageTitle")
     : view === "projects"
     ? t("pmgr.title")
     : t("cal.upcoming");
@@ -592,6 +597,26 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               <span className="mcm-nav__item-label">{t("myfiles.title")}</span>
             </button>
           )}
+          {/* Centralized guest manager — one place to issue/reset/revoke
+              project guests across every project the user can manage. Internal
+              staff only; the Worker scopes the list to project membership. */}
+          {isInternal && (
+            <button
+              type="button"
+              className={`mcm-nav__item${
+                view === "guests" ? " mcm-nav__item--active" : ""
+              }`}
+              onClick={() => {
+                setView("guests");
+                resetSubViews();
+              }}
+            >
+              <UsersRound size={14} className="mcm-nav__item-icon" />
+              <span className="mcm-nav__item-label">
+                {t("projGuest.manageNav")}
+              </span>
+            </button>
+          )}
           {/* Project management page — create/metadata/members/delete all
               live there; the per-project view below stays a clean meeting
               list. Internal staff only, same gate as the shelf. */}
@@ -719,6 +744,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
               so it hides while a detail/create/edit form occupies the column. */}
           {view !== "myfiles" &&
+            view !== "guests" &&
             view !== "projects" &&
             !detailRoomId &&
             !meetingFormOpen &&
@@ -798,6 +824,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             )}
           {view !== "invited" &&
             view !== "myfiles" &&
+            view !== "guests" &&
             view !== "projects" &&
             targetProject &&
             !detailRoomId &&
@@ -817,6 +844,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-3col__middle-body mcm-scroll">
           {view === "myfiles" ? (
             <MyFilesPanel />
+          ) : view === "guests" ? (
+            <GuestManager />
           ) : view === "projects" ? (
             <ProjectManagerPanel
               projects={projects}

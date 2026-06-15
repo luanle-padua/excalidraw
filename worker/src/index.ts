@@ -1947,6 +1947,50 @@ app.post("/v1/projects/:projectId/guests/clean", async (c) => {
   return c.json({ ok: true, removed: results.length });
 });
 
+// CENTRALIZED guest manager — every active guest the caller MAY MANAGE, in one
+// place (across all their projects). SCOPED SERVER-SIDE to project membership,
+// mirroring canManageProjectGuests exactly: admin sees ALL project guests (full
+// power); a regular user sees ONLY guests of projects they are a project_member
+// of (owner/member). The caller's project list is derived server-side from
+// project_member — never trusted from the client — so a guest of a project the
+// caller can't manage is NEVER returned (between-department confidentiality).
+app.get("/v1/me/project-guests", async (c) => {
+  const email = c.get("email");
+  const role = c.get("role");
+  const me = email?.toLowerCase();
+  if (role !== "admin" && !me) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // Admin → all active guests across every project. Else → only guests whose
+  // project_id is one the caller is a project_member of (the EXISTS subquery is
+  // the exact membership check from canManageProjectGuests, applied per row).
+  const { results } =
+    role === "admin"
+      ? await c.env.DB.prepare(
+          `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
+                  pg.label, pg.real_email, pg.status, pg.created_at
+             FROM project_guest pg
+             JOIN project p ON p.id = pg.project_id
+            WHERE pg.status = 'active'
+            ORDER BY p.name COLLATE NOCASE, pg.created_at DESC`,
+        ).all()
+      : await c.env.DB.prepare(
+          `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
+                  pg.label, pg.real_email, pg.status, pg.created_at
+             FROM project_guest pg
+             JOIN project p ON p.id = pg.project_id
+            WHERE pg.status = 'active'
+              AND EXISTS (
+                SELECT 1 FROM project_member pm
+                 WHERE pm.project_id = pg.project_id AND pm.email = ?1
+              )
+            ORDER BY p.name COLLATE NOCASE, pg.created_at DESC`,
+        )
+          .bind(me)
+          .all();
+  return c.json({ guests: results });
+});
+
 // ORGANIZER delete — only a CANCELLED meeting may be deleted (the lifecycle's
 // one disposal path: cancel first, then delete; finished stays immutable
 // forever, live/scheduled must be cancelled/ended first). Full cascade.

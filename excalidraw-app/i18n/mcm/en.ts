@@ -79,6 +79,10 @@ export const en: Widened<typeof vi> = {
     errRevoke: "Couldn't revoke the guest.",
     statusActive: "Active",
     statusRevoked: "Revoked",
+    manageNav: "Guest manager",
+    manageTitle: "Guest manager (all projects)",
+    pickProject: "Pick a project",
+    noneAll: "No guests across your projects yet.",
   },
   invited: {
     title: "Invited / Upcoming",

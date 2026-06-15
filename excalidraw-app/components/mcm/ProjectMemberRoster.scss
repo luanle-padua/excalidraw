@@ -104,6 +104,33 @@
     margin-top: 2px;
     color: var(--mcm-danger, #d33);
   }
+
+  // ---- Centralized guest manager — guests grouped by project -------------
+  &__group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mcm-border, rgba(0, 0, 0, 0.08));
+
+    &:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+  }
+
+  &__group-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__group-title {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 700;
+  }
 }
 
 // Credentials shown ONCE after issuing/resetting a project guest.
