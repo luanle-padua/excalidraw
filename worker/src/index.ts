@@ -1948,8 +1948,13 @@ app.post("/v1/projects/:projectId/guests/:id/reset", async (c) => {
   return c.json({ ok: true, login: guest.login, password });
 });
 
-// Revoke ONE guest — delete the Supabase user + the row.
-// (admin or a member/owner of the project)
+// Revoke ONE guest — DISABLE the Supabase login + mark the row 'revoked'.
+// NEVER deletes: project_guest is the only synthetic-login→person map, so a
+// DELETE would orphan every meeting_invitee / meeting_participant / authored-
+// content attribution and break the AI knowledge graph (docs/plans/guest-data-
+// lifecycle.md). Disabled = BANNED in Supabase (supa_id stays resolvable, can be
+// re-enabled later); status='revoked' drops the canSeeMeeting/me-meetings grant
+// so the guest loses access. (admin or a member/owner of the project.)
 app.delete("/v1/projects/:projectId/guests/:id", async (c) => {
   const projectId = c.req.param("projectId");
   const id = c.req.param("id");
@@ -1958,7 +1963,6 @@ app.delete("/v1/projects/:projectId/guests/:id", async (c) => {
   if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
     return c.json({ error: "forbidden" }, 403);
   }
-  const cr = adminCreds(c);
   const guest = await c.env.DB.prepare(
     `SELECT supa_id, login FROM project_guest
       WHERE id = ?1 AND project_id = ?2`,
@@ -1968,23 +1972,31 @@ app.delete("/v1/projects/:projectId/guests/:id", async (c) => {
   if (!guest) {
     return c.json({ error: "not found" }, 404);
   }
+  const cr = adminCreds(c);
   if (cr) {
     const supaId = await resolveSupaId(cr, guest.supa_id, guest.login);
     if (supaId) {
-      await supaAdmin(cr.url, cr.key, "DELETE", `/admin/users/${supaId}`);
+      // BAN (disable), don't DELETE — keeps the account resolvable + restorable.
+      await supaAdmin(cr.url, cr.key, "PUT", `/admin/users/${supaId}`, {
+        ban_duration: "876000h",
+      });
     }
   }
-  await c.env.DB.prepare(`DELETE FROM project_guest WHERE id = ?1`)
-    .bind(id)
+  await c.env.DB.prepare(
+    `UPDATE project_guest SET status = 'revoked', revoked_at = ?2 WHERE id = ?1`,
+  )
+    .bind(id, Date.now())
     .run();
   await logAudit(c.env.DB, email, "project_guest.revoke", projectId, {
     login: guest.login,
   });
-  return c.json({ ok: true, deleted: id });
+  return c.json({ ok: true, revoked: id });
 });
 
-// Clean ALL guests of the project — the "done with the project" action.
-// Deletes every Supabase user + every row. (admin or a member/owner.)
+// RETIRE all guests of the project — the "done with the project" action.
+// DISABLE every login + mark every active row 'revoked'. NEVER deletes — the
+// records, attendance/attribution, and the AI moat are preserved (docs/plans/
+// guest-data-lifecycle.md). (admin or a member/owner.)
 app.post("/v1/projects/:projectId/guests/clean", async (c) => {
   const projectId = c.req.param("projectId");
   const email = c.get("email");
@@ -1994,7 +2006,8 @@ app.post("/v1/projects/:projectId/guests/clean", async (c) => {
   }
   const cr = adminCreds(c);
   const { results } = await c.env.DB.prepare(
-    `SELECT id, supa_id, login FROM project_guest WHERE project_id = ?1`,
+    `SELECT id, supa_id, login FROM project_guest
+      WHERE project_id = ?1 AND status = 'active'`,
   )
     .bind(projectId)
     .all<{ id: string; supa_id: string | null; login: string }>();
@@ -2002,14 +2015,20 @@ app.post("/v1/projects/:projectId/guests/clean", async (c) => {
     for (const g of results) {
       const supaId = await resolveSupaId(cr, g.supa_id, g.login);
       if (supaId) {
-        await supaAdmin(cr.url, cr.key, "DELETE", `/admin/users/${supaId}`);
+        // BAN (disable), don't DELETE — preserve the row + history.
+        await supaAdmin(cr.url, cr.key, "PUT", `/admin/users/${supaId}`, {
+          ban_duration: "876000h",
+        });
       }
     }
   }
-  await c.env.DB.prepare(`DELETE FROM project_guest WHERE project_id = ?1`)
-    .bind(projectId)
+  await c.env.DB.prepare(
+    `UPDATE project_guest SET status = 'revoked', revoked_at = ?2
+      WHERE project_id = ?1 AND status = 'active'`,
+  )
+    .bind(projectId, Date.now())
     .run();
-  await logAudit(c.env.DB, email, "project_guest.clean", projectId, {
+  await logAudit(c.env.DB, email, "project_guest.retire", projectId, {
     count: results.length,
   });
   return c.json({ ok: true, removed: results.length });

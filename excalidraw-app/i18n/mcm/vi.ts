@@ -96,11 +96,12 @@ export const vi = {
     reset: "Đặt lại mật khẩu",
     resetDone: "Mật khẩu mới của khách",
     revoke: "Thu hồi",
-    revokeConfirm: "Thu hồi khách {label}? Tài khoản sẽ bị xoá.",
-    clean: "Clean tất cả khách",
+    revokeConfirm:
+      "Thu hồi quyền của {label}? Họ hết truy cập — thông tin & lịch sử vẫn được GIỮ (không xoá).",
+    clean: "Đóng quyền tất cả khách",
     cleanConfirm:
-      "Xoá TẤT CẢ khách của dự án này? Mọi tài khoản khách sẽ bị xoá vĩnh viễn.",
-    cleanDone: "Đã xoá {count} khách",
+      "Thu hồi quyền TẤT CẢ khách của dự án này? Họ hết truy cập — KHÔNG xoá dữ liệu/lịch sử.",
+    cleanDone: "Đã thu hồi {count} khách",
     errIssue: "Cấp ID khách không thành công.",
     errReset: "Đặt lại mật khẩu không thành công.",
     errRevoke: "Thu hồi khách không thành công.",

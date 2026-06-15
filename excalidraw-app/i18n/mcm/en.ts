@@ -85,11 +85,12 @@ export const en: Widened<typeof vi> = {
     reset: "Reset password",
     resetDone: "Guest's new password",
     revoke: "Revoke",
-    revokeConfirm: "Revoke guest {label}? The account will be deleted.",
-    clean: "Clean all guests",
+    revokeConfirm:
+      "Revoke {label}'s access? They lose access — their details & history are KEPT (not deleted).",
+    clean: "Retire all guests",
     cleanConfirm:
-      "Delete ALL guests of this project? Every guest account is permanently removed.",
-    cleanDone: "Removed {count} guests",
+      "Revoke access for ALL guests of this project? They lose access — no data/history is deleted.",
+    cleanDone: "Revoked {count} guests",
     errIssue: "Couldn't issue the guest ID.",
     errReset: "Couldn't reset the password.",
     errRevoke: "Couldn't revoke the guest.",

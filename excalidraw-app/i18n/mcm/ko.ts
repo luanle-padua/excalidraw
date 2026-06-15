@@ -92,11 +92,12 @@ export const ko: Widened<typeof vi> = {
     reset: "비밀번호 재설정",
     resetDone: "게스트의 새 비밀번호",
     revoke: "취소",
-    revokeConfirm: "게스트 {label}을(를) 취소할까요? 계정이 삭제됩니다.",
-    clean: "모든 게스트 정리",
+    revokeConfirm:
+      "{label}의 접근 권한을 취소할까요? 접근은 차단되지만 정보·기록은 유지됩니다 (삭제 안 함).",
+    clean: "모든 게스트 비활성화",
     cleanConfirm:
-      "이 프로젝트의 모든 게스트를 삭제할까요? 모든 게스트 계정이 영구적으로 제거됩니다.",
-    cleanDone: "{count}명의 게스트를 제거했습니다",
+      "이 프로젝트의 모든 게스트 접근을 취소할까요? 접근은 차단되며 데이터·기록은 삭제되지 않습니다.",
+    cleanDone: "{count}명의 게스트 접근을 취소했습니다",
     errIssue: "게스트 ID 발급에 실패했습니다.",
     errReset: "비밀번호 재설정에 실패했습니다.",
     errRevoke: "게스트 취소에 실패했습니다.",
