@@ -34,7 +34,6 @@ import { showAppToast } from "../../data/appToast";
 import {
   deleteProject,
   listDivisions,
-  setProjectDivision,
   updateProject,
   type Division,
 } from "../../data/projects";
@@ -116,6 +115,23 @@ export const ProjectManagerPanel = ({
   const t = useT();
   const session = useAtomValue(sessionAtom);
   const [q, setQ] = useState("");
+  // Who may CREATE a project: admin, or a division HEAD / DEPUTY (anh Luân
+  // 06-15). Derived from the division catalogue + the viewer's own email; the
+  // worker enforces the same on POST, this just hides the button for everyone
+  // else (a regular member gets added to projects, doesn't open them).
+  const [divisions, setDivisions] = useState<Division[]>([]);
+  useEffect(() => {
+    void listDivisions().then(setDivisions);
+  }, []);
+  const myEmail = session?.email?.toLowerCase();
+  const canCreate =
+    !!session?.isAdmin ||
+    (!!myEmail &&
+      divisions.some(
+        (d) =>
+          d.head_email?.toLowerCase() === myEmail ||
+          d.deputy_email?.toLowerCase() === myEmail,
+      ));
   // LIST ⇄ CARD, same affordance as the meeting list (anh Luân, 06-12).
   // Card is the default — covers carry the page.
   const [viewMode, setViewMode] = useState<"list" | "card">("card");
@@ -168,7 +184,6 @@ export const ProjectManagerPanel = ({
         onBack={() => onManage(null)}
         onOpenMeetings={() => onOpenMeetings(detail.id)}
         onEdit={() => onEdit(detail)}
-        onRefresh={onProjectsChanged}
         onDeleted={() => {
           onManage(null);
           onProjectsChanged();
@@ -389,13 +404,15 @@ export const ProjectManagerPanel = ({
               <List size={14} />
             </button>
           </div>
-          <button
-            type="button"
-            className="mcm-btn mcm-btn--primary mcm-btn--sm"
-            onClick={onCreate}
-          >
-            <Plus size={15} /> {t("pmgr.newProject")}
-          </button>
+          {canCreate && (
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
+              onClick={onCreate}
+            >
+              <Plus size={15} /> {t("pmgr.newProject")}
+            </button>
+          )}
         </div>
       )}
 
@@ -415,13 +432,15 @@ export const ProjectManagerPanel = ({
           <FolderKanban size={48} aria-hidden="true" />
           <span className="mcm-pmgr__empty-title">{t("pmgr.empty")}</span>
           <span className="mcm-pmgr__empty-hint">{t("pmgr.emptyHint")}</span>
-          <button
-            type="button"
-            className="mcm-btn mcm-btn--primary mcm-btn--sm"
-            onClick={onCreate}
-          >
-            <Plus size={15} /> {t("pmgr.newProject")}
-          </button>
+          {canCreate && (
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--primary mcm-btn--sm"
+              onClick={onCreate}
+            >
+              <Plus size={15} /> {t("pmgr.newProject")}
+            </button>
+          )}
         </div>
       ) : mine.length === 0 && invited.length === 0 ? (
         <div className="mcm-pmgr__empty">
@@ -494,13 +513,12 @@ const ProjectDetail = ({
   onBack,
   onOpenMeetings,
   onEdit,
-  onRefresh,
   onDeleted,
   onAssignCosmetic,
 }: {
   project: Project;
-  /** Admin / leader / leading-division head (NOT a co-operator) — delete,
-   *  delegate co-operators, change the leading division. */
+  /** Admin / leader / leading-division head (NOT a co-operator) — delete +
+   *  delegate co-operators. */
   isLeadership: boolean;
   /** Admin / leader / co-operator / head — guests + member admin + edit. */
   canManage: boolean;
@@ -509,8 +527,6 @@ const ProjectDetail = ({
   onBack: () => void;
   onOpenMeetings: () => void;
   onEdit: () => void;
-  /** Re-fetch the project list after an in-place change (division reassign). */
-  onRefresh: () => void;
   onDeleted: () => void;
   /** Save a colour/icon accent (panel owns the PATCH + in-place update). */
   onAssignCosmetic: (patch: {
@@ -527,20 +543,15 @@ const ProjectDetail = ({
   const [cosmeticAnchor, setCosmeticAnchor] = useState<DOMRect | null>(null);
   const isInvitee = project.access === "invitee";
 
-  // Division catalogue for the "leading department" picker (leadership only).
+  // Leading department NAME — read-only display. A project belongs to the
+  // department of whoever created it (the head/deputy who opened it); it's not
+  // reassignable (anh Luân 06-15: "đương nhiên thuộc phòng tạo dự án").
   const [divisions, setDivisions] = useState<Division[]>([]);
   useEffect(() => {
     void listDivisions().then(setDivisions);
   }, []);
   const currentDivision =
     divisions.find((d) => d.id === project.lead_division_id) ?? null;
-  const changeDivision = async (divisionId: string | null) => {
-    if (!(await setProjectDivision(project.id, divisionId))) {
-      window.alert(t("proj.divisionChangeFailed"));
-      return;
-    }
-    onRefresh();
-  };
 
   const toggleCosmeticMenu = (
     kind: "color" | "icon",
@@ -730,40 +741,20 @@ const ProjectDetail = ({
         {project.description && (
           <p className="mcm-pdetail__desc">{project.description}</p>
         )}
-        {/* Leading department — whose head manages the project. Defaults to the
-            creator's division; leadership can refile it to the correct one (so
-            a head doesn't "cover" projects that aren't really their dept). */}
+        {/* Leading department — whose head manages the project. READ-ONLY: it's
+            the department of whoever created the project, shown for context. */}
         {!isInvitee && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-              marginTop: 12,
-              maxWidth: 340,
-            }}
-          >
+          <div className="mcm-pdetail__meta-cell" style={{ marginTop: 12 }}>
             <span className="mcm-pdetail__meta-label">
               {t("proj.leadDivision")}
             </span>
-            {isLeadership ? (
-              <select
-                className="mcm-roster__in"
-                value={project.lead_division_id ?? ""}
-                onChange={(e) => void changeDivision(e.target.value || null)}
-              >
-                <option value="">{t("proj.leadDivisionNone")}</option>
-                {divisions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="mcm-pdetail__meta-value">
-                {currentDivision?.name || "—"}
-              </span>
-            )}
+            <span
+              className={`mcm-pdetail__meta-value${
+                currentDivision ? "" : " mcm-pdetail__meta-value--empty"
+              }`}
+            >
+              {currentDivision?.name || "—"}
+            </span>
           </div>
         )}
       </Section>

@@ -22,6 +22,7 @@ import {
   hostSocketIdAtom,
   meetingCreatorAtom,
   meetingHostEmailAtom,
+  meetingViewerAuthorityAtom,
   mySocketIdAtom,
   saveUserProfile,
   userProfileAtom,
@@ -113,8 +114,14 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   // affordance for now — the host owns the project folder. A project-scoped
   // GUEST never owns it (even on the off chance socket host-election lands on
   // them): the folder reaches into the staff project surface.
+  // Host AFFORDANCES (End / kick / mute / folder) go to the socket-elected host
+  // OR anyone the server says holds project authority (leader / division head),
+  // so a division head always has full meeting control (anh Luân 06-15). Guests
+  // never host. Destructive lifecycle moves (End) are re-checked server-side.
+  const viewerAuthority = useAtomValue(meetingViewerAuthorityAtom);
   const isHost =
-    !!mySocketId && hostSocketId === mySocketId && !session?.isGuest;
+    !session?.isGuest &&
+    ((!!mySocketId && hostSocketId === mySocketId) || viewerAuthority);
 
   // Present button state. We're presenting when our own Daily screen track is
   // live; the button locks (disabled) while a *different* participant presents.
@@ -226,10 +233,12 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   // predate host_email. Cleared when leaving / between rooms.
   const setMeetingCreator = useSetAtom(meetingCreatorAtom);
   const setMeetingHostEmail = useSetAtom(meetingHostEmailAtom);
+  const setViewerAuthority = useSetAtom(meetingViewerAuthorityAtom);
   useEffect(() => {
     if (!roomId) {
       setMeetingCreator(null);
       setMeetingHostEmail(null);
+      setViewerAuthority(false);
       return;
     }
     let cancelled = false;
@@ -239,12 +248,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         setMeetingHostEmail(
           (m?.host_email ?? m?.organizer_email)?.toLowerCase() ?? null,
         );
+        setViewerAuthority(!!m?.viewer_is_authority);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [roomId, setMeetingCreator, setMeetingHostEmail]);
+  }, [roomId, setMeetingCreator, setMeetingHostEmail, setViewerAuthority]);
 
   // Record WHO joined this meeting (for the admin meeting-detail view). Only
   // logged-in users; the authoritative email is taken from the JWT server-side,

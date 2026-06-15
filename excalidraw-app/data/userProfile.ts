@@ -257,6 +257,14 @@ export const meetingCreatorAtom = atom<string | null>(null);
  *  legacy/ad-hoc rows that predate Phase 4.5. */
 export const meetingHostEmailAtom = atom<string | null>(null);
 
+/** Server-computed: the VIEWER holds host-level authority over this meeting by
+ *  virtue of the project — the project LEADER or the leading-division HEAD (also
+ *  admin / organizer / host). It OVERRIDES socket host-election for surfacing
+ *  host controls (End / kick / mute), so a division head always has full
+ *  meeting control even if election landed on someone else (anh Luân 06-15).
+ *  Reset between rooms. */
+export const meetingViewerAuthorityAtom = atom<boolean>(false);
+
 /** Socket id of the current MCM "host" — the live referee for host-only
  *  controls (End-for-all, kick, mute, recording, folder).
  *

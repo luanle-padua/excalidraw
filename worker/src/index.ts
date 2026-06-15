@@ -494,6 +494,56 @@ const isDivisionHeadOfProject = async (
     .first());
 };
 
+// May the caller CREATE a project? Admin, or anyone who is a division HEAD or
+// DEPUTY (rank 2) of some department — they open projects for their division.
+// A plain member cannot (they get added to projects). (anh Luân 06-15.)
+const canCreateProject = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+): Promise<boolean> => {
+  if (role === "admin") {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me || !isInternalEmail(me)) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM division
+        WHERE lower(head_email) = ?1 OR lower(deputy_email) = ?1 LIMIT 1`,
+    )
+    .bind(me)
+    .first());
+};
+
+// Does the caller have HOST-level authority over this MEETING by virtue of the
+// project — i.e. they're the project LEADER or the leading-division HEAD? Such a
+// person gets full meeting control (End, edit) even if someone else created it
+// (anh Luân 06-15: "division head có toàn quyền trên cuộc họp ngang leader").
+const isMeetingProjectAuthority = async (
+  db: D1Database,
+  roomId: string,
+  email: string | undefined,
+): Promise<boolean> => {
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM meeting m
+         JOIN project p ON p.id = m.project_id
+         LEFT JOIN division d ON d.id = p.lead_division_id
+        WHERE m.id = ?1
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
+        LIMIT 1`,
+    )
+    .bind(roomId, me)
+    .first());
+};
+
 // Per-meeting authz gate on every per-room blob/meeting route. Closes the hole
 // where any valid JWT could read room_key + scene + chat + library + files for
 // ANY meeting (Daily-token gating alone left the canvas wide open). Internal
@@ -776,8 +826,11 @@ app.get("/v1/files/:roomId/:fileId", async (c) => {
 app.post("/v1/projects", async (c) => {
   const email = c.get("email");
   const role = c.get("role");
-  if (!(role === "admin" || isInternalEmail(email))) {
-    return c.json({ error: "forbidden" }, 403);
+  // Creating a project is a LEADERSHIP act (anh Luân 06-15): only a division
+  // HEAD or their immediate DEPUTY (rank 2) — or an admin — may open one. A
+  // regular member gets added to projects; they don't spin up their own.
+  if (!(await canCreateProject(c.env.DB, email, role))) {
+    return c.json({ error: "only a division head or deputy may create" }, 403);
   }
   const { name } = await c.req.json<{ name: string }>();
   if (!name?.trim()) {
@@ -1225,73 +1278,44 @@ app.patch("/v1/projects/:id/leader", async (c) => {
     return c.json({ error: "not found" }, 404);
   }
   const ts = now();
+  // Keep project_member.role='owner' IN SYNC with leader_email, so every surface
+  // (roster badge, my_role, can_manage) shows the new leader as "Trưởng dự án"
+  // and the previous leader as a co-operator — not still "participant" (the bug
+  // anh Luân hit). Demote the old owner(s) first, then promote the new leader.
+  await c.env.DB.prepare(
+    `UPDATE project_member SET role = 'manager'
+      WHERE project_id = ?1 AND role = 'owner' AND email <> ?2`,
+  )
+    .bind(id, leader)
+    .run();
+  await c.env.DB.prepare(
+    `INSERT INTO project_member (project_id, email, role, added_by, added_at)
+     VALUES (?1, ?2, 'owner', ?3, ?4)
+     ON CONFLICT(project_id, email) DO UPDATE SET role = 'owner'`,
+  )
+    .bind(id, leader, email ?? null, ts)
+    .run();
   await c.env.DB.prepare(
     `UPDATE project SET leader_email = ?2, updated_at = ?3 WHERE id = ?1`,
   )
     .bind(id, leader, ts)
     .run();
-  // Make sure the new leader is on the roster (as a manager-tier member) — but
-  // never downgrade an existing 'owner'/'manager' row.
-  await c.env.DB.prepare(
-    `INSERT INTO project_member (project_id, email, role, added_by, added_at)
-     VALUES (?1, ?2, 'manager', ?3, ?4)
-     ON CONFLICT(project_id, email) DO NOTHING`,
-  )
-    .bind(id, leader, email ?? null, ts)
-    .run();
   await logAudit(c.env.DB, email, "project.leader", id, { email: leader });
   return c.json({ ok: true, leader });
 });
 
-// The division catalogue (id + name) — for the "phòng phụ trách" picker. Any
-// internal user may read it (it's just department names); guests get nothing.
+// The division catalogue — id + name + head/deputy. Internal users read it to
+// resolve the project's leading-department NAME (read-only display) and to know
+// whether THEY are a head/deputy (→ may create projects). Guests get nothing.
 app.get("/v1/divisions", async (c) => {
   if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, name, head_email FROM division ORDER BY name COLLATE NOCASE`,
+    `SELECT id, name, head_email, deputy_email FROM division
+      ORDER BY name COLLATE NOCASE`,
   ).all();
   return c.json({ divisions: results });
-});
-
-// Set / clear a project's LEADING DIVISION (which department owns it → whose
-// head manages it). LEADERSHIP-gated (admin · leader · current leading head):
-// moving a project hands control to another department's head, so a plain
-// co-operator must not do it. Body {divisionId: string|null}; null detaches the
-// project from any division (then only leader/admin manage). (anh Luân 06-15:
-// dự án phải thuộc đúng phòng, không auto theo người tạo.)
-app.patch("/v1/projects/:id/division", async (c) => {
-  const id = c.req.param("id");
-  const email = c.get("email");
-  if (!(await isProjectLeadership(c.env.DB, id, email, c.get("role")))) {
-    return c.json({ error: "leadership only" }, 403);
-  }
-  const b = await c.req
-    .json<{ divisionId?: string | null }>()
-    .catch(() => ({} as { divisionId?: string | null }));
-  const divisionId = b.divisionId ? String(b.divisionId).trim() : null;
-  if (divisionId) {
-    const ok = await c.env.DB.prepare(`SELECT 1 FROM division WHERE id = ?1`)
-      .bind(divisionId)
-      .first();
-    if (!ok) {
-      return c.json({ error: "unknown division" }, 400);
-    }
-  }
-  const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
-    .bind(id)
-    .first();
-  if (!exists) {
-    return c.json({ error: "not found" }, 404);
-  }
-  await c.env.DB.prepare(
-    `UPDATE project SET lead_division_id = ?2, updated_at = ?3 WHERE id = ?1`,
-  )
-    .bind(id, divisionId, now())
-    .run();
-  await logAudit(c.env.DB, email, "project.division", id, { divisionId });
-  return c.json({ ok: true, divisionId });
 });
 
 // Meetings of a project, scoped by access level: "full" (member/admin) sees
@@ -1500,11 +1524,28 @@ app.get("/v1/meetings/:roomId", async (c) => {
      WHERE m.id = ?1`,
   )
     .bind(c.req.param("roomId"))
-    .first();
+    .first<Record<string, unknown>>();
   if (!row) {
     return c.json({ error: "not found" }, 404);
   }
-  return c.json({ meeting: row });
+  // Does the VIEWER hold host-level authority over this meeting (admin, its
+  // organizer/host, or the project leader / leading-division head)? The client
+  // uses this to surface host controls (End / kick / mute) to a division head
+  // even when socket host-election landed on someone else. Destructive lifecycle
+  // moves are independently re-checked server-side (PATCH gate).
+  const me = c.get("email")?.toLowerCase();
+  const org = (row.organizer_email as string | null)?.toLowerCase();
+  const hostEmail = (row.host_email as string | null)?.toLowerCase();
+  let viewer_is_authority =
+    c.get("role") === "admin" || (!!me && (me === org || me === hostEmail));
+  if (!viewer_is_authority && me) {
+    viewer_is_authority = await isMeetingProjectAuthority(
+      c.env.DB,
+      row.id as string,
+      me,
+    );
+  }
+  return c.json({ meeting: { ...row, viewer_is_authority } });
 });
 
 app.patch("/v1/meetings/:roomId", async (c) => {
@@ -1585,6 +1626,14 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       const isOrganizer = row.organizer_email
         ? row.organizer_email.toLowerCase() === me
         : isInternalEmail(me);
+      // The project LEADER / leading-division HEAD has full meeting authority —
+      // edit, End, cancel — even on a meeting someone else created (anh Luân
+      // 06-15: division head = full quyền ngang leader).
+      const projAuthority = await isMeetingProjectAuthority(
+        c.env.DB,
+        roomId,
+        me,
+      );
       if (cur === "finished") {
         return c.json({ error: "meeting is finished (immutable)" }, 409);
       }
@@ -1592,7 +1641,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
         if (cur === "cancelled") {
           return c.json({ error: "cancelled — restore it first" }, 409);
         }
-        if (!isOrganizer) {
+        if (!isOrganizer && !projAuthority) {
           return c.json({ error: "organizer only" }, 403);
         }
       }
@@ -1628,12 +1677,15 @@ app.patch("/v1/meetings/:roomId", async (c) => {
               .bind(roomId, me)
               .first())
           );
-          if (!isHost && !isCohost && !isOrganizer) {
-            return c.json({ error: "host, co-host or organizer only" }, 403);
+          if (!isHost && !isCohost && !isOrganizer && !projAuthority) {
+            return c.json(
+              { error: "host, co-host, organizer or project lead only" },
+              403,
+            );
           }
         }
         if (next === "cancelled" || cur === "cancelled") {
-          if (!isOrganizer) {
+          if (!isOrganizer && !projAuthority) {
             return c.json({ error: "organizer only" }, 403);
           }
         }

@@ -31,6 +31,7 @@ import {
 import { sessionAtom } from "../../data/session";
 import {
   hostSocketIdAtom,
+  meetingViewerAuthorityAtom,
   peerAudioAtom,
   peerProfilesAtom,
   resolveAvatarUrlWithDefault,
@@ -542,6 +543,8 @@ export const ParticipantsBar = ({
   // round-trip through the socket); peers come from broadcasts.
   const myProfile = useAtomValue(userProfileAtom);
   const peerProfiles = useAtomValue(peerProfilesAtom);
+  // Project authority (leader / division head) gets host moderation too.
+  const viewerAuthority = useAtomValue(meetingViewerAuthorityAtom);
   // Per-peer audio state (in-call + muted), broadcast over AUDIO_STATE — lets
   // every tile show the real mic on/off/idle icon, including a peer's
   // self-mute (which Daily's track drop alone renders as plain "idle").
@@ -780,9 +783,12 @@ export const ParticipantsBar = ({
   // badge + Esc handler give us our extra affordances; Excalidraw owns
   // the textual confirmation strip.
   // Host moderation: only the host can mute/kick, and only OTHER participants.
-  // Guests are excluded from the host role entirely.
+  // Guests are excluded from the host role entirely. A project authority
+  // (leader / division head — server-computed, hoisted above) also gets the
+  // host moderation controls (kick / mute), not just the socket-elected host.
   const iAmHost =
-    !!hostSocketId && hostSocketId === selfSocketId && !session?.isGuest;
+    !session?.isGuest &&
+    ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
   const doKick = (tile: Tile) =>
     collabAPI?.portal.broadcastHostCommand({
       action: "KICK",

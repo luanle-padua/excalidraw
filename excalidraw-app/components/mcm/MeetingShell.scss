@@ -7408,6 +7408,27 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   grid-column: 1 / -1;
 }
 
+// Confirm dialog (ConfirmModal) — a narrow, single-column variant of the editor
+// shell, so themed confirms match the project/meeting editors.
+.mcm-meditor__panel--narrow {
+  max-width: 420px;
+  .mcm-meditor__body {
+    display: block;
+    max-height: none;
+  }
+}
+.mcm-confirm__message {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--mcm-text, inherit);
+}
+.mcm-meditor__save.mcm-meditor__save--danger {
+  background: var(--mcm-danger, #dc2626);
+  border-color: var(--mcm-danger, #dc2626);
+  color: #fff;
+}
+
 // Cover-image field (upload / preview).
 .mcm-meditor__image {
   width: 100%;

@@ -320,6 +320,10 @@ export type Meeting = {
   /** Cosmetic accents (hex colour + emoji/icon id), nullable. */
   color?: string | null;
   icon?: string | null;
+  /** Server-computed: the viewer holds host authority over this meeting (admin,
+   *  organizer/host, or the project leader / leading-division head). Surfaces
+   *  the host controls (End / kick / mute) to a division head. */
+  viewer_is_authority?: boolean;
 };
 
 /** Discriminated meeting lookup — callers that gate behaviour on the
@@ -546,10 +550,17 @@ export const setProjectLeader = async (
   }
 };
 
-export type Division = { id: string; name: string; head_email: string | null };
+export type Division = {
+  id: string;
+  name: string;
+  head_email: string | null;
+  /** The head's immediate deputy (rank 2) — also allowed to create projects. */
+  deputy_email?: string | null;
+};
 
-// The division catalogue (department names) — for the "leading division"
-// picker. Internal-only; empty when offline/unconfigured.
+// The division catalogue (department names + head/deputy). Internal-only; used
+// to resolve a project's leading-department NAME for read-only display and to
+// know whether the viewer is a head/deputy (→ may create projects).
 export const listDivisions = async (): Promise<Division[]> => {
   if (!IS_PROJECTS_CONFIGURED) {
     return [];
@@ -559,27 +570,6 @@ export const listDivisions = async (): Promise<Division[]> => {
     return res.ok ? (await res.json()).divisions ?? [] : [];
   } catch {
     return [];
-  }
-};
-
-// Set / clear which DIVISION leads a project (its head then manages it).
-// Leadership-gated server-side. `divisionId = null` detaches it. Used to file a
-// project under the correct department instead of the creator's default.
-export const setProjectDivision = async (
-  projectId: string,
-  divisionId: string | null,
-): Promise<boolean> => {
-  if (!IS_PROJECTS_CONFIGURED) {
-    return false;
-  }
-  try {
-    const res = await fetchWithAuth(
-      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/division`,
-      { method: "PATCH", headers: json, body: JSON.stringify({ divisionId }) },
-    );
-    return res.ok;
-  } catch {
-    return false;
   }
 };
 

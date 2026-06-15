@@ -13,10 +13,19 @@ import {
 import { isInternalEmail } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { ConfirmModal } from "./ConfirmModal";
 import { MemberPicker } from "./MemberPicker";
 import { PeopleGrid } from "./PeopleGrid";
 
 import "./ProjectMemberRoster.scss";
+
+type ConfirmState = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void>;
+};
 
 /** Roster for a project folder: who can see the whole folder. Rendered with
  *  the SAME PeopleGrid badges as the meeting forms (anh's call: "hiển thị
@@ -49,6 +58,10 @@ export const ProjectMemberRoster = ({
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [picking, setPicking] = useState(false);
   const [directory, setDirectory] = useState<DirectoryUser[]>([]);
+  // Themed confirm dialog (replaces window.confirm for leader/remove actions).
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const nameOf = (email: string): string =>
+    directory.find((x) => x.email === email)?.name ?? email.split("@")[0];
 
   const reload = useCallback(() => {
     void listProjectMembers(projectId).then(setMembers);
@@ -79,18 +92,23 @@ export const ProjectMemberRoster = ({
       ? t("proj.roleManager")
       : t("proj.roleParticipant");
 
-  const remove = async (email: string) => {
+  const remove = (email: string) => {
     // The owner chip keeps its X (PeopleGrid passes one handler to every
-    // chip) but removing an owner is a no-op — same rule the worker
-    // enforces; the chip tooltip says "Chủ dự án".
+    // chip) but removing an owner (the leader) is a no-op — same rule the
+    // worker enforces; the chip tooltip says "Trưởng dự án".
     if (ownerEmails.has(email)) {
       return;
     }
-    if (!window.confirm(t("proj.removeMemberConfirm", { email }))) {
-      return;
-    }
-    await removeProjectMember(projectId, email);
-    reload();
+    setConfirm({
+      title: t("proj.removeMember"),
+      message: t("proj.removeMemberConfirm", { email: nameOf(email) }),
+      confirmLabel: t("proj.removeMember"),
+      danger: true,
+      onConfirm: async () => {
+        await removeProjectMember(projectId, email);
+        reload();
+      },
+    });
   };
 
   // Leadership (owner/leader/head): toggle a participant ⇄ delegated manager.
@@ -105,17 +123,22 @@ export const ProjectMemberRoster = ({
   };
 
   // Head-only: hand the project leadership to a member. Separate from the
-  // manager toggle — only the leading-division head (or admin) may do it.
-  const makeLeader = async (email: string) => {
-    if (!window.confirm(t("proj.makeLeaderConfirm", { email }))) {
-      return;
-    }
-    const ok = await setProjectLeader(projectId, email);
-    if (!ok) {
-      window.alert(t("proj.roleChangeFailed"));
-      return;
-    }
-    reload();
+  // co-operator toggle — only the leading-division head (or admin) may do it.
+  // Themed confirm (anh Luân 06-15: proper UI). On success the member becomes
+  // "Trưởng dự án" everywhere (the worker syncs their role to owner).
+  const makeLeader = (email: string) => {
+    setConfirm({
+      title: t("proj.makeLeader"),
+      message: t("proj.makeLeaderConfirm", { email: nameOf(email) }),
+      confirmLabel: t("proj.makeLeader"),
+      onConfirm: async () => {
+        if (!(await setProjectLeader(projectId, email))) {
+          window.alert(t("proj.roleChangeFailed"));
+          return;
+        }
+        reload();
+      },
+    });
   };
 
   // The promote/delegate list shows to the project LEADERSHIP (leader/head) —
@@ -234,6 +257,17 @@ export const ProjectMemberRoster = ({
           selectedEmails={new Set(members.map((m) => m.email))}
           onConfirm={confirmAdd}
           onClose={() => setPicking(false)}
+        />
+      )}
+
+      {confirm && (
+        <ConfirmModal
+          title={confirm.title}
+          message={confirm.message}
+          confirmLabel={confirm.confirmLabel}
+          danger={confirm.danger}
+          onConfirm={confirm.onConfirm}
+          onClose={() => setConfirm(null)}
         />
       )}
     </div>
