@@ -334,6 +334,7 @@ export const en: Widened<typeof vi> = {
   },
 
   clients: {
+    navLabel: "Clients",
     title: "Client list",
     subtitle: "Shared client address book — pick quickly when inviting",
     add: "Add client",

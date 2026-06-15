@@ -354,6 +354,7 @@ export const vi = {
 
   // ---------------- Client list (CRM-lite contact book) ------------
   clients: {
+    navLabel: "Khách hàng",
     title: "Danh sách khách hàng",
     subtitle: "Sổ liên hệ khách dùng chung — chọn nhanh khi mời",
     add: "Thêm khách hàng",

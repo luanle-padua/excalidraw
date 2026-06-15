@@ -340,6 +340,7 @@ export const ko: Widened<typeof vi> = {
   },
 
   clients: {
+    navLabel: "고객",
     title: "고객 목록",
     subtitle: "공유 고객 주소록 — 초대 시 빠르게 선택",
     add: "고객 추가",
