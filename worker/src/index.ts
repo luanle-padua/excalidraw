@@ -283,11 +283,7 @@ const canSeeMeeting = async (
            AS invited,
          (SELECT 1 FROM project_member pm
             JOIN meeting m ON m.project_id = pm.project_id
-            WHERE m.id = ?1 AND pm.email = ?2) AS member,
-         (SELECT 1 FROM project_guest pg
-            JOIN meeting m ON m.project_id = pg.project_id
-            WHERE m.id = ?1 AND pg.login = ?2 AND pg.status = 'active')
-           AS proj_guest`,
+            WHERE m.id = ?1 AND pm.email = ?2) AS member`,
     )
     .bind(roomId, e)
     .first<{
@@ -296,7 +292,6 @@ const canSeeMeeting = async (
       owner: number | null;
       invited: number | null;
       member: number | null;
-      proj_guest: number | null;
     }>();
   if (!row?.registered) {
     // Ad-hoc room without a registry row — nothing to gate against.
@@ -304,14 +299,15 @@ const canSeeMeeting = async (
   }
   // Confidential meetings are INVITEE-ONLY (quyết định 06-10 #3): project
   // membership alone is not enough — the field is enforced, not decorative.
-  // A PROJECT GUEST (new model, 06-15) is treated EXACTLY like a project member
-  // for visibility: they follow the project into its normal meetings, but a
-  // confidential meeting stays invitee-only — a guest must never see more than
-  // an internal member would (to be in a confidential meeting, invite them).
   if ((row.conf ?? "").toLowerCase() === "confidential") {
     return !!(row.owner || row.invited);
   }
-  return !!(row.owner || row.invited || row.member || row.proj_guest);
+  // A PROJECT GUEST is the guest's IDENTITY (per-project account), NOT a blanket
+  // visibility grant (06-15 fix per anh Luân): a guest added to ONE meeting must
+  // NOT see the project's OTHER meetings. Guests reach a meeting ONLY via an
+  // explicit meeting_invitee row (the `invited` check above) — same as the
+  // create/invite flow which adds them by their synthetic login.
+  return !!(row.owner || row.invited || row.member);
 };
 
 // Per-project access LEVEL (case "phòng ban này mời phòng ban khác"):
@@ -2409,15 +2405,9 @@ app.get("/v1/me/meetings", async (c) => {
            -- Confidential = invitee-only: plain project membership doesn't
            -- surface it (the organizer/invitee arms above still do).
            AND lower(COALESCE(mm.confidentiality, '')) <> 'confidential'
-       UNION
-       -- A PROJECT GUEST (new model, 06-15) follows their project's meetings
-       -- in their lobby — treated EXACTLY like a project member: confidential
-       -- meetings stay invitee-only (the invitee arm above surfaces one if the
-       -- guest was explicitly invited). A guest never sees more than a member.
-       SELECT mg.id FROM meeting mg
-         JOIN project_guest pg ON pg.project_id = mg.project_id
-         WHERE pg.login = ?1 AND pg.status = 'active'
-           AND lower(COALESCE(mg.confidentiality, '')) <> 'confidential'
+       -- A PROJECT GUEST is NOT auto-shown the project's meetings (06-15 fix):
+       -- they appear here ONLY via the invitee arm above — meetings they were
+       -- EXPLICITLY invited to. The project_guest row is identity, not a grant.
      )
      ${order}`,
   )
