@@ -1,5 +1,5 @@
 import { PlayCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
 import {
@@ -13,6 +13,7 @@ import {
   getLastMeeting,
   type LastMeeting,
 } from "../../data/lastMeeting";
+import { clearPendingRoom, peekPendingRoom } from "../../data/pendingRoom";
 import { getMeeting, IS_PROJECTS_CONFIGURED } from "../../data/projects";
 import { isReviewRoom } from "../../data/reviewMode";
 import { authReadyAtom, sessionAtom } from "../../data/session";
@@ -135,6 +136,43 @@ export const MeetingLobby = () => {
       window.removeEventListener("focus", revalidate);
     };
   }, [session]);
+
+  // AUTO-JOIN the invite room once authenticated. Someone who opened a
+  // `#room=ID,KEY` share link logs in (password in-place, or a passwordless
+  // round-trip that DROPS the hash) — afterwards nothing re-fires the join, so
+  // they'd be stranded on the dashboard. We look in BOTH the live URL and the
+  // pendingRoom stash (set before a hash-dropping login) and start collab.
+  //   • App.initializeScene already joins for a user authenticated AT MOUNT —
+  //     so only step in on the logged-out→in TRANSITION, or when a stash exists
+  //     (the hash was dropped, so App.initializeScene never saw a room).
+  //   • Guarded by a per-room ref so it fires once, not on every re-render.
+  const prevSessionRef = useRef(session);
+  const autoJoinKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const wasLoggedOut = !prevSessionRef.current;
+    prevSessionRef.current = session;
+    if (!authReady || !session || !collabAPI || isCollaborating || startGate) {
+      return;
+    }
+    const stashed = peekPendingRoom();
+    const m = window.location.hash.match(
+      /#room=([a-zA-Z0-9_-]+),([a-zA-Z0-9_-]{20,})/,
+    );
+    const room = stashed ?? (m ? { roomId: m[1], roomKey: m[2] } : null);
+    if (!room || (!stashed && !wasLoggedOut)) {
+      return;
+    }
+    const key = `${room.roomId},${room.roomKey}`;
+    if (autoJoinKeyRef.current === key || collabAPI.isCollaborating()) {
+      return;
+    }
+    autoJoinKeyRef.current = key;
+    clearPendingRoom();
+    // Restore the canonical collab URL (a redirect may have stripped it), then
+    // join — the same path the manual "Join via link" takes.
+    window.history.pushState({}, "", getCollaborationLink(room));
+    void collabAPI.startCollaboration(room);
+  }, [authReady, session, collabAPI, isCollaborating, startGate]);
 
   // Still resolving the Supabase session — render nothing for the brief check
   // so we don't flash the login screen at an already-authenticated user.

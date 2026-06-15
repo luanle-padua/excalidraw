@@ -1,6 +1,7 @@
 import { Command, LayoutGrid, Sparkles, Zap } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 
+import { stashRoomFromUrl } from "../../data/pendingRoom";
 import { supabase } from "../../data/supabaseClient";
 import { useT } from "../../i18n/mcm";
 
@@ -138,10 +139,16 @@ export const LoginScreen = () => {
     }
     setLoading(true);
     setError(null);
+    // The magic-link round-trip returns with Supabase's token in the URL hash,
+    // which CLOBBERS any #room= invite fragment. Stash the room first so
+    // MeetingLobby can auto-join once the session lands, and send the user back
+    // to a CLEAN url (no hash) so the only fragment on return is the token.
+    stashRoomFromUrl();
     const { error: err } = await supabase.auth.signInWithOtp({
       email: mail,
-      // Return to wherever they were (preserves any #room= invite link).
-      options: { emailRedirectTo: window.location.href },
+      options: {
+        emailRedirectTo: window.location.origin + window.location.pathname,
+      },
     });
     setLoading(false);
     if (err) {
