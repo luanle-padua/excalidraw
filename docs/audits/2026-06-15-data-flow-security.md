@@ -29,7 +29,13 @@
 
 ---
 
-## Khuyến nghị thứ tự fix
+## ✅ Trạng thái fix (2026-06-15)
+Cả 3 đã fix trong `worker/src/index.ts` (không cần migration):
+- **H3** — revoke-one + clean giờ cascade `UPDATE meeting_invitee SET status='revoked'` → `canSeeMeeting`/Daily/`me-meetings` từ chối ngay request kế, không chờ JWT hết hạn.
+- **H2** — `POST /v1/meetings` 403 nếu `projectId` không `projectAccess==='full'`; `PUT /v1/scenes` + `PUT /v1/files` **strip** `projectId` về null nếu caller không có quyền (giữ COALESCE cho row cũ → không vỡ autosave).
+- **H1** — `GET /v1/clients` + `DELETE` scope theo `created_by` (admin thấy/xoá tất cả; nhân viên chỉ thấy/xoá card mình tạo); auto-insert dedup đổi sang per-`(email, created_by)`. Sổ chung-toàn-cục bỏ; vai trò "roster khách dùng chung theo dự án" đã do `project_guest` đảm nhận (confidential theo phòng ban).
+
+## Khuyến nghị thứ tự fix (đã thực hiện)
 1. **H3** (nhỏ nhất, đóng đúng lời hứa "revoke = kick", không cần quyết định data-model) — cascade `meeting_invitee` trên revoke/clean.
 2. **H2** (cross-tenant write injection) — thêm `projectAccess === 'full'` gate vào 3 write path.
 3. **H1** (cần quyết: scope `client` theo `project_id` hay `created_by`) — chọn mô hình rồi thêm migration + filter.

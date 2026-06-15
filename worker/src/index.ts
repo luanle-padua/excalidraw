@@ -471,7 +471,22 @@ app.put("/v1/scenes/:roomId", async (c) => {
   // Upsert the meeting row so the folder UI sees it + its freshness.
   const ts = now();
   const title = c.req.query("title") ?? null;
-  const projectId = c.req.query("projectId") ?? null;
+  // A scene autosave may carry a projectId for a FRESH room — don't let it file
+  // the room into a project the caller can't reach (the meeting-create gate is
+  // bypassed on this path). Strip (not 403) so the save itself still succeeds;
+  // an existing row's project_id is preserved by COALESCE regardless. (Audit H2.)
+  let projectId = c.req.query("projectId") ?? null;
+  if (projectId) {
+    const acc = await projectAccess(
+      c.env.DB,
+      c.get("email"),
+      c.get("role"),
+      projectId,
+    );
+    if (acc !== "full") {
+      projectId = null;
+    }
+  }
   await c.env.DB.prepare(
     `INSERT INTO meeting (id, project_id, title, scene_r2_key, scene_updated_at, created_at, updated_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5)
@@ -618,7 +633,20 @@ app.put("/v1/files/:roomId/:fileId", async (c) => {
   const ts = now();
   const kind = c.req.header("x-kind") ?? null;
   const name = c.req.header("x-name") ?? null;
-  const projectId = c.req.query("projectId") ?? null;
+  // Same guard as scene autosave: a file upload's projectId can't file the room
+  // into a project the caller can't reach. Strip rather than 403. (Audit H2.)
+  let projectId = c.req.query("projectId") ?? null;
+  if (projectId) {
+    const acc = await projectAccess(
+      c.env.DB,
+      c.get("email"),
+      c.get("role"),
+      projectId,
+    );
+    if (acc !== "full") {
+      projectId = null;
+    }
+  }
   await c.env.DB.prepare(
     `INSERT INTO file (id, meeting_id, project_id, kind, name, size, r2_key, created_at)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
@@ -1146,6 +1174,22 @@ app.post("/v1/meetings", async (c) => {
   if (!b.roomId) {
     return c.json({ error: "roomId required" }, 400);
   }
+  // You may only FILE a meeting under a project you can actually reach. Without
+  // this, any internal user could POST {roomId:<own>, projectId:<another
+  // department's confidential project>} and inject a (default non-confidential)
+  // meeting card + its blobs into that foreign folder, visible to all its
+  // members. projectAccess === 'full' = admin or a project_member. (Audit H2.)
+  if (b.projectId) {
+    const acc = await projectAccess(
+      c.env.DB,
+      c.get("email"),
+      c.get("role"),
+      b.projectId,
+    );
+    if (acc !== "full") {
+      return c.json({ error: "forbidden project" }, 403);
+    }
+  }
   if (await isDeletedMeeting(c.env.DB, b.roomId)) {
     return c.json({ error: "meeting deleted" }, 410);
   }
@@ -1558,15 +1602,18 @@ app.post("/v1/meetings/:roomId/invitees", async (c) => {
     )
       .bind(roomId, ie, kind, inv.role ?? "attendee", email ?? null, t)
       .run();
-    // Keep the shared client list DB-synced: a GUEST email typed by hand in
-    // an invite becomes a contact card automatically (name = email local
-    // part until someone edits it), so every internal user + the admin see
-    // the same available clients instead of each person retyping addresses.
+    // Keep each inviter's personal client list DB-synced: a GUEST email typed
+    // by hand becomes a contact card for THE INVITER (name = email local part
+    // until edited), so they can re-pick it later without retyping. Deduped per
+    // (email, created_by) — not globally — because the book is now scoped to
+    // created_by (06-15 audit H1): a global dedup would let the first inviter's
+    // card suppress everyone else's, leaving them unable to see/reuse it.
     if (kind === "guest") {
       const existing = await c.env.DB.prepare(
-        `SELECT 1 FROM client WHERE email = ?1 LIMIT 1`,
+        `SELECT 1 FROM client
+          WHERE email = ?1 AND lower(created_by) = ?2 LIMIT 1`,
       )
-        .bind(ie)
+        .bind(ie, (email ?? "").toLowerCase())
         .first();
       if (!existing) {
         await c.env.DB.prepare(
@@ -2041,10 +2088,23 @@ app.delete("/v1/projects/:projectId/guests/:id", async (c) => {
       });
     }
   }
+  const revokedAt = Date.now();
+  // CASCADE the revocation into meeting_invitee — otherwise the guest keeps
+  // data access until their already-issued JWT expires (Supabase ban only
+  // blocks NEW tokens). canSeeMeeting/me-meetings/Daily gate on
+  // meeting_invitee.status, NOT project_guest.status, so without this a
+  // revoked guest can still PUT/GET scene+chat+files for ~1h (the token TTL).
+  // This makes "revoke = kick" deny on the very next request. (06-15 audit H3.)
+  await c.env.DB.prepare(
+    `UPDATE meeting_invitee SET status = 'revoked', revoked_at = ?2
+      WHERE email = ?1 AND status <> 'revoked'`,
+  )
+    .bind(guest.login, revokedAt)
+    .run();
   await c.env.DB.prepare(
     `UPDATE project_guest SET status = 'revoked', revoked_at = ?2 WHERE id = ?1`,
   )
-    .bind(id, Date.now())
+    .bind(id, revokedAt)
     .run();
   await logAudit(c.env.DB, email, "project_guest.revoke", projectId, {
     login: guest.login,
@@ -2081,11 +2141,24 @@ app.post("/v1/projects/:projectId/guests/clean", async (c) => {
       }
     }
   }
+  const retiredAt = Date.now();
+  // CASCADE into meeting_invitee BEFORE flipping project_guest.status (so the
+  // subquery still sees the active logins) — same reason as single-revoke:
+  // strip the invitee grant so canSeeMeeting denies immediately, not after the
+  // guest's JWT expires. (06-15 audit H3.)
+  await c.env.DB.prepare(
+    `UPDATE meeting_invitee SET status = 'revoked', revoked_at = ?2
+      WHERE status <> 'revoked'
+        AND email IN (SELECT login FROM project_guest
+                       WHERE project_id = ?1 AND status = 'active')`,
+  )
+    .bind(projectId, retiredAt)
+    .run();
   await c.env.DB.prepare(
     `UPDATE project_guest SET status = 'revoked', revoked_at = ?2
       WHERE project_id = ?1 AND status = 'active'`,
   )
-    .bind(projectId, Date.now())
+    .bind(projectId, retiredAt)
     .run();
   await logAudit(c.env.DB, email, "project_guest.retire", projectId, {
     count: results.length,
@@ -2332,15 +2405,33 @@ const canManageClients = (
   role: string | undefined,
 ): boolean => role === "admin" || isInternalEmail(email);
 
-// List all clients (newest first). Internal staff + admins only.
+// List clients (newest first). SCOPED: admin sees EVERY card (full oversight);
+// a regular staff member sees ONLY the cards they themselves added
+// (created_by = me). Before this the route returned the GLOBAL book to every
+// internal user, leaking external client emails/company/notes ACROSS
+// departments — incl. contacts attached only to confidential meetings the
+// caller can't see. The shared, per-project external roster is now served by
+// project_guest (department-confidential by construction); this legacy book is
+// just each person's personal quick-contacts. (06-15 audit H1.)
 app.get("/v1/clients", async (c) => {
-  if (!canManageClients(c.get("email"), c.get("role"))) {
+  const me = c.get("email");
+  const role = c.get("role");
+  if (!canManageClients(me, role)) {
     return c.json({ error: "forbidden" }, 403);
   }
-  const { results } = await c.env.DB.prepare(
-    `SELECT id, name, company, email, note, created_by, created_at
-     FROM client ORDER BY created_at DESC LIMIT 500`,
-  ).all();
+  const { results } =
+    role === "admin"
+      ? await c.env.DB.prepare(
+          `SELECT id, name, company, email, note, created_by, created_at
+             FROM client ORDER BY created_at DESC LIMIT 500`,
+        ).all()
+      : await c.env.DB.prepare(
+          `SELECT id, name, company, email, note, created_by, created_at
+             FROM client WHERE lower(created_by) = ?1
+            ORDER BY created_at DESC LIMIT 500`,
+        )
+          .bind(me?.toLowerCase() ?? "")
+          .all();
   return c.json({ clients: results });
 });
 
@@ -2397,13 +2488,29 @@ app.post("/v1/clients", async (c) => {
 
 // Delete a client (hard delete — it's only a contact card; existing meeting
 // invites are unaffected since they live in meeting_invitee, not here).
+// SCOPED to ownership: admin deletes any card; a regular staff member deletes
+// ONLY their own (created_by = me) — before this any internal user could delete
+// another department's contact card. (06-15 audit H1.)
 app.delete("/v1/clients/:id", async (c) => {
   const me = c.get("email");
-  if (!canManageClients(me, c.get("role"))) {
+  const role = c.get("role");
+  if (!canManageClients(me, role)) {
     return c.json({ error: "forbidden" }, 403);
   }
   const id = c.req.param("id");
-  await c.env.DB.prepare(`DELETE FROM client WHERE id = ?1`).bind(id).run();
+  const res =
+    role === "admin"
+      ? await c.env.DB.prepare(`DELETE FROM client WHERE id = ?1`)
+          .bind(id)
+          .run()
+      : await c.env.DB.prepare(
+          `DELETE FROM client WHERE id = ?1 AND lower(created_by) = ?2`,
+        )
+          .bind(id, me?.toLowerCase() ?? "")
+          .run();
+  if (!res.meta.changes) {
+    return c.json({ error: "not found" }, 404);
+  }
   await logAudit(c.env.DB, me, "client.delete", id);
   return c.json({ ok: true, deleted: id });
 });
