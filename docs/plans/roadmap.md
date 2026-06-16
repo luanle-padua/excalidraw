@@ -1,6 +1,6 @@
 # MCM Roadmap — các Phase đang follow
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-15** (rà lại toàn bộ: G1+G4 gần trọn sau đợt 06-11; chèn workstream **Glass-Desk redesign + rebrand Canvas M** 06-12/06-15 — xem `logs/2026-06-15.md`; kế tiếp: đóng nốt G1/G4 → G2 admin → G3 remote + Phase 6).
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-16** (Phase 4 **waiting room knock-to-join DONE** + revise mô hình phân quyền "chức vụ ≠ vai trò, division admin = head-only" + workstream **trang khách Glass-Desk đa quốc gia** — xem `logs/2026-06-16.md`; kế tiếp: G2 admin → G3 remote + Phase 6, và **1b auth room server** trước khi mở cho khách ngoài thật).
 
 ## ✅ Đã xong
 
@@ -26,7 +26,7 @@ Bỏ audio mesh P2P (không scale) → audio chạy **Daily SFU** (scale N ngư�
 
 Vai trò host (chốt 2026-06-05) — **gắn với recording bảo mật** (chỉ host + người được duyệt mới tải được). Thiết kế đầy đủ (organizer vs host, acting-host, lifecycle, **lên lịch họp**): **[host-and-scheduling.md](../specs/host-and-scheduling.md)** (bàn 2026-06-08).
 
-- [ ] **Phòng chờ (waiting room)** — khách (ngoài tổ chức) vào link → login → **chờ host duyệt**; nội bộ (domain @mapgroup.co.kr) vào thẳng. _(Khác màn "chờ Start" đã có ở 4.5 — waiting room là duyệt TỪNG khách khi meeting ĐANG live.)_ **Hiện trạng:** switch trong ScheduleMeetingForm đang **disabled + nhãn "sắp có"** (06-11) — chưa làm thật.
+- [x] **Phòng chờ (waiting room)** — khách ngoài vào link → login → **gõ cửa + chờ host duyệt**; nội bộ @mapgroup **auto-admit**. _(06-16, commit `37e5953c` + fix `3e13f1c2`/`95942b6c`.)_ Cổng duyệt **ép server ở Daily token** (decision **1a**, migration `0025_meeting_knock`): external chưa admitted → không token → không audio. `WaitingRoom.tsx` (clone WaitingForStart, poll 5s, vào muted) + mục "Waiting (knocking)" + Admit/Deny + badge "N waiting" trong ParticipantsBar. **Còn 1b:** canvas relay vẫn trust-the-key → auth room server TRƯỚC khi mở cho khách ngoài thật.
 - [x] **Mời theo LINK** (mở link + login) _(06-09)_. _(Mời theo email cụ thể = sau.)_ **+ Login bằng link** ngay tại màn đăng nhập _(06-15: dán `ID,KEY` → login → auto-join)_.
 - [x] **End meeting for all** — host kết thúc → meeting thành _finished_ cho cả phòng _(06-08; ghi `status='finished'` chuẩn từ 06-10; lan tới member qua verify-registry từ 06-11)_.
 - [~] **Co-host** + chuyển host khi host rời. _(✅ Chỉ định co-host trước trong form Create/Edit + **End đã đọc role** (06-11). ❌ Còn: **election live chưa đọc role cohost cho kick/mute** — cần room server validate, xem track I-2.)_
@@ -44,12 +44,22 @@ Chốt 2026-06-08, ship xong 2026-06-10:
 - [x] **Dời lịch / Huỷ** (organizer, trong detail panel; legacy meeting không có organizer → nội bộ được phép) _(06-10)_.
 - Để sau: email mời tự động · calendar sync (.ics) · recurring · waiting room per-guest (Phase 4).
 
+### Phân quyền — REVISE 06-16 (đảo vài điểm 06-15) ✅
+
+Mô hình authz được rà lại với anh Luân (chi tiết: `plans/project-permissions.md` + memory `project_mcm-permission-model`):
+
+- [x] **Division admin = CHỈ HEAD** (bỏ deputy khỏi mọi authz worker — đảo "deputy ngang head" 06-15; cột `deputy_email` để dormant).
+- [x] **Chức vụ (직급) ≠ vai trò dự án** — title chỉ hiển thị (chip xám), không khoá nút assign; roster gộp 1 list (`8cf63c79`).
+- [x] **Tạo dự án = mọi nội bộ** (creator auto leader+owner); **auto-join họp = chỉ leadership** (member thường phải được mời); **START (scheduled→live) = chỉ phòng sở hữu** (`isOwningDeptMember`, `2ed69a67`) — không còn "nội bộ nào cũng start".
+- [x] Fix gốc **form lịch gắn nhầm dự án** (`2f30666d`) — đóng cùng lúc: guest mất khỏi list + admin phòng khác start/join.
+
 ### Workstream UI — Glass-Desk redesign + rebrand "Canvas M" ✅ (06-12 → 06-15)
 
 Ngoài plan gốc — yêu cầu anh Luân "redesign UI/UX như app Apple, trend 2026". Design-system **Glass Desk** (`plans/glass-desk-dashboard-2026.md`): content giấy đặc, khung điều hướng kính Liquid Glass.
 
 - [x] **Dashboard** (06-12, commit `997000cf`): token Glass-Desk, **wallpaper** (preset/gradient/upload, per-browser), **CalendarX + ghi chú** (`GET/PUT /v1/notes` day|meeting), **color/icon** project+meeting (migration `0018`, cosmetic miễn guard), ColorMenu/EmojiMenu.
 - [x] **Login + Admin Console** Glass-Desk + **rebrand "MAP CanvasMeet" → "Canvas M"** (logo `public/canvas-m.png`; acronym MCM / prefix `mcm-` giữ) + **luồng login bằng link** (06-15, merge từ `feature/canvas-m-login-admin-ui`, đã push). _(Verify: typecheck/eslint/build pass + team review 6 agent, không regression.)_
+- [x] **Trang khách (ClientPortal) Glass-Desk đa quốc gia** (06-16): card kính mờ + **nền xoay 7 theme** (`PortalBackdrop` data-driven, lazy-load, opaque base chống lộ panel khi crossfade) đã **nén WebP 15.3MB→741KB**; **calendar trong suốt** bên phải; greeting ra ngoài nền, **Cormorant Garamond**, "Hi {name}" hero; **phòng chờ đồng bộ** cùng nền/kính. _(Theme-theo-từng-client/insight = làm sau khi cần.)_
 - Còn: **quét i18n lại** (đang **tạm dừng** tới khi UI chốt — chuỗi mới hardcode tiếng Việt) · **test tay login-link** 2 account.
 
 ### Phase 5 — Recording → R2 (auth-gated)
@@ -88,7 +98,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - **SMTP** cho magic-link (built-in rate-limit + dễ spam).
 - **Token refresh** họp >4h (Daily token hết hạn 4h).
 - **Scene size limit** + input validation Worker.
-- **Daily-token check membership** (giờ JWT hợp lệ bất kỳ mint được token mọi room).
+- ~~**Daily-token check membership**~~ ✅ 06-16: token gate `canSeeMeeting` + (external) **admitted-knock**, dùng **base meeting id** (strip `-audio` — vá luôn lỗ canSeeMeeting bị bypass bởi hậu tố room).
 
 ### ✅ Đã có chỗ trong phase (audit xác nhận thêm chi tiết)
 

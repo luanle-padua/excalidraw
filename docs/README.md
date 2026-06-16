@@ -26,6 +26,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 | 06-11 | P1 hạ tầng Cloudflare remote LIVE + architecture.md + master plan 4 nhóm |
 | 06-12 | Design-system **Glass Desk** cho dashboard (wallpaper + calendar/notes + color/icon) |
 | 06-15 | Rebrand **Canvas M** + Glass-Desk login/admin + luồng login-bằng-link (merge từ feature branch) |
+| 06-16 | Phân quyền "**chức vụ ≠ vai trò**" (division admin = head-only) · **Phòng chờ knock-to-join** (Phase 4) · **Trang khách Glass-Desk** đa quốc gia (nền WebP xoay + calendar) · siết START theo phòng sở hữu |
 
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 
