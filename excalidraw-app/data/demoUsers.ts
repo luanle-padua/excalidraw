@@ -86,4 +86,25 @@ export const DEMO_USERS: DemoUser[] = [
     title: "실장",
     division: "Architectural Design Div. 2",
   },
+  // ---- Overseas Subsidiary Vietnam Corporation (seeded 06-16) — test the
+  // head-only division-admin model: 이정호 = head/admin, 안 = plain member. ----
+  {
+    name: "이정호",
+    email: "ljho@mapgroup.co.kr",
+    title: "부사장",
+    division: "Overseas Subsidiary Vietnam Corporation",
+    isHost: true,
+  },
+  {
+    name: "장현석",
+    email: "ajanghs7@mapgroup.co.kr",
+    title: "소장(S1)",
+    division: "Overseas Subsidiary Vietnam Corporation",
+  },
+  {
+    name: "안",
+    email: "an@mapgroup.co.kr",
+    title: "4급사원",
+    division: "Overseas Subsidiary Vietnam Corporation",
+  },
 ];
