@@ -324,6 +324,12 @@ export type Meeting = {
    *  organizer/host, or the project leader / leading-division head). Surfaces
    *  the host controls (End / kick / mute) to a division head. */
   viewer_is_authority?: boolean;
+  /** Server-computed: the viewer may START this scheduled meeting — the
+   *  acting-host scope, now limited to the OWNING DEPARTMENT (organizer / host /
+   *  co-host / project authority / same-division member), NOT any internal user
+   *  (anh Luân 06-16: a meeting belongs to its department; another department
+   *  can't start it). */
+  viewer_can_start?: boolean;
 };
 
 /** Discriminated meeting lookup — callers that gate behaviour on the

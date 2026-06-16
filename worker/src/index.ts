@@ -568,6 +568,34 @@ const isMeetingProjectAuthority = async (
     .first());
 };
 
+// Is the caller a member of the OWNING DEPARTMENT of this meeting's project —
+// i.e. their division == the project's leading division (anh Luân 06-16: "dự án
+// của phòng này làm chủ, phòng khác không nhảy vô start được")? This is the
+// acting-host scope: a same-department internal may Start a scheduled meeting
+// when the host is absent; a cross-department invitee may NOT. Ad-hoc meetings
+// (no project / no lead division) match nobody here — the organizer/internal
+// fallback in the PATCH handles those.
+const isOwningDeptMember = async (
+  db: D1Database,
+  roomId: string,
+  email: string | undefined,
+): Promise<boolean> => {
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  return !!(await db
+    .prepare(
+      `SELECT 1 FROM meeting m
+         JOIN project p ON p.id = m.project_id
+         JOIN user_division ud ON ud.division_id = p.lead_division_id
+        WHERE m.id = ?1 AND lower(ud.email) = ?2
+        LIMIT 1`,
+    )
+    .bind(roomId, me)
+    .first());
+};
+
 // May the caller MANAGE a meeting's people (invite, set co-host, edit)? This is
 // the "meeting authority" set (anh Luân 06-15: "mời phải đúng chuẩn role"):
 // admin · organizer · designated host · a co-host · or project authority
@@ -1620,7 +1648,25 @@ app.get("/v1/meetings/:roomId", async (c) => {
       me,
     );
   }
-  return c.json({ meeting: { ...row, viewer_is_authority } });
+  // May the viewer START this (scheduled) meeting — the acting-host scope?
+  // Authority/organizer/host always; otherwise a co-host or a member of the
+  // OWNING DEPARTMENT (same division as the project). Mirrors the PATCH live
+  // gate so the client's Start button matches what the server will allow
+  // (anh Luân 06-16: only the owning department starts, not any internal).
+  let viewer_can_start = viewer_is_authority;
+  if (!viewer_can_start && me) {
+    viewer_can_start =
+      (await isOwningDeptMember(c.env.DB, row.id as string, me)) ||
+      !!(await c.env.DB.prepare(
+        `SELECT 1 FROM meeting_invitee WHERE meeting_id = ?1 AND email = ?2
+          AND role = 'cohost' AND status <> 'revoked' LIMIT 1`,
+      )
+        .bind(row.id as string, me)
+        .first());
+  }
+  return c.json({
+    meeting: { ...row, viewer_is_authority, viewer_can_start },
+  });
 });
 
 app.patch("/v1/meetings/:roomId", async (c) => {
@@ -1734,6 +1780,39 @@ app.patch("/v1/meetings/:roomId", async (c) => {
           (cur === "cancelled" && next === "scheduled");
         if (!allowed) {
           return c.json({ error: `cannot go ${cur} → ${next}` }, 409);
+        }
+        if (next === "live") {
+          // Start = acting-host, but scoped to the OWNING DEPARTMENT (anh Luân
+          // 06-16: "dự án của phòng này làm chủ, phòng khác không nhảy vô start
+          // được"). A same-department internal, the organizer, the designated
+          // host/co-host, or the project authority (leader/head) may start it —
+          // a cross-department invitee may NOT. Ad-hoc meetings (no project)
+          // have no owning dept, so the organizer/internal fallback applies.
+          const isHostS =
+            !!row.host_email && row.host_email.toLowerCase() === me;
+          const isCohostS = !!(
+            me &&
+            (await c.env.DB.prepare(
+              `SELECT 1 FROM meeting_invitee
+                WHERE meeting_id = ?1 AND email = ?2
+                  AND role = 'cohost' AND status <> 'revoked' LIMIT 1`,
+            )
+              .bind(roomId, me)
+              .first())
+          );
+          const deptInsider = await isOwningDeptMember(c.env.DB, roomId, me);
+          if (
+            !isOrganizer &&
+            !projAuthority &&
+            !isHostS &&
+            !isCohostS &&
+            !deptInsider
+          ) {
+            return c.json(
+              { error: "only the owning department may start this meeting" },
+              403,
+            );
+          }
         }
         if (next === "finished") {
           // End-for-all is NOT the acting-host rule (quyết định 06-11): only

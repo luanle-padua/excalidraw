@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useAtom, useAtomValue } from "../../app-jotai";
 import { collabAPIAtom, startGateAtom } from "../../collab/Collab";
 import { getMeeting, updateMeeting } from "../../data/projects";
-import { isInternalEmail, sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { normalizeMeetingStatus } from "./meetingStatus";
@@ -16,10 +15,12 @@ const POLL_MS = 5000;
  * Phase 4.5 state machine (docs/specs/host-and-scheduling.md). Shown when a join
  * lands on a `scheduled` meeting (startGateAtom, set by startCollaboration):
  *
- *   • internal staff get a Start button — the acting-host rule says ANY
- *     internal user may start when the host is absent, and the real host
+ *   • only the OWNING DEPARTMENT gets a Start button (server-computed
+ *     `viewer_can_start`: organizer / host / co-host / project authority /
+ *     same-division member) — a cross-department invitee can't start a meeting
+ *     that belongs to another department (anh Luân 06-16); the real host still
  *     reclaims control in-room via the existing host election;
- *   • guests wait, polling the registry until the meeting goes `live`
+ *   • everyone else waits, polling the registry until the meeting goes `live`
  *     (then auto-join) or `cancelled`;
  *   • a cancelled meeting shows a terminal notice.
  */
@@ -27,14 +28,15 @@ export const WaitingForStart = () => {
   const t = useT();
   const [gate, setGate] = useAtom(startGateAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
-  const session = useAtomValue(sessionAtom);
   const [busy, setBusy] = useState(false);
+  // Server says whether I'm allowed to start (owning-department scope). Unknown
+  // until the first poll resolves → show the waiting state, not the button.
+  const [canStart, setCanStart] = useState(false);
 
-  const canStart = isInternalEmail(session?.email);
-
-  // Poll while parked on a scheduled meeting — EVERYONE polls (a guest joins
-  // the moment the host starts; an internal user who waits instead of starting
-  // follows along too). Cancelled mid-wait flips the card to the notice.
+  // Poll while parked on a scheduled meeting — EVERYONE polls (they join the
+  // moment the host starts; someone who waits instead of starting follows along
+  // too). Cancelled mid-wait flips the card to the notice. The poll also tells
+  // us whether THIS viewer may start (viewer_can_start).
   useEffect(() => {
     if (!gate || gate.status !== "scheduled" || !collabAPI) {
       return;
@@ -45,6 +47,7 @@ export const WaitingForStart = () => {
       if (cancelled) {
         return;
       }
+      setCanStart(!!m?.viewer_can_start);
       const st = normalizeMeetingStatus(m?.status);
       if (st === "live" || st === "finished") {
         setGate(null);
@@ -56,6 +59,7 @@ export const WaitingForStart = () => {
         setGate({ ...gate, status: "cancelled" });
       }
     };
+    void tick(); // immediate — don't wait POLL_MS to resolve canStart/status
     const id = window.setInterval(() => void tick(), POLL_MS);
     return () => {
       cancelled = true;
