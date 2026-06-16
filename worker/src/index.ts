@@ -3431,16 +3431,26 @@ app.get("/v1/daily/token", async (c) => {
   if (!roomId) {
     return c.json({ error: "roomId required" }, 400);
   }
+  // Audio runs in a DERIVED Daily room named "<meetingId>-audio"
+  // (DailyAudio.ts) — but the meeting registry, canSeeMeeting, finished-lock
+  // and the waiting-room knock are all keyed by the MEETING id. Gate against
+  // that base id, not the suffixed Daily room name; otherwise the lookups hit
+  // a non-existent "…-audio" row (canSeeMeeting falls through as "ad-hoc" and
+  // the admitted-knock check never matches → a legit guest gets 403). Screen-
+  // share already uses the bare meeting id, so the strip is a no-op there.
+  const meetingId = roomId.replace(/-audio$/, "");
   // Per-meeting gate: a guest can only get a Daily token for a meeting they
   // were invited to (internal staff + admins pass). Closes the "any JWT mints
   // any room's token" hole noted in roadmap/dev-phase-notes.
-  if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
+  if (
+    !(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), meetingId))
+  ) {
     return c.json({ error: "not invited to this meeting" }, 403);
   }
   // No media in a finished meeting — review is look-only, so there is no
   // legitimate audio/screen-share session to token. (UI hides the buttons;
   // this is the server backstop.)
-  if (await isFinishedLocked(c.env.DB, roomId)) {
+  if (await isFinishedLocked(c.env.DB, meetingId)) {
     return c.json({ error: "meeting finished (review only)" }, 409);
   }
   // WAITING ROOM media gate (decision 1a, docs/plans/waiting-room.md): an
@@ -3453,7 +3463,7 @@ app.get("/v1/daily/token", async (c) => {
       const knock = await c.env.DB.prepare(
         `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
       )
-        .bind(roomId, me?.toLowerCase())
+        .bind(meetingId, me?.toLowerCase())
         .first<{ status: string | null }>();
       if (knock?.status !== "admitted") {
         return c.json({ error: "not admitted to this meeting" }, 403);
