@@ -5,13 +5,13 @@ import { useEffect, useState } from "react";
 // in public/backgrounds/ and appending its path here; the rotation scales
 // itself (anh Luân 06-16: "đa quốc gia, sau này thêm nhiều cái nữa").
 const THEMES = [
-  "/backgrounds/client-forest.png",
-  "/backgrounds/client-africa.png",
-  "/backgrounds/client-usa.png",
-  "/backgrounds/client-vn.png",
-  "/backgrounds/client-africa2.png",
-  "/backgrounds/client-pl.png",
-  "/backgrounds/client-in.png",
+  "/backgrounds/client-forest.webp",
+  "/backgrounds/client-africa.webp",
+  "/backgrounds/client-usa.webp",
+  "/backgrounds/client-vn.webp",
+  "/backgrounds/client-africa2.webp",
+  "/backgrounds/client-pl.webp",
+  "/backgrounds/client-in.webp",
 ];
 const ROTATE_MS = 9000;
 
