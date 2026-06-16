@@ -1,4 +1,4 @@
-import { Crown, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 import { DEMO_USERS } from "../../data/demoUsers";
 import { useT } from "../../i18n/mcm";
@@ -48,15 +48,6 @@ export const DevQuickLogin = ({
                 {u.name.charAt(0)}
               </span>
               <span className="mcm-login__demo-name">{u.name}</span>
-              {u.isHost && (
-                <span
-                  className="mcm-login__demo-badge"
-                  title={t("login.host")}
-                  aria-label={t("login.host")}
-                >
-                  <Crown size={11} />
-                </span>
-              )}
               {u.isAdmin && (
                 <span
                   className="mcm-login__demo-badge mcm-login__demo-badge--admin"
