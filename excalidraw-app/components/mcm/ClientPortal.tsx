@@ -152,10 +152,18 @@ export const ClientPortal = ({ session }: { session: Session }) => {
         <span className="mcm-portal__bg-layer mcm-portal__bg-layer--2" />
         <span className="mcm-portal__bg-layer mcm-portal__bg-layer--3" />
         <span className="mcm-portal__bg-scrim" />
+        {/* Canvas M wordmark as a faint background watermark (same as login). */}
+        <img
+          className="mcm-portal__watermark"
+          src="/canvas-m.png"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        />
       </div>
       <div className="mcm-portal__inner">
         <header className="mcm-portal__head">
-          <img className="mcm-portal__logo" src="/canvas-m.png" alt="Canvas M" />
+          <span className="mcm-portal__brand">MAP-GROUP Global</span>
           <h1 className="mcm-portal__title">{t("portal.title")}</h1>
           <p className="mcm-portal__hello">
             {t("portal.hello", { name: session.name })}
