@@ -144,8 +144,18 @@ export const ClientPortal = ({ session }: { session: Session }) => {
 
   return (
     <div className="mcm-portal">
+      {/* Multinational welcome backdrop — the 3 themes crossfade ("luân phiên",
+          anh Luân 06-16; more added later). CSS-only slideshow behind the
+          frosted card; honours prefers-reduced-motion (holds the first frame). */}
+      <div className="mcm-portal__bg" aria-hidden="true">
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--1" />
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--2" />
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--3" />
+        <span className="mcm-portal__bg-scrim" />
+      </div>
       <div className="mcm-portal__inner">
         <header className="mcm-portal__head">
+          <img className="mcm-portal__logo" src="/canvas-m.png" alt="Canvas M" />
           <h1 className="mcm-portal__title">{t("portal.title")}</h1>
           <p className="mcm-portal__hello">
             {t("portal.hello", { name: session.name })}

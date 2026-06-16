@@ -6286,26 +6286,115 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 // solid surface rows, no glass blur on the list (blur budget lives on the
 // lobby header above). Inherits all --mcm-* tokens from `.mcm-lobby`.
 .mcm-portal {
+  position: relative;
+  isolation: isolate;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
+  align-items: flex-start;
   justify-content: center;
-  padding: 32px 24px 48px;
+  padding: 48px 24px 56px;
+}
+
+// ---- Rotating "multinational" welcome backdrop --------------------------
+// The 3 prepared themes (forest / Africa / USA) crossfade in turn — a calm
+// first impression for an external client (anh Luân 06-16). CSS-only slideshow
+// pinned behind the frosted card; more themes can be added by appending layers.
+.mcm-portal__bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.mcm-portal__bg-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  animation: mcm-portal-bg 33s infinite ease-in-out;
+}
+.mcm-portal__bg-layer--1 {
+  background-image: url("/backgrounds/client-forest.png");
+  animation-delay: 0s;
+}
+.mcm-portal__bg-layer--2 {
+  background-image: url("/backgrounds/client-africa.png");
+  animation-delay: 11s;
+}
+.mcm-portal__bg-layer--3 {
+  background-image: url("/backgrounds/client-usa.png");
+  animation-delay: 22s;
+}
+.mcm-portal__bg-scrim {
+  position: absolute;
+  inset: 0;
+  // Keeps the glass card legible whichever theme is showing.
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.26), rgba(0, 0, 0, 0.44));
+}
+@keyframes mcm-portal-bg {
+  0% {
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+  }
+  39% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mcm-portal__bg-layer {
+    animation: none;
+  }
+  .mcm-portal__bg-layer--1 {
+    opacity: 1; // hold the first theme, no motion
+  }
 }
 
 .mcm-portal__inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 680px;
+  max-width: 620px;
+  margin-top: 3vh;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 22px;
+  padding: 28px 28px 32px;
+  border-radius: 22px;
+  // Frosted Glass-Desk card — translucent surface + blur so the rotating
+  // theme reads softly through it without ever fighting the content.
+  background: color-mix(in srgb, var(--mcm-surface) 74%, transparent);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  border: 1px solid color-mix(in srgb, #fff 26%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset,
+    0 24px 60px rgba(0, 0, 0, 0.34);
 }
 
 .mcm-portal__head {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.mcm-portal__logo {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 2px;
+  opacity: 0.95;
 }
 
 .mcm-portal__title {
@@ -6359,8 +6448,11 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   gap: 14px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: var(--mcm-surface);
-  box-shadow: var(--mcm-shadow-1);
+  // Translucent so the frosted card reads as one glass surface, not stacked
+  // opaque cards.
+  background: color-mix(in srgb, var(--mcm-surface) 58%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 .mcm-portal__row-main {
