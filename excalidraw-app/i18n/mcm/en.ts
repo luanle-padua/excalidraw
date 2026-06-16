@@ -634,6 +634,7 @@ export const en: Widened<typeof vi> = {
     back: "Back to home",
     // Waiting room (knock-to-join)
     waitingRoomTitle: "Waiting to be let in",
+    waitingAdmit: "Waiting for the host to let you in…",
     joiningAs: "Joining as {name}",
     deniedTitle: "Not admitted",
     deniedDesc:

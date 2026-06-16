@@ -108,7 +108,22 @@ export const WaitingRoom = () => {
   const joiningAs = session?.name || session?.email || t("participants.guest");
 
   return (
-    <div className="mcm-gate" role="dialog" aria-modal="true">
+    <div className="mcm-gate mcm-gate--client" role="dialog" aria-modal="true">
+      {/* Same multinational backdrop as the client portal — the guest's
+          first-impression theme carries into the waiting room (anh Luân 06-16). */}
+      <div className="mcm-portal__bg" aria-hidden="true">
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--1" />
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--2" />
+        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--3" />
+        <span className="mcm-portal__bg-scrim" />
+        <img
+          className="mcm-portal__watermark"
+          src="/canvas-m.png"
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        />
+      </div>
       <div className="mcm-gate__card">
         {waiting.status === "denied" ? (
           <>
@@ -144,7 +159,7 @@ export const WaitingRoom = () => {
             </p>
             <p className="mcm-gate__waiting">
               <span className="mcm-gate__spinner" aria-hidden="true" />
-              {t("gate.waitingHost")}
+              {t("gate.waitingAdmit")}
             </p>
           </>
         )}

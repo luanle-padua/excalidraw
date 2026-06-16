@@ -642,6 +642,7 @@ export const ko: Widened<typeof vi> = {
     back: "홈으로",
     // Waiting room (knock-to-join)
     waitingRoomTitle: "입장 대기 중",
+    waitingAdmit: "호스트가 입장을 허가할 때까지 대기 중…",
     joiningAs: "{name}(으)로 입장",
     deniedTitle: "입장이 거절되었습니다",
     deniedDesc:

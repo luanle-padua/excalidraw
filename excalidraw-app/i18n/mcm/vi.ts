@@ -665,6 +665,7 @@ export const vi = {
     back: "Về trang chính",
     // Waiting room (knock-to-join)
     waitingRoomTitle: "Đang chờ vào phòng họp",
+    waitingAdmit: "Đang chờ chủ trì cho vào…",
     joiningAs: "Vào với tên {name}",
     deniedTitle: "Chưa được duyệt vào",
     deniedDesc:
