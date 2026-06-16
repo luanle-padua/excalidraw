@@ -522,7 +522,7 @@ export const ko: Widened<typeof vi> = {
     makeManager: "공동 관리자 지정",
     removeManager: "공동 관리자 해제",
     makeLeader: "프로젝트 리더 지정",
-    makeLeaderConfirm: "{{email}} 님을 새 프로젝트 리더로 지정할까요?",
+    makeLeaderConfirm: "{email} 님을 새 프로젝트 리더로 지정할까요?",
     leadDivision: "담당 부서",
     leadDivisionNone: "— 부서 없음 —",
     divisionChangeFailed: "담당 부서를 변경하지 못했습니다.",

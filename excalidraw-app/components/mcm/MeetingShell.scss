@@ -7728,6 +7728,10 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 // the "invisible buttons" bug.
 .mcm-pp-overlay,
 .mcm-cmodal-ov,
+// The themed confirm dialog (.mcm-meditor) now portals to <body> too (so it
+// escapes the Glass-Desk blur stacking context that was burying it under the
+// calendar) — stamp tokens here or its accent "save" button renders invisible.
+.mcm-meditor,
 // roots that sit OUTSIDE .mcm-lobby but ride the Glass-Desk vocabulary:
 // the swatches popover portals into .mcm-shell, the app toast mounts as a
 // shell sibling of the lobby — neither inherits the lobby token scope.
@@ -7746,6 +7750,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 body:has(.excalidraw.theme--dark) {
   .mcm-pp-overlay,
   .mcm-cmodal-ov,
+  .mcm-meditor,
   .mcm-swatches--pop,
   .mcm-toast {
     @include mcm-tokens-dark;

@@ -544,7 +544,7 @@ export const vi = {
     makeManager: "Thêm đồng quản lý",
     removeManager: "Gỡ đồng quản lý",
     makeLeader: "Đặt làm trưởng dự án",
-    makeLeaderConfirm: "Đặt {{email}} làm trưởng dự án mới?",
+    makeLeaderConfirm: "Đặt {email} làm trưởng dự án mới?",
     leadDivision: "Phòng phụ trách",
     leadDivisionNone: "— Chưa thuộc phòng —",
     divisionChangeFailed: "Không đổi được phòng phụ trách.",

@@ -514,7 +514,7 @@ export const en: Widened<typeof vi> = {
     makeManager: "Make co-operator",
     removeManager: "Remove co-operator",
     makeLeader: "Assign project leader",
-    makeLeaderConfirm: "Make {{email}} the new project leader?",
+    makeLeaderConfirm: "Make {email} the new project leader?",
     leadDivision: "Leading department",
     leadDivisionNone: "— No department —",
     divisionChangeFailed: "Couldn't change the leading department.",
