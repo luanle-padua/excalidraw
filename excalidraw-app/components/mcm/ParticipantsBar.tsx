@@ -765,6 +765,36 @@ export const ParticipantsBar = ({
     };
   }, [roomId, session?.isGuest, panelOpen]);
 
+  // Host identity — computed HERE (above the early return below) so the
+  // knock-poll hook runs UNCONDITIONALLY (Rules of Hooks). selfSocketId/iAmHost
+  // are plain derivations reused for tile building + moderation further down.
+  const selfSocketId = collabAPI?.portal.socket?.id ?? "me";
+  const iAmHost =
+    !session?.isGuest &&
+    ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
+  // WAITING ROOM (host side): poll who's knocking every 5s while I'm the host.
+  // Non-hosts/guests never poll (the worker 403s them); drives the panel
+  // section + the CountChip "N waiting" badge.
+  useEffect(() => {
+    if (!iAmHost || !roomId) {
+      setWaitingKnocks([]);
+      return undefined;
+    }
+    let alive = true;
+    const tick = async () => {
+      const rows = await listKnocks(roomId);
+      if (alive) {
+        setWaitingKnocks(rows);
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [iAmHost, roomId]);
+
   useEffect(() => {
     if (!excalidrawAPI) {
       return;
@@ -909,8 +939,7 @@ export const ParticipantsBar = ({
     }
   }
 
-  // Self first
-  const selfSocketId = collabAPI?.portal.socket?.id ?? "me";
+  // Self first (selfSocketId hoisted above the early return for the host poll)
   // Profile name wins over Collab's stored username so that renaming
   // through the profile modal reflects locally even before the
   // collabAPI.setUsername round-trip lands.
@@ -1024,12 +1053,8 @@ export const ParticipantsBar = ({
   // badge + Esc handler give us our extra affordances; Excalidraw owns
   // the textual confirmation strip.
   // Host moderation: only the host can mute/kick, and only OTHER participants.
-  // Guests are excluded from the host role entirely. A project authority
-  // (leader / division head — server-computed, hoisted above) also gets the
-  // host moderation controls (kick / mute), not just the socket-elected host.
-  const iAmHost =
-    !session?.isGuest &&
-    ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
+  // (iAmHost is computed above the early return so the knock-poll hook is
+  // unconditional — a project authority / leader / division head qualifies too.)
   // fromAuthority lets peers accept a KICK from a project authority (leader /
   // head — deputy dropped 06-16) even when socket host-election landed on
   // someone else.
@@ -1049,29 +1074,6 @@ export const ParticipantsBar = ({
       fromAuthority: viewerAuthority,
     });
   };
-
-  // WAITING ROOM (host side): poll who's knocking every 5s while I'm the host.
-  // Non-hosts (and guests) never poll — the worker 403s them anyway. The list
-  // drives both the panel section and the CountChip "N waiting" badge.
-  useEffect(() => {
-    if (!iAmHost || !roomId) {
-      setWaitingKnocks([]);
-      return undefined;
-    }
-    let alive = true;
-    const tick = async () => {
-      const rows = await listKnocks(roomId);
-      if (alive) {
-        setWaitingKnocks(rows);
-      }
-    };
-    void tick();
-    const id = window.setInterval(() => void tick(), 5000);
-    return () => {
-      alive = false;
-      window.clearInterval(id);
-    };
-  }, [iAmHost, roomId]);
 
   // Admit / deny a waiting guest: optimistically drop the row, refetch on error
   // so a failed call doesn't silently lose the knock.
