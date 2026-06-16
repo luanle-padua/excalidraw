@@ -10,8 +10,10 @@ import { getMeeting } from "../../data/projects";
 import { type Session } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { ClientCalendar } from "./ClientCalendar";
 import { statusBucket } from "./meetingColors";
 import { isFinishedStatus, meetingStatusLabel } from "./meetingStatus";
+import { PortalBackdrop } from "./PortalBackdrop";
 
 /**
  * ClientPortal — the minimal "guest lobby" for an external, project-scoped
@@ -20,9 +22,10 @@ import { isFinishedStatus, meetingStatusLabel } from "./meetingStatus";
  * Safe-by-construction (docs/plans/client-portal.md): a guest NEVER mounts the
  * staff `ProjectBrowser`. This is a single column that lists ONLY the meetings
  * the guest was invited to (server-scoped `/v1/me/meetings`), split into
- * "happening now / upcoming" (join) and "finished" (read-only review). No
- * sidebar, no calendar, no project tools, no create-meeting. The security
- * boundary is the Worker's per-meeting invite gate — this screen is UX only.
+ * "happening now / upcoming" (join) and "finished" (read-only review), plus a
+ * small read-only month calendar marking their meeting days. No sidebar, no
+ * project tools, no create-meeting. The security boundary is the Worker's
+ * per-meeting invite gate — this screen is UX only.
  */
 
 const fmtWhen = (m: CalMeeting): string => {
@@ -144,74 +147,61 @@ export const ClientPortal = ({ session }: { session: Session }) => {
 
   return (
     <div className="mcm-portal">
-      {/* Multinational welcome backdrop — the 3 themes crossfade ("luân phiên",
-          anh Luân 06-16; more added later). CSS-only slideshow behind the
-          frosted card; honours prefers-reduced-motion (holds the first frame). */}
-      <div className="mcm-portal__bg" aria-hidden="true">
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--1" />
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--2" />
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--3" />
-        <span className="mcm-portal__bg-scrim" />
-        {/* Canvas M wordmark as a faint background watermark (same as login). */}
-        <img
-          className="mcm-portal__watermark"
-          src="/canvas-m.png"
-          alt=""
-          aria-hidden="true"
-          decoding="async"
-        />
-      </div>
-      <div className="mcm-portal__inner">
-        <header className="mcm-portal__head">
-          <span className="mcm-portal__brand">MAP-GROUP Global</span>
-          <h1 className="mcm-portal__title">{t("portal.title")}</h1>
-          <p className="mcm-portal__hello">
-            {t("portal.hello", { name: session.name })}
-          </p>
-        </header>
+      <PortalBackdrop />
+      <div className="mcm-portal__stage">
+        <div className="mcm-portal__inner">
+          <header className="mcm-portal__head">
+            <span className="mcm-portal__brand">MAP-GROUP Global</span>
+            <h1 className="mcm-portal__title">{t("portal.title")}</h1>
+            <p className="mcm-portal__hello">
+              {t("portal.hello", { name: session.name })}
+            </p>
+          </header>
 
-        {loading ? (
-          <div className="mcm-portal__hint">…</div>
-        ) : failed ? (
-          <div className="mcm-portal__hint">
-            {t("errors.loadFailed")}{" "}
-            <button
-              type="button"
-              className="mcm-portal__retry"
-              onClick={() => void refresh()}
-            >
-              {t("errors.retry")}
-            </button>
-          </div>
-        ) : meetings.length === 0 ? (
-          <div className="mcm-portal__empty">
-            <CalendarClock size={30} strokeWidth={1.5} />
-            <p>{t("portal.empty")}</p>
-          </div>
-        ) : (
-          <div className="mcm-portal__sections">
-            {active.length > 0 && (
-              <section className="mcm-portal__section">
-                <h2 className="mcm-portal__section-title">
-                  {t("portal.activeTitle")}
-                </h2>
-                <ul className="mcm-portal__list">
-                  {active.map((m) => row(m, "active"))}
-                </ul>
-              </section>
-            )}
-            {past.length > 0 && (
-              <section className="mcm-portal__section">
-                <h2 className="mcm-portal__section-title">
-                  {t("portal.pastTitle")}
-                </h2>
-                <ul className="mcm-portal__list">
-                  {past.map((m) => row(m, "past"))}
-                </ul>
-              </section>
-            )}
-          </div>
-        )}
+          {loading ? (
+            <div className="mcm-portal__hint">…</div>
+          ) : failed ? (
+            <div className="mcm-portal__hint">
+              {t("errors.loadFailed")}{" "}
+              <button
+                type="button"
+                className="mcm-portal__retry"
+                onClick={() => void refresh()}
+              >
+                {t("errors.retry")}
+              </button>
+            </div>
+          ) : meetings.length === 0 ? (
+            <div className="mcm-portal__empty">
+              <CalendarClock size={30} strokeWidth={1.5} />
+              <p>{t("portal.empty")}</p>
+            </div>
+          ) : (
+            <div className="mcm-portal__sections">
+              {active.length > 0 && (
+                <section className="mcm-portal__section">
+                  <h2 className="mcm-portal__section-title">
+                    {t("portal.activeTitle")}
+                  </h2>
+                  <ul className="mcm-portal__list">
+                    {active.map((m) => row(m, "active"))}
+                  </ul>
+                </section>
+              )}
+              {past.length > 0 && (
+                <section className="mcm-portal__section">
+                  <h2 className="mcm-portal__section-title">
+                    {t("portal.pastTitle")}
+                  </h2>
+                  <ul className="mcm-portal__list">
+                    {past.map((m) => row(m, "past"))}
+                  </ul>
+                </section>
+              )}
+            </div>
+          )}
+        </div>
+        <ClientCalendar meetings={meetings} />
       </div>
     </div>
   );

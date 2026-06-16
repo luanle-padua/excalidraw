@@ -9,6 +9,7 @@ import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { normalizeMeetingStatus } from "./meetingStatus";
+import { PortalBackdrop } from "./PortalBackdrop";
 
 const POLL_MS = 5000;
 
@@ -110,20 +111,9 @@ export const WaitingRoom = () => {
   return (
     <div className="mcm-gate mcm-gate--client" role="dialog" aria-modal="true">
       {/* Same multinational backdrop as the client portal — the guest's
-          first-impression theme carries into the waiting room (anh Luân 06-16). */}
-      <div className="mcm-portal__bg" aria-hidden="true">
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--1" />
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--2" />
-        <span className="mcm-portal__bg-layer mcm-portal__bg-layer--3" />
-        <span className="mcm-portal__bg-scrim" />
-        <img
-          className="mcm-portal__watermark"
-          src="/canvas-m.png"
-          alt=""
-          aria-hidden="true"
-          decoding="async"
-        />
-      </div>
+          first-impression theme carries into the waiting room (anh Luân 06-16).
+          Its opaque base means the crossfade never reveals the portal behind. */}
+      <PortalBackdrop />
       <div className="mcm-gate__card">
         {waiting.status === "denied" ? (
           <>

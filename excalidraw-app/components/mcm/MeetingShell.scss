@@ -6307,26 +6307,24 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  // Opaque base UNDER the theme layers, so a crossfade gap (or the transparent
+  // waiting-room gate above it) never reveals whatever is behind — the portal
+  // panel was peeking through during the transition (anh Luân 06-16).
+  background: #15120e;
 }
+// Theme layers crossfade by toggling --on (PortalBackdrop sets it); the active
+// layer is opacity 1, the rest 0. The image is attached lazily in JS so the
+// page loads one backdrop up front, not all of them.
 .mcm-portal__bg-layer {
   position: absolute;
   inset: 0;
   background-size: cover;
   background-position: center;
   opacity: 0;
-  animation: mcm-portal-bg 33s infinite ease-in-out;
+  transition: opacity 1.4s ease;
 }
-.mcm-portal__bg-layer--1 {
-  background-image: url("/backgrounds/client-forest.png");
-  animation-delay: 0s;
-}
-.mcm-portal__bg-layer--2 {
-  background-image: url("/backgrounds/client-africa.png");
-  animation-delay: 11s;
-}
-.mcm-portal__bg-layer--3 {
-  background-image: url("/backgrounds/client-usa.png");
-  animation-delay: 22s;
+.mcm-portal__bg-layer--on {
+  opacity: 1;
 }
 .mcm-portal__bg-scrim {
   position: absolute;
@@ -6350,30 +6348,108 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   filter: brightness(0) invert(1); // black art → warm-white wordmark
   opacity: 0.1;
 }
-@keyframes mcm-portal-bg {
-  0% {
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  30% {
-    opacity: 1;
-  }
-  39% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
+// Stage = the portal card + the floating calendar, side by side, centered.
+.mcm-portal__stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+// Transparent floating month calendar (anh Luân 06-16: "có calendar bên phải,
+// trong suốt, không cần phức tạp như app chính"). Marks the guest's meeting
+// days; hidden on narrow screens (the card alone is enough there).
+.mcm-portal__cal {
+  flex: 0 0 auto;
+  width: 236px;
+  margin-top: 3vh;
+  padding: 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--mcm-surface) 60%, transparent);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+
+  @media (max-width: 760px) {
+    display: none;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .mcm-portal__bg-layer {
-    animation: none;
+.mcm-portal__cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mcm-portal__cal-month {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mcm-text);
+}
+.mcm-portal__cal-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  color: var(--mcm-text-soft);
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, #fff 12%, transparent);
+    color: var(--mcm-text);
   }
-  .mcm-portal__bg-layer--1 {
-    opacity: 1; // hold the first theme, no motion
-  }
+}
+.mcm-portal__cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.mcm-portal__cal-dow {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--mcm-text-faint);
+  padding-bottom: 4px;
+}
+.mcm-portal__cal-cell {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  border-radius: 8px;
+  color: var(--mcm-text-soft);
+}
+.mcm-portal__cal-cell--day {
+  color: var(--mcm-text);
+}
+.mcm-portal__cal-cell--today {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--mcm-accent) 24%, transparent);
+}
+.mcm-portal__cal-cell--has {
+  font-weight: 700;
+}
+.mcm-portal__cal-dot {
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mcm-accent);
 }
 
 .mcm-portal__inner {
