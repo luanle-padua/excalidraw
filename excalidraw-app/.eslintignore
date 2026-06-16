@@ -1,0 +1,10 @@
+# The dev checker (vite-plugin-checker) runs `eslint "./**/*"` from THIS dir,
+# and eslint only reads the .eslintignore in its cwd — so the repo-root
+# .eslintignore does NOT apply here. Without this file the checker lints
+# build OUTPUT (hashed bundles) and crashes with ENOENT when a build artifact
+# changes between enumeration and read. Never lint generated output.
+build
+dist
+dev-dist
+node_modules
+coverage
