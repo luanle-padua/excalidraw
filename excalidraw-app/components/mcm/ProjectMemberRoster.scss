@@ -53,6 +53,36 @@
     gap: 5px;
   }
 
+  // Round avatar at the head of each member row (real face → recognisable).
+  &__avatar {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  // Quiet × remove at the end of a row — reveals danger tint on hover only.
+  &__role-remove {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    background: none;
+    border-radius: var(--mcm-radius-sm, 8px);
+    color: var(--mcm-text-faint, #9aa0aa);
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-danger, #d33) 12%, transparent);
+      color: var(--mcm-danger, #d33);
+    }
+  }
+
   // Role badge (Leader / Manager / Participant) — quiet pill, tinted by tier.
   &__badge {
     flex-shrink: 0;

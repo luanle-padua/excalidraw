@@ -1,4 +1,4 @@
-import { Crown, ShieldCheck, ShieldOff, UserPlus } from "lucide-react";
+import { Crown, ShieldCheck, ShieldOff, UserPlus, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { getDirectory, type DirectoryUser } from "../../data/invite";
@@ -11,11 +11,11 @@ import {
   type ProjectMember,
 } from "../../data/projects";
 import { isInternalEmail } from "../../data/session";
+import { resolveAvatarUrlWithDefault } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { ConfirmModal } from "./ConfirmModal";
 import { MemberPicker } from "./MemberPicker";
-import { PeopleGrid } from "./PeopleGrid";
 
 import "./ProjectMemberRoster.scss";
 
@@ -186,96 +186,123 @@ export const ProjectMemberRoster = ({
     reload();
   };
 
+  // ONE list, grouped by division — no more duplicate chip-grid + flat role
+  // list (anh Luân 06-16). Each person is a full row: avatar · name · 직급 chip
+  // · role badge · actions. Stable order: by division name, ungrouped last.
+  const byDivision = new Map<string, ProjectMember[]>();
+  for (const m of members) {
+    const key =
+      directory.find((x) => x.email === m.email)?.division?.trim() || "";
+    const arr = byDivision.get(key) ?? [];
+    arr.push(m);
+    byDivision.set(key, arr);
+  }
+  const memberGroups = [...byDivision.entries()].sort(([a], [b]) =>
+    a === "" ? 1 : b === "" ? -1 : a.localeCompare(b),
+  );
+
   return (
     <div className="mcm-roster">
-      <PeopleGrid
-        people={members.map((m) => {
-          const u = directory.find((x) => x.email === m.email);
-          return {
-            email: m.email,
-            name: u?.name ?? m.email.split("@")[0],
-            title: u?.title ?? null,
-            group: u?.division ?? null,
-            kind: "internal" as const,
-            avatar: u?.avatar ?? null,
-            // Badge/tooltip reflects the tier (Division admin / Leader /
-            // Co-operator / Participant).
-            tooltip: roleLabel(m.email, m.role),
-          };
-        })}
-        onRemove={canManage ? remove : undefined}
-        removeLabel={t("proj.removeMember")}
-        emptyLabel={t("proj.noMembers")}
-      />
-
-      {/* Role list: EVERY member with their PROJECT-ROLE badge + a separate,
-          display-only 직급 title chip (chức vụ ≠ role, anh Luân 06-16). Action
-          buttons are offered to everyone EXCEPT the current leader (owner — the
-          worker refuses to re-role an owner); a division admin / trưởng-phòng is
-          NOT locked out — their org title never decides their project role, so
-          they can still be made leader or co-operator. */}
-      {canDelegate && members.length > 0 && (
-        <ul className="mcm-roster__roles">
-          {members.map((m) => {
-            const u = directory.find((x) => x.email === m.email);
-            const isOwner = m.role === "owner";
-            const isManager = m.role === "manager";
-            // Only the current leader (owner) is fixed (badge-only); org title
-            // — including Division admin — never locks the action buttons.
-            const actionable = !isOwner;
-            return (
-              <li key={m.email} className="mcm-roster__role-row">
-                <span className="mcm-roster__role-name">
-                  {u?.name ?? m.email.split("@")[0]}
-                </span>
-                {u?.title && (
-                  <span
-                    className="mcm-roster__title-chip"
-                    title={t("proj.titleChip")}
-                  >
-                    {u.title}
-                  </span>
-                )}
-                <span
-                  className={`mcm-roster__badge mcm-roster__badge--${roleVariant(
-                    m.email,
-                    m.role,
-                  )}`}
-                >
-                  {roleLabel(m.email, m.role)}
-                </span>
-                {actionable && canAssignLeader && (
-                  <button
-                    type="button"
-                    className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
-                    onClick={() => void makeLeader(m.email)}
-                  >
-                    <Crown size={13} /> {t("proj.makeLeader")}
-                  </button>
-                )}
-                {actionable && (
-                  <button
-                    type="button"
-                    className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
-                    onClick={() =>
-                      void changeRole(m.email, isManager ? "member" : "manager")
-                    }
-                  >
-                    {isManager ? (
-                      <>
-                        <ShieldOff size={13} /> {t("proj.removeManager")}
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck size={13} /> {t("proj.makeManager")}
-                      </>
-                    )}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+      {members.length === 0 ? (
+        <div className="mcm-roster__empty">{t("proj.noMembers")}</div>
+      ) : (
+        <div className="mcm-roster__groups">
+          {memberGroups.map(([division, rows]) => (
+            <div key={division || "—"} className="mcm-roster__group">
+              <div className="mcm-roster__group-head">
+                <h4 className="mcm-roster__group-title">
+                  <span>{division || t("people.noGroup")}</span>
+                </h4>
+                <span className="mcm-roster__group-count">{rows.length}</span>
+              </div>
+              <ul className="mcm-roster__roles">
+                {rows.map((m) => {
+                  const u = directory.find((x) => x.email === m.email);
+                  const isOwner = m.role === "owner";
+                  const isManager = m.role === "manager";
+                  // Org title (incl. Division admin) never locks actions — only
+                  // the current leader (owner) is fixed (worker refuses to
+                  // re-role an owner), so it's badge-only.
+                  const actionable = !isOwner;
+                  return (
+                    <li key={m.email} className="mcm-roster__role-row">
+                      <img
+                        className="mcm-roster__avatar"
+                        src={resolveAvatarUrlWithDefault(
+                          u?.avatar ?? null,
+                          m.email,
+                        )}
+                        alt=""
+                        loading="lazy"
+                      />
+                      <span className="mcm-roster__role-name">
+                        {u?.name ?? m.email.split("@")[0]}
+                      </span>
+                      {u?.title && (
+                        <span
+                          className="mcm-roster__title-chip"
+                          title={t("proj.titleChip")}
+                        >
+                          {u.title}
+                        </span>
+                      )}
+                      <span
+                        className={`mcm-roster__badge mcm-roster__badge--${roleVariant(
+                          m.email,
+                          m.role,
+                        )}`}
+                      >
+                        {roleLabel(m.email, m.role)}
+                      </span>
+                      {actionable && canAssignLeader && (
+                        <button
+                          type="button"
+                          className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
+                          onClick={() => void makeLeader(m.email)}
+                        >
+                          <Crown size={13} /> {t("proj.makeLeader")}
+                        </button>
+                      )}
+                      {actionable && canDelegate && (
+                        <button
+                          type="button"
+                          className="mcm-btn mcm-btn--sm mcm-roster__role-btn"
+                          onClick={() =>
+                            void changeRole(
+                              m.email,
+                              isManager ? "member" : "manager",
+                            )
+                          }
+                        >
+                          {isManager ? (
+                            <>
+                              <ShieldOff size={13} /> {t("proj.removeManager")}
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck size={13} /> {t("proj.makeManager")}
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {canManage && actionable && (
+                        <button
+                          type="button"
+                          className="mcm-roster__role-remove"
+                          onClick={() => remove(m.email)}
+                          title={t("proj.removeMember")}
+                          aria-label={t("proj.removeMember")}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
 
       {(canManage || extraAction) && (
