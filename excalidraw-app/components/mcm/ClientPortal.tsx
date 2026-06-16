@@ -152,10 +152,10 @@ export const ClientPortal = ({ session }: { session: Session }) => {
           MAP-GROUP Global wordmark in the brand serif (anh Luân 06-16). */}
       <header className="mcm-portal__head">
         <span className="mcm-portal__brand">MAP-GROUP Global</span>
-        <h1 className="mcm-portal__title">{t("portal.title")}</h1>
-        <p className="mcm-portal__hello">
+        <h1 className="mcm-portal__hello">
           {t("portal.hello", { name: session.name })}
-        </p>
+        </h1>
+        <p className="mcm-portal__title">{t("portal.title")}</p>
       </header>
       <div className="mcm-portal__stage">
         <div className="mcm-portal__inner">

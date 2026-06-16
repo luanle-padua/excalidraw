@@ -6476,6 +6476,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
 // Greeting sits ON the backdrop now (left-aligned, light text on the dark
 // scrim) — aligned to the card's left edge via the shared max-width. A soft
 // shadow keeps it legible over any theme.
+// Greeting on the backdrop — Cormorant Garamond throughout (anh Luân 06-16),
+// left-aligned, light with a soft shadow for legibility over any theme.
 .mcm-portal__head {
   position: relative;
   z-index: 1;
@@ -6485,32 +6487,35 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  gap: 4px;
+  gap: 2px;
+  font-family: "Cormorant Garamond", Georgia, serif;
   color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.5);
 }
 
 .mcm-portal__brand {
-  // Brand serif (Fraunces) — same "chữ có chân" as the Canvas·M wordmark.
-  font-family: var(--mcm-font-display-num);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.78);
 }
 
+// The customer greeting ("Hi {name}") is the HERO — the biggest line.
+.mcm-portal__hello {
+  margin: 2px 0 0;
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 600;
+  line-height: 1.05;
+  color: #fff;
+}
+
+// "Your meetings with MAP" — quiet subtitle under the greeting.
 .mcm-portal__title {
   margin: 0;
-  font-size: 26px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: -0.01em;
-}
-
-.mcm-portal__hello {
-  margin: 0;
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.72);
+  font-size: 22px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .mcm-portal__sections {
@@ -11327,6 +11332,14 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid color-mix(in srgb, #fff 26%, transparent);
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset,
       0 24px 60px rgba(0, 0, 0, 0.34);
+  }
+
+  // Title in the same brand serif as the portal greeting (đồng bộ với trang
+  // khách, anh Luân 06-16).
+  .mcm-gate__title {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-size: 27px;
+    font-weight: 600;
   }
 }
 
