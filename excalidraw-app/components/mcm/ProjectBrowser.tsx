@@ -193,7 +193,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     // "no projects".
     setProjectsFailed(!r.ok);
     if (r.ok) {
-      setProjects(r.items);
+      // Stable, name-sorted order — so any "first managed project" resolution
+      // is deterministic, never arbitrary server row order.
+      setProjects(
+        [...r.items].sort((a, b) => a.name.localeCompare(b.name)),
+      );
     }
   }, []);
 
@@ -253,8 +257,13 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // managers — leader · co-operator · head · deputy · admin (server-computed
   // can_manage) — may create one in it; a plain participant just joins.
   const canManageProj = (p: Project | null): boolean => !!p?.can_manage;
-  // The project a new meeting attaches to: the open one if we may manage it,
-  // else the first project we manage.
+  // Projects the user may create a meeting in.
+  const manageableProjects = projects.filter((p) => canManageProj(p));
+  // The project an INSTANT ("now") meeting attaches to: the open one (the 'now'
+  // button only shows when a manageable project is open). For SCHEDULE the form
+  // owns the choice (it can be opened from the calendar with no project open),
+  // so we do NOT fall back to an arbitrary managed project here — that mis-filed
+  // the scheduled meeting + its guests under the wrong project (anh Luân 06-16).
   const targetProject = canManageProj(selectedProject)
     ? selectedProject
     : projects.find((p) => canManageProj(p)) ?? null;
@@ -905,10 +914,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                 }
               }}
             />
-          ) : meetingFormOpen && targetProject ? (
+          ) : meetingFormOpen && manageableProjects.length > 0 ? (
             <ScheduleMeetingForm
-              projectId={targetProject.id}
-              projectName={targetProject.name}
+              projectId={
+                meetingFormOpen === "now"
+                  ? targetProject?.id ?? ""
+                  : canManageProj(selectedProject)
+                  ? selectedProject?.id ?? ""
+                  : ""
+              }
+              manageableProjects={manageableProjects}
               mode={meetingFormOpen}
               defaultWhen={formDefaultWhen}
               onClose={() => {

@@ -12669,6 +12669,25 @@ body:has(.excalidraw.theme--dark) {
     flex: none;
     color: var(--mcm-accent);
   }
+
+  // Schedule-mode project picker — the eyebrow becomes a borderless select so
+  // choosing the project reads as part of the label, not a heavy form control.
+  &--select select {
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    color: var(--mcm-accent);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
+
+    &:focus-visible {
+      outline: 2px solid var(--mcm-accent);
+      outline-offset: 1px;
+    }
+  }
 }
 
 // The meeting title — the form's single focal element. Borderless except a

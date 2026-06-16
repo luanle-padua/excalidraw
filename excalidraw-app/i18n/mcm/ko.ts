@@ -517,6 +517,7 @@ export const ko: Widened<typeof vi> = {
     // title shown in the title chip, this is the authority tier (06-16).
     roleDivisionAdmin: "부서 관리자",
     titleChip: "직급",
+    pickProject: "프로젝트 선택",
     roleManager: "공동 관리자",
     roleParticipant: "참여자",
     makeManager: "공동 관리자 지정",

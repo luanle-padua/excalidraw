@@ -538,6 +538,7 @@ export const vi = {
     // ban" so the two never read as the same thing (anh Luân 06-16).
     roleDivisionAdmin: "Quản trị phòng ban",
     titleChip: "Chức vụ",
+    pickProject: "Chọn dự án",
     roleOwner: "Trưởng dự án",
     roleManager: "Đồng quản lý",
     roleParticipant: "Thành viên",

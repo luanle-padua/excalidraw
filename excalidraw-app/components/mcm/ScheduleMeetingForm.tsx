@@ -52,15 +52,21 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
  *  it in their "Invited / Upcoming" list. */
 export const ScheduleMeetingForm = ({
   projectId,
-  projectName,
+  manageableProjects = [],
   mode,
   defaultWhen,
   onClose,
   onCreated,
   onCreatedEnter,
 }: {
+  /** The project the form binds to. May be "" when opened from the always-
+   *  visible calendar with no project selected — then the user MUST pick one
+   *  (the schedule selector below); we never silently fall back to an arbitrary
+   *  managed project, which attached the meeting + guests to the wrong project. */
   projectId: string;
-  projectName: string;
+  /** Projects the caller may create meetings in — drives the schedule-mode
+   *  project selector + resolves the display name. */
+  manageableProjects?: { id: string; name: string }[];
   /** "now" = create + enter the room immediately; "schedule" = create as
    *  scheduled (date/time shown), don't enter — appears in Upcoming. */
   mode: "now" | "schedule";
@@ -102,11 +108,25 @@ export const ScheduleMeetingForm = ({
   const [guestQ, setGuestQ] = useState("");
   const [addToProject, setAddToProject] = useState(true);
   const [saving, setSaving] = useState(false);
+  // The project the meeting + its guest list are ACTUALLY bound to. Defaults to
+  // the incoming projectId; in schedule mode the user can pick (or must pick,
+  // when opened from the calendar with no project context).
+  const [pickedProjectId, setPickedProjectId] = useState(projectId);
+  const pickedProjectName =
+    manageableProjects.find((p) => p.id === pickedProjectId)?.name ?? "";
 
   useEffect(() => {
     void getDirectory().then(setDir);
-    void listProjectGuests(projectId).then(setGuests);
-  }, [projectId]);
+  }, []);
+  // Guests are PER-PROJECT — re-fetch whenever the bound project changes so the
+  // picker always shows the chosen project's guests (not a stale/wrong one).
+  useEffect(() => {
+    if (!pickedProjectId) {
+      setGuests([]);
+      return;
+    }
+    void listProjectGuests(pickedProjectId).then(setGuests);
+  }, [pickedProjectId]);
 
   // Friendly display name for a guest: representative label + company.
   const guestName = (g: ProjectGuest) =>
@@ -165,7 +185,7 @@ export const ScheduleMeetingForm = ({
     add({ email: g.login.toLowerCase(), name: guestName(g), kind: "guest" });
 
   const create = async () => {
-    if (!title.trim() || saving) {
+    if (!title.trim() || !pickedProjectId || saving) {
       return;
     }
     setSaving(true);
@@ -177,7 +197,7 @@ export const ScheduleMeetingForm = ({
       const ok = await registerMeeting({
         roomId,
         roomKey,
-        projectId,
+        projectId: pickedProjectId,
         title: title.trim(),
         createdBy: session?.name,
         topic: topic.trim() || undefined,
@@ -293,9 +313,31 @@ export const ScheduleMeetingForm = ({
             when-card: same date/time/duration trio, dressed like the
             detail panel's hero (accent wash + icon badge). */}
         <section className="mcm-nmf__zone">
-          <span className="mcm-nmf__proj">
-            <Briefcase size={12} /> {projectName}
-          </span>
+          {mode === "schedule" && manageableProjects.length > 0 ? (
+            // Schedule can be opened from the calendar with NO project context,
+            // so the project is an explicit choice here — never an arbitrary
+            // fallback (which mis-filed the meeting + its guests).
+            <label className="mcm-nmf__proj mcm-nmf__proj--select">
+              <Briefcase size={12} />
+              <select
+                value={pickedProjectId}
+                onChange={(e) => setPickedProjectId(e.target.value)}
+              >
+                <option value="" disabled>
+                  {t("proj.pickProject")}
+                </option>
+                {manageableProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <span className="mcm-nmf__proj">
+              <Briefcase size={12} /> {pickedProjectName}
+            </span>
+          )}
           <input
             className="mcm-nmf__title"
             value={title}

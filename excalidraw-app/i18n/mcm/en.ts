@@ -509,6 +509,7 @@ export const en: Widened<typeof vi> = {
     roleOwner: "Leader",
     roleDivisionAdmin: "Division admin",
     titleChip: "Title",
+    pickProject: "Select a project",
     roleManager: "Co-operator",
     roleParticipant: "Participant",
     makeManager: "Make co-operator",
