@@ -663,6 +663,14 @@ export const vi = {
     finishedDesc:
       "Cuộc họp này đã kết thúc. Người tổ chức sẽ gửi tài liệu tổng kết cho bạn sau.",
     back: "Về trang chính",
+    // Waiting room (knock-to-join)
+    waitingRoomTitle: "Đang chờ vào phòng họp",
+    joiningAs: "Vào với tên {name}",
+    deniedTitle: "Chưa được duyệt vào",
+    deniedDesc:
+      "Chủ trì chưa cho bạn vào lúc này. Bạn có thể gõ cửa lại sau giây lát.",
+    reknock: "Gõ cửa lại",
+    knocking: "Đang gõ cửa…",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -713,6 +721,11 @@ export const vi = {
     statusAccepted: "Đã nhận",
     cohost: "Đồng chủ trì",
     invitedCountLabel: "Đã vào / Được mời",
+    // Waiting room (host side)
+    admit: "Cho vào",
+    deny: "Từ chối",
+    waitingSection: "Đang chờ vào ({count})",
+    waitingCount: "{count} đang chờ",
   },
 
   profile: {

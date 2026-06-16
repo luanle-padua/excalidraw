@@ -640,6 +640,14 @@ export const ko: Widened<typeof vi> = {
     finishedDesc:
       "이 회의는 종료되었습니다. 주최자가 요약 자료를 별도로 공유할 예정입니다.",
     back: "홈으로",
+    // Waiting room (knock-to-join)
+    waitingRoomTitle: "입장 대기 중",
+    joiningAs: "{name}(으)로 입장",
+    deniedTitle: "입장이 거절되었습니다",
+    deniedDesc:
+      "호스트가 아직 입장을 허용하지 않았습니다. 잠시 후 다시 노크할 수 있습니다.",
+    reknock: "다시 노크",
+    knocking: "노크 중…",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -689,6 +697,11 @@ export const ko: Widened<typeof vi> = {
     statusAccepted: "수락함",
     cohost: "공동 호스트",
     invitedCountLabel: "참여 / 초대됨",
+    // Waiting room (host side)
+    admit: "입장 허용",
+    deny: "거절",
+    waitingSection: "입장 대기 ({count})",
+    waitingCount: "{count}명 대기 중",
   },
 
   profile: {

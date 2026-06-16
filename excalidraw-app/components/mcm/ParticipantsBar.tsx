@@ -7,7 +7,7 @@
 // populated.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { Mic, MicOff, UserX, X } from "lucide-react";
+import { Mic, MicOff, UserCheck, UserX, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { createPortal } from "react-dom";
@@ -34,6 +34,11 @@ import {
   type DirectoryUser,
   type MeetingInvitee,
 } from "../../data/invite";
+import {
+  listKnocks,
+  patchKnock,
+  type WaitingKnock,
+} from "../../data/knock";
 import { sessionAtom } from "../../data/session";
 import {
   hostSocketIdAtom,
@@ -456,6 +461,8 @@ const ParticipantsPanel = ({
   tiles,
   invited,
   iAmHost,
+  waitingKnocks,
+  onKnockAction,
   onClose,
   onMute,
   onKick,
@@ -463,6 +470,9 @@ const ParticipantsPanel = ({
   tiles: Tile[];
   invited: InvitedRow[];
   iAmHost: boolean;
+  /** Guests knocking to enter (host-only; empty for non-hosts). */
+  waitingKnocks: WaitingKnock[];
+  onKnockAction: (email: string, action: "admit" | "deny") => void;
   onClose: () => void;
   onMute: (tile: Tile) => void;
   onKick: (tile: Tile) => void;
@@ -573,6 +583,63 @@ const ParticipantsPanel = ({
           })}
         </ul>
 
+        {iAmHost && waitingKnocks.length > 0 && (
+          <>
+            <div className="mcm-pp__section">
+              {t("participants.waitingSection", {
+                count: waitingKnocks.length,
+              })}
+            </div>
+            <ul className="mcm-pp__list mcm-pp__list--waiting">
+              {waitingKnocks.map((k) => {
+                const fullName = k.name || k.email;
+                return (
+                  <li
+                    key={k.email}
+                    className="mcm-pp__row mcm-pp__row--invited"
+                  >
+                    <span
+                      className="mcm-pp__avatar"
+                      // gradient per knocker (data-driven)
+                      // eslint-disable-next-line react/forbid-dom-props
+                      style={{ background: gradientFor(k.email) }}
+                    >
+                      <span aria-hidden="true">
+                        {pickEmojiFor(k.email, fullName)}
+                      </span>
+                    </span>
+                    <div className="mcm-pp__meta">
+                      <span className="mcm-pp__name">
+                        {fullName}
+                        <span className="mcm-pp__tag">
+                          {t("participants.guestTag")}
+                        </span>
+                      </span>
+                      <span className="mcm-pp__company">{k.email}</span>
+                    </div>
+                    <div className="mcm-pp__actions">
+                      <button
+                        type="button"
+                        className="mcm-pp__btn"
+                        onClick={() => onKnockAction(k.email, "admit")}
+                      >
+                        <UserCheck size={13} /> {t("participants.admit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="mcm-pp__btn mcm-pp__btn--danger"
+                        onClick={() => onKnockAction(k.email, "deny")}
+                      >
+                        <UserX size={13} /> {t("participants.deny")}
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+
         {invited.length > 0 && (
           <>
             <div className="mcm-pp__section">
@@ -682,6 +749,9 @@ export const ParticipantsBar = ({
   const roomId = activeRoomLink?.split("#room=")[1]?.split(",")[0] ?? null;
   const [invitees, setInvitees] = useState<MeetingInvitee[]>([]);
   const [directory, setDirectory] = useState<DirectoryUser[]>([]);
+  // WAITING ROOM (host side): guests knocking to enter. Host-only — the poll
+  // below is gated on iAmHost, so a non-host keeps this empty.
+  const [waitingKnocks, setWaitingKnocks] = useState<WaitingKnock[]>([]);
   useEffect(() => {
     if (!roomId || session?.isGuest) {
       setInvitees([]);
@@ -980,6 +1050,43 @@ export const ParticipantsBar = ({
     });
   };
 
+  // WAITING ROOM (host side): poll who's knocking every 5s while I'm the host.
+  // Non-hosts (and guests) never poll — the worker 403s them anyway. The list
+  // drives both the panel section and the CountChip "N waiting" badge.
+  useEffect(() => {
+    if (!iAmHost || !roomId) {
+      setWaitingKnocks([]);
+      return undefined;
+    }
+    let alive = true;
+    const tick = async () => {
+      const rows = await listKnocks(roomId);
+      if (alive) {
+        setWaitingKnocks(rows);
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      alive = false;
+      window.clearInterval(id);
+    };
+  }, [iAmHost, roomId]);
+
+  // Admit / deny a waiting guest: optimistically drop the row, refetch on error
+  // so a failed call doesn't silently lose the knock.
+  const onKnockAction = async (email: string, action: "admit" | "deny") => {
+    if (!roomId) {
+      return;
+    }
+    setWaitingKnocks((prev) => prev.filter((k) => k.email !== email));
+    const ok = await patchKnock(roomId, email, action);
+    if (!ok) {
+      const rows = await listKnocks(roomId);
+      setWaitingKnocks(rows);
+    }
+  };
+
   return (
     <>
       <footer className="mcm-people-bar" aria-label={t("participants.label")}>
@@ -987,6 +1094,7 @@ export const ParticipantsBar = ({
           inRoom={tiles.length}
           invited={invitedTotal}
           inCall={inCallCount}
+          waiting={iAmHost ? waitingKnocks.length : 0}
           onOpen={() => setPanelOpen(true)}
         />
         <div className="mcm-people-bar__list">
@@ -1011,6 +1119,8 @@ export const ParticipantsBar = ({
           tiles={tiles}
           invited={invitedOffline}
           iAmHost={iAmHost}
+          waitingKnocks={iAmHost ? waitingKnocks : []}
+          onKnockAction={onKnockAction}
           onClose={() => setPanelOpen(false)}
           onMute={doMute}
           onKick={doKick}
@@ -1120,6 +1230,7 @@ const CountChip = ({
   inRoom,
   invited,
   inCall,
+  waiting = 0,
   previewMode = false,
   onOpen,
 }: {
@@ -1129,6 +1240,8 @@ const CountChip = ({
    *  fetch the roster) shows just the joined count. */
   invited?: number;
   inCall: number;
+  /** Guests currently knocking (host-only). Renders a "N waiting" badge. */
+  waiting?: number;
   previewMode?: boolean;
   /** When provided, the chip becomes a button that opens the participant
    *  management panel (Zoom-style). */
@@ -1151,6 +1264,11 @@ const CountChip = ({
         <MicOnIcon />
         <span className="mcm-people-bar__chip-num">{inCall}</span>
       </span>
+      {waiting > 0 && (
+        <span className="mcm-people-bar__chip-waiting">
+          {t("participants.waitingCount", { count: waiting })}
+        </span>
+      )}
       {previewMode && (
         <span className="mcm-people-bar__chip-preview">
           {t("participants.previewBadge")}

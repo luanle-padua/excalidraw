@@ -150,3 +150,59 @@ export const getMyInvitations = async (): Promise<MyInvitation[]> => {
   const r = await getMyInvitationsChecked();
   return r.ok ? r.items : [];
 };
+
+// ---- Waiting room (knock-to-join) ----------------------------------------
+// External guests knock to enter a LIVE meeting and poll their own status until
+// a host admits them. Internal staff auto-admit (the worker short-circuits them
+// — these helpers are only ever called for external callers).
+
+export type MyKnock = {
+  status: "invited" | "admitted" | "denied";
+} | null;
+
+/** The caller's OWN knock status for a meeting (self-scoped). Returns null when
+ *  there's no knock row yet (or on error — the waiting-room poll treats null as
+ *  "not admitted" and keeps waiting). */
+export const getMyKnock = async (roomId: string): Promise<MyKnock> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/knock`,
+    );
+    if (!res.ok) {
+      return null;
+    }
+    const j = (await res.json()) as { knock?: MyKnock };
+    return j.knock ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** Knock to enter a live meeting. The display name is sent in the body (the
+ *  worker has no `name` on its auth context). Returns the resulting status +
+ *  HTTP status so the caller can tell apart admitted / invited / denied
+ *  (429 cooldown) / refusal. */
+export const knockToMeeting = async (
+  roomId: string,
+  name?: string | null,
+): Promise<{ ok: boolean; status: number | null; knockStatus?: string }> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/knock`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: name ?? null }),
+      },
+    );
+    let knockStatus: string | undefined;
+    try {
+      knockStatus = ((await res.json()) as { status?: string }).status;
+    } catch {
+      knockStatus = undefined;
+    }
+    return { ok: res.ok, status: res.status, knockStatus };
+  } catch {
+    return { ok: false, status: null };
+  }
+};

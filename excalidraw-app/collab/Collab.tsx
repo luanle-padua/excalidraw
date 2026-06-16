@@ -131,6 +131,7 @@ import {
   normalizeMeetingStatus,
 } from "../components/mcm/meetingStatus";
 import { showAppToast } from "../data/appToast";
+import { getMyKnock, knockToMeeting } from "../data/invite";
 import {
   getMeeting,
   getMeetingChecked,
@@ -201,6 +202,22 @@ export type StartGate = {
   status: "scheduled" | "cancelled" | "finished";
 };
 export const startGateAtom = atom<StartGate | null>(null);
+
+/** WAITING ROOM (knock-to-join). Set when an EXTERNAL guest joins a LIVE meeting
+ *  they haven't been admitted to yet: instead of connecting, `startCollaboration`
+ *  parks the room here, knocks, and the WaitingRoom overlay polls until a host
+ *  admits them (then auto-connects) or denies them. Internal staff auto-admit
+ *  and never park here. Mirrors `startGateAtom` but for the live-meeting admit
+ *  gate rather than the scheduled-meeting start gate. */
+export type WaitingRoom = {
+  roomId: string;
+  roomKey: string;
+  title: string | null;
+  scheduledAt: string | null;
+  // The guest's own knock status, mirrored from the server poll.
+  status: "invited" | "denied";
+};
+export const waitingRoomAtom = atom<WaitingRoom | null>(null);
 
 /** Open state of the Zoom-style participants management panel. Lifted to an
  *  atom so both the toolbar button (MeetingHeader) and the bar chip can open it
@@ -761,6 +778,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     if (!opts?.isUnload) {
       this.setIsCollaborating(false);
       appJotaiStore.set(meetingViewOnlyAtom, false);
+      appJotaiStore.set(waitingRoomAtom, null);
       clearReviewRoom();
       clearStealthRoom();
       // Drop the LEFT meeting's chat so it can't bleed into the next room;
@@ -890,6 +908,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       markReviewRoom(sRoomId);
       markStealthRoom(sRoomId);
       appJotaiStore.set(startGateAtom, null);
+      appJotaiStore.set(waitingRoomAtom, null);
       this.portal.roomId = sRoomId;
       this.portal.roomKey = sRoomKey;
       this.setIsCollaborating(true);
@@ -1018,8 +1037,34 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           appJotaiStore.set(meetingViewOnlyAtom, true);
           markReviewRoom(roomId);
         }
+        if (gateStatus === "live") {
+          // WAITING ROOM (knock-to-join): an EXTERNAL guest doesn't barge into a
+          // live meeting — they knock and wait for a host to admit them. Internal
+          // staff auto-admit (the worker gives them no knock row) and fall
+          // through to connect unchanged.
+          const me = appJotaiStore.get(sessionAtom)?.email;
+          if (!isInternalEmail(me)) {
+            const knock = await getMyKnock(roomId);
+            if (knock?.status !== "admitted") {
+              // Not yet admitted → knock and park. The WaitingRoom overlay polls
+              // until admitted (auto-connect) or denied. Do NOT connect.
+              const myName = appJotaiStore.get(sessionAtom)?.name;
+              void knockToMeeting(roomId, myName);
+              appJotaiStore.set(waitingRoomAtom, {
+                roomId,
+                roomKey,
+                title: reg?.title ?? null,
+                scheduledAt: reg?.scheduled_at ?? null,
+                status: "invited",
+              });
+              return null;
+            }
+            // Already admitted (re-entry / refresh) → fall through to connect.
+          }
+        }
       }
       appJotaiStore.set(startGateAtom, null);
+      appJotaiStore.set(waitingRoomAtom, null);
     } else {
       ({ roomId, roomKey } = await generateCollaborationLinkData());
       window.history.pushState(

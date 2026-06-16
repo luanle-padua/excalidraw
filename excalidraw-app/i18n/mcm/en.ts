@@ -632,6 +632,14 @@ export const en: Widened<typeof vi> = {
     finishedDesc:
       "This meeting has ended. The organizer will share a recap with you separately.",
     back: "Back to home",
+    // Waiting room (knock-to-join)
+    waitingRoomTitle: "Waiting to be let in",
+    joiningAs: "Joining as {name}",
+    deniedTitle: "Not admitted",
+    deniedDesc:
+      "The host hasn't let you in right now. You can knock again in a moment.",
+    reknock: "Knock again",
+    knocking: "Knocking…",
   },
 
   // ---------------- Meeting list view controls ---------------------
@@ -681,6 +689,11 @@ export const en: Widened<typeof vi> = {
     statusAccepted: "Accepted",
     cohost: "Co-host",
     invitedCountLabel: "Joined / Invited",
+    // Waiting room (host side)
+    admit: "Admit",
+    deny: "Deny",
+    waitingSection: "Waiting to join ({count})",
+    waitingCount: "{count} waiting",
   },
 
   profile: {

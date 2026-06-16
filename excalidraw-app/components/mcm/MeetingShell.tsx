@@ -62,6 +62,7 @@ import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
 import { UserProfileModal } from "./UserProfileModal";
 import { WaitingForStart } from "./WaitingForStart";
+import { WaitingRoom } from "./WaitingRoom";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
 
 import "./MeetingShell.scss";
@@ -387,6 +388,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       {/* Renders above the lobby when a join is parked on a not-yet-started
           (or cancelled) meeting — the Phase 4.5 start gate. */}
       <WaitingForStart />
+      {/* Guest knock-to-join lobby — renders above the canvas when an external
+          guest joins a LIVE meeting they haven't been admitted to yet. */}
+      <WaitingRoom />
       {/* "Meeting tới giờ" toast — nudges the user to join a scheduled
           meeting whose time has arrived. Hides itself while collaborating
           so the in-meeting canvas stays clean. */}

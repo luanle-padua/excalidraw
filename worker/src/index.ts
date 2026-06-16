@@ -149,6 +149,9 @@ app.use("/v1/admin/*", async (c, next) => {
 });
 
 const now = () => Date.now();
+// A denied guest may re-knock only after this cooldown (server-enforced so the
+// re-knock button can't be hammered). See docs/plans/waiting-room.md.
+const REKNOCK_COOLDOWN_MS = 30_000;
 const sceneKey = (roomId: string) => `scenes/${roomId}/current`;
 const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
 const chatKey = (roomId: string) => `chats/${roomId}/current`;
@@ -2612,6 +2615,181 @@ app.get("/v1/meetings/:roomId/participants", async (c) => {
   return c.json({ participants: results });
 });
 
+// ---- Waiting room (knock-to-join, Phase 4.5) -----------------------------
+// External invited guests don't barge into a LIVE meeting — they "knock" and a
+// host/manager admits them. Internal staff + admins auto-admit and never knock.
+// The real server gate lives on the Daily token endpoint (an EXTERNAL caller
+// needs a status='admitted' knock row); these routes drive the knock lifecycle.
+// All are under /v1/meetings/:roomId/* → roomGate already vetted that the caller
+// can SEE the meeting (an invitee). See docs/plans/waiting-room.md.
+
+// A guest knocks (or re-knocks). EXTERNAL only — internal/admin are told not to
+// knock (they auto-admit). roomGate guarantees the caller is invited.
+app.post("/v1/meetings/:roomId/knock", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!email) {
+    return c.json({ error: "unauthenticated" }, 401);
+  }
+  // Internal staff + admins auto-admit and must never sit in the waiting room —
+  // they have no knock row, so a knock here is a client-side bug.
+  if (isInternalEmail(email) || role === "admin") {
+    return c.json(
+      { error: "internal users do not knock", status: "admitted" },
+      409,
+    );
+  }
+  const e = email.toLowerCase();
+  const meeting = await c.env.DB.prepare(
+    `SELECT status FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{ status: string | null }>();
+  if (!meeting) {
+    return c.json({ error: "not found" }, 404);
+  }
+  // Only a LIVE meeting has a waiting room — a scheduled one parks at the start
+  // gate, a finished/cancelled one has no room to knock into.
+  if (normalizeStatus(meeting.status) !== "live") {
+    return c.json({ error: "meeting not live" }, 409);
+  }
+  // Read the body AT MOST ONCE — reading c.req.json() twice throws
+  // "body already used". c.get('name') does NOT exist on Variables, so the
+  // display name comes ONLY from the request body.
+  const body = await c.req
+    .json<{ name?: string }>()
+    .catch(() => ({} as { name?: string }));
+  const name = body.name || null;
+  const t = now();
+  const existing = await c.env.DB.prepare(
+    `SELECT status, last_seen FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
+  )
+    .bind(roomId, e)
+    .first<{ status: string; last_seen: number }>();
+  // Already admitted → idempotent success (bump last_seen so the host sees a
+  // fresh heartbeat); the client falls through to connect.
+  if (existing?.status === "admitted") {
+    await c.env.DB.prepare(
+      `UPDATE meeting_knock SET last_seen = ?3 WHERE room_id = ?1 AND email = ?2`,
+    )
+      .bind(roomId, e, t)
+      .run();
+    return c.json({ ok: true, status: "admitted" });
+  }
+  // Denied within the cooldown → refuse the re-knock (server-enforced so the
+  // re-knock button can't be hammered).
+  if (
+    existing?.status === "denied" &&
+    t - existing.last_seen < REKNOCK_COOLDOWN_MS
+  ) {
+    return c.json(
+      {
+        error: "denied — try again later",
+        status: "denied",
+        retryAfter: Math.ceil(
+          (REKNOCK_COOLDOWN_MS - (t - existing.last_seen)) / 1000,
+        ),
+      },
+      429,
+    );
+  }
+  // (Re)knock: upsert as 'invited' (a denied row past cooldown is reset to
+  // invited so the host sees the fresh knock), bump last_seen, keep created_at.
+  await c.env.DB.prepare(
+    `INSERT INTO meeting_knock (room_id, email, name, status, created_at, last_seen)
+       VALUES (?1, ?2, ?3, 'invited', ?4, ?4)
+     ON CONFLICT(room_id, email) DO UPDATE SET
+       status = 'invited',
+       name = COALESCE(?3, meeting_knock.name),
+       last_seen = ?4`,
+  )
+    .bind(roomId, e, name, t)
+    .run();
+  return c.json({ ok: true, status: "invited" });
+});
+
+// A guest reads THEIR OWN knock status (the waiting-room poll). Self-scoped:
+// only ever the caller's own row. roomGate vetted visibility.
+app.get("/v1/meetings/:roomId/knock", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  if (!email) {
+    return c.json({ knock: null });
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
+  )
+    .bind(roomId, email.toLowerCase())
+    .first<{ status: string }>();
+  return c.json({ knock: row ?? null });
+});
+
+// A manager lists everyone still WAITING (status='invited'). Manager-gated
+// (admin or internal who can see the meeting) — a guest never sees this.
+app.get("/v1/meetings/:roomId/knocks", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (
+    !(await isMeetingManager(c.env.DB, roomId, c.get("email"), c.get("role")))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT email, name, created_at FROM meeting_knock
+       WHERE room_id = ?1 AND status = 'invited'
+       ORDER BY created_at ASC`,
+  )
+    .bind(roomId)
+    .all();
+  return c.json({ knocks: results });
+});
+
+// A manager admits or denies a waiting guest. Manager-gated. Deny is SOFT
+// (knock-only, never meeting_invitee) and re-knockable after the cooldown.
+app.patch("/v1/meetings/:roomId/knock/:email", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (
+    !(await isMeetingManager(c.env.DB, roomId, c.get("email"), c.get("role")))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const target = decodeURIComponent(c.req.param("email")).toLowerCase();
+  const body = await c.req
+    .json<{ action?: string }>()
+    .catch(() => ({} as { action?: string }));
+  const action = body.action;
+  if (action !== "admit" && action !== "deny") {
+    return c.json({ error: "action must be admit|deny" }, 400);
+  }
+  if (action === "admit") {
+    // No admitting someone into a meeting that's no longer live (it ended /
+    // was cancelled while they waited).
+    const meeting = await c.env.DB.prepare(
+      `SELECT status FROM meeting WHERE id = ?1`,
+    )
+      .bind(roomId)
+      .first<{ status: string | null }>();
+    if (normalizeStatus(meeting?.status) !== "live") {
+      return c.json({ error: "meeting not live" }, 409);
+    }
+  }
+  const nextStatus = action === "admit" ? "admitted" : "denied";
+  const res = await c.env.DB.prepare(
+    `UPDATE meeting_knock SET status = ?3, last_seen = ?4
+       WHERE room_id = ?1 AND email = ?2`,
+  )
+    .bind(roomId, target, nextStatus, now())
+    .run();
+  // No fabricated admit/deny for someone who never knocked.
+  if (res.meta.changes === 0) {
+    return c.json({ error: "no such knock" }, 404);
+  }
+  await logAudit(c.env.DB, c.get("email"), `meeting.knock.${action}`, roomId, {
+    target,
+  });
+  return c.json({ ok: true, status: nextStatus });
+});
+
 // The current user's invited / upcoming meetings — the ONLY surface a client
 // sees (project NAME only, never the folder). Powers the "Invited / Upcoming"
 // list. See host-and-scheduling.md.
@@ -3185,6 +3363,23 @@ app.get("/v1/daily/token", async (c) => {
   // this is the server backstop.)
   if (await isFinishedLocked(c.env.DB, roomId)) {
     return c.json({ error: "meeting finished (review only)" }, 409);
+  }
+  // WAITING ROOM media gate (decision 1a, docs/plans/waiting-room.md): an
+  // EXTERNAL guest only gets a Daily token once a host has ADMITTED their
+  // knock. Internal staff + admins skip (they auto-admit, never knock). This
+  // is the enforceable media gate; the canvas relay stays trust-the-key.
+  {
+    const me = c.get("email");
+    if (c.get("role") !== "admin" && !isInternalEmail(me)) {
+      const knock = await c.env.DB.prepare(
+        `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
+      )
+        .bind(roomId, me?.toLowerCase())
+        .first<{ status: string | null }>();
+      if (knock?.status !== "admitted") {
+        return c.json({ error: "not admitted to this meeting" }, 403);
+      }
+    }
   }
   const userName = (c.req.query("name") || "Guest").slice(0, 64);
   // Optional stable identity (we pass the socket.id) — baked into the token as
