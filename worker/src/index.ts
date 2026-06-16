@@ -283,7 +283,14 @@ const canSeeMeeting = async (
            AS invited,
          (SELECT 1 FROM project_member pm
             JOIN meeting m ON m.project_id = pm.project_id
-            WHERE m.id = ?1 AND pm.email = ?2) AS member`,
+            WHERE m.id = ?1 AND pm.email = ?2
+              AND pm.role IN ('owner','manager')) AS member,
+         (SELECT 1 FROM meeting m
+            JOIN project p ON p.id = m.project_id
+            LEFT JOIN division d ON d.id = p.lead_division_id
+            WHERE m.id = ?1
+              AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2))
+           AS authority`,
     )
     .bind(roomId, e)
     .first<{
@@ -292,6 +299,7 @@ const canSeeMeeting = async (
       owner: number | null;
       invited: number | null;
       member: number | null;
+      authority: number | null;
     }>();
   if (!row?.registered) {
     // Ad-hoc room without a registry row — nothing to gate against.
@@ -299,15 +307,21 @@ const canSeeMeeting = async (
   }
   // Confidential meetings are INVITEE-ONLY (quyết định 06-10 #3): project
   // membership alone is not enough — the field is enforced, not decorative.
+  // NOT even the division head/leader may peek unless they created it (owner)
+  // or were explicitly invited — confidential is a deliberate carve-out from
+  // the head's auto-manage power (06-16).
   if ((row.conf ?? "").toLowerCase() === "confidential") {
     return !!(row.owner || row.invited);
   }
-  // A PROJECT GUEST is the guest's IDENTITY (per-project account), NOT a blanket
-  // visibility grant (06-15 fix per anh Luân): a guest added to ONE meeting must
-  // NOT see the project's OTHER meetings. Guests reach a meeting ONLY via an
-  // explicit meeting_invitee row (the `invited` check above) — same as the
-  // create/invite flow which adds them by their synthetic login.
-  return !!(row.owner || row.invited || row.member);
+  // Per anh Luân 06-16: project membership ALONE no longer auto-joins a meeting.
+  // Auto-access is the LEADERSHIP set only — division HEAD + project LEADER (the
+  // `authority` arm), the organizer/host (`owner`), a co-host or any explicitly
+  // invited person (`invited`), and a manager-tier member (owner/manager =
+  // leader/co-operator, the now-restricted `member` arm). A PLAIN project member
+  // must be invited per-meeting ("đó là bảo mật") — they no longer jump into
+  // every meeting in the folder. A PROJECT GUEST is likewise an identity, not a
+  // blanket grant: they reach a meeting ONLY via an explicit meeting_invitee row.
+  return !!(row.owner || row.invited || row.member || row.authority);
 };
 
 // Per-project access LEVEL (case "phòng ban này mời phòng ban khác"):
@@ -345,13 +359,15 @@ const projectAccess = async (
   }
   // Phase 2: the designated leader and the leading division's HEAD see the whole
   // folder too (manage implies full visibility) — without needing a member row.
+  // Division admin = HEAD only (anh Luân 06-16); the deputy/rank-2 person is no
+  // longer a division authority — they see a folder only via a member row or an
+  // assigned project role.
   const lead = await db
     .prepare(
       `SELECT 1 FROM project p
          LEFT JOIN division d ON d.id = p.lead_division_id
         WHERE p.id = ?1
-          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2
-               OR lower(d.deputy_email) = ?2)
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
         LIMIT 1`,
     )
     .bind(projectId, e)
@@ -421,7 +437,7 @@ const canManageProject = async (
          (SELECT 1 FROM division d
             JOIN project p ON p.lead_division_id = d.id
             WHERE p.id = ?1
-              AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2))
+              AND lower(d.head_email) = ?2)
            AS head`,
     )
     .bind(projectId, me)
@@ -461,7 +477,7 @@ const isProjectLeadership = async (
          (SELECT 1 FROM division d
             JOIN project p ON p.lead_division_id = d.id
             WHERE p.id = ?1
-              AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2))
+              AND lower(d.head_email) = ?2)
            AS head`,
     )
     .bind(projectId, me)
@@ -494,18 +510,23 @@ const isDivisionHeadOfProject = async (
       `SELECT 1 FROM division d
          JOIN project p ON p.lead_division_id = d.id
         WHERE p.id = ?1
-          AND (lower(d.head_email) = ?2 OR lower(d.deputy_email) = ?2)
+          AND lower(d.head_email) = ?2
         LIMIT 1`,
     )
     .bind(projectId, me)
     .first());
 };
 
-// May the caller CREATE a project? Admin, or anyone who is a division HEAD or
-// DEPUTY (rank 2) of some department — they open projects for their division.
-// A plain member cannot (they get added to projects). (anh Luân 06-15.)
+// May the caller CREATE a project? Any INTERNAL user (or admin). Creating a
+// project just opens a personal folder where the creator is auto-written as
+// leader + 'owner' member (see POST /v1/projects) — it grants NO cross-project
+// or division power, so there's no reason to gate it to division admins. The
+// division HEAD still auto-manages every project their division leads; a creator
+// who isn't a head simply owns their own folder until/unless a head reassigns
+// the leader. (anh Luân 06-16: division admin = head-only; create open to all
+// internal so a 트럼-phòng/deputy can still open projects.)
 const canCreateProject = async (
-  db: D1Database,
+  _db: D1Database,
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
@@ -513,22 +534,15 @@ const canCreateProject = async (
     return true;
   }
   const me = email?.toLowerCase();
-  if (!me || !isInternalEmail(me)) {
-    return false;
-  }
-  return !!(await db
-    .prepare(
-      `SELECT 1 FROM division
-        WHERE lower(head_email) = ?1 OR lower(deputy_email) = ?1 LIMIT 1`,
-    )
-    .bind(me)
-    .first());
+  return !!me && isInternalEmail(me);
 };
 
 // Does the caller have HOST-level authority over this MEETING by virtue of the
 // project — i.e. they're the project LEADER or the leading-division HEAD? Such a
 // person gets full meeting control (End, edit) even if someone else created it
 // (anh Luân 06-15: "division head có toàn quyền trên cuộc họp ngang leader").
+// Division admin = HEAD only (anh Luân 06-16); the deputy is no longer an
+// authority — they host/End a meeting only as organizer/host/co-host/leader.
 const isMeetingProjectAuthority = async (
   db: D1Database,
   roomId: string,
@@ -544,8 +558,7 @@ const isMeetingProjectAuthority = async (
          JOIN project p ON p.id = m.project_id
          LEFT JOIN division d ON d.id = p.lead_division_id
         WHERE m.id = ?1
-          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2
-               OR lower(d.deputy_email) = ?2)
+          AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2)
         LIMIT 1`,
     )
     .bind(roomId, me)
@@ -555,9 +568,10 @@ const isMeetingProjectAuthority = async (
 // May the caller MANAGE a meeting's people (invite, set co-host, edit)? This is
 // the "meeting authority" set (anh Luân 06-15: "mời phải đúng chuẩn role"):
 // admin · organizer · designated host · a co-host · or project authority
-// (leader / head / deputy). A plain invited participant who can merely SEE the
-// meeting must NOT invite others. Legacy rows with no organizer_email fall back
-// to internal-allow (so pre-organizer meetings aren't unmanageable).
+// (leader / head — deputy dropped 06-16). A plain invited participant who can
+// merely SEE the meeting must NOT invite others. Legacy rows with no
+// organizer_email fall back to internal-allow (so pre-organizer meetings
+// aren't unmanageable).
 const isMeetingManager = async (
   db: D1Database,
   roomId: string,
@@ -878,11 +892,12 @@ app.get("/v1/files/:roomId/:fileId", async (c) => {
 app.post("/v1/projects", async (c) => {
   const email = c.get("email");
   const role = c.get("role");
-  // Creating a project is a LEADERSHIP act (anh Luân 06-15): only a division
-  // HEAD or their immediate DEPUTY (rank 2) — or an admin — may open one. A
-  // regular member gets added to projects; they don't spin up their own.
+  // Any INTERNAL user may open a project (anh Luân 06-16): the creator is
+  // auto-written as leader + 'owner' member below, so it's a self-contained
+  // personal folder that grants no cross-project power. The division HEAD still
+  // auto-manages every project their division leads. Guests never own folders.
   if (!(await canCreateProject(c.env.DB, email, role))) {
-    return c.json({ error: "only a division head or deputy may create" }, 403);
+    return c.json({ error: "internal users only" }, 403);
   }
   const { name } = await c.req.json<{ name: string }>();
   if (!name?.trim()) {
@@ -960,7 +975,7 @@ app.get("/v1/projects", async (c) => {
   // (Phase 2) extend manage to the project leader + leading-division head, and
   // is_head gates the "assign leader" UI.
   const leadCols = `(lower(p.leader_email) = ?1) AS is_leader,
-         (lower(d.head_email) = ?1 OR lower(d.deputy_email) = ?1) AS is_head`;
+         (lower(d.head_email) = ?1) AS is_head`;
   const memberStmt = host
     ? c.env.DB.prepare(
         `SELECT ${mcols}, pm.role AS my_role, ${leadCols} FROM project p
@@ -1001,7 +1016,6 @@ app.get("/v1/projects", async (c) => {
       `SELECT ${mcols}, ${leadCols} FROM project p
        LEFT JOIN division d ON d.id = p.lead_division_id
        WHERE lower(p.leader_email) = ?1 OR lower(d.head_email) = ?1
-          OR lower(d.deputy_email) = ?1
        ORDER BY p.updated_at DESC LIMIT 200`,
     )
       .bind(e)
@@ -1357,9 +1371,11 @@ app.patch("/v1/projects/:id/leader", async (c) => {
   return c.json({ ok: true, leader });
 });
 
-// The division catalogue — id + name + head/deputy. Internal users read it to
-// resolve the project's leading-department NAME (read-only display) and to know
-// whether THEY are a head/deputy (→ may create projects). Guests get nothing.
+// The division catalogue — id + name + head (+ dormant deputy column). Internal
+// users read it to resolve the project's leading-department NAME (read-only
+// display) and to know whether THEY are the division HEAD. deputy_email is kept
+// on the wire for back-compat but confers NO power since 06-16 (admin = head
+// only); the client ignores it. Guests get nothing.
 app.get("/v1/divisions", async (c) => {
   if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
@@ -1473,7 +1489,8 @@ app.post("/v1/meetings", async (c) => {
   }
   // ORGANIZING a meeting inside a project is a MANAGEMENT act (anh Luân 06-15:
   // "co-operator chịu trách nhiệm tổ chức cuộc họp"): only the project's
-  // managers — admin · head · deputy · leader · co-operator — may create one.
+  // managers — admin · head · leader · co-operator (deputy dropped 06-16) — may
+  // create one.
   // A plain participate-only member joins meetings, doesn't open them. This
   // also closes audit H2 (can't inject a card into a foreign department's
   // folder — canManageProject is strictly tighter than membership).

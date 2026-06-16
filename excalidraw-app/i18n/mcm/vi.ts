@@ -534,7 +534,10 @@ export const vi = {
     removeMemberConfirm: "Gỡ {email} khỏi dự án?",
     noMembers: "Chưa có thành viên",
     owner: "Chủ dự án",
-    roleDivisionAdmin: "Trưởng phòng ban",
+    // POWER TIER (head only) — distinct from the 직급 title chip "Trưởng phòng
+    // ban" so the two never read as the same thing (anh Luân 06-16).
+    roleDivisionAdmin: "Quản trị phòng ban",
+    titleChip: "Chức vụ",
     roleOwner: "Trưởng dự án",
     roleManager: "Đồng quản lý",
     roleParticipant: "Thành viên",
@@ -707,6 +710,8 @@ export const vi = {
     guestTag: "Khách",
     statusInvited: "Đã mời",
     statusAccepted: "Đã nhận",
+    cohost: "Đồng chủ trì",
+    invitedCountLabel: "Đã vào / Được mời",
   },
 
   profile: {

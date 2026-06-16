@@ -8,7 +8,6 @@ import {
   PhoneOff,
   Presentation,
   Settings,
-  Share2,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -293,6 +292,12 @@ export const MeetingHeader = ({
     (meetingInfo?.hostEmail?.toLowerCase() === myEmail ||
       meetingInfo?.organizerEmail?.toLowerCase() === myEmail ||
       isCohost ||
+      // A division HEAD / project LEADER auto-hosts every meeting in their
+      // division (anh Luân 06-16: admin = head-only power tier) — the worker
+      // authorizes End via isMeetingProjectAuthority, so the head must see the
+      // End button too. viewerAuthority is the server-computed authority flag
+      // (deputy already excluded server-side).
+      viewerAuthority ||
       // Legacy/ad-hoc rooms without a registry identity: keep the old
       // internal-allow so dev rooms can still be ended (worker mirrors this).
       (!meetingInfo?.hostEmail &&
@@ -364,20 +369,6 @@ export const MeetingHeader = ({
     [log, chatMessages, preferredLang, t],
   );
 
-  // Share = copy the live room link. Same clipboard fallback as InvitePanel:
-  // the async clipboard API can be unavailable (insecure context / permission
-  // denied), in which case a prompt lets the user copy manually.
-  const handleShare = useCallback(async () => {
-    if (!activeRoomLink) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(activeRoomLink);
-    } catch {
-      window.prompt(t("header.share"), activeRoomLink);
-    }
-    excalidrawAPI?.setToast({ message: t("header.shareCopied") });
-  }, [activeRoomLink, excalidrawAPI, t]);
 
   const handleEndMeeting = useCallback(async () => {
     if (!roomId || !canEndMeeting) {
@@ -500,22 +491,9 @@ export const MeetingHeader = ({
             <span className="mcm-header__btn-count">{log.length}</span>
           )}
         </button>
-        {/* A finished meeting is a CLOSED record — review offers no "share
-            this room" affordance (quyết định anh Luân 06-11). A GUEST also
-            gets no "share this room": spreading a confidential room link is a
-            host affordance, not a client one. */}
-        {!viewOnly && !isGuest && (
-          <button
-            type="button"
-            className="mcm-header__btn mcm-header__btn--ghost"
-            onClick={() => void handleShare()}
-            disabled={!activeRoomLink}
-            title={t("header.share")}
-          >
-            <Share2 size={18} />
-            {t("header.share")}
-          </button>
-        )}
+        {/* No "share room link" affordance at all (anh Luân 06-16: "không
+            share bằng link nữa vì bảo mật"). Access is by explicit invite only
+            — login + a meeting_invitee row — never by spreading a room URL. */}
         <button
           type="button"
           className={`mcm-header__icon-btn${

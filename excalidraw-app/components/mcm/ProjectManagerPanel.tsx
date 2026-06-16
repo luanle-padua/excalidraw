@@ -115,23 +115,18 @@ export const ProjectManagerPanel = ({
   const t = useT();
   const session = useAtomValue(sessionAtom);
   const [q, setQ] = useState("");
-  // Who may CREATE a project: admin, or a division HEAD / DEPUTY (anh Luân
-  // 06-15). Derived from the division catalogue + the viewer's own email; the
-  // worker enforces the same on POST, this just hides the button for everyone
-  // else (a regular member gets added to projects, doesn't open them).
+  // Who may CREATE a project: any INTERNAL user (anh Luân 06-16). Creating a
+  // project just opens a personal folder where the creator is auto leader+owner
+  // — it grants no cross-project power, so there's no reason to gate it to
+  // division heads. The division HEAD still auto-manages every project their
+  // division leads. The worker enforces the same on POST; this just hides the
+  // button from guests.
   const [divisions, setDivisions] = useState<Division[]>([]);
   useEffect(() => {
     void listDivisions().then(setDivisions);
   }, []);
   const myEmail = session?.email?.toLowerCase();
-  const canCreate =
-    !!session?.isAdmin ||
-    (!!myEmail &&
-      divisions.some(
-        (d) =>
-          d.head_email?.toLowerCase() === myEmail ||
-          d.deputy_email?.toLowerCase() === myEmail,
-      ));
+  const canCreate = !!session?.isAdmin || (!!myEmail && !session?.isGuest);
   // LIST ⇄ CARD, same affordance as the meeting list (anh Luân, 06-12).
   // Card is the default — covers carry the page.
   const [viewMode, setViewMode] = useState<"list" | "card">("card");
@@ -544,22 +539,21 @@ const ProjectDetail = ({
   const isInvitee = project.access === "invitee";
 
   // Leading department NAME — read-only display. A project belongs to the
-  // department of whoever created it (the head/deputy who opened it); it's not
-  // reassignable (anh Luân 06-15: "đương nhiên thuộc phòng tạo dự án").
+  // department of whoever created it; it's not reassignable (anh Luân 06-15:
+  // "đương nhiên thuộc phòng tạo dự án").
   const [divisions, setDivisions] = useState<Division[]>([]);
   useEffect(() => {
     void listDivisions().then(setDivisions);
   }, []);
   const currentDivision =
     divisions.find((d) => d.id === project.lead_division_id) ?? null;
-  // Head + deputy of the project's division outrank every project role — badge
-  // them "Division admin" in the roster (anh Luân 06-15).
-  const divisionAdmins = [
-    currentDivision?.head_email,
-    currentDivision?.deputy_email,
-  ]
-    .filter((e): e is string => !!e)
-    .map((e) => e.toLowerCase());
+  // The division HEAD (and ONLY the head — anh Luân 06-16, no longer the
+  // deputy) is the "Division admin" power tier: badged as such in the roster.
+  // This is the org-AUTHORITY axis, kept separate from the project-ROLE badge
+  // and from a member's 직급 title chip.
+  const divisionAdmins = currentDivision?.head_email
+    ? [currentDivision.head_email.toLowerCase()]
+    : [];
 
   const toggleCosmeticMenu = (
     kind: "color" | "icon",

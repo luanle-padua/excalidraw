@@ -164,6 +164,13 @@ type Tile = {
    *  sits above the avatar so everyone in the room sees who's host
    *  without needing to interact with the recording feature. */
   isHost?: boolean;
+  /** True when this person holds the designated CO-HOST meeting role (a
+   *  meeting_invitee row with role='cohost'). Drives a "Co-host" badge next to
+   *  the host crown — a meeting-ROLE badge (anh Luân 06-16). */
+  isCohost?: boolean;
+  /** Org 직급 / title (chức vụ) resolved from the staff directory — display
+   *  only, shown as a neutral chip. Separate axis from host/co-host role. */
+  title?: string | null;
   /** True while this participant is sharing their screen (presence over
    *  WS_SUBTYPES.SCREEN_SHARE). Drives the 📺 badge on their avatar. */
   sharingScreen?: boolean;
@@ -295,8 +302,8 @@ const Person = ({
         {p.isHost && (
           <span
             className="mcm-person__host-badge"
-            aria-label="Host của cuộc họp"
-            title="Host của cuộc họp"
+            aria-label={t("participants.host")}
+            title={t("participants.host")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -307,6 +314,24 @@ const Person = ({
             >
               {/* Small crown — reads as "host" instantly without
                   needing a tooltip on touch devices. */}
+              <path d="M3 7l4.5 3L12 5l4.5 5L21 7l-1.5 11h-15z" />
+            </svg>
+          </span>
+        )}
+        {p.isCohost && !p.isHost && (
+          <span
+            className="mcm-person__host-badge mcm-person__host-badge--cohost"
+            aria-label={t("participants.cohost")}
+            title={t("participants.cohost")}
+          >
+            {/* Half-crown reading for the co-host — same shape, quieter tint. */}
+            <svg
+              viewBox="0 0 24 24"
+              width="10"
+              height="10"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path d="M3 7l4.5 3L12 5l4.5 5L21 7l-1.5 11h-15z" />
             </svg>
           </span>
@@ -417,6 +442,8 @@ type InvitedRow = {
   email: string;
   name: string;
   kind: "internal" | "guest";
+  /** Org 직급 / title (chức vụ) from the directory — display-only chip. */
+  title?: string | null;
   /** They accepted the invite (vs merely invited) — a softer "expected" hint. */
   accepted: boolean;
 };
@@ -494,6 +521,14 @@ const ParticipantsPanel = ({
                         {t("participants.host")}
                       </span>
                     )}
+                    {p.isCohost && !p.isHost && (
+                      <span className="mcm-pp__tag mcm-pp__tag--cohost">
+                        {t("participants.cohost")}
+                      </span>
+                    )}
+                    {p.title && (
+                      <span className="mcm-pp__title-chip">{p.title}</span>
+                    )}
                   </span>
                   {p.company && (
                     <span className="mcm-pp__company">{p.company}</span>
@@ -562,6 +597,9 @@ const ParticipantsPanel = ({
                         <span className="mcm-pp__tag">
                           {t("participants.guestTag")}
                         </span>
+                      )}
+                      {iv.title && (
+                        <span className="mcm-pp__title-chip">{iv.title}</span>
                       )}
                     </span>
                     <span className="mcm-pp__company">{iv.email}</span>
@@ -772,6 +810,23 @@ export const ParticipantsBar = ({
 
   const tiles: Tile[] = [];
 
+  // Meeting-ROLE + org-TITLE lookups (anh Luân 06-16). cohostEmails = who holds
+  // the designated co-host role; titleFor = each person's 직급 from the staff
+  // directory. Both keyed by lower-cased email; empty for guests (no invitee /
+  // directory fetch).
+  const cohostEmails = new Set(
+    invitees
+      .filter((iv) => iv.role === "cohost" && iv.status !== "revoked")
+      .map((iv) => iv.email.toLowerCase()),
+  );
+  const titleFor = (email?: string | null): string | null => {
+    if (!email) {
+      return null;
+    }
+    const lo = email.toLowerCase();
+    return directory.find((d) => d.email.toLowerCase() === lo)?.title ?? null;
+  };
+
   // Bucket pending reactions by sender so we can attach them to the
   // matching tile in one O(n) pass.
   const reactionsBySocket = new Map<string, MeetingReactionEvent[]>();
@@ -811,6 +866,8 @@ export const ParticipantsBar = ({
       myProfile?.email ?? selfSocketId,
     ),
     isHost: !!hostSocketId && hostSocketId === selfSocketId,
+    isCohost: cohostEmails.has((myProfile?.email ?? "").toLowerCase()),
+    title: titleFor(myProfile?.email),
     sharingScreen: screenSharePresence.has(selfSocketId),
   });
 
@@ -855,6 +912,8 @@ export const ParticipantsBar = ({
         peerProfile?.email ?? socketId,
       ),
       isHost: !!hostSocketId && hostSocketId === socketId,
+      isCohost: cohostEmails.has((peerProfile?.email ?? "").toLowerCase()),
+      title: titleFor(peerProfile?.email),
       sharingScreen: screenSharePresence.has(socketId),
     });
   }
@@ -867,21 +926,26 @@ export const ParticipantsBar = ({
   const onlineEmails = new Set(
     tiles.map((p) => p.email?.toLowerCase()).filter(Boolean) as string[],
   );
-  const invitedOffline: InvitedRow[] = invitees
-    .filter(
-      (iv) =>
-        (iv.status === "invited" || iv.status === "accepted") &&
-        !!iv.email &&
-        !onlineEmails.has(iv.email.toLowerCase()),
-    )
+  // Everyone actively invited (joined OR not) — the DENOMINATOR for the header
+  // "joined / invited" ratio. Revoked/declined drop out.
+  const invitedActive = invitees.filter(
+    (iv) => iv.status === "invited" || iv.status === "accepted",
+  );
+  const invitedOffline: InvitedRow[] = invitedActive
+    .filter((iv) => !!iv.email && !onlineEmails.has(iv.email.toLowerCase()))
     .map((iv) => ({
       email: iv.email,
       name:
         directory.find((d) => d.email.toLowerCase() === iv.email.toLowerCase())
           ?.name ?? iv.email.split("@")[0],
       kind: iv.kind,
+      title: titleFor(iv.email),
       accepted: iv.status === "accepted",
     }));
+  // Header ratio = people in the room / total invited (guests can't fetch the
+  // invitee roster → undefined hides the denominator rather than showing "/0").
+  const invitedTotal =
+    !session?.isGuest && invitees.length > 0 ? invitedActive.length : undefined;
 
   // NB: we deliberately do NOT render a custom "Đang follow X" banner
   // here — Excalidraw's UI layer already paints its own follow
@@ -897,7 +961,8 @@ export const ParticipantsBar = ({
     !session?.isGuest &&
     ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
   // fromAuthority lets peers accept a KICK from a project authority (leader /
-  // head / deputy) even when socket host-election landed on someone else.
+  // head — deputy dropped 06-16) even when socket host-election landed on
+  // someone else.
   const doKick = (tile: Tile) =>
     collabAPI?.portal.broadcastHostCommand({
       action: "KICK",
@@ -920,6 +985,7 @@ export const ParticipantsBar = ({
       <footer className="mcm-people-bar" aria-label={t("participants.label")}>
         <CountChip
           inRoom={tiles.length}
+          invited={invitedTotal}
           inCall={inCallCount}
           onOpen={() => setPanelOpen(true)}
         />
@@ -1052,11 +1118,16 @@ const MeetingReactionsOverlay = () => {
 // stakeholders don't mistake the mock cast for the real roster.
 const CountChip = ({
   inRoom,
+  invited,
   inCall,
   previewMode = false,
   onOpen,
 }: {
   inRoom: number;
+  /** Total people INVITED to the meeting — when set, the people cell reads as
+   *  "joined / invited" (anh Luân 06-16). Undefined (e.g. a guest who can't
+   *  fetch the roster) shows just the joined count. */
+  invited?: number;
   inCall: number;
   previewMode?: boolean;
   /** When provided, the chip becomes a button that opens the participant
@@ -1066,9 +1137,14 @@ const CountChip = ({
   const t = useT();
   const inner = (
     <>
-      <span className="mcm-people-bar__chip-cell">
+      <span
+        className="mcm-people-bar__chip-cell"
+        title={t("participants.invitedCountLabel")}
+      >
         <PeopleIcon />
-        <span className="mcm-people-bar__chip-num">{inRoom}</span>
+        <span className="mcm-people-bar__chip-num">
+          {invited === undefined ? inRoom : `${inRoom}/${invited}`}
+        </span>
       </span>
       <span className="mcm-people-bar__chip-divider" />
       <span className="mcm-people-bar__chip-cell">

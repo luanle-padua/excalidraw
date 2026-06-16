@@ -5,6 +5,7 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useT } from "../../i18n/mcm";
 
@@ -44,7 +45,11 @@ export const ConfirmModal = ({
     }
   };
 
-  return (
+  // Portal to <body> so the fixed overlay escapes the Glass-Desk blurred /
+  // transformed ancestors that create their own stacking context — otherwise
+  // z-index:1200 is trapped locally and a sibling like the calendar paints over
+  // it (anh Luân 06-16: "assign leader panel bị underlay dưới calendar").
+  return createPortal(
     <div
       className="mcm-meditor"
       role="dialog"
@@ -92,7 +97,8 @@ export const ConfirmModal = ({
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

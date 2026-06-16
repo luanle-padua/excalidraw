@@ -52,9 +52,12 @@ export const ProjectMemberRoster = ({
   canLead: boolean;
   /** Admin / leading-division head — may assign/replace the project leader. */
   canAssignLeader?: boolean;
-  /** Lower-cased emails of the project's division HEAD + DEPUTY — they outrank
-   *  every project role (supreme), so they're badged "Division admin" and never
-   *  offered assign-leader / make-co-operator (anh Luân 06-15). */
+  /** Lower-cased email of the project's division HEAD (head-only since 06-16 —
+   *  no longer the deputy). The head is the "Division admin" power tier and is
+   *  badged as such. This is the org-AUTHORITY axis ONLY — it never locks the
+   *  assign-leader / make-co-operator buttons (anh Luân 06-16: chức vụ ≠ role;
+   *  anyone, incl. a head or trưởng-phòng, can still be assigned a project role)
+   *  and is shown separately from each member's 직급 title chip. */
   divisionAdmins?: string[];
   /** Optional button rendered next to "Add member" (e.g. "Add guest"). */
   extraAction?: ReactNode;
@@ -89,9 +92,10 @@ export const ProjectMemberRoster = ({
     members.filter((m) => m.role === "owner").map((m) => m.email),
   );
 
-  // A division HEAD/DEPUTY outranks every project role — they're the supreme
-  // "Division admin" on any project of their department, regardless of their
-  // project_member.role (anh Luân 06-15: "ghi a ấy là division admin").
+  // The division HEAD (head-only since 06-16) is the supreme "Division admin"
+  // power tier on any project of their department. This badges the AUTHORITY
+  // axis — it does NOT lock any action button (see `actionable` below) and is
+  // distinct from a member's 직급 title chip.
   const isDivAdmin = (email: string): boolean =>
     divisionAdmins.includes(email.toLowerCase());
 
@@ -204,25 +208,34 @@ export const ProjectMemberRoster = ({
         emptyLabel={t("proj.noMembers")}
       />
 
-      {/* Role list: EVERY member with their tier badge, so the leader shows
-          "Trưởng dự án", a head/deputy shows "Division admin", etc. Action
-          buttons appear only where they make sense — never on the leader (the
-          worker refuses to re-role an owner) nor on a division admin (supreme,
-          doesn't need assigning). */}
+      {/* Role list: EVERY member with their PROJECT-ROLE badge + a separate,
+          display-only 직급 title chip (chức vụ ≠ role, anh Luân 06-16). Action
+          buttons are offered to everyone EXCEPT the current leader (owner — the
+          worker refuses to re-role an owner); a division admin / trưởng-phòng is
+          NOT locked out — their org title never decides their project role, so
+          they can still be made leader or co-operator. */}
       {canDelegate && members.length > 0 && (
         <ul className="mcm-roster__roles">
           {members.map((m) => {
             const u = directory.find((x) => x.email === m.email);
-            const divAdmin = isDivAdmin(m.email);
             const isOwner = m.role === "owner";
             const isManager = m.role === "manager";
-            // The leader (owner) and a division admin are fixed — badge only.
-            const actionable = !isOwner && !divAdmin;
+            // Only the current leader (owner) is fixed (badge-only); org title
+            // — including Division admin — never locks the action buttons.
+            const actionable = !isOwner;
             return (
               <li key={m.email} className="mcm-roster__role-row">
                 <span className="mcm-roster__role-name">
                   {u?.name ?? m.email.split("@")[0]}
                 </span>
+                {u?.title && (
+                  <span
+                    className="mcm-roster__title-chip"
+                    title={t("proj.titleChip")}
+                  >
+                    {u.title}
+                  </span>
+                )}
                 <span
                   className={`mcm-roster__badge mcm-roster__badge--${roleVariant(
                     m.email,

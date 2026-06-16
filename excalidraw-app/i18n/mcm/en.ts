@@ -508,6 +508,7 @@ export const en: Widened<typeof vi> = {
     owner: "Project owner",
     roleOwner: "Leader",
     roleDivisionAdmin: "Division admin",
+    titleChip: "Title",
     roleManager: "Co-operator",
     roleParticipant: "Participant",
     makeManager: "Make co-operator",
@@ -677,6 +678,8 @@ export const en: Widened<typeof vi> = {
     guestTag: "Guest",
     statusInvited: "Invited",
     statusAccepted: "Accepted",
+    cohost: "Co-host",
+    invitedCountLabel: "Joined / Invited",
   },
 
   profile: {
