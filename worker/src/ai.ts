@@ -55,6 +55,11 @@ type GeminiResponse = {
   usageMetadata?: GeminiUsage;
 };
 
+// NOTE: translate/translate-batch/summarize send `thinkingConfig.thinkingBudget:0`
+// to keep the thinking model from eating maxOutputTokens (the MAX_TOKENS→502 bug).
+// `0` is valid for gemini-2.5-FLASH only. gemini-2.5-PRO rejects thinkingBudget:0
+// (pro can't fully disable thinking) → 400 on all three routes. If you override
+// GEMINI_TRANSLATION_MODEL to a pro model, drop the thinkingBudget:0 lines too.
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 const TRANSLATION_LANGUAGE_NAMES: Record<string, string> = {

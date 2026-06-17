@@ -280,7 +280,14 @@ export const fetchBatchTranslation = async (
     persistCacheToStorage();
     notifySubscribers();
     return result as Record<SupportedLanguage, string>;
-  } catch {
+  } catch (err) {
+    // Don't swallow silently — the abort/timeout path used to be invisible, so a
+    // slow Gemini round trip looked identical to "translation disabled". Name it.
+    const aborted = err instanceof DOMException && err.name === "AbortError";
+    console.warn(
+      `[translate] batch ${aborted ? `timed out (${timeoutMs}ms)` : "errored"}:`,
+      err,
+    );
     return null;
   } finally {
     window.clearTimeout(timer);
