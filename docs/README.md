@@ -30,6 +30,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 | 06-12 | Design-system **Glass Desk** cho dashboard (wallpaper + calendar/notes + color/icon) |
 | 06-15 | Rebrand **Canvas M** + Glass-Desk login/admin + luồng login-bằng-link (merge từ feature branch) |
 | 06-16 | Phân quyền "**chức vụ ≠ vai trò**" (division admin = head-only) · **Phòng chờ knock-to-join** (Phase 4, chốt 1a) · **Trang khách Glass-Desk** đa quốc gia (nền WebP xoay + calendar) · chi nhánh **Việt Nam** (division + user) · siết START theo phòng sở hữu |
+| 06-17 | **Durable Objects realtime BUILT + DEPLOYED LIVE** (100% DO, khai tử room server socket.io/Fly; đóng 1b/B12) · **I-1** AI/STT → Worker · **B10** app LIVE trên **Cloudflare Pages** (https://map-canvasm.pages.dev) · go-live ops (migration remote 27/27 · backup restore-tested · CORS · secrets) · debug production sau go-live (SUPABASE_URL méo · BOM trong secrets · end-for-all stale-replica) |
 
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 

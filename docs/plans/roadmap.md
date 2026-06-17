@@ -2,7 +2,7 @@
 
 > **🎯 HAI MỐC GO-LIVE (chốt 06-17):** **Tháng 7 = TEST NỘI BỘ** (chỉ @mapgroup) · **Tháng 8 = MỞ KHÁCH NGOÀI**. Tháng 7 gồm Recording (P5) + full Admin Console (P-A) + Phase 6 hardening (B1–B11), **trừ 1b** (canvas-relay-auth = chấp nhận tạm cho nội bộ). Tháng 8 thêm **1b auth room server + email-verify + cohost server-validation** trước khi mở external. Chi tiết blocker: memory `mcm-july-v1-scope` + audit task `wztvf5jk8`.
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-17** (Phase 4 **waiting room knock-to-join VERIFIED LIVE** — anh Luân test tay OK 06-17; + restructure track hạ tầng: các mục SÓT I-1…I-6 đã được slot vào **Phase 7 (serverless infra June)** & **Phase 6 (production hardening)**; bối cảnh revise phân quyền + trang khách Glass-Desk xem `logs/2026-06-16.md`; kế tiếp: G2 admin → G3 remote + Phase 6/7, và **1b auth room server** trước khi mở cho khách ngoài thật).
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-17** — **app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects** (DO migration BUILT + DEPLOYED, nuốt 1b/B12; room server socket.io/Fly bị khai tử). I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE; Phase 6 go-live blocker phần lớn ✅ (chi tiết dưới); còn lại B1 spend-cap + B3 rotate. Chi tiết hôm nay: `logs/2026-06-17.md`.
 
 ## ✅ Đã xong
 
@@ -90,22 +90,22 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 > 11 blocker; phần lớn là **việc S của Luân (ops/secrets/cost)**, không phải code dev. Effort: S <1 ngày · M 1-3 ngày. Thứ tự = "chặn máu" trước.
 
 **Tuần 1 — chặn tiền + bảo mật + dữ liệu (gần như toàn Luân):**
-- **B1 · Spend-cap** GCP/Gemini + Deepgram + Daily quota (30', hàng rào tiền *duy nhất app-bug không vượt được* — làm TRƯỚC mọi rate-limit). **S**
-- **B2 · Migration remote** — chạy `0025_meeting_knock` (+ mọi 0026+) lên remote D1; verify `schema_version`. Waiting room đang live nhưng bảng chưa có → knock **500**. **S**
-- **B3 · Rotate toàn bộ secrets** (Gemini/Deepgram/TURN/Supabase/Daily/Resend) — key đã commit = coi như lộ; thay `*.example` + pre-commit hook chặn `.env.development`/`.dev.vars`. Rotate = cách thật duy nhất (hook chỉ chặn commit mới). **S**
-- **B4 · Bỏ password khỏi email mời** (`/v1/guests/send-invite` nhúng `password` → magic-link). **S** ✅ _verified lỗ có thật._
-- **B6 · Khoá CORS** Worker `origin:"*"` → allowlist (bearer-not-cookie; **đừng** thêm CSRF token). **S**
-- **B9 · DR** — **D1 Time Travel** + export thủ công → **restore-test ngay cùng tuần** (backup chưa test = backup giả). **R2 KHÔNG có S3 versioning** → dùng **Bucket Locks (retention)** + conditional writes để chống xoá/đè blob (khôi phục blob cần job copy R2→nơi khác). **(I-4) S**
+- **B1 · Spend-cap** GCP/Gemini + Deepgram + Daily quota (30', hàng rào tiền *duy nhất app-bug không vượt được* — làm TRƯỚC mọi rate-limit). **S** ⏳ _CÒN — việc anh Luân._
+- **B2 · Migration remote** ✅ _06-17: áp **0017–0027** lên remote D1, **27/27** schema_version khớp (knock `0025` + usage `0026` + `realtime_backend` `0027`)._
+- **B3 · Rotate toàn bộ secrets** (Gemini/Deepgram/Supabase/Daily/Resend) — key đã commit = coi như lộ; thay `*.example` + pre-commit hook chặn `.env.development`/`.dev.vars`. Rotate = cách thật duy nhất (hook chỉ chặn commit mới). **S** ⏳ _CÒN — việc anh Luân; key 06-17 đã set sạch BOM nhưng VẪN phải xoay trước external._
+- **B4 · Bỏ password khỏi email mời** (`/v1/guests/send-invite` nhúng `password` → magic-link). **S** ✅ _verified lỗ có thật → đã fix._
+- **B6 · Khoá CORS** Worker `origin:"*"` → allowlist (bearer-not-cookie; **đừng** thêm CSRF token). **S** ✅ _06-17: allowlist + cho private-LAN (RFC1918) để dev qua LAN gọi Worker online y hệt prod._
+- **B9 · DR** ✅ _06-17: export D1 thủ công + **restore-test PASS**. R2 **KHÔNG có S3 versioning** → soft-delete blob sang prefix `trash/` (`8f637542`) thay vì xoá vĩnh viễn; **còn**: gắn R2 lifecycle rule trên `trash/` (việc anh Luân)._ **(I-4)**
 
 **Tuần 2 — hosting + ổn định:**
-- **B10 · Deploy app Cloudflare Pages** (URL ổn định; domain thật để sau, `*.pages.dev` OK). **(I-3) S**
-- **B11 · Room server → container bền** (Docker có sẵn) + `/health` + PM2 `max_memory_restart`. **M**
+- **B10 · Deploy app Cloudflare Pages** ✅ _06-17: **app LIVE tại https://map-canvasm.pages.dev** — toàn stack online trên Cloudflare, không còn máy dev/room server/Fly. PWA manifest rebrand Excalidraw→Canvas M._ **(I-3)**
+- ~~**B11 · Room server → container bền**~~ ❌ **HUỶ** _06-17: room server socket.io bị **khai tử** (realtime → 100% Durable Objects, xem Phase 7/I-2). Không còn server Node để giữ sống._
 - Phụ: **Daily room orphan** — `deleteDailyRoom()` vào `deleteMeetingCascade`; **scrub hardcoded pw** `MapMeet@2026`/`MapAdmin@2026` (14 file → seed script). **S**
 
 **Tuần 3 — cost guard:**
 - **B5 · Chặn `/v1/daily/token` auto-tạo room** → chỉ host/owner `POST .../daily-room` + rate-limit (~1 req/s/user). **M**
-- **B7 · Rate-limit AI routes** room server (`express-rate-limit` in-memory; **KHÔNG** DO/D1). Worker dùng **Cloudflare Rate Limiting Rules** (dashboard). **M**
-- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0026` → **nhớ apply remote**). **S**
+- **B7 · Auth + rate-limit AI/STT routes** ✅ _06-17: AI/STT dời lên Worker (I-1, `8e734411`) + **JWT-gate** (`9c72569b`, đóng lỗ cost-abuse public) + rate-limit **per-isolate** (đủ cho internal). Nâng DO/KV-limiter chỉ khi external lạm dụng thật._
+- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0026` ✅ applied remote 06-17). **S**
 
 **Tuần 4 — runbook + verify:**
 - **(I-6) Runbooks** `docs/runbooks/`: deploy · key-rotation · incident (room crash→restart; data-loss→restore). Ngắn, cho PM tự làm.
@@ -114,15 +114,18 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - ~~**Daily-token check membership**~~ ✅ 06-16: token gate `canSeeMeeting` + (external) **admitted-knock**, base meeting id (strip `-audio`).
 - Token refresh họp >4h (Daily token hết hạn 4h) · scene size limit — *để sau nếu chưa đụng.*
 
-**→ Tháng 8 (mở khách ngoài):** **1b auth room server** (JWT handshake socket, ~2-3 ngày) + **email-verify out-of-band** + **cohost server-validation** (gắn track I-2). _KHÔNG over-engineer: bỏ multi-region/k8s/E2E-crypto/SSO/CI-CD-deploy — xem audit mục 5._
+**→ Tháng 8 (mở khách ngoài):** ~~**1b auth room server**~~ ✅ **đã đóng bởi DO handshake 06-17** (JWT + canSeeMeeting + knock verify trước 101 — xem Phase 7/I-2). Còn: **email-verify out-of-band** + **cohost server-validation** (DO mở khoá election live đọc role cohost). _KHÔNG over-engineer: bỏ multi-region/k8s/E2E-crypto/SSO/CI-CD-deploy — xem audit mục 5._
 
-### 🟣 Phase 7 — Serverless infra migration (June)
+### 🟣 Phase 7 — Serverless infra migration (June) — **BUILT + DEPLOYED LIVE 06-17**
 
-> Dời lớp compute + realtime khỏi room server (Node đơn) sang **Cloudflare serverless** theo [kế hoạch hạ tầng tháng 6](2026-06-01-plan-ha-tang-cloudflare.md) (Worker/Durable Objects, D1+R2, `wrangler secret`). P1 remote (D1+R2+secrets) đã LIVE 06-11; phần dưới là lớp transport + AI/TURN còn lại.
+> Dời lớp compute + realtime khỏi room server (Node đơn) sang **Cloudflare serverless** theo [kế hoạch hạ tầng tháng 6](2026-06-01-plan-ha-tang-cloudflare.md) (Worker/Durable Objects, D1+R2, `wrangler secret`). P1 remote (D1+R2+secrets) LIVE 06-11; **06-17 cắt nốt transport + AI → toàn stack serverless trên Cloudflare**.
 
-- [ ] **(I-1) Backend AI/STT/TURN đang trên room server** — Gemini (`/translate`,`/summarize`,`/chatbot`), Deepgram (`/stt`), Cloudflare TURN (`/turn-credentials`) chạy trên `room/` (Node đơn), key trong `room/.env.development`. → **dời lên Cloudflare Worker/DO** + `wrangler secret`. _(Cả lớp compute + secrets này.)_
-- [ ] **(I-2) Realtime = socket.io 1 instance** (`room/` — SPOF, không scale ngang, HTTP) → **Durable Objects** (raw WebSocket + Hibernation API, theo June plan). _(Cũng mở khoá election live đọc role cohost cho kick/mute — track I-2 ở Phase 4.)_
-  - **→ Kế hoạch chi tiết (chốt 06-17):** [durable-objects-migration.md](durable-objects-migration.md) — 1 DO/phòng trên Worker `mcm-storage`, **July test nội bộ Fly.io → Aug cắt DO** trước external + global (Phi). DO (Aug) **nuốt luôn 1b/B12** (handshake WS verify Supabase JWT + canSeeMeeting + knock).
+- [x] **(I-1) AI/STT dời lên Worker** ✅ _06-17 (`8e734411`)_ — Gemini (`/translate`,`/translate-batch`,`/summarize`,`/chatbot`) → `ai.ts`; Deepgram `/stt` → `stt.ts` WS proxy **route riêng** (switch theo `pathname` trước `.get()` DO). Cache/rate-limit per-isolate; **JWT-gated** (`9c72569b`). TURN đã BỎ.
+- [x] **(I-2) Realtime → Durable Objects** ✅ **BUILT + DEPLOYED LIVE 06-17** _(không còn post-launch — đã online)_. socket.io 1-instance (SPOF) → **1 DO/phòng** trên Worker `mcm-storage`, raw WebSocket + **Hibernation API** (idle → $0). Build qua 10 slice + audit parity 100% + consolidation (bắt 2 bug tích hợp). **Meeting mới default `realtime_backend='do'`** (`f3631fb1`). **Admin "Realtime" monitor tab** (`36831dce`).
+  - **→ Kế hoạch chi tiết:** [durable-objects-migration.md](durable-objects-migration.md) (`68fde99e`). **CHỐT 100% DO** (`c25a929e`): **bỏ Fly.io bridge, khai tử room server socket.io** — dự án đi đa quốc gia (Phi/Africa). Cờ `realtime_backend` chỉ là công tắc TẠM trong build/test; đích = pure DO + bỏ hẳn `room/`.
+  - **Đóng 1b/B12:** handshake WS verify **Supabase JWT + canSeeMeeting + knock** Ở WORKER trước khi trả `101` — lỗ relay-không-verify mà socket.io không bao giờ vá. _(Cũng mở khoá election live đọc role cohost cho kick/mute — track I-2 ở Phase 4.)_
+  - **Hard-break đã fix:** LIBRARY_FILE → **R2-by-reference** (`a85b1f64`, Workers WS cap 1 MiB).
+  - **Còn lại:** smoke-test 2-client live + slice-9 E2E/load (fanout 20s, eviction, hibernation 0-wake) trên DO đã deploy — xem `logs/2026-06-17.md`.
 
 ### ✅ Đã có chỗ trong phase (audit xác nhận thêm chi tiết)
 
