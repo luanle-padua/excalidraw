@@ -42,8 +42,13 @@ người mới không vào được phòng live.
    ```bash
    npx wrangler d1 execute mcm-db --remote --file=<duong-dan-ban-export.sql>
    ```
-3. **R2 object (blob scene/file)** đã xoá/đè — khôi phục từ versioning của bucket `mcm-storage`
-   (R2 → bucket `mcm-storage` → bật/ dùng Object versioning để rollback về version trước).
+3. **R2 object (blob scene/file)** đã xoá/đè — **R2 KHÔNG có S3-style Object Versioning**
+   (ghi đè cùng key = mất vĩnh viễn bản cũ). KHÔNG có "rollback về version trước".
+   - **Phòng ngừa:** bật **Bucket Locks** (retention policy) trên `mcm-storage` để chặn xoá/đè
+     trong N ngày; và/hoặc **conditional writes** (`if-match`/`if-none-match`) ở code Worker.
+   - **Khôi phục khi đã mất:** chỉ còn từ bản sao ngoài (nếu có job copy R2→nơi khác). Nếu chưa
+     có job backup R2, blob bị đè/xoá là **không phục hồi được** — ưu tiên Bucket Locks để phòng.
+   - Metadata (D1) vẫn khôi phục được qua Time Travel + export (mục 1-2).
 4. Xác nhận lại: mở meeting bị ảnh hưởng, kiểm tra canvas + library tải đúng.
 
 > Lưu ý nguồn gốc: meeting xong là **bất biến** và khách bị **revoke ≠ delete** — nếu data

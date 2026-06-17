@@ -95,7 +95,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - **B3 · Rotate toàn bộ secrets** (Gemini/Deepgram/TURN/Supabase/Daily/Resend) — key đã commit = coi như lộ; thay `*.example` + pre-commit hook chặn `.env.development`/`.dev.vars`. Rotate = cách thật duy nhất (hook chỉ chặn commit mới). **S**
 - **B4 · Bỏ password khỏi email mời** (`/v1/guests/send-invite` nhúng `password` → magic-link). **S** ✅ _verified lỗ có thật._
 - **B6 · Khoá CORS** Worker `origin:"*"` → allowlist (bearer-not-cookie; **đừng** thêm CSRF token). **S**
-- **B9 · DR** — bật **R2 versioning + D1 Time Travel** + export thủ công → **restore-test ngay cùng tuần** (backup chưa test = backup giả). **(I-4) S**
+- **B9 · DR** — **D1 Time Travel** + export thủ công → **restore-test ngay cùng tuần** (backup chưa test = backup giả). **R2 KHÔNG có S3 versioning** → dùng **Bucket Locks (retention)** + conditional writes để chống xoá/đè blob (khôi phục blob cần job copy R2→nơi khác). **(I-4) S**
 
 **Tuần 2 — hosting + ổn định:**
 - **B10 · Deploy app Cloudflare Pages** (URL ổn định; domain thật để sau, `*.pages.dev` OK). **(I-3) S**
