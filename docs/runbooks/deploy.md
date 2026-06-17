@@ -86,11 +86,13 @@ Set 1 lần bằng `wrangler secret put NAME` (deploy sau giữ nguyên):
 gọi `scheduled()` dump D1 ra R2 `backups/`). Khi `wrangler deploy` chạy, nó cố
 **đăng ký cron luôn**.
 
-> ⚠️ **Gotcha:** nếu token login THIẾU quyền **"Workers Schedules"**, bước đăng
-> ký cron sẽ **fail** (deploy code vẫn xong nhưng cron không được set).
-> **Fallback:** thêm cron tay trên dashboard:
-> Cloudflare → **Workers & Pages → `mcm-storage` → Settings → Triggers →
-> Cron Triggers → Add** → nhập `0 3 * * SUN`.
+> ⚠️ **Gotcha (đã gặp thật 06-17):** Cloudflare **TỪ CHỐI** chuỗi cron dạng số
+> ngày-trong-tuần `0 3 * * 0` — `wrangler deploy` báo `Some triggers failed to
+> deploy ... /schedules failed` (và dashboard báo `validate 400`). KHÔNG phải do
+> token thiếu quyền. **Cách đúng: dùng dạng chữ `0 3 * * SUN`** — cả `wrangler
+> deploy` lẫn dashboard đều nhận (`schedule: 0 3 * * SUN`, không lỗi).
+> Nếu cần set tay: Cloudflare → **Workers & Pages → `mcm-storage` → Settings →
+> Triggers → Cron Triggers → tab "Cron expression" → `0 3 * * SUN`**.
 
 ---
 
