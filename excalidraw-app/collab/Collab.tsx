@@ -289,9 +289,11 @@ export const isBotMessage = (m: ChatMessage): boolean =>
 export const chatMessagesAtom = atom<ChatMessage[]>([]);
 
 /** dataURL length above which a library file is broadcast METADATA-ONLY and
- *  its bytes routed through R2 instead of the socket (see
- *  `broadcastLibraryFileSmart`). ~256k chars ≈ ~190KB of bytes — keeps small
- *  DXFs/images inline (instant) while large IFC GLBs go via storage. */
+ *  its bytes routed through R2-by-reference instead of riding the realtime
+ *  broadcast (see `broadcastLibraryFileSmart`). ~256k chars ≈ ~190KB of bytes,
+ *  well under the DO 1 MiB/message cap — keeps small DXFs/images inline
+ *  (instant) while large IFC GLBs go via storage so the broadcast frame stays
+ *  tiny on BOTH the socket.io and Durable Object transports. */
 const LIBRARY_INLINE_MAX_BYTES = 256 * 1024;
 
 /** Upper bound for a single library file routed through R2. Much larger than
@@ -300,11 +302,17 @@ const LIBRARY_INLINE_MAX_BYTES = 256 * 1024;
  *  doesn't apply here. */
 const LIBRARY_FILE_MAX_BYTES = 512 * 1024 * 1024;
 
-/** Largest dataURL we'll ever push over the socket (inline broadcast). The
- *  room server's maxHttpBufferSize is 50MB and a message over it DISCONNECTS
- *  the sender, so we stay well under. Files larger than this only reach peers
- *  via R2; if R2 also fails, peers get the thumbnail only (no 3D). */
-const LIBRARY_SOCKET_MAX_BYTES = 40 * 1024 * 1024;
+/** Largest dataURL we'll ever push over the realtime broadcast (inline frame).
+ *  HARD CAP for the DO migration: Cloudflare Workers WebSocket caps a single
+ *  message at 1 MiB, and a frame over it DISCONNECTS the sender — so on the DO
+ *  path a multi-MB inline library file simply cannot ride the broadcast. This
+ *  is transport-agnostic (gated by build, not the realtime_backend flag), so we
+ *  keep the inline cap well under 1 MiB on BOTH the socket.io and DO paths.
+ *  Files above this only reach peers via R2-by-reference; if R2 also fails,
+ *  peers keep the metadata (thumbnail) only — never a >1 MiB inline frame.
+ *  Aligned with LIBRARY_INLINE_MAX_BYTES: anything large enough to route via R2
+ *  stays metadata-only on a fallback rather than re-flooding the broadcast. */
+const LIBRARY_SOCKET_MAX_BYTES = LIBRARY_INLINE_MAX_BYTES;
 
 interface CollabState {
   errorMessage: string | null;
@@ -1013,7 +1021,7 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         // pass-through, same as before.
         const reg = fetched.kind === "found" ? fetched.meeting : null;
         // Pick the realtime transport for THIS meeting (server-driven, so all
-        // peers agree). Absent/"socketio" → legacy Fly relay; "do" → RoomDO.
+        // peers agree). Absent/"socketio" → legacy socket.io relay; "do" → RoomDO.
         realtimeBackend = resolveRealtimeBackend(reg);
         const gateStatus = normalizeMeetingStatus(reg?.status);
         if (gateStatus === "scheduled" || gateStatus === "cancelled") {
@@ -2905,9 +2913,10 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     } catch (error) {
       console.error(error);
       // Bytes didn't reach R2. Re-send inline so peers still get the GLB for
-      // focus — but ONLY if it's small enough to not blow the socket buffer
-      // (which would disconnect us). Bigger than that → peers keep just the
-      // thumbnail.
+      // focus — but ONLY if it's small enough to not blow the broadcast frame
+      // (a >1 MiB frame DISCONNECTS the sender on the DO path). Bigger than
+      // that → peers keep just the thumbnail. With LIBRARY_SOCKET_MAX_BYTES now
+      // pinned under the DO 1 MiB cap, large files never re-flood inline.
       if (file.dataURL.length <= LIBRARY_SOCKET_MAX_BYTES) {
         this.portal.broadcastLibraryFile(file);
       }

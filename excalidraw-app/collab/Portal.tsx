@@ -27,7 +27,7 @@ import type { Socket } from "socket.io-client";
 
 class Portal {
   collab: TCollabClass;
-  // The realtime transport. Either a real socket.io `Socket` (legacy Fly
+  // The realtime transport. Either a real socket.io `Socket` (legacy socket.io
   // relay) OR a `RawWsTransport` cast to `Socket` (Cloudflare Durable Object
   // backend — DO migration §5). Both expose the same slice used here
   // (.on/.off/.emit/.id/.close), so every method below is transport-agnostic;
