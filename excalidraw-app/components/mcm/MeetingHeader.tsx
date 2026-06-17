@@ -28,6 +28,7 @@ import { showAppToast } from "../../data/appToast";
 import { listInvitees } from "../../data/invite";
 import { clearLastMeeting } from "../../data/lastMeeting";
 import { aiBackendUrl } from "../../data/aiBackend";
+import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
   getMeeting,
   registerMeeting,
@@ -317,7 +318,7 @@ export const MeetingHeader = ({
       if (log.length === 0 && chatMessages.length === 0) {
         return; // nothing was said or typed — no recap to make
       }
-      const res = await fetch(`${aiBackendUrl()}/summarize`, {
+      const res = await fetchWithAuth(`${aiBackendUrl()}/summarize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

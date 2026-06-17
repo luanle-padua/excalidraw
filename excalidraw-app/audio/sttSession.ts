@@ -21,8 +21,14 @@
 // wants. `?worker&url` would wrap it as a Web Worker bundle (wrong
 // scope for AudioWorklet globals).
 import { sttBackendWsUrl } from "../data/aiBackend";
+import { supabase } from "../data/supabaseClient";
 
 import sttWorkletUrl from "./sttWorklet.ts?url";
+
+// Protocol marker the server expects first on the /stt handshake, mirroring the
+// realtime DO transport (`["mcm.v1", token]`). The Worker (worker/src/stt.ts)
+// verifies the Supabase JWT carried as the second subprotocol segment.
+const STT_PROTOCOL_MARKER = "mcm.v1";
 
 export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
 
@@ -77,7 +83,22 @@ export class STTSession {
     }
 
     const wsUrl = buildSTTUrl(this.opts.lang);
-    this.ws = new WebSocket(wsUrl);
+    // Pass the Supabase access token via the WS subprotocol so the Worker can
+    // verify it before opening the metered Deepgram stream (auth, B-AI 06-17).
+    // Mirrors the realtime DO handshake: `["mcm.v1", <jwt>]`. Without a token
+    // the server replies 401 and the browser fails the WS open (onerror fires).
+    let token: string | undefined;
+    if (supabase) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        token = data.session?.access_token;
+      } catch {
+        // no session → open without a token; the Worker will 401.
+      }
+    }
+    this.ws = token
+      ? new WebSocket(wsUrl, [STT_PROTOCOL_MARKER, token])
+      : new WebSocket(wsUrl, [STT_PROTOCOL_MARKER]);
     this.ws.binaryType = "arraybuffer";
 
     this.ws.onopen = () => {

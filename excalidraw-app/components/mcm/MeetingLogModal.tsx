@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
 import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
 import { aiBackendUrl } from "../../data/aiBackend";
+import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
   clearTranscriptLog,
   meetingSummaryAtom,
@@ -229,7 +230,7 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
     setSummaryLoading(true);
     setSummaryError(null);
     try {
-      const res = await fetch(`${aiBackendUrl()}/summarize`, {
+      const res = await fetchWithAuth(`${aiBackendUrl()}/summarize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

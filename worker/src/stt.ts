@@ -20,12 +20,62 @@
 // Audio format on the wire: 16-bit signed little-endian PCM, 16kHz, mono — the
 // client's AudioWorklet downsamples from the browser's native rate.
 
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
 export type SttBindings = {
   // Deepgram API key — SECRET. Same name the room server used so config carries
   // over. Local: worker/.dev.vars · Prod: `wrangler secret put DEEPGRAM_API_KEY`.
   DEEPGRAM_API_KEY?: string;
   // Optional model override (plain var). Defaults to nova-3.
   DEEPGRAM_STT_MODEL?: string;
+  // Supabase project URL — used to build the JWT issuer + JWKS endpoint so the
+  // /stt upgrade can verify the user token (B-AI, 06-17). Without it auth can't
+  // run, so the upgrade is rejected (fail closed — Deepgram is metered cost).
+  SUPABASE_URL?: string;
+};
+
+// Protocol marker the client always sends first on the WS handshake, mirroring
+// the realtime DO transport: `Sec-WebSocket-Protocol: mcm.v1, <jwt>`. The TOKEN
+// is the segment that is NOT this marker; the marker is what we echo back.
+const STT_PROTOCOL_MARKER = "mcm.v1";
+
+// Cached JWKS (one fetch per isolate; jose handles refresh/rotation).
+let sttJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
+
+/** Verify the Supabase JWT carried in the WS subprotocol. Returns true iff a
+ *  valid `authenticated` token is present. Mirrors verifyRealtimeJwt in
+ *  index.ts (same offline ES256 JWKS verify, issuer + audience) — kept local to
+ *  avoid a circular import with index.ts. */
+const sttAuthOk = async (
+  request: Request,
+  env: SttBindings,
+): Promise<boolean> => {
+  if (!env.SUPABASE_URL) {
+    return false;
+  }
+  const proto = request.headers.get("Sec-WebSocket-Protocol");
+  if (!proto) {
+    return false;
+  }
+  const token =
+    proto
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .find((s) => s !== STT_PROTOCOL_MARKER) ?? "";
+  if (!token) {
+    return false;
+  }
+  const issuer = `${env.SUPABASE_URL}/auth/v1`;
+  if (!sttJwks) {
+    sttJwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+  }
+  try {
+    await jwtVerify(token, sttJwks, { issuer, audience: "authenticated" });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 // Deepgram closes idle WS after ~10s; ping at 8s to keep alive when the user is
@@ -216,6 +266,16 @@ export const handleSttUpgrade = async (
 ): Promise<Response> => {
   if (request.headers.get("Upgrade") !== "websocket") {
     return new Response("expected websocket upgrade", { status: 426 });
+  }
+
+  // Auth gate (B-AI, 06-17): /stt opens a metered Deepgram stream with the
+  // server-side key, so it MUST require a valid Supabase user token. The client
+  // (audio/sttSession.ts) sends it via the WS subprotocol exactly like the DO
+  // handshake: `Sec-WebSocket-Protocol: mcm.v1, <jwt>`. Fail closed → 401 (the
+  // browser surfaces this as a failed WS open, which the client's onerror
+  // handler already reports). STT is also default-OFF, so this only adds auth.
+  if (!(await sttAuthOk(request, env))) {
+    return new Response("unauthorized", { status: 401 });
   }
 
   const pair = new WebSocketPair();

@@ -24,6 +24,7 @@ import { appLangCodeAtom } from "../app-language/language-state";
 import { atom, useAtomValue } from "../app-jotai";
 
 import { aiBackendUrl } from "./aiBackend";
+import { fetchWithAuth } from "./fetchWithAuth";
 
 export type SupportedLanguage = "vi" | "en" | "ko";
 
@@ -187,7 +188,7 @@ const fetchTranslation = async (
   }
   const promise = (async () => {
     try {
-      const res = await fetch(`${aiBackendUrl()}/translate`, {
+      const res = await fetchWithAuth(`${aiBackendUrl()}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, target: targetLang }),
@@ -241,7 +242,7 @@ export const fetchBatchTranslation = async (
     typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = window.setTimeout(() => controller?.abort(), timeoutMs);
   try {
-    const res = await fetch(`${aiBackendUrl()}/translate-batch`, {
+    const res = await fetchWithAuth(`${aiBackendUrl()}/translate-batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: trimmed, targets: ALL_TARGETS }),

@@ -24,6 +24,7 @@ import {
   chatMessagesAtom,
 } from "../../collab/Collab";
 import { aiBackendUrl } from "../../data/aiBackend";
+import { fetchWithAuth } from "../../data/fetchWithAuth";
 import { meetingFilesAtom } from "../../data/meetingLibrary";
 import { preferredLanguageAtom } from "../../data/translation";
 import { transcriptionLogAtom } from "../../data/transcription";
@@ -349,7 +350,7 @@ export const CanvasBotTool = () => {
         lang: s.lang,
       }));
       const canvasText = collectCanvasText();
-      const res = await fetch(`${aiBackendUrl()}/chatbot`, {
+      const res = await fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

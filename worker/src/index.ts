@@ -158,33 +158,28 @@ app.use(
   }),
 );
 
-// ---- AI routes (I-1, plan §6) --------------------------------------------
-// Gemini chat translation / chatbot / meeting summary, ported off the Fly room
-// server. Mounted at ROOT (not under /v1) so the request/response contract is
-// identical to the room server — the client switch is a pure base-URL change
-// (room-server URL → STORAGE_URL). These ride the CORS middleware above but are
-// deliberately NOT behind the /v1 JWT gate (the room server had no auth; the
-// per-isolate rate-limit + Gemini key being server-side are the cost guard).
-// Routes added: POST /translate, /translate-batch, /chatbot, /summarize.
-app.route("/", aiRoutes);
-
-// ---- Supabase JWT auth gate ----------------------------------------------
-// Every /v1 route (except /v1/health) now requires a valid Supabase user
-// access token: `Authorization: Bearer <jwt>`. We verify OFFLINE against the
-// project's public JWKS (ES256) — no per-request call to Supabase. The JWKS is
-// fetched once per worker isolate and cached by jose. On success the user id
-// (sub) + email are attached for handlers/authz. This closes the previously
-// wide-open API; per-meeting membership authz layers on later.
+// ---- Supabase JWT auth gate (shared) -------------------------------------
+// A valid Supabase user access token (`Authorization: Bearer <jwt>`) is
+// required by every /v1 route (except /v1/health) AND by the four AI routes
+// (/translate, /translate-batch, /chatbot, /summarize). We verify OFFLINE
+// against the project's public JWKS (ES256) — no per-request call to Supabase.
+// The JWKS is fetched once per worker isolate and cached by jose. On success
+// the user id (sub) + email + role are attached for handlers/authz. This
+// closes the previously wide-open API; per-meeting membership authz layers on
+// later.
 //
 // CORS preflight (OPTIONS) is answered by the cors() middleware above before
 // this runs, so browsers can still negotiate without a token.
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 
-app.use("/v1/*", async (c, next) => {
-  if (c.req.path === "/v1/health") {
-    return next();
-  }
+// Shared Hono middleware: verify the bearer JWT and attach the identity. Used
+// by the /v1/* gate below and applied DIRECTLY to the root AI paths (which are
+// NOT under /v1) so they can't be hit anonymously and burn the Gemini key.
+const jwtGate: MiddlewareHandler<{
+  Bindings: Bindings;
+  Variables: Variables;
+}> = async (c, next) => {
   const supabaseUrl = c.env.SUPABASE_URL;
   if (!supabaseUrl) {
     return c.json({ error: "auth not configured" }, 503);
@@ -216,7 +211,33 @@ app.use("/v1/*", async (c, next) => {
   } catch {
     return c.json({ error: "invalid token" }, 401);
   }
+};
+
+// /v1/* shares the gate, but /v1/health stays open (liveness probe).
+app.use("/v1/*", async (c, next) => {
+  if (c.req.path === "/v1/health") {
+    return next();
+  }
+  return jwtGate(c, next);
 });
+
+// ---- AI routes (I-1, plan §6) --------------------------------------------
+// Gemini chat translation / chatbot / meeting summary, ported off the Fly room
+// server. Mounted at ROOT (not under /v1) so the request/response contract is
+// identical to the room server — the client switch is a pure base-URL change
+// (room-server URL → STORAGE_URL). They ride the CORS middleware above and are
+// now ALSO behind the shared JWT gate (B-AI, 06-17): the room server had no
+// auth, which left the server-side GEMINI_API_KEY open to anyone who knew the
+// URL. The per-isolate IP rate-limit in ai.ts is a soft cost cap, not auth —
+// it resets on isolate rotation and is trivially bypassed from distributed IPs.
+// The gate runs on each AI path BEFORE app.route("/", aiRoutes) below, so the
+// client must send `Authorization: Bearer <jwt>` (via fetchWithAuth) on these.
+// Routes added: POST /translate, /translate-batch, /chatbot, /summarize.
+app.use("/translate", jwtGate);
+app.use("/translate-batch", jwtGate);
+app.use("/chatbot", jwtGate);
+app.use("/summarize", jwtGate);
+app.route("/", aiRoutes);
 
 // ---- Admin gate ----------------------------------------------------------
 // /v1/admin/* requires the "admin" role (Supabase app_metadata.role, carried in
@@ -4207,10 +4228,10 @@ app.get("/v1/admin/realtime", async (c) => {
 
   let roomsFull = 0;
   let peopleConnected = 0;
-  const rooms = live.map((m) => {
+  const rooms = live.map((m, i) => {
     const connected = connectedByMeeting.get(m.id) ?? 0;
     const isDo = m.realtime_backend === "do";
-    const settled = counts[live.indexOf(m)];
+    const settled = counts[i];
     const doFailed = isDo && settled?.status === "rejected";
     const full = connected >= ROOM_WS_CAP;
     if (full) {
