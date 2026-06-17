@@ -439,6 +439,41 @@ export const en: Widened<typeof vi> = {
     rtRefresh: "Refresh",
     rtUpdatedAt: "Updated at {time}",
     rtEmpty: "No meetings are live right now.",
+    // ---- AI cost & usage ----
+    tabUsage: "AI & Cost",
+    usageIntro:
+      "AI usage (Gemini + Deepgram) metered on our side × published rates. Real invoices live in each provider's console.",
+    usageTotalCost: "Total AI cost",
+    usageTotalCalls: "Total AI calls",
+    usageByProvider: "By provider",
+    usageByKind: "By task kind",
+    usageTrend: "Cost (14 days)",
+    usageRecent: "Recent calls",
+    usageConsoles: "Open provider consoles",
+    usageOpenGoogle: "Google Cloud ↗",
+    usageOpenDeepgram: "Deepgram ↗",
+    usageColTime: "Time",
+    usageColProvider: "Provider",
+    usageColKind: "Kind",
+    usageColUnits: "Tokens / sec",
+    usageColCost: "Est. cost",
+    usageColUser: "User",
+    usageCalls: "calls",
+    usageTokens: "tokens",
+    usageEmpty: "No AI usage recorded yet.",
+    // ---- System status ----
+    tabSystem: "System Status",
+    systemIntro: "Health of each dependent service, probed periodically.",
+    systemLastCheck: "Checked",
+    systemStatusOn: "Operational",
+    systemStatusWarn: "Degraded",
+    systemStatusOff: "Down",
+    systemEmpty: "No status data yet.",
+    // ---- Shared error banner for admin-gated tabs ----
+    loadForbidden: "Couldn't load — check admin permissions.",
+    // ---- Backdrops (extra) ----
+    backdropName: "Name",
+    backdropDrop: "Drag & drop an image here, or",
   },
 
   clients: {

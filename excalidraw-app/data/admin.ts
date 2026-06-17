@@ -225,6 +225,20 @@ export type AdminStorage = {
   }[];
 };
 
+export type AdminAiCostBreakdown = {
+  gemini: {
+    total_cost_usd: number;
+    translate_calls: number;
+    chatbot_calls: number;
+    summarize_calls: number;
+    total_tokens: number;
+  };
+  deepgram: {
+    total_cost_usd: number;
+    stt_seconds: number;
+  };
+};
+
 export type AdminCost = {
   meetings: number;
   projects: number;
@@ -232,7 +246,74 @@ export type AdminCost = {
   meeting_minutes: number;
   recording_minutes: number;
   ai_calls: number;
+  // Extended (06-17): AI provider cost roll-up + a usage-derived estimate.
+  ai_cost_breakdown?: AdminAiCostBreakdown;
+  cost_estimate_usd?: number;
 };
+
+// ---- AI cost & usage (Gemini + Deepgram metering) -----------------------
+
+export type AdminUsageProvider = {
+  name: string;
+  total_cost_usd: number;
+  total_tokens: number;
+  total_seconds: number;
+  calls: number;
+};
+
+export type AdminUsageKind = {
+  kind: string;
+  cost_usd: number;
+  count: number;
+};
+
+export type AdminUsageTrendDay = {
+  date: string;
+  cost_usd: number;
+  call_count: number;
+};
+
+export type AdminUsageCall = {
+  id: string;
+  ts: number;
+  provider: string;
+  kind: string;
+  tokens_in: number;
+  tokens_out: number;
+  seconds: number;
+  est_cost_usd: number;
+  email: string | null;
+  meeting_id: string | null;
+};
+
+export type AdminUsage = {
+  summary: {
+    total_cost_usd: number;
+    total_ai_calls: number;
+    by_provider: AdminUsageProvider[];
+    by_kind: AdminUsageKind[];
+  };
+  daily_trend: AdminUsageTrendDay[];
+  recent: AdminUsageCall[];
+};
+
+// ---- System status (per-service health probes) --------------------------
+
+export type AdminSystemService = {
+  id: string;
+  name: string;
+  status: "on" | "warn" | "off";
+  last_check: number;
+  detail?: string;
+};
+
+export type AdminSystemStatus = {
+  services: AdminSystemService[];
+};
+
+// Discriminates "couldn't load (likely 403 / network)" from "loaded, empty"
+// so the two new tabs can show an admin-permission banner instead of a blank.
+export type AdminResult<T> = { ok: true; data: T } | { ok: false };
 
 export type AdminIntegration = {
   name: string;
@@ -264,6 +345,41 @@ export const getAdminCost = async (): Promise<AdminCost | null> => {
     return res.ok ? (await res.json()).usage ?? null : null;
   } catch {
     return null;
+  }
+};
+
+// AI cost & usage. Returns an AdminResult so the tab can tell "load failed
+// (likely missing admin role → 403, swallowed by fetchWithAuth)" apart from a
+// genuinely empty dataset and render the right fallback.
+export const getAdminUsage = async (): Promise<AdminResult<AdminUsage>> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/usage`);
+    if (!res.ok) {
+      return import.meta.env.DEV
+        ? { ok: true, data: MOCK_USAGE }
+        : { ok: false };
+    }
+    return { ok: true, data: (await res.json()) as AdminUsage };
+  } catch {
+    return import.meta.env.DEV ? { ok: true, data: MOCK_USAGE } : { ok: false };
+  }
+};
+
+export const getSystemStatus = async (): Promise<
+  AdminResult<AdminSystemStatus>
+> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/system-status`);
+    if (!res.ok) {
+      return import.meta.env.DEV
+        ? { ok: true, data: MOCK_SYSTEM_STATUS }
+        : { ok: false };
+    }
+    return { ok: true, data: (await res.json()) as AdminSystemStatus };
+  } catch {
+    return import.meta.env.DEV
+      ? { ok: true, data: MOCK_SYSTEM_STATUS }
+      : { ok: false };
   }
 };
 
@@ -504,4 +620,105 @@ export const getAdminAnalytics = async (): Promise<AdminAnalytics | null> => {
   } catch {
     return null;
   }
+};
+
+// ---- DEV-only mocks ------------------------------------------------------
+// The /v1/admin/usage + /v1/admin/system-status routes are built in parallel
+// by the backend team; until they merge, these let the new tabs render locally.
+// They are returned ONLY when import.meta.env.DEV is true AND the live call
+// failed — in production a failure surfaces the permission banner instead.
+
+const MOCK_USAGE: AdminUsage = {
+  summary: {
+    total_cost_usd: 42.871,
+    total_ai_calls: 1843,
+    by_provider: [
+      {
+        name: "gemini",
+        total_cost_usd: 31.42,
+        total_tokens: 4_812_900,
+        total_seconds: 0,
+        calls: 1521,
+      },
+      {
+        name: "deepgram",
+        total_cost_usd: 11.451,
+        total_tokens: 0,
+        total_seconds: 18_320,
+        calls: 322,
+      },
+    ],
+    by_kind: [
+      { kind: "translate", cost_usd: 14.2, count: 980 },
+      { kind: "chatbot", cost_usd: 9.61, count: 401 },
+      { kind: "summarize", cost_usd: 7.61, count: 140 },
+      { kind: "stt", cost_usd: 11.451, count: 322 },
+    ],
+  },
+  daily_trend: Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    return {
+      date: d.toISOString().slice(0, 10),
+      cost_usd: Number((1.5 + Math.sin(i) * 1.1 + i * 0.12).toFixed(2)),
+      call_count: 80 + Math.round(Math.cos(i) * 30 + i * 6),
+    };
+  }),
+  recent: Array.from({ length: 12 }, (_, i) => {
+    const providers = ["gemini", "deepgram"] as const;
+    const kinds = ["translate", "chatbot", "summarize", "stt"] as const;
+    const provider = providers[i % 2];
+    const kind = provider === "deepgram" ? "stt" : kinds[i % 3];
+    return {
+      id: `mock-${i}`,
+      ts: Date.now() - i * 1000 * 60 * 7,
+      provider,
+      kind,
+      tokens_in: provider === "gemini" ? 900 + i * 40 : 0,
+      tokens_out: provider === "gemini" ? 300 + i * 12 : 0,
+      seconds: provider === "deepgram" ? 45 + i * 3 : 0,
+      est_cost_usd: Number((0.004 + i * 0.0011).toFixed(4)),
+      email: i % 3 === 0 ? "luan@mapgroup.co.kr" : "guest@acme.com",
+      meeting_id: `room-${100 + i}`,
+    };
+  }),
+};
+
+const MOCK_SYSTEM_STATUS: AdminSystemStatus = {
+  services: [
+    {
+      id: "worker",
+      name: "Storage Worker",
+      status: "on",
+      last_check: Date.now(),
+    },
+    { id: "d1", name: "D1 database", status: "on", last_check: Date.now() },
+    { id: "r2", name: "R2 blob storage", status: "on", last_check: Date.now() },
+    {
+      id: "supabase",
+      name: "Supabase Auth",
+      status: "on",
+      last_check: Date.now(),
+    },
+    {
+      id: "daily",
+      name: "Daily.co (video)",
+      status: "warn",
+      last_check: Date.now() - 1000 * 60 * 4,
+      detail: "Elevated join latency",
+    },
+    {
+      id: "gemini",
+      name: "Gemini API",
+      status: "on",
+      last_check: Date.now() - 1000 * 30,
+    },
+    {
+      id: "deepgram",
+      name: "Deepgram STT",
+      status: "off",
+      last_check: Date.now() - 1000 * 60 * 12,
+      detail: "No successful probe in 12m",
+    },
+  ],
 };

@@ -445,6 +445,41 @@ export const ko: Widened<typeof vi> = {
     rtRefresh: "새로고침",
     rtUpdatedAt: "{time} 업데이트",
     rtEmpty: "현재 진행 중인 회의가 없습니다.",
+    // ---- AI cost & usage ----
+    tabUsage: "AI · 비용",
+    usageIntro:
+      "AI 사용량(Gemini + Deepgram)을 자체 계측 × 공시 단가로 추정합니다. 실제 청구는 각 제공자 콘솔에서 확인하세요.",
+    usageTotalCost: "총 AI 비용",
+    usageTotalCalls: "총 AI 호출",
+    usageByProvider: "제공자별",
+    usageByKind: "작업 유형별",
+    usageTrend: "비용 (14일)",
+    usageRecent: "최근 호출",
+    usageConsoles: "제공자 콘솔 열기",
+    usageOpenGoogle: "Google Cloud ↗",
+    usageOpenDeepgram: "Deepgram ↗",
+    usageColTime: "시간",
+    usageColProvider: "제공자",
+    usageColKind: "유형",
+    usageColUnits: "토큰 / 초",
+    usageColCost: "추정 비용",
+    usageColUser: "사용자",
+    usageCalls: "회",
+    usageTokens: "토큰",
+    usageEmpty: "아직 AI 사용 기록이 없습니다.",
+    // ---- System status ----
+    tabSystem: "시스템 상태",
+    systemIntro: "각 종속 서비스의 상태를 주기적으로 점검합니다.",
+    systemLastCheck: "점검",
+    systemStatusOn: "정상",
+    systemStatusWarn: "주의",
+    systemStatusOff: "장애",
+    systemEmpty: "상태 데이터가 없습니다.",
+    // ---- Shared error banner for admin-gated tabs ----
+    loadForbidden: "불러오지 못했습니다 — 관리자 권한을 확인하세요.",
+    // ---- Backdrops (extra) ----
+    backdropName: "이름",
+    backdropDrop: "이미지를 끌어다 놓거나,",
   },
 
   clients: {

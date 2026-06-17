@@ -4,6 +4,8 @@
 // this file styles the chrome through those CSS vars — glass header, paper
 // cards with ring-in-shadow elevation, sunken inputs, concentric radii.
 
+@use "./type" as *;
+
 .mcm-admin {
   position: fixed;
   inset: 0;
@@ -468,50 +470,258 @@
   }
 
   // ---- Backdrops tab (admin-managed client-page backgrounds) -------------
+  // Upload: title input + file button on ONE glass pane (a .mcm-tablecard-style
+  // surface), with a drag-drop target.
   &__backdrop-upload {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
-    margin: 12px 0 16px;
+    flex-wrap: wrap;
+    margin: 0 0 16px;
+    padding: 16px 18px;
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-lg);
+    box-shadow: var(--mcm-shadow-1);
+    transition: box-shadow var(--mcm-dur-base) var(--mcm-ease);
 
-    input[type="text"],
-    input:not([type]) {
-      flex: 1 1 auto;
-      max-width: 320px;
+    // Drag-over affordance — accent ring, no layout shift.
+    &.--drag {
+      box-shadow: var(--mcm-shadow-1), var(--mcm-ring);
     }
   }
+  &__backdrop-drop {
+    @include t-body;
+    color: var(--mcm-text-soft);
+  }
+  &__backdrop-titleinput {
+    flex: 1 1 auto;
+    min-width: 160px;
+    max-width: 320px;
+    height: 34px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: var(--mcm-radius-sm);
+    padding: 0 11px;
+    @include t-body;
+    font-family: inherit;
+    background: var(--mcm-surface-0);
+    color: var(--mcm-text);
+    outline: none;
+    transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+      box-shadow var(--mcm-dur-base) var(--mcm-ease);
+
+    &:focus {
+      border-color: var(--mcm-accent);
+      box-shadow: var(--mcm-ring);
+    }
+  }
+
   &__backdrop-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+
+    @media (max-width: 640px) {
+      grid-template-columns: 1fr;
+    }
   }
+
+  // Card: paper surface (NOT a hardcoded rgba — that broke the dark theme).
+  // Concentric radii: card lg(18) → thumb md(14) → input sm(10).
   &__backdrop-card {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px;
-    border-radius: 14px;
-    background: var(--mcm-paper, rgba(255, 255, 255, 0.55));
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    gap: 10px;
+    padding: var(--mcm-pad-card);
+    border-radius: var(--mcm-radius-lg);
+    background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1);
+    transition: box-shadow var(--mcm-dur-base) var(--mcm-ease),
+      transform var(--mcm-dur-base) var(--mcm-ease);
+
+    &:hover {
+      box-shadow: var(--mcm-shadow-2);
+      transform: translateY(-2px);
+    }
   }
   &__backdrop-thumb {
     aspect-ratio: 16 / 9;
-    border-radius: 10px;
-    background-color: rgba(0, 0, 0, 0.06);
+    border-radius: var(--mcm-radius-md);
+    background-color: var(--mcm-surface-2);
     background-size: cover;
     background-position: center;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: var(--mcm-text-faint);
+    overflow: hidden;
+
+    // Loading skeleton: a gradient sweep while the (auth-gated) thumb fetches.
+    &.--loading {
+      position: relative;
+    }
+    &.--loading::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 20%,
+        color-mix(in srgb, var(--mcm-text) 8%, transparent) 50%,
+        transparent 80%
+      );
+      background-size: 200% 100%;
+      animation: mcm-admin-skeleton 1.3s var(--mcm-ease, ease) infinite;
+    }
+  }
+
+  &__backdrop-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  &__backdrop-label {
+    @include t-label;
     color: var(--mcm-text-soft);
   }
   &__backdrop-title {
     width: 100%;
+    height: 32px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: var(--mcm-radius-sm);
+    padding: 0 10px;
+    @include t-body;
+    font-family: inherit;
+    background: var(--mcm-surface-0);
+    color: var(--mcm-text);
+    outline: none;
+    transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+      box-shadow var(--mcm-dur-base) var(--mcm-ease);
+
+    &:focus {
+      border-color: var(--mcm-accent);
+      box-shadow: var(--mcm-ring);
+    }
   }
   &__backdrop-actions {
     display: flex;
     gap: 6px;
     justify-content: flex-end;
+  }
+  // Separate Delete from the reorder arrows so it isn't mis-clicked.
+  &__backdrop-del {
+    margin-left: 12px;
+  }
+
+  // ---- System status + AI usage tabs -------------------------------------
+  // Admin-permission fallback banner for the two parallel-built tabs (the
+  // /v1/admin/* routes 403 without role=admin; fetchWithAuth swallows it).
+  &__banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: var(--mcm-radius-md);
+    background: var(--mcm-warning-soft);
+    color: var(--mcm-warning);
+    @include t-subtitle;
+  }
+
+  // System service cards reuse &__card; only the inner head/detail are new.
+  &__svc-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  &__svc-name {
+    @include t-subtitle;
+  }
+  &__svc-detail {
+    @include t-caption;
+    color: var(--mcm-text-soft);
+  }
+
+  // A warning tint for the shared pill — scoped to admin so the shared system
+  // (MeetingShell.scss) stays untouched. on/off already exist there.
+  .mcm-pill--warn {
+    background: var(--mcm-warning-soft);
+    color: var(--mcm-warning);
+  }
+
+  // AI usage — by-provider cards + kind pills.
+  &__provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  &__provider-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: var(--mcm-radius-md);
+    background: var(--mcm-surface);
+    box-shadow: var(--mcm-shadow-1);
+  }
+  &__provider-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  &__provider-name {
+    @include t-subtitle;
+    text-transform: capitalize;
+  }
+  &__provider-meta {
+    @include t-caption;
+    color: var(--mcm-text-soft);
+  }
+  &__pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  // Daily-trend bar chart — pure divs, heights set inline (no chart lib).
+  &__chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 140px;
+    padding: 12px 14px;
+    background: var(--mcm-surface);
+    border-radius: var(--mcm-radius-md);
+    box-shadow: var(--mcm-shadow-1);
+  }
+  &__chart-col {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    height: 100%;
+    min-width: 0;
+  }
+  &__chart-bar {
+    width: 100%;
+    max-width: 28px;
+    min-height: 4px;
+    border-radius: var(--mcm-radius-xs) var(--mcm-radius-xs) 0 0;
+    background: linear-gradient(
+      var(--mcm-accent),
+      color-mix(in srgb, var(--mcm-accent) 55%, transparent)
+    );
+    transition: height var(--mcm-dur-base) var(--mcm-ease);
+  }
+  &__chart-x {
+    @include t-micro;
+    color: var(--mcm-text-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 }
 
@@ -523,5 +733,15 @@
   }
   50% {
     opacity: 0.1;
+  }
+}
+
+// Thumbnail loading sweep (backdrops grid).
+@keyframes mcm-admin-skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }

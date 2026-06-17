@@ -462,6 +462,41 @@ export const vi = {
     rtRefresh: "Cập nhật",
     rtUpdatedAt: "Cập nhật lúc {time}",
     rtEmpty: "Không có cuộc họp nào đang diễn ra.",
+    // ---- AI cost & usage ----
+    tabUsage: "AI & chi phí",
+    usageIntro:
+      "Lượng dùng AI (Gemini + Deepgram) đo từ phía chúng ta × đơn giá công bố. Hoá đơn thực ở console của nhà cung cấp.",
+    usageTotalCost: "Tổng chi phí AI",
+    usageTotalCalls: "Tổng lượt gọi AI",
+    usageByProvider: "Theo nhà cung cấp",
+    usageByKind: "Theo loại tác vụ",
+    usageTrend: "Chi phí 14 ngày",
+    usageRecent: "Lượt gọi gần đây",
+    usageConsoles: "Mở console nhà cung cấp",
+    usageOpenGoogle: "Google Cloud ↗",
+    usageOpenDeepgram: "Deepgram ↗",
+    usageColTime: "Thời gian",
+    usageColProvider: "Nhà cung cấp",
+    usageColKind: "Loại",
+    usageColUnits: "Token / giây",
+    usageColCost: "Ước tính",
+    usageColUser: "Người dùng",
+    usageCalls: "lượt",
+    usageTokens: "token",
+    usageEmpty: "Chưa có dữ liệu sử dụng AI.",
+    // ---- System status ----
+    tabSystem: "Trạng thái hệ thống",
+    systemIntro: "Tình trạng từng dịch vụ phụ thuộc, kiểm tra định kỳ.",
+    systemLastCheck: "Kiểm tra lúc",
+    systemStatusOn: "Bình thường",
+    systemStatusWarn: "Cần chú ý",
+    systemStatusOff: "Lỗi",
+    systemEmpty: "Chưa có dữ liệu trạng thái.",
+    // ---- Shared error banner for admin-gated tabs ----
+    loadForbidden: "Không tải được — kiểm tra quyền admin.",
+    // ---- Backdrops (extra) ----
+    backdropName: "Tên",
+    backdropDrop: "Kéo & thả ảnh vào đây, hoặc",
   },
 
   // ---------------- Client list (CRM-lite contact book) ------------

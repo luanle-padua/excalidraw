@@ -30,7 +30,16 @@
   "vars": {
     "RESEND_FROM": "Canvas M <onboarding@resend.dev>",
     // Max concurrent WebSockets per room (realtime DO handshake cap, §4/R14).
-    "ROOM_WS_CAP": "500"
+    "ROOM_WS_CAP": "500",
+    // STT provider seam (Admin Console P2). STT_PROVIDER selects the active
+    // speech-to-text backend; 'deepgram' is the working default (keep it set so
+    // STT keeps working). STT_PROVIDER_CONFIG is optional JSON for provider-
+    // specific knobs (empty = defaults). The other providers' API keys are
+    // SECRETS — NOT here; set them when wiring one up:
+    //   wrangler secret put ELEVENLABS_API_KEY
+    //   wrangler secret put OPENAI_API_KEY
+    "STT_PROVIDER": "deepgram",
+    "STT_PROVIDER_CONFIG": "{}"
   },
 
   // Durable Objects — realtime relay (one DO instance per meeting room).

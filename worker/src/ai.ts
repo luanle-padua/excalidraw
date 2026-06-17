@@ -22,6 +22,8 @@
 
 import { Hono } from "hono";
 
+import { geminiFlashCostUsd, logUsageEvent } from "./usage";
+
 // Bindings consumed by the AI routes. Kept narrow so the routes can mount on
 // the main app's Bindings (which is a superset) without a circular import.
 export type AiBindings = {
@@ -30,6 +32,27 @@ export type AiBindings = {
   GEMINI_API_KEY?: string;
   // Optional model override (plain var). Defaults to gemini-2.5-flash.
   GEMINI_TRANSLATION_MODEL?: string;
+  // D1 — for best-effort AI cost metering (usage_events). The main app's
+  // Bindings is a superset; this keeps the AI sub-app self-contained.
+  DB?: D1Database;
+};
+
+// Variables the main app's JWT gate attaches; the AI sub-app reads `email` off
+// the SAME context (it's mounted via app.route, so the context is shared) to
+// stamp usage_events. `meeting_id` comes from the request body/query.
+type AiVariables = {
+  userId?: string;
+  email?: string;
+  role?: string;
+};
+
+// Token usage Gemini reports on a successful generateContent response.
+type GeminiUsage = { promptTokenCount?: number; candidatesTokenCount?: number };
+
+// Gemini response shape (candidates text + usageMetadata for cost metering).
+type GeminiResponse = {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  usageMetadata?: GeminiUsage;
 };
 
 const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
@@ -192,12 +215,56 @@ const geminiUrl = (model: string, apiKey: string): string =>
     model,
   )}:generateContent?key=${apiKey}`;
 
+// Best-effort cost metering for ONE successful Gemini call: read the token
+// counts off usageMetadata, compute the Flash cost, write a usage_events row.
+// Fire-and-forget (logUsageEvent never throws) so it can't slow/break the route.
+const meterGemini = (
+  c: { env: AiBindings; get: (k: "email") => string | undefined },
+  kind: string,
+  usage: GeminiUsage | undefined,
+  meetingId?: string,
+): void => {
+  if (!c.env.DB) {
+    return;
+  }
+  const tokensIn = usage?.promptTokenCount ?? 0;
+  const tokensOut = usage?.candidatesTokenCount ?? 0;
+  const cost = geminiFlashCostUsd(tokensIn, tokensOut);
+  void logUsageEvent(
+    c.env.DB,
+    "gemini",
+    kind,
+    tokensIn,
+    tokensOut,
+    0,
+    cost,
+    meetingId,
+    c.get("email"),
+  );
+};
+
+// `meetingId` from the request body/query, when the client supplies it. Best
+// effort — the AI routes are otherwise meeting-agnostic, so this just enriches
+// the usage row when present.
+const readMeetingId = (
+  body: { meetingId?: unknown; roomId?: unknown } | undefined,
+  query: string | undefined,
+): string | undefined => {
+  const fromBody =
+    typeof body?.meetingId === "string"
+      ? body.meetingId
+      : typeof body?.roomId === "string"
+      ? body.roomId
+      : undefined;
+  return fromBody || query || undefined;
+};
+
 const translateWithGemini = async (
   text: string,
   targetLangName: string,
   apiKey: string,
   model: string,
-): Promise<string> => {
+): Promise<{ translated: string; usage?: GeminiUsage }> => {
   const userPrompt = `Target language: ${targetLangName}
 
 Text to translate:
@@ -223,14 +290,12 @@ ${text}`;
     throw new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
+  const json = (await res.json()) as GeminiResponse;
   const out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof out !== "string" || !out.trim()) {
     throw new Error("Gemini returned empty translation");
   }
-  return out.trim();
+  return { translated: out.trim(), usage: json.usageMetadata };
 };
 
 const translateBatchWithGemini = async (
@@ -238,7 +303,7 @@ const translateBatchWithGemini = async (
   targets: string[],
   apiKey: string,
   model: string,
-): Promise<Record<string, string>> => {
+): Promise<{ translations: Record<string, string>; usage?: GeminiUsage }> => {
   // Build a stable property list in the order the client asked, so the schema
   // is deterministic and Gemini can't drop a key.
   const propEntries = targets
@@ -288,9 +353,7 @@ ${text}`;
     throw new Error(`Gemini ${res.status}: ${body.slice(0, 200)}`);
   }
 
-  const json = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
+  const json = (await res.json()) as GeminiResponse;
   const out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof out !== "string" || !out.trim()) {
     throw new Error("Gemini returned empty batch translation");
@@ -311,12 +374,15 @@ ${text}`;
   if (Object.keys(result).length === 0) {
     throw new Error("Gemini batch result had no usable strings");
   }
-  return result;
+  return { translations: result, usage: json.usageMetadata };
 };
 
 // Hono sub-app holding the four AI routes. Mounted on the main app so it shares
 // the same Bindings (a superset of AiBindings) and CORS middleware.
-export const aiRoutes = new Hono<{ Bindings: AiBindings }>();
+export const aiRoutes = new Hono<{
+  Bindings: AiBindings;
+  Variables: AiVariables;
+}>();
 
 aiRoutes.post("/translate-batch", async (c) => {
   if (rateLimited(clientIp(c.req.raw), "translate", 20, 60_000)) {
@@ -329,8 +395,14 @@ aiRoutes.post("/translate-batch", async (c) => {
   const model = c.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
 
   const body = (await c.req.json().catch(() => undefined)) as
-    | { text?: unknown; targets?: unknown }
+    | {
+        text?: unknown;
+        targets?: unknown;
+        meetingId?: unknown;
+        roomId?: unknown;
+      }
     | undefined;
+  const meetingId = readMeetingId(body, c.req.query("meetingId"));
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const targetsRaw = Array.isArray(body?.targets) ? body.targets : [];
   const targets = targetsRaw
@@ -364,12 +436,13 @@ aiRoutes.post("/translate-batch", async (c) => {
   }
 
   try {
-    const translations = await translateBatchWithGemini(
+    const { translations, usage } = await translateBatchWithGemini(
       text,
       targets,
       apiKey,
       model,
     );
+    meterGemini(c, "translate", usage, meetingId);
     translationCache.set(cacheKey, {
       translated: JSON.stringify(translations),
       createdAt: Date.now(),
@@ -404,8 +477,14 @@ aiRoutes.post("/translate", async (c) => {
   const model = c.env.GEMINI_TRANSLATION_MODEL || DEFAULT_GEMINI_MODEL;
 
   const body = (await c.req.json().catch(() => undefined)) as
-    | { text?: unknown; target?: unknown }
+    | {
+        text?: unknown;
+        target?: unknown;
+        meetingId?: unknown;
+        roomId?: unknown;
+      }
     | undefined;
+  const meetingId = readMeetingId(body, c.req.query("meetingId"));
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   const target = typeof body?.target === "string" ? body.target : "";
   const targetLangName = TRANSLATION_LANGUAGE_NAMES[target];
@@ -427,12 +506,13 @@ aiRoutes.post("/translate", async (c) => {
   }
 
   try {
-    const translated = await translateWithGemini(
+    const { translated, usage } = await translateWithGemini(
       text,
       targetLangName,
       apiKey,
       model,
     );
+    meterGemini(c, "translate", usage, meetingId);
     translationCache.set(cacheKey, { translated, createdAt: Date.now() });
     pruneTranslationCache();
     return c.json({ translated, cached: false });
@@ -462,8 +542,11 @@ aiRoutes.post("/chatbot", async (c) => {
         recent?: unknown;
         transcript?: unknown;
         canvasText?: unknown;
+        meetingId?: unknown;
+        roomId?: unknown;
       }
     | undefined;
+  const meetingId = readMeetingId(body, c.req.query("meetingId"));
   const question =
     typeof body?.question === "string" ? body.question.trim() : "";
   const language = typeof body?.language === "string" ? body.language : "vi";
@@ -556,13 +639,12 @@ aiRoutes.post("/chatbot", async (c) => {
       console.error("Chatbot Gemini error:", cfRes.status, text);
       return c.json({ error: `Gemini ${cfRes.status}` }, 502);
     }
-    const json = (await cfRes.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
+    const json = (await cfRes.json()) as GeminiResponse;
     const answer = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!answer) {
       return c.json({ error: "Empty answer from Gemini" }, 502);
     }
+    meterGemini(c, "chatbot", json.usageMetadata, meetingId);
     return c.json({ answer });
   } catch (err) {
     console.error("Chatbot fetch failed", err);
@@ -591,8 +673,11 @@ aiRoutes.post("/summarize", async (c) => {
         chat?: Array<{ username?: string; text?: string }>;
         canvasText?: unknown;
         language?: string;
+        meetingId?: unknown;
+        roomId?: unknown;
       }
     | undefined;
+  const meetingId = readMeetingId(body, c.req.query("meetingId"));
 
   const segments = Array.isArray(body?.segments) ? body.segments : [];
   const cleanSegments = segments
@@ -728,9 +813,7 @@ aiRoutes.post("/summarize", async (c) => {
       return c.json({ error: "Summary provider error" }, 502);
     }
 
-    const json = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
+    const json = (await response.json()) as GeminiResponse;
     const out = json?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (typeof out !== "string" || !out.trim()) {
       return c.json({ error: "Empty summary response" }, 502);
@@ -744,6 +827,7 @@ aiRoutes.post("/summarize", async (c) => {
         502,
       );
     }
+    meterGemini(c, "summarize", json.usageMetadata, meetingId);
     return c.json(parsed as Record<string, unknown>);
   } catch (err) {
     console.error("Summary request error:", err);

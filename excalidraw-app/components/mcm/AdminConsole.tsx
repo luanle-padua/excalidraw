@@ -1,4 +1,6 @@
 import {
+  Activity,
+  AlertTriangle,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -10,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  Cpu,
   DollarSign,
   Eye,
   FileText,
@@ -27,6 +30,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Trash2,
+  Upload,
   UserPlus,
   Users,
   Video,
@@ -52,6 +56,8 @@ import {
   getAdminSettings,
   getAdminStats,
   getAdminStorage,
+  getAdminUsage,
+  getSystemStatus,
   listAdminMeetings,
   listAdminProjects,
   listAdminUsers,
@@ -70,6 +76,8 @@ import {
   type AdminRealtime,
   type AdminStats,
   type AdminStorage,
+  type AdminSystemStatus,
+  type AdminUsage,
   type AdminUser,
 } from "../../data/admin";
 import {
@@ -99,8 +107,10 @@ type Tab =
   | "projects"
   | "meetings"
   | "realtime"
+  | "system"
   | "analytics"
   | "cost"
+  | "usage"
   | "integrations"
   | "storage"
   | "audit"
@@ -175,6 +185,14 @@ const BILLING_LINKS: { name: string; url: string }[] = [
 ];
 const R2_USD_PER_GB_MONTH = 0.015;
 
+// AI-provider consoles linked from the Cost & Usage tab (actual billing lives
+// there; our numbers are usage-derived estimates).
+const GOOGLE_CLOUD_CONSOLE = "https://console.cloud.google.com/billing";
+const DEEPGRAM_CONSOLE = "https://console.deepgram.com/";
+
+const fmtUsd = (n: number | null | undefined, digits = 2): string =>
+  n == null ? "—" : `$${n.toFixed(digits)}`;
+
 const fmtDate = (ms: number | null | undefined): string =>
   ms ? new Date(ms).toLocaleString() : "—";
 const fmtIso = (iso: string | null | undefined): string =>
@@ -211,6 +229,14 @@ export const AdminConsole = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [meetings, setMeetings] = useState<AdminMeeting[]>([]);
   const [cost, setCost] = useState<AdminCost | null>(null);
+  // AI usage + system status. `*Failed` flags drive the admin-permission banner
+  // (the /v1/admin/* routes 403 without role=admin; fetchWithAuth swallows it,
+  // so we distinguish "load failed" from "loaded empty").
+  const [usage, setUsage] = useState<AdminUsage | null>(null);
+  const [usageFailed, setUsageFailed] = useState(false);
+  const [system, setSystem] = useState<AdminSystemStatus | null>(null);
+  const [systemFailed, setSystemFailed] = useState(false);
+  const [backdropDragOver, setBackdropDragOver] = useState(false);
   const [integrations, setIntegrations] = useState<AdminIntegration[]>([]);
   const [storage, setStorage] = useState<AdminStorage | null>(null);
   const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
@@ -497,6 +523,16 @@ export const AdminConsole = () => {
       void refreshMeetings();
     } else if (tab === "cost") {
       void getAdminCost().then(setCost);
+    } else if (tab === "usage") {
+      void getAdminUsage().then((r) => {
+        setUsageFailed(!r.ok);
+        setUsage(r.ok ? r.data : null);
+      });
+    } else if (tab === "system") {
+      void getSystemStatus().then((r) => {
+        setSystemFailed(!r.ok);
+        setSystem(r.ok ? r.data : null);
+      });
     } else if (tab === "integrations") {
       void getAdminIntegrations().then(setIntegrations);
     } else if (tab === "storage") {
@@ -869,6 +905,13 @@ export const AdminConsole = () => {
           </button>
           <button
             type="button"
+            className={`mcm-admin__tab${tab === "system" ? " --active" : ""}`}
+            onClick={() => setTab("system")}
+          >
+            <Activity size={16} /> {t("admin.tabSystem")}
+          </button>
+          <button
+            type="button"
             className={`mcm-admin__tab${
               tab === "analytics" ? " --active" : ""
             }`}
@@ -882,6 +925,13 @@ export const AdminConsole = () => {
             onClick={() => setTab("cost")}
           >
             <DollarSign size={16} /> {t("admin.tabCost")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "usage" ? " --active" : ""}`}
+            onClick={() => setTab("usage")}
+          >
+            <Cpu size={16} /> {t("admin.tabUsage")}
           </button>
           <button
             type="button"
@@ -1927,6 +1977,209 @@ export const AdminConsole = () => {
           </div>
         )}
 
+        {tab === "system" && (
+          <div className="mcm-admin__pad">
+            <p className="mcm-admin__note">{t("admin.systemIntro")}</p>
+            {systemFailed ? (
+              <div className="mcm-admin__banner" role="alert">
+                <AlertTriangle size={16} />
+                {t("admin.loadForbidden")}
+              </div>
+            ) : system && system.services.length === 0 ? (
+              <p className="mcm-admin__note">{t("admin.systemEmpty")}</p>
+            ) : (
+              <div className="mcm-admin__cards">
+                {(system?.services ?? []).map((s) => (
+                  <div key={s.id} className="mcm-admin__card">
+                    <div className="mcm-admin__svc-head">
+                      <span className="mcm-admin__svc-name">{s.name}</span>
+                      <span
+                        className={`mcm-pill ${
+                          s.status === "on"
+                            ? "mcm-pill--on"
+                            : s.status === "warn"
+                            ? "mcm-pill--warn"
+                            : "mcm-pill--off"
+                        }`}
+                      >
+                        {s.status === "on"
+                          ? t("admin.systemStatusOn")
+                          : s.status === "warn"
+                          ? t("admin.systemStatusWarn")
+                          : t("admin.systemStatusOff")}
+                      </span>
+                    </div>
+                    {s.detail && (
+                      <span className="mcm-admin__svc-detail">{s.detail}</span>
+                    )}
+                    <span className="mcm-admin__card-label">
+                      {t("admin.systemLastCheck")} {fmtClock(s.last_check)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "usage" && (
+          <div className="mcm-admin__pad">
+            <p className="mcm-admin__note">{t("admin.usageIntro")}</p>
+            {usageFailed ? (
+              <div className="mcm-admin__banner" role="alert">
+                <AlertTriangle size={16} />
+                {t("admin.loadForbidden")}
+              </div>
+            ) : (
+              <>
+                <div className="mcm-admin__cards">
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {fmtUsd(usage?.summary.total_cost_usd)}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      {t("admin.usageTotalCost")}
+                    </span>
+                  </div>
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {usage?.summary.total_ai_calls ?? "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      {t("admin.usageTotalCalls")}
+                    </span>
+                  </div>
+                </div>
+
+                <h4 className="mcm-admin__h4">{t("admin.usageByProvider")}</h4>
+                <div className="mcm-admin__provider-grid">
+                  {(usage?.summary.by_provider ?? []).map((p) => (
+                    <div key={p.name} className="mcm-admin__provider-card">
+                      <div className="mcm-admin__provider-head">
+                        <span className="mcm-admin__provider-name">
+                          {p.name}
+                        </span>
+                        <span className="mcm-pill mcm-pill--accent">
+                          {fmtUsd(p.total_cost_usd)}
+                        </span>
+                      </div>
+                      <span className="mcm-admin__provider-meta">
+                        {p.calls} {t("admin.usageCalls")}
+                        {p.total_tokens > 0 &&
+                          ` · ${p.total_tokens.toLocaleString()} ${t(
+                            "admin.usageTokens",
+                          )}`}
+                        {p.total_seconds > 0 && ` · ${fmtDur(p.total_seconds)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <h4 className="mcm-admin__h4">{t("admin.usageByKind")}</h4>
+                <div className="mcm-admin__pills">
+                  {(usage?.summary.by_kind ?? []).map((k) => (
+                    <span key={k.kind} className="mcm-pill mcm-pill--neutral">
+                      {k.kind} · {fmtUsd(k.cost_usd)} · {k.count}
+                    </span>
+                  ))}
+                </div>
+
+                <h4 className="mcm-admin__h4">{t("admin.usageTrend")}</h4>
+                <div className="mcm-admin__chart">
+                  {(() => {
+                    const trend = usage?.daily_trend ?? [];
+                    const max = Math.max(1, ...trend.map((d) => d.cost_usd));
+                    return trend.map((d) => (
+                      <div
+                        key={d.date}
+                        className="mcm-admin__chart-col"
+                        title={`${d.date} · ${fmtUsd(d.cost_usd)} · ${
+                          d.call_count
+                        } ${t("admin.usageCalls")}`}
+                      >
+                        <div
+                          className="mcm-admin__chart-bar"
+                          // height is data-driven (a div bar chart, no lib)
+                          // eslint-disable-next-line react/forbid-dom-props
+                          style={{
+                            height: `${Math.max(4, (d.cost_usd / max) * 100)}%`,
+                          }}
+                        />
+                        <span className="mcm-admin__chart-x">
+                          {d.date.slice(5)}
+                        </span>
+                      </div>
+                    ));
+                  })()}
+                </div>
+
+                <h4 className="mcm-admin__h4">{t("admin.usageConsoles")}</h4>
+                <div className="mcm-admin__links">
+                  <a
+                    href={GOOGLE_CLOUD_CONSOLE}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {t("admin.usageOpenGoogle")}
+                  </a>
+                  <a
+                    href={DEEPGRAM_CONSOLE}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {t("admin.usageOpenDeepgram")}
+                  </a>
+                </div>
+
+                <h4 className="mcm-admin__h4">{t("admin.usageRecent")}</h4>
+                <div className="mcm-tablecard">
+                  <table className="mcm-table">
+                    <thead>
+                      <tr>
+                        <th>{t("admin.usageColTime")}</th>
+                        <th>{t("admin.usageColProvider")}</th>
+                        <th>{t("admin.usageColKind")}</th>
+                        <th>{t("admin.usageColUnits")}</th>
+                        <th>{t("admin.usageColCost")}</th>
+                        <th>{t("admin.usageColUser")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(usage?.recent ?? []).length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="mcm-table__sub">
+                            {t("admin.usageEmpty")}
+                          </td>
+                        </tr>
+                      )}
+                      {(usage?.recent ?? []).map((c) => (
+                        <tr key={c.id}>
+                          <td>{fmtDate(c.ts)}</td>
+                          <td>
+                            <span className="mcm-pill mcm-pill--neutral">
+                              {c.provider}
+                            </span>
+                          </td>
+                          <td>{c.kind}</td>
+                          <td>
+                            {c.seconds > 0
+                              ? fmtDur(c.seconds)
+                              : `${(
+                                  c.tokens_in + c.tokens_out
+                                ).toLocaleString()} ${t("admin.usageTokens")}`}
+                          </td>
+                          <td>{fmtUsd(c.est_cost_usd, 4)}</td>
+                          <td className="mcm-table__sub">{c.email || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {tab === "cost" && (
           <div className="mcm-admin__pad">
             <p className="mcm-admin__note">{t("admin.billingNote")}</p>
@@ -1969,6 +2222,39 @@ export const AdminConsole = () => {
                 </span>
               </div>
             </div>
+            {cost?.ai_cost_breakdown && (
+              <>
+                <h4 className="mcm-admin__h4">{t("admin.usageByProvider")}</h4>
+                <div className="mcm-admin__provider-grid">
+                  <div className="mcm-admin__provider-card">
+                    <div className="mcm-admin__provider-head">
+                      <span className="mcm-admin__provider-name">Gemini</span>
+                      <span className="mcm-pill mcm-pill--accent">
+                        {fmtUsd(cost.ai_cost_breakdown.gemini.total_cost_usd)}
+                      </span>
+                    </div>
+                    <span className="mcm-admin__provider-meta">
+                      {cost.ai_cost_breakdown.gemini.total_tokens.toLocaleString()}{" "}
+                      {t("admin.usageTokens")} · translate{" "}
+                      {cost.ai_cost_breakdown.gemini.translate_calls} · chatbot{" "}
+                      {cost.ai_cost_breakdown.gemini.chatbot_calls} · summarize{" "}
+                      {cost.ai_cost_breakdown.gemini.summarize_calls}
+                    </span>
+                  </div>
+                  <div className="mcm-admin__provider-card">
+                    <div className="mcm-admin__provider-head">
+                      <span className="mcm-admin__provider-name">Deepgram</span>
+                      <span className="mcm-pill mcm-pill--accent">
+                        {fmtUsd(cost.ai_cost_breakdown.deepgram.total_cost_usd)}
+                      </span>
+                    </div>
+                    <span className="mcm-admin__provider-meta">
+                      {fmtDur(cost.ai_cost_breakdown.deepgram.stt_seconds)} STT
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
             <h4 className="mcm-admin__h4">{t("admin.costBilling")}</h4>
             <div className="mcm-admin__links">
               {BILLING_LINKS.map((l) => (
@@ -2333,14 +2619,37 @@ export const AdminConsole = () => {
         {tab === "backdrops" && (
           <div className="mcm-admin__pad mcm-admin__backdrops">
             <p className="mcm-admin__note">{t("admin.backdropsIntro")}</p>
-            <div className="mcm-admin__backdrop-upload">
+
+            {/* Upload — title + file button on ONE glass pane, with drag-drop. */}
+            <div
+              className={`mcm-admin__backdrop-upload${
+                backdropDragOver ? " --drag" : ""
+              }`}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setBackdropDragOver(true);
+              }}
+              onDragLeave={() => setBackdropDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setBackdropDragOver(false);
+                const file = e.dataTransfer.files?.[0];
+                if (file && file.type.startsWith("image/")) {
+                  void handleBackdropUpload(file);
+                }
+              }}
+            >
+              <span className="mcm-admin__backdrop-drop">
+                {t("admin.backdropDrop")}
+              </span>
               <input
+                className="mcm-admin__backdrop-titleinput"
                 value={newBackdropTitle}
                 onChange={(e) => setNewBackdropTitle(e.target.value)}
                 placeholder={t("admin.backdropTitlePlaceholder")}
               />
               <label className="mcm-btn mcm-btn--primary mcm-btn--sm">
-                <UserPlus size={14} /> {t("admin.backdropUpload")}
+                <Upload size={14} /> {t("admin.backdropUpload")}
                 <input
                   type="file"
                   accept="image/*"
@@ -2352,67 +2661,90 @@ export const AdminConsole = () => {
                 />
               </label>
             </div>
+
             {backdrops.length === 0 ? (
               <p className="mcm-admin__note">{t("admin.backdropEmpty")}</p>
             ) : (
               <div className="mcm-admin__backdrop-grid">
-                {backdrops.map((b, i) => (
-                  <div key={b.id} className="mcm-admin__backdrop-card">
-                    <div
-                      className="mcm-admin__backdrop-thumb"
-                      // Fetched (auth-gated) image as an object URL.
-                      // eslint-disable-next-line react/forbid-dom-props
-                      style={
-                        backdropThumbs[b.id]
-                          ? {
-                              backgroundImage: `url("${backdropThumbs[b.id]}")`,
-                            }
-                          : undefined
-                      }
-                    >
-                      {!backdropThumbs[b.id] && <ImageIcon size={24} />}
-                    </div>
-                    <input
-                      className="mcm-admin__backdrop-title"
-                      defaultValue={b.title ?? ""}
-                      placeholder={t("admin.backdropTitlePlaceholder")}
-                      onBlur={(e) => {
-                        if (e.target.value !== (b.title ?? "")) {
-                          void handleBackdropRename(b.id, e.target.value);
+                {backdrops.map((b, i) => {
+                  const thumb = backdropThumbs[b.id];
+                  return (
+                    <div key={b.id} className="mcm-admin__backdrop-card">
+                      <div
+                        className={`mcm-admin__backdrop-thumb${
+                          thumb ? "" : " --loading"
+                        }`}
+                        // Fetched (auth-gated) image as an object URL.
+                        // eslint-disable-next-line react/forbid-dom-props
+                        style={
+                          thumb
+                            ? { backgroundImage: `url("${thumb}")` }
+                            : undefined
                         }
-                      }}
-                    />
-                    <div className="mcm-admin__backdrop-actions">
-                      <button
-                        type="button"
-                        className="mcm-icon-btn mcm-icon-btn--sm"
-                        disabled={busy || i === 0}
-                        title={t("admin.backdropMoveUp")}
-                        onClick={() => void handleBackdropMove(b.id, -1)}
                       >
-                        <ArrowUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="mcm-icon-btn mcm-icon-btn--sm"
-                        disabled={busy || i === backdrops.length - 1}
-                        title={t("admin.backdropMoveDown")}
-                        onClick={() => void handleBackdropMove(b.id, 1)}
-                      >
-                        <ArrowDown size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
-                        disabled={busy}
-                        title={t("admin.backdropDelete")}
-                        onClick={() => void handleBackdropDelete(b.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                        {!thumb && <ImageIcon size={32} />}
+                      </div>
+
+                      <label className="mcm-admin__backdrop-field">
+                        <span className="mcm-admin__backdrop-label">
+                          {t("admin.backdropName")}
+                        </span>
+                        <input
+                          className="mcm-admin__backdrop-title"
+                          defaultValue={b.title ?? ""}
+                          placeholder={t("admin.backdropTitlePlaceholder")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            } else if (e.key === "Escape") {
+                              // Esc cancels: restore original, drop focus.
+                              e.currentTarget.value = b.title ?? "";
+                              e.currentTarget.blur();
+                            }
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value !== (b.title ?? "")) {
+                              void handleBackdropRename(b.id, e.target.value);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <div className="mcm-admin__backdrop-actions">
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm"
+                          disabled={busy || i === 0}
+                          title={t("admin.backdropMoveUp")}
+                          aria-label={t("admin.backdropMoveUp")}
+                          onClick={() => void handleBackdropMove(b.id, -1)}
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm"
+                          disabled={busy || i === backdrops.length - 1}
+                          title={t("admin.backdropMoveDown")}
+                          aria-label={t("admin.backdropMoveDown")}
+                          onClick={() => void handleBackdropMove(b.id, 1)}
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger mcm-admin__backdrop-del"
+                          disabled={busy}
+                          title={t("admin.backdropDelete")}
+                          aria-label={t("admin.backdropDelete")}
+                          onClick={() => void handleBackdropDelete(b.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

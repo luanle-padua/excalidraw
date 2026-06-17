@@ -38,8 +38,16 @@ import { aiRoutes } from "./ai";
 import { guestInviteEmail, sendEmail } from "./email";
 import { RoomDO } from "./roomDO";
 import { handleSttUpgrade } from "./stt";
+import { logUsageEvent } from "./usage";
 
 import type { MiddlewareHandler } from "hono";
+
+// Re-exported so the AI cost helper is reachable as "the logUsageEvent in
+// index.ts" (Admin Console P0) even though the implementation lives in usage.ts
+// to avoid a circular import with ai.ts. Used directly below by the admin
+// endpoints' siblings; also the canonical import for any future server-side
+// metering added here.
+export { logUsageEvent };
 
 // Re-export the Durable Object class so the runtime can instantiate the
 // `ROOM` binding declared in wrangler.jsonc.
@@ -89,6 +97,17 @@ type Bindings = {
   // DEEPGRAM_STT_MODEL is an optional plain var (defaults to nova-3).
   DEEPGRAM_API_KEY?: string;
   DEEPGRAM_STT_MODEL?: string;
+  // STT provider seam (Admin Console P2). STT_PROVIDER selects the active STT
+  // backend (plain var, default 'deepgram'); STT_PROVIDER_CONFIG is optional
+  // JSON for provider-specific knobs (plain var). The other providers' keys are
+  // SECRETS — declared here but NOT set in wrangler.jsonc; the human runs
+  // `wrangler secret put ELEVENLABS_API_KEY` / `OPENAI_API_KEY` when wiring one
+  // up. Deepgram stays the working default; nothing changes until STT_PROVIDER
+  // is flipped.
+  ELEVENLABS_API_KEY?: string;
+  OPENAI_API_KEY?: string;
+  STT_PROVIDER?: string;
+  STT_PROVIDER_CONFIG?: string;
 };
 
 // CORS origin check (B6, 06-17). The real risk is a random website riding a
@@ -4439,6 +4458,66 @@ app.get("/v1/admin/cost", async (c) => {
     storage_bytes: number;
     total_seconds: number;
   }>();
+
+  // AI cost breakdown (Admin Console P0) — joined from usage_events. Best-effort:
+  // an un-migrated DB (no usage_events table) yields all-zeros, never a 500.
+  let ai = {
+    gemini: {
+      total_cost_usd: 0,
+      translate_calls: 0,
+      chatbot_calls: 0,
+      summarize_calls: 0,
+      total_tokens: 0,
+    },
+    deepgram: { total_cost_usd: 0, stt_seconds: 0 },
+    ai_calls: 0,
+    cost_estimate_usd: 0,
+  };
+  try {
+    const u = await c.env.DB.prepare(
+      `SELECT
+         COALESCE(SUM(CASE WHEN provider='gemini' THEN est_cost_usd END),0) AS gemini_cost,
+         COALESCE(SUM(CASE WHEN provider='gemini' THEN tokens_in+tokens_out END),0) AS gemini_tokens,
+         COALESCE(SUM(CASE WHEN provider='gemini' AND kind='translate' THEN 1 END),0) AS translate_calls,
+         COALESCE(SUM(CASE WHEN provider='gemini' AND kind='chatbot'   THEN 1 END),0) AS chatbot_calls,
+         COALESCE(SUM(CASE WHEN provider='gemini' AND kind='summarize' THEN 1 END),0) AS summarize_calls,
+         COALESCE(SUM(CASE WHEN provider='deepgram' THEN est_cost_usd END),0) AS deepgram_cost,
+         COALESCE(SUM(CASE WHEN provider='deepgram' THEN seconds END),0) AS stt_seconds,
+         COUNT(*) AS ai_calls,
+         COALESCE(SUM(est_cost_usd),0) AS total_cost
+       FROM usage_events`,
+    ).first<{
+      gemini_cost: number;
+      gemini_tokens: number;
+      translate_calls: number;
+      chatbot_calls: number;
+      summarize_calls: number;
+      deepgram_cost: number;
+      stt_seconds: number;
+      ai_calls: number;
+      total_cost: number;
+    }>();
+    if (u) {
+      ai = {
+        gemini: {
+          total_cost_usd: u.gemini_cost,
+          translate_calls: u.translate_calls,
+          chatbot_calls: u.chatbot_calls,
+          summarize_calls: u.summarize_calls,
+          total_tokens: u.gemini_tokens,
+        },
+        deepgram: {
+          total_cost_usd: u.deepgram_cost,
+          stt_seconds: u.stt_seconds,
+        },
+        ai_calls: u.ai_calls,
+        cost_estimate_usd: u.total_cost,
+      };
+    }
+  } catch {
+    // usage_events table missing (pre-0028 DB) — keep the all-zero default
+  }
+
   return c.json({
     usage: {
       meetings: row?.meetings ?? 0,
@@ -4446,8 +4525,183 @@ app.get("/v1/admin/cost", async (c) => {
       storage_bytes: row?.storage_bytes ?? 0,
       meeting_minutes: Math.round((row?.total_seconds ?? 0) / 60),
       recording_minutes: 0, // tracked once Phase 5 recording lands
-      ai_calls: 0, // tracked once AI usage metering lands
+      ai_calls: ai.ai_calls,
     },
+    ai_cost_breakdown: { gemini: ai.gemini, deepgram: ai.deepgram },
+    ai_calls: ai.ai_calls,
+    cost_estimate_usd: ai.cost_estimate_usd,
+  });
+});
+
+// ---- Admin: AI cost & usage (Admin Console P0) ---------------------------
+// Full AI spend dashboard: a roll-up summary (by provider + by kind), a daily
+// spend trend, and a paginated recent-events feed. Sourced from usage_events
+// (best-effort metered by ai.ts / the STT proxy). An un-migrated DB yields the
+// empty shape, never a 500.
+app.get("/v1/admin/usage", async (c) => {
+  const limit = Math.min(
+    Math.max(parseInt(c.req.query("limit") ?? "100", 10) || 100, 1),
+    500,
+  );
+  const offset = Math.max(parseInt(c.req.query("offset") ?? "0", 10) || 0, 0);
+
+  const empty = {
+    summary: {
+      total_cost_usd: 0,
+      total_ai_calls: 0,
+      by_provider: [] as Array<{
+        name: string;
+        total_cost_usd: number;
+        total_tokens: number;
+        total_seconds: number;
+        calls: number;
+      }>,
+      by_kind: [] as Array<{ kind: string; cost_usd: number; count: number }>,
+    },
+    daily_trend: [] as Array<{
+      date: string;
+      cost_usd: number;
+      call_count: number;
+    }>,
+    recent: [] as Array<Record<string, unknown>>,
+  };
+
+  try {
+    const totals = await c.env.DB.prepare(
+      `SELECT COALESCE(SUM(est_cost_usd),0) AS total_cost_usd,
+              COUNT(*) AS total_ai_calls
+         FROM usage_events`,
+    ).first<{ total_cost_usd: number; total_ai_calls: number }>();
+
+    const { results: byProvider } = await c.env.DB.prepare(
+      `SELECT COALESCE(provider,'unknown') AS name,
+              COALESCE(SUM(est_cost_usd),0) AS total_cost_usd,
+              COALESCE(SUM(tokens_in+tokens_out),0) AS total_tokens,
+              COALESCE(SUM(seconds),0) AS total_seconds,
+              COUNT(*) AS calls
+         FROM usage_events
+        GROUP BY provider
+        ORDER BY total_cost_usd DESC`,
+    ).all<{
+      name: string;
+      total_cost_usd: number;
+      total_tokens: number;
+      total_seconds: number;
+      calls: number;
+    }>();
+
+    const { results: byKind } = await c.env.DB.prepare(
+      `SELECT COALESCE(kind,'unknown') AS kind,
+              COALESCE(SUM(est_cost_usd),0) AS cost_usd,
+              COUNT(*) AS count
+         FROM usage_events
+        GROUP BY kind
+        ORDER BY cost_usd DESC`,
+    ).all<{ kind: string; cost_usd: number; count: number }>();
+
+    // Daily spend — group by UTC calendar day (ts is ms epoch). 30-day window.
+    const { results: daily } = await c.env.DB.prepare(
+      `SELECT date(ts/1000,'unixepoch') AS date,
+              COALESCE(SUM(est_cost_usd),0) AS cost_usd,
+              COUNT(*) AS call_count
+         FROM usage_events
+        WHERE ts > ?1
+        GROUP BY date
+        ORDER BY date ASC`,
+    )
+      .bind(now() - 30 * 86400000)
+      .all<{ date: string; cost_usd: number; call_count: number }>();
+
+    const { results: recent } = await c.env.DB.prepare(
+      `SELECT id, ts, provider, kind, tokens_in, tokens_out, seconds,
+              est_cost_usd, email, meeting_id
+         FROM usage_events
+        ORDER BY ts DESC
+        LIMIT ?1 OFFSET ?2`,
+    )
+      .bind(limit, offset)
+      .all<Record<string, unknown>>();
+
+    return c.json({
+      summary: {
+        total_cost_usd: totals?.total_cost_usd ?? 0,
+        total_ai_calls: totals?.total_ai_calls ?? 0,
+        by_provider: byProvider,
+        by_kind: byKind,
+      },
+      daily_trend: daily,
+      recent,
+    });
+  } catch {
+    // usage_events table missing (pre-0028 DB) — return the empty shape
+    return c.json(empty);
+  }
+});
+
+// ---- Admin: system status (Admin Console P0) -----------------------------
+// Lightweight service-health board for the console. D1 gets a cheap real ping
+// (it's the dependency most worth knowing about); the rest report static 'on'
+// when their binding/secret is present. Stub-grade by design — deep upstream
+// health checks (Gemini/Deepgram round-trips) would burn metered quota.
+app.get("/v1/admin/system-status", async (c) => {
+  const lastCheck = now();
+  let d1: "on" | "warn" | "off" = "on";
+  let d1Detail: string | undefined;
+  try {
+    await c.env.DB.prepare("SELECT 1").first();
+  } catch (err) {
+    d1 = "off";
+    d1Detail = (err as Error)?.message?.slice(0, 120) ?? "ping failed";
+  }
+
+  const svc = (
+    id: string,
+    name: string,
+    ok: boolean,
+    detail?: string,
+  ): {
+    id: string;
+    name: string;
+    status: "on" | "warn" | "off";
+    last_check: number;
+    detail?: string;
+  } => ({
+    id,
+    name,
+    status: ok ? "on" : "warn",
+    last_check: lastCheck,
+    ...(detail ? { detail } : {}),
+  });
+
+  const sttProvider = (c.env.STT_PROVIDER ?? "deepgram").trim() || "deepgram";
+
+  return c.json({
+    services: [
+      {
+        id: "d1",
+        name: "D1 database",
+        status: d1,
+        last_check: lastCheck,
+        ...(d1Detail ? { detail: d1Detail } : {}),
+      },
+      svc("r2", "R2 storage", !!c.env.BUCKET),
+      svc("auth", "Supabase Auth", !!c.env.SUPABASE_URL, "JWT verify (JWKS)"),
+      svc("realtime", "Realtime relay (DO)", !!c.env.ROOM),
+      svc(
+        "gemini",
+        "Gemini (AI)",
+        !!c.env.GEMINI_API_KEY,
+        "translate/chatbot/summarize",
+      ),
+      svc(
+        "stt",
+        "Speech-to-text",
+        !!c.env.DEEPGRAM_API_KEY,
+        `provider: ${sttProvider}`,
+      ),
+      svc("daily", "Daily.co (media)", !!c.env.DAILY_API_KEY),
+      svc("email", "Resend (email)", !!c.env.RESEND_API_KEY),
+    ],
   });
 });
 
