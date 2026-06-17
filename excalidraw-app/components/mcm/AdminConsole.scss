@@ -723,6 +723,47 @@
     text-overflow: ellipsis;
     max-width: 100%;
   }
+
+  // ---- Backup + archive (download-then-delete) ---------------------------
+  // Backup DB lives in its own pane below the Settings form, separated by a
+  // hairline so it reads as a distinct, less-frequent action.
+  &__backup {
+    margin-top: 8px;
+    padding-top: 18px;
+    border-top: 1px solid var(--mcm-hairline-2);
+  }
+
+  // Archive & delete: an OUTLINE button tinted with the warning color — it is
+  // destructive (deletes live data) but only AFTER a recoverable archive is
+  // downloaded, so it sits between a neutral and a hard-danger button. Clearly
+  // distinct from the plain delete (trash) icon next to it.
+  &__archive-btn {
+    border: 1px solid
+      color-mix(in srgb, var(--mcm-warning) 45%, transparent);
+    background: var(--mcm-warning-soft);
+    color: var(--mcm-warning);
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--mcm-warning) 18%, transparent);
+      border-color: color-mix(in srgb, var(--mcm-warning) 60%, transparent);
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+  }
+
+  // Spinner for in-flight backup / archive downloads (reuses the shared
+  // RefreshCw icon; admin-scoped keyframe).
+  .mcm-spin {
+    animation: mcm-admin-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes mcm-admin-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // Watermark wordmark fading in/out (ẩn hiện).

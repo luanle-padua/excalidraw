@@ -1,0 +1,58 @@
+# Canvas M — scheduled D1 backup (the ONLY CI job in this repo).
+#
+# Once a week it exports the entire mcm-db D1 database to a .sql file and
+# uploads it to R2 under backups/db-<date>.sql. This is the off-platform,
+# point-in-time copy that complements Cloudflare D1 Time Travel (30-day
+# in-place rewind) and the on-demand admin Backup/Archive downloads.
+# See docs/runbooks/backup.md for the full plan + restore steps.
+#
+# ── ONE-TIME SETUP (a human does this) ───────────────────────────────────────
+# Add two GitHub repository secrets (Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   — a scoped API token with:
+#                              • D1   : Read   (to export mcm-db)
+#                              • R2    : Edit   / Object Read & Write (to upload)
+#                            Create it at: Cloudflare dashboard → My Profile →
+#                            API Tokens → Create Token → Custom token.
+#   CLOUDFLARE_ACCOUNT_ID  — the account id that owns mcm-db + mcm-storage
+#                            (Cloudflare dashboard → Workers & Pages → right rail,
+#                             or `npx wrangler whoami`).
+# No write access to production is needed beyond R2 object write; this job never
+# deploys the Worker.
+
+name: backup-d1
+
+on:
+  schedule:
+    # Every Sunday at 03:00 UTC. Cron is UTC; adjust if you want KST.
+    - cron: "0 3 * * 0"
+  # Allow a manual run from the Actions tab (handy before a risky migration).
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Compute date stamp
+        id: date
+        run: echo "stamp=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      # Full SQL export of the remote D1 database (schema + data).
+      - name: Export D1 (mcm-db) to backup.sql
+        run: npx --yes wrangler@4 d1 export mcm-db --remote --output=backup.sql
+
+      # Upload to R2 under the backups/ prefix. Set a lifecycle rule on this
+      # prefix in the R2 dashboard to retain ~90 days (cost control).
+      - name: Upload backup.sql to R2 (mcm-storage/backups/)
+        run: >-
+          npx --yes wrangler@4 r2 object put
+          mcm-storage/backups/db-${{ steps.date.outputs.stamp }}.sql
+          --file=backup.sql --remote

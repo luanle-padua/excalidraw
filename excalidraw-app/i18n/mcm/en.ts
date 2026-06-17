@@ -399,6 +399,28 @@ export const en: Widened<typeof vi> = {
     openContentNoKey:
       "This meeting has no stored key — content cannot be opened.",
     openContentFailed: "Could not open the meeting content.",
+    // ---- Backup + archive (download, then delete) ----
+    backupTitle: "Backup & archive",
+    backupIntro:
+      "Download the entire database as a single JSON file to keep off-system. Restore later by re-importing the file (via the backend).",
+    backupDb: "Backup DB",
+    backupDownloading: "Preparing backup…",
+    backupSuccess: "Database backup downloaded.",
+    backupForbidden:
+      "You don't have permission to back up (admin role required).",
+    backupFailed: "Backup failed — check your connection and try again.",
+    archiveProject: "Archive & delete",
+    archiveProjectConfirm:
+      'Archive and then DELETE project "{name}" from the system?\n\nYour browser will download a JSON archive (all {count} meetings: canvas, files, chat) — this is your recoverable backup. As soon as the download starts, the project is deleted from the system to free storage.\n\nRecover later by re-importing the archive file.',
+    archiveDownloading: "Downloading archive…",
+    archiveDeleting: "Deleting project…",
+    archiveSuccess: "Archive downloaded and project deleted from the system.",
+    archiveForbidden:
+      "You don't have permission to archive/delete (admin role required).",
+    archiveDownloadFailed:
+      "Could not download the archive — CANCELLED, the project is untouched.",
+    archiveDeleteFailed:
+      "Archive downloaded but DELETE failed — the project still exists. Try again.",
     // ---- Backdrops (client-page backgrounds) ----
     tabBackdrops: "Backdrops",
     backdropsIntro:

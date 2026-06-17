@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertTriangle,
+  Archive,
   ArrowDown,
   ArrowLeft,
   ArrowUp,
@@ -13,6 +14,7 @@ import {
   ChevronRight,
   Copy,
   Cpu,
+  DatabaseBackup,
   DollarSign,
   Eye,
   FileText,
@@ -46,6 +48,8 @@ import {
   deleteAdminMeeting,
   deleteAdminProject,
   deleteAdminUser,
+  downloadDbBackup,
+  downloadProjectArchive,
   getAdminAnalytics,
   getAdminAudit,
   getAdminCost,
@@ -88,6 +92,7 @@ import {
   uploadBackdrop,
   type AdminBackdrop,
 } from "../../data/backdrops";
+import { showAppToast } from "../../data/appToast";
 import { createGuest } from "../../data/guests";
 import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
 import { isInternalEmail as isInternal, signOut } from "../../data/session";
@@ -248,6 +253,10 @@ export const AdminConsole = () => {
   const [detail, setDetail] = useState<AdminMeetingDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Backup / archive download spinners (separate from `busy` so the per-row
+  // Archive button and the Settings-tab Backup button spin independently).
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [archivingId, setArchivingId] = useState<string | null>(null);
 
   // Client-page backdrops (admin-managed). `backdropThumbs` maps id → object
   // URL of the fetched image (the image route is auth-gated, so a bare <img
@@ -360,6 +369,73 @@ export const AdminConsole = () => {
       await refreshProjects();
     } finally {
       setBusy(false);
+    }
+  };
+
+  // BACKUP DB: GET /v1/admin/backup → browser download of the JSON file.
+  // Spinner on the button; toast on success/fail (403 → permission message).
+  const handleBackupDb = async () => {
+    if (backupBusy) {
+      return;
+    }
+    setBackupBusy(true);
+    try {
+      const res = await downloadDbBackup();
+      if (res.ok) {
+        showAppToast(t("admin.backupSuccess"));
+      } else {
+        showAppToast(
+          res.reason === "forbidden"
+            ? t("admin.backupForbidden")
+            : t("admin.backupFailed"),
+        );
+      }
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  // ARCHIVE & DELETE (two steps, one flow): confirm → download the project
+  // archive (recoverable JSON) → AFTER the download starts, delete the project
+  // to free storage → refresh + toast. If the archive download fails we ABORT
+  // (no delete) so live data is never destroyed without a backup in hand.
+  const handleArchiveAndDelete = async (p: AdminProject) => {
+    if (archivingId || busy) {
+      return;
+    }
+    if (
+      !window.confirm(
+        t("admin.archiveProjectConfirm", {
+          name: p.name ?? p.id,
+          count: p.meeting_count,
+        }),
+      )
+    ) {
+      return;
+    }
+    setArchivingId(p.id);
+    try {
+      const archived = await downloadProjectArchive(p.id);
+      if (!archived.ok) {
+        showAppToast(
+          archived.reason === "forbidden"
+            ? t("admin.archiveForbidden")
+            : t("admin.archiveDownloadFailed"),
+        );
+        return; // ABORT — never delete without a backup downloaded.
+      }
+      const deleted = await deleteAdminProject(p.id);
+      if (!deleted) {
+        showAppToast(t("admin.archiveDeleteFailed"));
+        return;
+      }
+      if (projectDetail?.id === p.id) {
+        setProjectDetail(null);
+      }
+      await refreshProjects();
+      showAppToast(t("admin.archiveSuccess"));
+    } finally {
+      setArchivingId(null);
     }
   };
 
@@ -1305,6 +1381,23 @@ export const AdminConsole = () => {
                         >
                           <Eye size={14} />
                         </button>
+                        {/* Archive & delete: downloads a recoverable JSON
+                            backup, THEN deletes to free storage. Distinct
+                            warning styling — destructive after archive. */}
+                        <button
+                          type="button"
+                          className="mcm-btn mcm-btn--sm mcm-admin__archive-btn"
+                          disabled={archivingId === p.id}
+                          title={t("admin.archiveProject")}
+                          onClick={() => void handleArchiveAndDelete(p)}
+                        >
+                          {archivingId === p.id ? (
+                            <RefreshCw size={14} className="mcm-spin" />
+                          ) : (
+                            <Archive size={14} />
+                          )}
+                          {t("admin.archiveProject")}
+                        </button>
                         <button
                           type="button"
                           className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
@@ -1332,14 +1425,30 @@ export const AdminConsole = () => {
               >
                 <ArrowLeft size={15} /> {t("admin.detailBack")}
               </button>
-              <button
-                type="button"
-                className="mcm-btn mcm-btn--danger mcm-btn--sm"
-                disabled={busy}
-                onClick={() => void handleDeleteProject(projectDetail)}
-              >
-                <Trash2 size={14} /> {t("admin.deleteProject")}
-              </button>
+              <div className="mcm-admin__detail-actions">
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--sm mcm-admin__archive-btn"
+                  disabled={archivingId === projectDetail.id}
+                  title={t("admin.archiveProject")}
+                  onClick={() => void handleArchiveAndDelete(projectDetail)}
+                >
+                  {archivingId === projectDetail.id ? (
+                    <RefreshCw size={14} className="mcm-spin" />
+                  ) : (
+                    <Archive size={14} />
+                  )}
+                  {t("admin.archiveProject")}
+                </button>
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--danger mcm-btn--sm"
+                  disabled={busy}
+                  onClick={() => void handleDeleteProject(projectDetail)}
+                >
+                  <Trash2 size={14} /> {t("admin.deleteProject")}
+                </button>
+              </div>
             </div>
 
             <h2 className="mcm-admin__detail-title">
@@ -2549,6 +2658,33 @@ export const AdminConsole = () => {
             >
               {t("admin.save")}
             </button>
+
+            {/* Backup DB — download the whole database as JSON to keep
+                off-system. Lives in Settings as its own pane. */}
+            <div className="mcm-admin__backup">
+              <h4 className="mcm-admin__h4">
+                <DatabaseBackup size={15} style={{ verticalAlign: "-2px" }} />{" "}
+                {t("admin.backupTitle")}
+              </h4>
+              <p className="mcm-admin__note">{t("admin.backupIntro")}</p>
+              <button
+                type="button"
+                className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                onClick={() => void handleBackupDb()}
+                disabled={backupBusy}
+              >
+                {backupBusy ? (
+                  <>
+                    <RefreshCw size={14} className="mcm-spin" />{" "}
+                    {t("admin.backupDownloading")}
+                  </>
+                ) : (
+                  <>
+                    <DatabaseBackup size={14} /> {t("admin.backupDb")}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 

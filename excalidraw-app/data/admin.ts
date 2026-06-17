@@ -156,6 +156,91 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
   }
 };
 
+// ---- Backup + archive (download-then-delete) -----------------------------
+// These fetch a JSON file from the Worker and trigger a browser download. We
+// fetch the response as a Blob (responseType blob), build an object URL, and
+// click a synthetic <a download>. Distinguishes "forbidden" (403, missing
+// admin role) from a network error so the UI can show the right message.
+
+export type DownloadResult =
+  | { ok: true }
+  | { ok: false; status: number; reason: "forbidden" | "error" };
+
+const CONTENT_DISPOSITION_FILENAME = /filename\*?=(?:UTF-8''|")?([^";]+)"?/i;
+
+// Pull the suggested filename out of a Content-Disposition header, if any.
+const filenameFromDisposition = (header: string | null): string | null => {
+  if (!header) {
+    return null;
+  }
+  const m = CONTENT_DISPOSITION_FILENAME.exec(header);
+  if (!m?.[1]) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(m[1].trim());
+  } catch {
+    return m[1].trim();
+  }
+};
+
+// Save a Blob to disk via a synthetic <a download>. Revokes the object URL on
+// the next tick (after the click has been queued by the browser).
+const saveBlob = (blob: Blob, filename: string): void => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const isoDate = (): string => new Date().toISOString().slice(0, 10);
+
+// Shared download flow: GET `url`, on success stream to a download with the
+// server-supplied filename (Content-Disposition) or `fallbackName`.
+const downloadJson = async (
+  url: string,
+  fallbackName: string,
+): Promise<DownloadResult> => {
+  try {
+    const res = await fetchWithAuth(url);
+    if (!res.ok) {
+      return {
+        ok: false,
+        status: res.status,
+        reason: res.status === 403 ? "forbidden" : "error",
+      };
+    }
+    const blob = await res.blob();
+    const name =
+      filenameFromDisposition(res.headers.get("content-disposition")) ??
+      fallbackName;
+    saveBlob(blob, name);
+    return { ok: true };
+  } catch {
+    return { ok: false, status: 0, reason: "error" };
+  }
+};
+
+/** Download a full DB backup as a JSON file (GET /v1/admin/backup). */
+export const downloadDbBackup = (): Promise<DownloadResult> =>
+  downloadJson(
+    `${STORAGE_URL}/v1/admin/backup`,
+    `canvasm-db-backup-${isoDate()}.json`,
+  );
+
+/** Download a single project's archive as JSON (GET
+ *  /v1/admin/projects/:id/archive). Pair this with deleteAdminProject for the
+ *  "archive then delete" flow — the archive file is the recovery path. */
+export const downloadProjectArchive = (id: string): Promise<DownloadResult> =>
+  downloadJson(
+    `${STORAGE_URL}/v1/admin/projects/${encodeURIComponent(id)}/archive`,
+    `canvasm-project-${id}-${isoDate()}.json`,
+  );
+
 // ---- Realtime monitoring (live rooms, DO vs socket.io rollout) -----------
 
 export type AdminRealtimeRoom = {

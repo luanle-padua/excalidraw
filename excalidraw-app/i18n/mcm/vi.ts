@@ -422,6 +422,26 @@ export const vi = {
       "Mở nội dung cuộc họp này ở chế độ CHỈ XEM, ẨN HOÀN TOÀN (compliance)?\n\nBạn xem bản lưu mới nhất, KHÔNG vào phòng — người trong họp không thấy bạn. Lượt truy cập sẽ được ghi vĩnh viễn vào nhật ký kiểm toán (admin.open_content).",
     openContentNoKey: "Cuộc họp không có khoá lưu trữ — không thể mở nội dung.",
     openContentFailed: "Không mở được nội dung cuộc họp.",
+    // ---- Backup + lưu trữ (tải bản sao rồi xoá) ----
+    backupTitle: "Sao lưu & lưu trữ",
+    backupIntro:
+      "Tải toàn bộ cơ sở dữ liệu ra một file JSON để giữ ngoài hệ thống. Khôi phục bằng cách nạp lại file (qua backend).",
+    backupDb: "Sao lưu CSDL",
+    backupDownloading: "Đang chuẩn bị bản sao lưu…",
+    backupSuccess: "Đã tải xuống bản sao lưu CSDL.",
+    backupForbidden: "Bạn không có quyền sao lưu (cần vai trò admin).",
+    backupFailed: "Không tải được bản sao lưu — kiểm tra mạng rồi thử lại.",
+    archiveProject: "Lưu trữ & xoá",
+    archiveProjectConfirm:
+      'Lưu trữ rồi XOÁ dự án "{name}" khỏi hệ thống?\n\nTrình duyệt sẽ tải về một file JSON lưu trữ (toàn bộ {count} cuộc họp: canvas, file, chat) — đây là bản khôi phục được. Ngay sau khi tải, dự án sẽ bị xoá khỏi hệ thống để giải phóng dung lượng.\n\nKhôi phục về sau bằng cách nạp lại file lưu trữ.',
+    archiveDownloading: "Đang tải bản lưu trữ…",
+    archiveDeleting: "Đang xoá dự án…",
+    archiveSuccess: "Đã tải bản lưu trữ và xoá dự án khỏi hệ thống.",
+    archiveForbidden: "Bạn không có quyền lưu trữ/xoá (cần vai trò admin).",
+    archiveDownloadFailed:
+      "Không tải được bản lưu trữ — đã HUỶ, dự án vẫn còn nguyên.",
+    archiveDeleteFailed:
+      "Đã tải bản lưu trữ nhưng XOÁ thất bại — dự án vẫn còn. Thử lại.",
     // ---- Backdrops (ảnh nền trang khách) ----
     tabBackdrops: "Ảnh nền",
     backdropsIntro:

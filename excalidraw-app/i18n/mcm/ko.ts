@@ -405,6 +405,26 @@ export const ko: Widened<typeof vi> = {
       "이 회의의 내용을 읽기 전용·완전 비공개(컴플라이언스)로 열까요?\n\n방에 입장하지 않고 최신 저장 상태를 봅니다 — 참석자에게 보이지 않습니다. 이 접근은 감사 로그(admin.open_content)에 영구 기록됩니다.",
     openContentNoKey: "저장된 키가 없는 회의입니다 — 내용을 열 수 없습니다.",
     openContentFailed: "회의 내용을 열지 못했습니다.",
+    // ---- Backup + archive (다운로드 후 삭제) ----
+    backupTitle: "백업 및 아카이브",
+    backupIntro:
+      "전체 데이터베이스를 하나의 JSON 파일로 내려받아 시스템 외부에 보관합니다. 나중에 파일을 다시 가져와(백엔드 통해) 복원할 수 있습니다.",
+    backupDb: "DB 백업",
+    backupDownloading: "백업 준비 중…",
+    backupSuccess: "데이터베이스 백업을 내려받았습니다.",
+    backupForbidden: "백업 권한이 없습니다 (admin 역할 필요).",
+    backupFailed: "백업에 실패했습니다 — 연결을 확인하고 다시 시도하세요.",
+    archiveProject: "아카이브 후 삭제",
+    archiveProjectConfirm:
+      '"{name}" 프로젝트를 아카이브한 뒤 시스템에서 삭제할까요?\n\n브라우저가 JSON 아카이브(회의 {count}개: 캔버스, 파일, 채팅)를 내려받습니다 — 이것이 복구용 백업입니다. 다운로드가 시작되면 저장 공간 확보를 위해 프로젝트가 시스템에서 삭제됩니다.\n\n나중에 아카이브 파일을 다시 가져와 복구할 수 있습니다.',
+    archiveDownloading: "아카이브 다운로드 중…",
+    archiveDeleting: "프로젝트 삭제 중…",
+    archiveSuccess: "아카이브를 내려받고 프로젝트를 시스템에서 삭제했습니다.",
+    archiveForbidden: "아카이브/삭제 권한이 없습니다 (admin 역할 필요).",
+    archiveDownloadFailed:
+      "아카이브를 내려받지 못했습니다 — 취소되었으며 프로젝트는 그대로입니다.",
+    archiveDeleteFailed:
+      "아카이브는 내려받았지만 삭제에 실패했습니다 — 프로젝트가 남아 있습니다. 다시 시도하세요.",
     // ---- Backdrops (client-page backgrounds) ----
     tabBackdrops: "배경",
     backdropsIntro:

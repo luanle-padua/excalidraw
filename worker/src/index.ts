@@ -4069,6 +4069,208 @@ app.delete("/v1/admin/projects/:id", async (c) => {
   return c.json({ ok: true, deleted: id });
 });
 
+// ---- Admin: BACKUP + ARCHIVE (docs/runbooks/backup.md) -------------------
+// Two on-demand admin downloads that complement the scheduled CI job + R2
+// soft-delete (trash/) + D1 Time Travel. See the runbook for the full plan.
+
+// Base64-encode an ArrayBuffer without blowing the call stack on large blobs:
+// String.fromCharCode(...bytes) spreads every byte as an argument and throws
+// "Maximum call stack size exceeded" past ~100KB, so chunk through btoa.
+const bufToBase64 = (buf: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000; // 32KB per btoa call — safe under the arg-spread limit
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+};
+
+// Per-blob size cap for the project archive. Blobs over this are NOT base64'd
+// into the JSON (a single big DXF/IFC/GLB would bloat the archive + risk an
+// OOM on the worker isolate). They're flagged with { skipped: true, size } and
+// the key, so the admin knows to pull them separately (the soft-deleted copy
+// lives under trash/<ts>/<key> after the DELETE, or via the file stream route).
+const ARCHIVE_BLOB_CAP_BYTES = 8 * 1024 * 1024; // 8MB
+
+// GET /v1/admin/backup — full D1 metadata dump (JSON, downloadable).
+// Enumerates every real data table from sqlite_master, SELECT * each, and
+// assembles { generated_at, tables: { <table>: rows[] } }. METADATA ONLY —
+// R2 blob bytes are NOT here (small by design; blobs go through the archive
+// route or the scheduled CI .sql export). For an internal DB this is a few MB
+// at most, so we build it in memory; revisit if the row count ever explodes.
+app.get("/v1/admin/backup", async (c) => {
+  const { results: tableRows } = await c.env.DB.prepare(
+    `SELECT name FROM sqlite_master
+      WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%'
+        AND name NOT LIKE '_cf_%'
+        AND name <> 'schema_version'
+      ORDER BY name`,
+  ).all<{ name: string }>();
+
+  const tables: Record<string, unknown[]> = {};
+  for (const { name } of tableRows ?? []) {
+    // Table names come from sqlite_master (not user input), so the identifier
+    // interpolation is safe; D1 has no bind slot for identifiers anyway.
+    const { results } = await c.env.DB.prepare(`SELECT * FROM "${name}"`).all();
+    tables[name] = results ?? [];
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  await logAudit(c.env.DB, c.get("email"), "admin.backup", undefined, {
+    tables: Object.keys(tables).length,
+  });
+  return new Response(
+    JSON.stringify({ generated_at: now(), tables }, null, 2),
+    {
+      headers: {
+        "content-type": "application/json",
+        "content-disposition": `attachment; filename="canvasm-db-backup-${date}.json"`,
+      },
+    },
+  );
+});
+
+// GET /v1/admin/projects/:id/archive — complete, RESTORABLE archive of ONE
+// project (JSON, downloadable). The intended flow is: admin downloads this,
+// THEN calls DELETE /v1/admin/projects/:id (which soft-deletes blobs to trash/
+// and tombstones the meetings). The archive is the off-platform copy that lets
+// you re-create the project later.
+//
+// Contents: { generated_at, blob_cap_bytes, project, meetings[] } where each
+// meeting carries its D1 rows (invitees / participants / knocks / notes) AND
+// its R2 blob CONTENTS (scenes / files / chats / library / transcripts),
+// base64-encoded with key + contentType. Recordings are EXCLUDED on purpose.
+app.get("/v1/admin/projects/:id/archive", async (c) => {
+  const id = c.req.param("id");
+  const project = await c.env.DB.prepare(`SELECT * FROM project WHERE id = ?1`)
+    .bind(id)
+    .first();
+  if (!project) {
+    return c.json({ error: "not found" }, 404);
+  }
+
+  const { results: meetingRows } = await c.env.DB.prepare(
+    `SELECT * FROM meeting WHERE project_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string }>();
+
+  type ArchivedBlob = {
+    key: string;
+    contentType: string;
+    size: number;
+    data?: string; // base64; omitted when skipped
+    skipped?: true; // true when over ARCHIVE_BLOB_CAP_BYTES
+  };
+
+  const meetings = [];
+  for (const m of meetingRows ?? []) {
+    const roomId = m.id;
+    const [invitees, participants, knocks, notes] = await Promise.all([
+      c.env.DB.prepare(`SELECT * FROM meeting_invitee WHERE meeting_id = ?1`)
+        .bind(roomId)
+        .all()
+        .then((r) => r.results ?? []),
+      c.env.DB.prepare(
+        `SELECT * FROM meeting_participant WHERE meeting_id = ?1`,
+      )
+        .bind(roomId)
+        .all()
+        .then((r) => r.results ?? []),
+      c.env.DB.prepare(`SELECT * FROM meeting_knock WHERE room_id = ?1`)
+        .bind(roomId)
+        .all()
+        .then((r) => r.results ?? []),
+      c.env.DB.prepare(
+        `SELECT * FROM note WHERE scope = 'meeting' AND ref = ?1`,
+      )
+        .bind(roomId)
+        .all()
+        .then((r) => r.results ?? []),
+    ]);
+
+    // R2 blob contents for this meeting. We walk the SAME per-room prefixes the
+    // delete cascade does (scenes/files/chats/library/transcripts) — and NOTE:
+    // we deliberately do NOT walk `recordings/<roomId>` (Phase 5). Recordings
+    // are large media; base64-ing them into a JSON would bloat the archive and
+    // risk an OOM. They rely on R2 durability + soft-delete + lifecycle instead.
+    // TODO(recordings): give recordings a separate per-file download/retention
+    //   path (signed URL per file or `wrangler r2 object get`), NEVER bulk
+    //   base64 into this archive. See docs/runbooks/backup.md.
+    const blobs: ArchivedBlob[] = [];
+    for (const prefix of [
+      `scenes/${roomId}`,
+      `files/${roomId}`,
+      `chats/${roomId}`,
+      `library/${roomId}`,
+      `transcripts/${roomId}`,
+    ]) {
+      let cursor: string | undefined;
+      do {
+        const listed = await c.env.BUCKET.list({ prefix, cursor });
+        for (const obj of listed.objects) {
+          const contentType =
+            obj.httpMetadata?.contentType ?? "application/octet-stream";
+          if (obj.size > ARCHIVE_BLOB_CAP_BYTES) {
+            blobs.push({
+              key: obj.key,
+              contentType,
+              size: obj.size,
+              skipped: true,
+            });
+            continue;
+          }
+          const blob = await c.env.BUCKET.get(obj.key);
+          if (!blob) {
+            continue;
+          }
+          blobs.push({
+            key: obj.key,
+            contentType,
+            size: obj.size,
+            data: bufToBase64(await blob.arrayBuffer()),
+          });
+        }
+        cursor = listed.truncated ? listed.cursor : undefined;
+      } while (cursor);
+    }
+
+    meetings.push({
+      meeting: m,
+      invitees,
+      participants,
+      knocks,
+      notes,
+      blobs,
+    });
+  }
+
+  const date = new Date().toISOString().slice(0, 10);
+  await logAudit(c.env.DB, c.get("email"), "admin.project.archive", id, {
+    meetings: meetings.length,
+  });
+  return new Response(
+    JSON.stringify(
+      {
+        generated_at: now(),
+        blob_cap_bytes: ARCHIVE_BLOB_CAP_BYTES,
+        project,
+        meetings,
+      },
+      null,
+      2,
+    ),
+    {
+      headers: {
+        "content-type": "application/json",
+        "content-disposition": `attachment; filename="canvasm-project-${id}-${date}.json"`,
+      },
+    },
+  );
+});
+
 // Full cascade delete of one meeting: every R2 blob under its per-room
 // prefixes + every D1 row that references it (file index, invitees,
 // participants, per-meeting notes), then the meeting row itself. Shared by
