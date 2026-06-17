@@ -27,6 +27,21 @@ const reduceMotion = (): boolean =>
   !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /**
+ * Resolve once the image at `src` has actually decoded (true) or failed/blank
+ * (false). We adopt an admin backdrop ONLY after this confirms it paints, so a
+ * dead/revoked object URL can never blank the portal — we keep the bundled
+ * THEMES instead. (A revoked or broken object URL renders as nothing, which is
+ * exactly the blank we're guarding against.)
+ */
+const imageLoads = (src: string): Promise<boolean> =>
+  new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth > 0);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
+
+/**
  * Rotating multinational backdrop shared by the client portal and the guest
  * waiting room: stacked theme layers that crossfade (CSS owns the fade), a
  * legibility scrim, and the Canvas M wordmark watermark.
@@ -52,20 +67,35 @@ export const PortalBackdrop = () => {
 
   useEffect(() => {
     let cancelled = false;
-    void listPortalBackdrops().then((items) => {
+    void (async () => {
+      const items = await listPortalBackdrops();
+      // PRELOAD + VALIDATE before adopting: only keep admin images that actually
+      // decode. This is what makes a blank impossible — if the fetch raced with a
+      // StrictMode unmount/remount (so an object URL got revoked), or an image is
+      // otherwise broken, it simply won't be adopted and we hold the THEMES.
+      const loaded = await Promise.all(items.map((it) => imageLoads(it.src)));
       if (cancelled) {
-        // Lost the race (unmounted) — clean up the object URLs we created.
+        // Lost the race (unmounted) — clean up every object URL we created.
         items.forEach((it) => URL.revokeObjectURL(it.src));
         return;
       }
-      if (items.length >= 1) {
-        fetchedRef.current = items;
-        setSources(items.map((it) => it.src));
+      const good = items.filter((_, i) => loaded[i]);
+      // Revoke the ones that did NOT load — they'd only leak.
+      items.forEach((it, i) => {
+        if (!loaded[i]) {
+          URL.revokeObjectURL(it.src);
+        }
+      });
+      if (good.length >= 1) {
+        // Keep these alive for the component's lifetime; revoked on unmount.
+        fetchedRef.current = good;
+        setSources(good.map((it) => it.src));
         // Reset the rotation to the new (admin) list.
         setActive(0);
         setSeen(new Set([0]));
       }
-    });
+      // good.length === 0 → keep the bundled THEMES (never blank).
+    })();
     return () => {
       cancelled = true;
       fetchedRef.current.forEach((it) => URL.revokeObjectURL(it.src));
