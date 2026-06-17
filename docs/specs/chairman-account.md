@@ -110,6 +110,23 @@ short-circuit `role === "admin"` (`index.ts:417`) → thêm nhánh
 - Chairman **vẫn có thể** vào họp như người thường nếu muốn (nhưng đó KHÔNG phải
   chế độ stealth — xem §2.4 về phân biệt "tham gia công khai" vs "giám sát ẩn").
 
+### 1.4 Owner / super-admin — tầng TRÊN Chairman (CHỐT 06-17, anh Luân)
+
+Mô hình **3 tầng** (chốt 06-17):
+
+| Tầng | Ai | Quyền | Bị ai kiểm |
+|---|---|---|---|
+| **Owner** (`role = "owner"`) | **anh Luân — người phát triển/vận hành app** (1 người) | **Operational tối thượng:** deploy, DB/data, sửa-cứu sự cố, **cấp MỌI role** (kể cả chairman) + **đọc `chairman_audit`** (auditor của Chairman) | chính mình + `owner_audit` (xem dưới) |
+| **Chairman** (`role = "chairman"`) | Chủ tịch (**1 người** — chốt 06-17) | **Giám sát hành vi tối thượng**, read-only, thấy mọi cuộc (§4.5) | **Owner** (qua `chairman_audit`) |
+| **Admin** (`role = "admin"`) | vận hành thường ngày | quản trị user/project/compliance như hiện tại | audit_log thường |
+
+**Tách bạch 2 loại quyền (nguyên tắc cốt lõi):**
+- **Operational/kỹ thuật** (deploy, sửa data, cấp role, cứu sự cố) = **Owner**. Đây là việc thật của người dựng app.
+- **Giám sát hành vi** (đọc nội dung + AI phân tích người) = **Chairman**. KHÔNG phải daily-tool của dev.
+- Owner *có thể* truy cập nội dung khi cần vận hành/debug, **nhưng mọi truy cập nội dung của Owner cũng ghi `owner_audit`** — không phải để trói Owner mà để **bảo vệ** Owner (bằng chứng tay-sạch khi có tranh chấp, bắt buộc khi ra khách ngoài + đa quốc gia). "Quyền giám sát phải tự bị giám sát" áp cho **cả Owner**.
+
+→ **Hệ quả gọn:** Owner làm luôn vai "người thứ ba kiểm Chairman" → **không cần đẻ thêm vai DPO** ở giai đoạn này. Gate Worker: `/v1/owner/*` (operational + đọc `chairman_audit`) tách khỏi `/v1/chairman/*` (giám sát). Provisioning: chỉ **Owner** mới cấp được role `chairman`/`admin`/`owner`.
+
 ---
 
 ## 2. Giám sát vô hình (Invisible monitoring)
@@ -517,9 +534,10 @@ hành vi từng người". Rủi ro thấp vì chỉ đọc cuộc đã xong (sn
    `private` chặn Chairman.** Đối trọng dồn sang `chairman_audit` + cực ít người giữ
    role + consent công khai (xem §4.5). → vì vậy Q#2 (ai kiểm chairman) và Q#3 (bao
    nhiêu người) giờ là **bắt buộc trả lời**, không còn optional.
-2. **Audit của chairman ai được kiểm?** Cần một vai "super-admin/DPO" đọc
-   `chairman_audit`? Hay chỉ ghi để có (chưa ai đọc)? → ảnh hưởng §2.5 + §4.4.
-3. **Bao nhiêu người là chairman?** 1 (chỉ Chủ tịch) hay +1 trợ lý? → cấp role.
+2. ~~**Audit của chairman ai được kiểm?**~~ ✅ **CHỐT 06-17: vai `owner` (anh Luân,
+   người phát triển) đọc `chairman_audit`** — không cần DPO riêng (xem §1.4). Mọi
+   truy cập nội dung của owner cũng ghi `owner_audit`.
+3. ~~**Bao nhiêu người là chairman?**~~ ✅ **CHỐT 06-17: đúng 1 (chỉ Chủ tịch).**
 4. **Consent/policy nội bộ:** có sẵn nội quy thông báo "họp được ghi + phân tích AI"
    chưa? (cần cho đa quốc gia — Phi). → §4.3.
 5. **Model reasoning:** chấp nhận thêm provider Claude (chất lượng cao hơn cho hành
