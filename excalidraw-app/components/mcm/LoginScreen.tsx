@@ -5,6 +5,8 @@ import { stashRoomFromUrl } from "../../data/pendingRoom";
 import { supabase } from "../../data/supabaseClient";
 import { useT } from "../../i18n/mcm";
 
+import type { McmKey } from "../../i18n/mcm";
+
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -35,6 +37,37 @@ const parseRoomLink = (
 const DevQuickLogin = import.meta.env.DEV
   ? lazy(() => import("./DevQuickLogin"))
   : null;
+
+// Map a Supabase sign-in error to a user-facing i18n key. The important split
+// (06-18): a NETWORK failure — the device can't REACH the auth server, e.g. an
+// ISP/WiFi blocking supabase.co (symptom: login fails on WiFi, works on 4G) —
+// must NOT read as "wrong password", or users burn time retyping valid
+// credentials. supabase-js surfaces a network failure as AuthRetryableFetchError
+// / a fetch TypeError ("Failed to fetch" / "Load failed") with no HTTP status; a
+// real bad credential is a 400, a rate-limit a 429.
+const authErrorKey = (err: {
+  name?: string;
+  message?: string;
+  status?: number;
+}): McmKey => {
+  const status = err.status;
+  const msg = (err.message || "").toLowerCase();
+  const looksNetwork =
+    err.name === "AuthRetryableFetchError" ||
+    status === 0 ||
+    status === undefined ||
+    msg.includes("failed to fetch") ||
+    msg.includes("load failed") ||
+    msg.includes("networkerror") ||
+    msg.includes("network request failed");
+  if (looksNetwork) {
+    return "login.networkError";
+  }
+  if (status === 429) {
+    return "login.rateLimited";
+  }
+  return "login.signInError";
+};
 
 /**
  * Login — the front door of the app (app → login → project home). Backed by
@@ -100,7 +133,7 @@ export const LoginScreen = () => {
     });
     setLoading(false);
     if (err) {
-      setError(t("login.signInError"));
+      setError(t(authErrorKey(err)));
     }
     // success → onAuthStateChange sets the session → this screen unmounts.
   };

@@ -207,9 +207,65 @@ app.use(
       "x-tags",
       "x-visibility",
       "Authorization",
+      // supabase-js sends these on every /auth/v1 call — needed so the auth
+      // reverse-proxy below survives the CORS preflight from *.pages.dev.
+      "apikey",
+      "x-client-info",
+      "x-supabase-api-version",
     ],
   }),
 );
+
+// ---- Supabase Auth reverse-proxy (login over Cloudflare) -----------------
+// supabase-js talks DIRECTLY to SUPABASE_URL/auth/v1 for sign-in. Some networks
+// (e.g. certain Vietnamese home ISPs) DNS/SNI-block *.supabase.co while
+// Cloudflare — this Worker + the Pages app — stays reachable: the app LOADS on
+// WiFi but login fails, yet works on 4G (06-18). We give the client a same-edge
+// path by proxying /auth/v1/* here; the client rewrites only its auth calls to
+// this Worker (see excalidraw-app/data/supabaseClient.ts). This sits OUTSIDE the
+// /v1 JWT gate (these are the UNAUTHENTICATED login calls themselves) and does
+// NOT weaken verification: GoTrue stamps the JWT `iss` from its own external URL
+// (not the request Host), so issued tokens still verify against the jwtGate
+// issuer above and JWKS stays a server-to-server fetch — this hop is invisible
+// to it. Forwards apikey + Authorization + body faithfully; lets the Worker's
+// own cors() (above) own the CORS response headers to avoid duplicates.
+app.all("/auth/v1/*", async (c) => {
+  const base = cleanSecret(c.env.SUPABASE_URL).replace(/\/+$/, "");
+  if (!base) {
+    return c.json({ error: "auth not configured" }, 503);
+  }
+  const inUrl = new URL(c.req.url);
+  const headers = new Headers(c.req.raw.headers);
+  headers.delete("host");
+  const method = c.req.method;
+  const res = await fetch(`${base}${inUrl.pathname}${inUrl.search}`, {
+    method,
+    headers,
+    body:
+      method === "GET" || method === "HEAD"
+        ? undefined
+        : await c.req.raw.arrayBuffer(),
+    redirect: "manual",
+  });
+  const out = new Headers(res.headers);
+  for (const h of [...out.keys()]) {
+    // Drop CORS headers (the Worker's own cors() owns them) and the
+    // content-encoding/length pair: the runtime may have already decoded the
+    // body, so re-emitting the upstream encoding header would corrupt it.
+    if (
+      h.startsWith("access-control-") ||
+      h === "content-encoding" ||
+      h === "content-length"
+    ) {
+      out.delete(h);
+    }
+  }
+  return new Response(res.body, {
+    status: res.status,
+    statusText: res.statusText,
+    headers: out,
+  });
+});
 
 // ---- Supabase JWT auth gate (shared) -------------------------------------
 // A valid Supabase user access token (`Authorization: Bearer <jwt>`) is

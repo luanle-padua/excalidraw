@@ -262,6 +262,9 @@ export const vi = {
     signIn: "Đăng nhập",
     signingIn: "Đang đăng nhập…",
     signInError: "Email hoặc mật khẩu không đúng.",
+    networkError:
+      "Không kết nối được máy chủ đăng nhập. Kiểm tra mạng (hoặc thử 4G).",
+    rateLimited: "Thử quá nhiều lần. Đợi một phút rồi thử lại.",
     needHelp: "Cần trợ giúp? Liên hệ quản trị viên.",
     emailInvalid: "Email không hợp lệ.",
     guestToggle: "Khách? Nhận link đăng nhập qua email",

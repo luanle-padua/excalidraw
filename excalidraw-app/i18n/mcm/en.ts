@@ -238,6 +238,9 @@ export const en: Widened<typeof vi> = {
     signIn: "Sign In",
     signingIn: "Signing in…",
     signInError: "Wrong email or password.",
+    networkError:
+      "Can't reach the sign-in server. Check your internet connection (or try mobile data).",
+    rateLimited: "Too many attempts. Please wait a minute and try again.",
     needHelp: "Need help? Contact your administrator.",
     emailInvalid: "That email looks invalid.",
     guestToggle: "Guest? Get a login link by email",

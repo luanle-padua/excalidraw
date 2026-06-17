@@ -245,6 +245,9 @@ export const ko: Widened<typeof vi> = {
     signIn: "로그인",
     signingIn: "로그인 중…",
     signInError: "이메일 또는 비밀번호가 올바르지 않습니다.",
+    networkError:
+      "로그인 서버에 연결할 수 없습니다. 네트워크를 확인하세요 (또는 모바일 데이터로 시도).",
+    rateLimited: "시도가 너무 많습니다. 잠시 후 다시 시도하세요.",
     needHelp: "도움이 필요하신가요? 관리자에게 문의하세요.",
     emailInvalid: "이메일이 올바르지 않습니다.",
     guestToggle: "게스트? 이메일로 로그인 링크 받기",
