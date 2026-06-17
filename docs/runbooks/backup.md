@@ -57,7 +57,7 @@ When a project is finished and you want it off the platform but **restorable**:
 The weekly backup runs **inside the Worker itself** via a Cloudflare Cron
 Trigger — no GitHub Action, no external runner, no machine to keep on.
 
-- **Schedule:** `"0 3 * * 0"` (every Sunday 03:00 UTC), set in
+- **Schedule:** `"0 3 * * SUN"` (every Sunday 03:00 UTC), set in
   `worker/wrangler.jsonc` → `triggers.crons`.
 - **What runs:** the `scheduled()` handler in `worker/src/index.ts` dumps every
   D1 data table and writes `backups/db-<date>.json` to R2 (`mcm-storage`).

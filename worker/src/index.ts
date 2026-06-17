@@ -5684,7 +5684,7 @@ export default {
   },
 
   // Cloudflare Cron Trigger (B9 automated backup) — runs on the schedule in
-  // wrangler.jsonc ("0 3 * * 0" = Sunday 03:00 UTC). Dumps every D1 data table
+  // wrangler.jsonc ("0 3 * * SUN" = Sunday 03:00 UTC). Dumps every D1 data table
   // to R2 backups/db-<date>.json. All-Cloudflare, no GitHub Action / external
   // runner. Restore = read the object + re-insert (see docs/runbooks/backup.md).
   // Metadata only (small); R2 blob bytes stay in the bucket (durable) — see the

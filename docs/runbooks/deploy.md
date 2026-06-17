@@ -82,7 +82,7 @@ Set 1 lần bằng `wrangler secret put NAME` (deploy sau giữ nguyên):
 
 #### Cron Trigger (backup tự động hằng tuần)
 
-`wrangler.jsonc` khai báo `triggers.crons: ["0 3 * * 0"]` (Chủ nhật 03:00 UTC →
+`wrangler.jsonc` khai báo `triggers.crons: ["0 3 * * SUN"]` (Chủ nhật 03:00 UTC →
 gọi `scheduled()` dump D1 ra R2 `backups/`). Khi `wrangler deploy` chạy, nó cố
 **đăng ký cron luôn**.
 
@@ -90,7 +90,7 @@ gọi `scheduled()` dump D1 ra R2 `backups/`). Khi `wrangler deploy` chạy, nó
 > ký cron sẽ **fail** (deploy code vẫn xong nhưng cron không được set).
 > **Fallback:** thêm cron tay trên dashboard:
 > Cloudflare → **Workers & Pages → `mcm-storage` → Settings → Triggers →
-> Cron Triggers → Add** → nhập `0 3 * * 0`.
+> Cron Triggers → Add** → nhập `0 3 * * SUN`.
 
 ---
 
