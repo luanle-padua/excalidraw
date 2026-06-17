@@ -122,6 +122,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 
 - [ ] **(I-1) Backend AI/STT/TURN đang trên room server** — Gemini (`/translate`,`/summarize`,`/chatbot`), Deepgram (`/stt`), Cloudflare TURN (`/turn-credentials`) chạy trên `room/` (Node đơn), key trong `room/.env.development`. → **dời lên Cloudflare Worker/DO** + `wrangler secret`. _(Cả lớp compute + secrets này.)_
 - [ ] **(I-2) Realtime = socket.io 1 instance** (`room/` — SPOF, không scale ngang, HTTP) → **Durable Objects** (raw WebSocket + Hibernation API, theo June plan). _(Cũng mở khoá election live đọc role cohost cho kick/mute — track I-2 ở Phase 4.)_
+  - **→ Kế hoạch chi tiết (chốt 06-17):** [durable-objects-migration.md](durable-objects-migration.md) — 1 DO/phòng trên Worker `mcm-storage`, **July test nội bộ Fly.io → Aug cắt DO** trước external + global (Phi). DO (Aug) **nuốt luôn 1b/B12** (handshake WS verify Supabase JWT + canSeeMeeting + knock).
 
 ### ✅ Đã có chỗ trong phase (audit xác nhận thêm chi tiết)
 
