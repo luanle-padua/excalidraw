@@ -47,7 +47,26 @@ const FRAME_VOLATILE = 2;
  *  drops every WS, so auto-reconnect is mandatory or every client silently
  *  desyncs after each deploy (plan §5, R4). */
 const BACKOFF_MIN_MS = 500;
-const BACKOFF_MAX_MS = 10_000;
+// 30s, not 10s: a tab whose upgrade is PERMANENTLY rejected (finished meeting
+// 409, revoked/not-invited 403, expired token 401 — all returned BEFORE the 101,
+// so the browser only ever sees a generic close, never the status) keeps
+// retrying; capping the settle interval higher bounds a stuck tab to ~2.9k
+// req/day instead of ~17k (06-18 reconnect-storm fix).
+const BACKOFF_MAX_MS = 30_000;
+
+/** A socket must stay open at least this long before we TRUST it and reset the
+ *  backoff counter. Without this, a socket that opens (101) then closes within
+ *  a few seconds — DO rejects post-accept, deploy/hibernation churn — pins
+ *  backoff at the 500ms floor and hammers the Worker ~4×/s (~345k req/day).
+ *  (06-18 reconnect-storm fix.) */
+const STABLE_OPEN_MS = 10_000;
+
+/** Circuit breaker: after this many reconnects that never reached a STABLE
+ *  open, give up and surface connect_error instead of retrying forever. Caps a
+ *  permanently-rejected or long-dead-network tab. With the 30s backoff cap this
+ *  is ~30min of attempts before stopping — long enough to ride out a deploy
+ *  bounce, short enough that a dead tab can't drain the daily request quota. */
+const MAX_RECONNECT_ATTEMPTS = 60;
 
 /** Drop a volatile (cursor/idle) frame when the socket's outbound buffer is
  *  already this deep — matches socket.io `volatile` backpressure-drop so a
@@ -88,6 +107,10 @@ export class RawWsTransport {
   /** Backoff state for the reconnect loop. */
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Fires STABLE_OPEN_MS after a successful open; only THEN do we trust the
+   *  connection and reset the backoff counter. Guards against an open→close
+   *  flap pinning backoff at the floor (06-18 reconnect-storm fix). */
+  private stableTimer: ReturnType<typeof setTimeout> | null = null;
   /** Set by close() so an in-flight reconnect doesn't resurrect a torn-down
    *  transport. */
   private closedByUser = false;
@@ -182,6 +205,10 @@ export class RawWsTransport {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.stableTimer) {
+      clearTimeout(this.stableTimer);
+      this.stableTimer = null;
+    }
     if (this.ws) {
       // Strip our handlers so the close doesn't kick off a reconnect.
       this.ws.onopen = null;
@@ -240,10 +267,21 @@ export class RawWsTransport {
     this.ws = ws;
 
     ws.onopen = () => {
-      this.reconnectAttempts = 0;
       this.connected = true;
       this.disconnected = false;
       this.hasEverConnected = true;
+      // Do NOT reset the backoff counter here. A socket that opens (101) then
+      // closes within a few seconds — DO rejects post-accept, deploy/hibernation
+      // churn — would otherwise collapse backoff to the 500ms floor and hammer
+      // the Worker ~4×/s (~345k req/day). Only reset once the connection has
+      // held open for STABLE_OPEN_MS (06-18 reconnect-storm fix).
+      if (this.stableTimer) {
+        clearTimeout(this.stableTimer);
+      }
+      this.stableTimer = setTimeout(() => {
+        this.stableTimer = null;
+        this.reconnectAttempts = 0;
+      }, STABLE_OPEN_MS);
       // socket.io fires "connect" on every (re)connect. Collab re-reads
       // socket.id and, via Portal's "init-room" handler, re-sends join-room —
       // so a reconnect resyncs WITHOUT Portal.close(): broadcastedElementVersions
@@ -271,6 +309,12 @@ export class RawWsTransport {
       this.connected = false;
       this.disconnected = true;
       this.id = undefined;
+      // A close before the stable threshold means this open didn't "count" —
+      // leave reconnectAttempts climbing so backoff keeps growing.
+      if (this.stableTimer) {
+        clearTimeout(this.stableTimer);
+        this.stableTimer = null;
+      }
       if (this.ws === ws) {
         this.ws = null;
       }
@@ -289,7 +333,21 @@ export class RawWsTransport {
     if (this.closedByUser || this.reconnectTimer) {
       return;
     }
-    // Exponential backoff 0.5s → 10s, with full jitter (plan §5).
+    // Circuit breaker (06-18 reconnect-storm fix): a permanently-rejected
+    // upgrade (finished 409, revoked/not-invited 403, expired token 401 — all
+    // returned BEFORE the 101, so the browser only sees a generic close, never
+    // the status) or a long-dead network would otherwise retry forever. After
+    // MAX_RECONNECT_ATTEMPTS without ever reaching a STABLE open, give up and
+    // surface connect_error instead of draining the Worker's request quota. The
+    // counter is reset on every stable open, so a healthy connection (incl. a
+    // deploy bounce that re-opens cleanly) never trips this.
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.dispatch("connect_error", [
+        new Error("websocket gave up after repeated reconnect failures"),
+      ]);
+      return;
+    }
+    // Exponential backoff 0.5s → 30s, with full jitter (plan §5).
     const base = Math.min(
       BACKOFF_MAX_MS,
       BACKOFF_MIN_MS * 2 ** this.reconnectAttempts,
