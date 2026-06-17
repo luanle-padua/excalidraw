@@ -5449,4 +5449,53 @@ export default {
 
     return app.fetch(request, env, ctx);
   },
+
+  // Cloudflare Cron Trigger (B9 automated backup) — runs on the schedule in
+  // wrangler.jsonc ("0 3 * * 0" = Sunday 03:00 UTC). Dumps every D1 data table
+  // to R2 backups/db-<date>.json. All-Cloudflare, no GitHub Action / external
+  // runner. Restore = read the object + re-insert (see docs/runbooks/backup.md).
+  // Metadata only (small); R2 blob bytes stay in the bucket (durable) — see the
+  // archive route for per-project blob export.
+  async scheduled(
+    _event: ScheduledController,
+    env: Bindings,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(
+      (async () => {
+        try {
+          const { results: tableRows } = await env.DB.prepare(
+            `SELECT name FROM sqlite_master
+               WHERE type = 'table'
+                 AND name NOT LIKE 'sqlite_%'
+                 AND name NOT LIKE '_cf_%'
+                 AND name <> 'schema_version'
+               ORDER BY name`,
+          ).all<{ name: string }>();
+
+          const tables: Record<string, unknown[]> = {};
+          for (const { name } of tableRows ?? []) {
+            // Names come from sqlite_master, not user input — safe to interpolate.
+            const { results } = await env.DB.prepare(
+              `SELECT * FROM "${name}"`,
+            ).all();
+            tables[name] = results ?? [];
+          }
+
+          const date = new Date().toISOString().slice(0, 10);
+          const key = `backups/db-${date}.json`;
+          await env.BUCKET.put(
+            key,
+            JSON.stringify({ generated_at: now(), tables }),
+            { httpMetadata: { contentType: "application/json" } },
+          );
+          console.log(
+            `[cron backup] wrote ${key} (${Object.keys(tables).length} tables)`,
+          );
+        } catch (err) {
+          console.error("[cron backup] failed:", err);
+        }
+      })(),
+    );
+  },
 };

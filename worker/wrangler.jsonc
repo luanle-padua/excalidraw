@@ -65,6 +65,15 @@
     }
   ],
 
+  // Cron Trigger (B9 automated backup) — fires the `scheduled()` handler in
+  // src/index.ts on this schedule. "0 3 * * 0" = every Sunday 03:00 UTC. It
+  // dumps all D1 tables to R2 backups/db-<date>.json. All-Cloudflare, no
+  // GitHub Action. Change the cron string to change the cadence (e.g.
+  // "0 3 * * *" = daily, "0 3 */3 * *" = every 3rd day).
+  "triggers": {
+    "crons": ["0 3 * * 0"]
+  },
+
   "r2_buckets": [
     {
       "binding": "BUCKET",

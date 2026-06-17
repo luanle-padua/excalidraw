@@ -52,21 +52,27 @@ When a project is finished and you want it off the platform but **restorable**:
    meetings tombstoned. Recoverable from `trash/` until the lifecycle rule
    expires it.
 
-## The cron
+## The cron (Cloudflare Cron Trigger — all-Cloudflare, no GitHub)
 
-`.github/workflows/backup.yml` runs **every Sunday 03:00 UTC** (also runnable
-on demand from the Actions tab). It:
+The weekly backup runs **inside the Worker itself** via a Cloudflare Cron
+Trigger — no GitHub Action, no external runner, no machine to keep on.
 
-1. `npx wrangler d1 export mcm-db --remote --output=backup.sql`
-2. `npx wrangler r2 object put mcm-storage/backups/db-<date>.sql --file=backup.sql --remote`
+- **Schedule:** `"0 3 * * 0"` (every Sunday 03:00 UTC), set in
+  `worker/wrangler.jsonc` → `triggers.crons`.
+- **What runs:** the `scheduled()` handler in `worker/src/index.ts` dumps every
+  D1 data table and writes `backups/db-<date>.json` to R2 (`mcm-storage`).
+- **Nothing to configure** — it uses the Worker's own `DB` + `BUCKET` bindings.
+  No API token / account-id secret needed (that was the old GitHub-Action way).
+- **Change cadence:** edit the cron string and redeploy — e.g. `"0 3 * * *"`
+  (daily), `"0 3 */3 * *"` (every 3rd day).
+- **Check it ran:** `npx wrangler tail mcm-storage` shows `[cron backup] wrote
+  backups/db-<date>.json`, or list the prefix:
+  `npx wrangler r2 object get mcm-storage/backups/ --remote` (dashboard: R2 →
+  mcm-storage → backups/).
 
-**Required GitHub secrets** (a human adds these once, repo Settings → Secrets
-and variables → Actions):
-
-- `CLOUDFLARE_API_TOKEN` — scoped token with **D1 Read** + **R2 Object
-  Read/Write**. Nothing more (this job never deploys).
-- `CLOUDFLARE_ACCOUNT_ID` — the account that owns `mcm-db` + `mcm-storage`
-  (`npx wrangler whoami`).
+> Note: the scheduled handler writes a **JSON** dump (same shape as the
+> Backup-DB button). A `.sql` dump is only produced by the manual
+> `wrangler d1 export` path below — both restore the same data.
 
 Set a lifecycle rule on the R2 `backups/` prefix (dashboard) to retain ~90 days.
 
