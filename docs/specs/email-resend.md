@@ -69,7 +69,7 @@ Tới đây là đủ để demo nội bộ.
 4. Quay lại Resend bấm **Verify**. Chờ DNS lan (thường vài phút tới ~1 giờ) đến khi tất cả chuyển **xanh / Verified**.
 5. Sửa `RESEND_FROM` trong `worker/wrangler.jsonc` thành:
    ```jsonc
-   "RESEND_FROM": "MAP CanvasMeet <no-reply@mapgroup.co.kr>"
+   "RESEND_FROM": "Canvas M <no-reply@mapgroup.co.kr>"
    ```
    rồi `npx wrangler deploy`. **Không cần sửa code.**
 

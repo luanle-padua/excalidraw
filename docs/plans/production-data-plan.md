@@ -90,14 +90,14 @@ Hiện trạng: 0001–0014 chạy tay, `package.json` chỉ có script cho 0001
 | --- | --- | --- | --- |
 | P0.1 | ✅ (06-10) `0015_p0_parity.sql` (schema_version + tombstone + ai_summary + seed internal_domains) + **`worker/migrate.mjs`** (`node migrate.mjs` / `--remote` / `--status`); local đã track 16/16 | `worker/schema/`, `worker/migrate.mjs` | XONG |
 | P0.2 | ✅ (06-10) Worker đọc `system_settings.internal_domains` (cache per-isolate 60s, refresh trong JWT middleware, fallback hardcode khi bảng trống) | `worker/src/index.ts` | XONG (client session.ts còn hardcode — display only) |
-| P0.3 | ✅ (06-10) `PUT/GET /v1/transcripts/:roomId` (E2E như chats, sau roomGate); **summary đổi thành cột D1 `meeting.ai_summary`** (POST `/v1/meetings/:id/summary`) — phục vụ AI summary-first; client persist + auto-summary on End | worker + client transcription | XONG |
+| P0.3 | ✅ (06-10) `PUT/GET /v1/transcripts/:roomId` (E2E blob như chats, sau roomGate — KHÔNG vào D1); **summary đổi thành cột D1 `meeting.ai_summary`** (POST `/v1/meetings/:roomId/summary` → UPDATE `meeting SET ai_summary` index.ts:1911-1933) — phục vụ AI summary-first; client persist + auto-summary on End. ✅ verify 06-17: code khớp — transcript = blob R2, summary = cột D1 server-readable | worker + client transcription | XONG |
 | P0.4 | Recording → R2: bảng `recording`, `PUT /v1/recordings/:roomId`, MeetingRecorder upload (giữ download fallback) | worker + `MeetingRecorder.ts` | ĐỂ SAU (gắn Phase 5) |
 | P0.5 | ✅ (06-10) Tombstone `deleted_meeting` (ghi trong cascade) → mọi PUT scene/file/chat/library/transcript + POST register trả **410 Gone** | index.ts | XONG |
 | P0.6 | ✅ (06-10) `DELETE /v1/projects/:id` (owner = chỉ khi project trống; admin = force cascade) + GET/POST/DELETE `project_member` (chặn xoá owner cuối) + admin Projects tab | worker + AdminConsole | XONG |
 
 **Thêm ngoài kế hoạch (quyết định 06-10):** Confidential enforce trong `canSeeMeeting` + mọi query list · compliance open `POST /v1/admin/meetings/:id/open` (audit BẮT BUỘC trước khi trả key) · My Files `user_file`/`userfiles/` (0016) + UI · wrangler 3→4.99.
 
-(P0 structure parity coi như XONG trừ P0.4 recording: local đã vận hành đúng mô hình đích, lên remote không đổi gì ngoài binding.)
+(P0 structure parity coi như XONG trừ P0.4 recording, gắn Phase 5 per master-plan: local đã vận hành đúng mô hình đích, lên remote không đổi gì ngoài binding. Recording KHÔNG chặn parity cấu trúc — master-plan-4-groups.md xếp ghi hình là task Phase 5 (Daily cloud recording → webhook → R2 auth-gated), không phải hạng mục P0.)
 
 ### P1 — Tạo hạ tầng remote — ✅ XONG 2026-06-11 (account `rnd_ai@mapgroup.co.kr`)
 
@@ -106,6 +106,8 @@ Hiện trạng: 0001–0014 chạy tay, `package.json` chỉ có script cho 0001
 3. ✅ Secrets: cả 4 (`DAILY_API_KEY`, `DAILY_DOMAIN`, `SUPABASE_URL`, `SUPABASE_SERVICE_API_KEY`) đẩy bằng `wrangler secret put` — chọn secret cho TẤT CẢ thay vì vars để không commit giá trị account-specific vào git (đổi nhỏ so với plan; `SUPABASE_ANON_KEY` worker không đọc nên bỏ).
 4. ✅ `npx wrangler deploy` → **`https://mcm-storage.rnd-ai.workers.dev`** — smoke test: `/v1/health` 200, route cần JWT trả 401 đúng. Remote DB đang TRỐNG (fresh) — migrate dữ liệu local nếu cần giữ: audit §5.5.
 5. **Cutover client (khi muốn):** build với `VITE_APP_STORAGE_URL=https://mcm-storage.rnd-ai.workers.dev`; Pages cho app = bước riêng (I-tracks roadmap). CHƯA làm (chủ động): CORS vẫn `*` (tiện dev — khoá khi có origin thật), default password, rate-limit (audit §5.6).
+
+**Cập nhật 06-16:** migration **`0025_meeting_knock`** đã ship (waiting room knock-to-join — Phase 4, commit `37e5953c`); local track tới 25/25, CHƯA chạy remote (apply khi deploy worker: `migrate.mjs --remote`). Nhắc lại nền dữ liệu: cổng summary→D1 `meeting.ai_summary` (P0.3) là NỀN cho "AI hỏi-xuyên-meeting" — Phase 1 của [ai-project-knowledge-strategy.md](ai-project-knowledge-strategy.md) nối các `ai_summary` (đã gate phòng ban) của 1 dự án vào 1 prompt Claude (không embeddings/RAG). Tức summary server-readable = điều kiện cần để retrieval xuyên cuộc họp chạy được.
 
 ### P2 — Identity UUID + avatar (theo §3, sau khi remote ổn định; mỗi bước một migration, rollback = bỏ qua cột mới)
 

@@ -1,8 +1,11 @@
 # Dev-phase notes — provisional, finalize later
 
-> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](../specs/host-and-scheduling.md), [admin-console.md](../specs/admin-console.md). Cập nhật 2026-06-16.
+> Đang **develop** (chưa production). Nhiều thứ làm **tạm / soft** để chạy demo, **chưa chính thức**. Doc này neo lại để sau hoàn thiện. Bổ sung cho [roadmap.md](roadmap.md) (feature phases + infra), [host-and-scheduling.md](../specs/host-and-scheduling.md), [admin-console.md](../specs/admin-console.md). Cập nhật 2026-06-17.
 
-## 🚪 Waiting room knock-to-join (Phase 4, 06-16) — đọc kỹ phần "1a vs 1b"
+## 🚪 Waiting room knock-to-join (Phase 4, SHIPPED 06-16 — decision 1a chốt) — đọc kỹ phần "1a vs 1b"
+
+**Đã ship (06-16):** cổng duyệt 1a (Daily token + blob/meeting routes) — push `37e5953c`/`3e13f1c2`, user xác nhận test tay OK (06-17).
+**Còn lại trước external thật:** 1b (canvas relay auth) — blocker; remote migration `0025_meeting_knock` chưa chạy (xem mục Data / Migrations).
 
 - [x] **Cổng duyệt ép server ở Daily token** (decision **1a**, `plans/waiting-room.md`): external chưa `admitted` → 403 token → **không audio**; blob/meeting routes vẫn qua `canSeeMeeting`. Migration `0025_meeting_knock` (PK room_id+email; status invited|admitted|denied; cooldown 30s server-enforced cho re-knock).
 - [ ] **1b — canvas relay VẪN trust-the-key** (🔴 blocker trước khi mở cho khách NGOÀI thật): socket canvas nối room-server gốc (`VITE_APP_WS_SERVER_URL`) **không auth** — ai có `#room=ID,KEY` vẫn đọc/vẽ stroke + presence, dù chưa admitted/chưa mời. Cổng audio + blob đã chặn; canvas thì chưa (lỗi sẵn có, gắn track I-2 Durable Objects / room-server JWT). **Phải đóng trước external exposure.**
@@ -36,7 +39,7 @@
 - [x] **Migration tracking ĐÃ có** (06-10 P0.1): bảng `schema_version` + **`worker/migrate.mjs`** — `node migrate.mjs` (local) / `--remote` / `--status`; KHÔNG execute file tay nữa. **(06-11) Remote ĐÃ tạo + 16/16 applied** — D1 `mcm-db` (APAC) + R2 `mcm-storage` + Worker deploy `https://mcm-storage.rnd-ai.workers.dev` (4 secrets đã put). Remote DB trống, client dev vẫn trỏ local; cutover = đổi `VITE_APP_STORAGE_URL`.
 - [x] **Wrangler 3 → 4.99** (06-10, lệnh anh Luân) — d1/r2/dev đều OK trên state local cũ; tiến trình `wrangler dev` đang chạy cần restart để dùng bản mới.
 - [x] **`meeting.status` ĐÃ chuẩn hoá** (06-10): 1 bộ `scheduled|live|finished|cancelled` — migration `0013_status_canonical.sql` (đã chạy local) + client ghi giá trị chuẩn, đọc tolerant qua `components/mcm/meetingStatus.ts`.
-- [ ] **`0025_meeting_knock` mới chạy LOCAL** (06-16) — nhớ `migrate.mjs --remote` khi deploy worker (waiting room sẽ 500 nếu thiếu bảng).
+- [ ] **`0025_meeting_knock` MỚI CHỈ chạy LOCAL** (06-16, vẫn chưa remote tính tới 06-17) — nhớ `migrate.mjs --remote` khi deploy worker (waiting room sẽ 500 nếu thiếu bảng). Tick `[x]` + ghi timestamp khi đã apply remote.
 - [ ] **D1 backup + R2 versioning** chưa có.
 
 ## 🟢 Admin console (A1-A3 xong, vài chỗ tạm)

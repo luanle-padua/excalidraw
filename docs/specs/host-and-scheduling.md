@@ -14,7 +14,7 @@
 | **Attendee nội bộ** | Được mời, @mapgroup.co.kr | Auto-admit, tự vào |
 | **Guest** (khách/client) | Email ngoài, vào qua link | Vào **phòng chờ** → host duyệt |
 
-_(Phòng chờ → host duyệt: **chưa triển khai** — khách hiện vào thẳng; phòng chờ & duyệt làm ở Phase 4.)_
+_(Phòng chờ → host duyệt: **đã triển khai Phase 4.5** (commit 37e5953c, 06-16) — khách knock → host duyệt → admit)._
 
 ## Quyết định đã chốt (2026-06-08)
 
@@ -100,8 +100,8 @@ API hiện **mở toang** (`GET /v1/projects` trả về MỌI project; **không
 
 ## Build order (gắn roadmap)
 
-- **Phase 4 — Host control (LIVE):** phòng chờ + admit · **acting-host election** · co-host · transfer host · kick/mute · End-for-all. Cần `meeting_invitee` (membership) + `meeting.status`/`host_email`.
-- **Phase 4.5 — Scheduling:** form lên lịch (giờ + invitee) · mục **"Sắp tới"** · state machine scheduled→live→finished/cancelled · join-by-link + màn "chờ Start" · dời lịch/huỷ. (Email mời, calendar sync = sau.)
+- **Phase 4 — Host control (LIVE):** **acting-host election** · co-host · transfer host · kick/mute · End-for-all. Cần `meeting_invitee` (membership) + `meeting.status`/`host_email`.
+- **Phase 4.5 — Scheduling:** form lên lịch (giờ + invitee) · mục **"Sắp tới"** · state machine scheduled→live→finished/cancelled · join-by-link + màn "chờ Start" · dời lịch/huỷ. (Email mời, calendar sync = sau.) _**Phòng chờ (knock-to-join) = tính năng song song, đã ship 06-16** (commit 37e5953c): khách ngoài knock → host **Cho vào / Từ chối** (nội bộ @mapgroup auto-admit); cổng duyệt ép server-side ở Daily token (migration `0025_meeting_knock`). Xem `plans/waiting-room.md`._
 - Admin console: thêm filter theo `status` + xem scheduled/live/finished (đã có list + detail).
 
 ## Để sau (không làm bản đầu)

@@ -9,9 +9,12 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 3. **`plans/roadmap.md`** — Phase nào xong / đang dở (nguồn chuẩn duy nhất về phase).
 4. **`plans/production-data-plan.md`** + **`plans/dev-phase-notes.md`** — Kế hoạch dữ liệu production và danh sách "việc tạm cần finalize".
 5. **`specs/`** — Đọc KHI CẦN chi tiết thiết kế: host & lịch họp (`host-and-scheduling.md`), admin console (`admin-console.md`), model user (`user-data-model.md`), cấu hình auth (`supabase-setup.md`).
-6. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
-7. **`logs/`** — Nhật ký từng phiên làm việc (tiếng Việt), chi tiết kỹ thuật
+6. **`plans/waiting-room.md`** — Phòng chờ knock-to-join (Phase 4, ship 06-16, chốt 1a về auth canvas relay + ghi chú bảo mật production).
+7. **`plans/client-portal.md`** — Thiết kế cổng khách (tách khỏi dashboard nhân viên, chốt 06-15; shell Glass-Desk đã ship 06-16, các panel cộng thêm materials/RSVP/recap còn hoãn).
+8. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
+9. **`logs/`** — Nhật ký từng phiên làm việc (tiếng Việt), chi tiết kỹ thuật
    - gotchas. Tra cứu khi cần biết "hôm đó đã làm gì, vướng gì".
+10. **`runbooks/`** — Hướng dẫn vận hành từng-bước, copy-paste được: deploy (`deploy.md`), xoay key (`key-rotation.md`), xử lý sự cố (`incident.md`).
 
 ## Dòng thời gian dự án (qua logs/)
 
@@ -26,7 +29,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 | 06-11 | P1 hạ tầng Cloudflare remote LIVE + architecture.md + master plan 4 nhóm |
 | 06-12 | Design-system **Glass Desk** cho dashboard (wallpaper + calendar/notes + color/icon) |
 | 06-15 | Rebrand **Canvas M** + Glass-Desk login/admin + luồng login-bằng-link (merge từ feature branch) |
-| 06-16 | Phân quyền "**chức vụ ≠ vai trò**" (division admin = head-only) · **Phòng chờ knock-to-join** (Phase 4) · **Trang khách Glass-Desk** đa quốc gia (nền WebP xoay + calendar) · siết START theo phòng sở hữu |
+| 06-16 | Phân quyền "**chức vụ ≠ vai trò**" (division admin = head-only) · **Phòng chờ knock-to-join** (Phase 4, chốt 1a) · **Trang khách Glass-Desk** đa quốc gia (nền WebP xoay + calendar) · chi nhánh **Việt Nam** (division + user) · siết START theo phòng sở hữu |
 
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 

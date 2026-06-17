@@ -1,6 +1,6 @@
 # 2026-06-01 — Kế hoạch hạ tầng tháng 6: migrate sang Cloudflare serverless
 
-> ⚠️ **Plan gốc 06-01 — phần lớn đã thực thi (P1 remote LIVE 06-11).** Một số chi tiết (Cloudflare Access, task theo tuần) đã bị thay bằng quyết định mới (Supabase Auth, [master-plan-4-groups.md](master-plan-4-groups.md)). Giữ làm tư liệu "vì sao chọn Cloudflare" — trạng thái sống xem [roadmap.md](roadmap.md) track I + [production-data-plan.md](production-data-plan.md) §5.
+> ⚠️ **Plan gốc 06-01 — chính sách hạ tầng (Cloudflare serverless, DO, R2, D1 schema) CHỐT; Tuần 1-4 task breakdown 06-10 SNAPSHOT — see [roadmap.md](roadmap.md) track I-1..I-6 và [master-plan-4-groups.md](master-plan-4-groups.md) cho trạng thái live.** Một số chi tiết (Cloudflare Access) đã bị thay bằng quyết định mới (Supabase Auth). Giữ làm tư liệu "vì sao chọn Cloudflare" — trạng thái sống xem [roadmap.md](roadmap.md) track I + [production-data-plan.md](production-data-plan.md) §5.
 >
 > Mục tiêu: tháng 6/2026 hoàn thiện **phần hạ tầng** của MAP CanvasMeet để demo. Phần tính năng (collab, audio, STT/dịch, viewer DXF/PDF/IFC, AI bot) coi như xong — đây là kế hoạch chuyển từ mô hình _"máy dev + quick tunnel"_ sang **Cloudflare serverless**.
 
@@ -148,7 +148,11 @@ UI tối thiểu cho demo: trang "Phòng của tôi" (list từ `rooms`), nút _
 - Worker verify **`Cf-Access-Jwt-Assertion`** (JWKS của team) → lấy `email` → dùng cho `host_email`/`memberships`.
 - Access đứng trước cả Pages lẫn Worker → mọi request đã auth; không tự build login.
 
-## 8. Task breakdown theo tuần
+## 8. Task breakdown theo tuần — SNAPSHOT 06-10 (lịch sử)
+
+> 📌 **SNAPSHOT 06-10 — không còn là nguồn sequencing.** Thứ tự/ưu tiên thực thi đã do [master-plan-4-groups.md](master-plan-4-groups.md) sở hữu; trạng thái từng việc xem [roadmap.md](roadmap.md) track I-1..I-6. Giữ lại làm tư liệu kế hoạch ban đầu.
+>
+> **Status 06-16:** P1 remote infrastructure LIVE per [production-data-plan.md](production-data-plan.md) §P1; realtime relay (Tuần 2) remains in roadmap track I-2; see master-plan G3 for cutover sequence.
 
 **Tuần 1 (02–08/06) · Deploy nền tảng + URL ổn định**
 

@@ -1,6 +1,6 @@
 # Supabase Auth — Setup (MCM)
 
-Hướng dẫn cấu hình Supabase Authentication cho MAP CanvasMeet. Auth dùng để **đóng lỗ Worker API** (mọi `/v1/*` trừ `/v1/health` yêu cầu JWT hợp lệ) và là nền cho tải recording bảo mật. Làm 2026-06-05.
+Hướng dẫn cấu hình Supabase Authentication cho Canvas M. Auth dùng để **đóng lỗ Worker API** (mọi `/v1/*` trừ `/v1/health` yêu cầu JWT hợp lệ) và là nền cho tải recording bảo mật. Làm 2026-06-05.
 
 Kiến trúc: client đăng nhập bằng Supabase → nhận **access_token (JWT)** → gắn `Authorization: Bearer` vào mọi call Worker → **Worker verify JWT offline** bằng JWKS (ES256). Không có per-request call về Supabase.
 

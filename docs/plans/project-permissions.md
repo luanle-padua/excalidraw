@@ -2,6 +2,8 @@
 
 > Chốt 2026-06-15 bởi team 4 agent (3 lăng kính: org-model · permission-matrix · migration-UX → 1 tổng hợp). Yêu cầu anh Luân: dự án do 1 phòng ban lead; người phòng khác tham gia **không** được quyền guest-manager; division head gán project leader; head + leader (+ người được uỷ quyền) quản dự án + guest. — **Phân tích + plan, KHÔNG code.**
 
+> **⚠️ REVISED 06-16** — Plan 06-15 dưới đây CHƯA hoàn chỉnh: phiên 06-16 đảo lại vài giả định gốc (xem [[2026-06-16]] log mục 1). Tóm tắt thay đổi: **Division admin = CHỈ HEAD** (bỏ deputy khỏi authz); **chức vụ 직급 = display-only**, không khoá nút assign; **tạo dự án = mọi nội bộ** (không còn head/deputy-only); drop "co-operator" như tier quyền cứng. Đọc section "Mô hình CHỐT (REVISED 06-16)" + "Đã SHIP" bên dưới làm sự thật hiện thời; phần trên giữ lại làm lịch sử/rationale.
+
 ## Bối cảnh & gốc bug
 Hôm nay **không có khái niệm division** trong DB. `project` chỉ có `host_email`; `project_member(project_id, email, role)` với `role` = `'owner' | 'member'`. **Gốc lỗi:** `canManageProjectGuests` (worker/src/index.ts ~1707) trả `true` cho **BẤT KỲ** dòng `project_member` (không lọc role); `projectAccess` trả `'full'` cho mọi member. → người **phòng ban khác** add làm `'member'` để **tham gia** lại tự động **quản guest + thấy surface quản trị**. Đây là chỗ "rối".
 
@@ -57,21 +59,29 @@ Sống trong **ProjectManagerPanel → ProjectMemberRoster**. Mỗi member có *
 - **Phase 2:** bảng `division` + `project.lead_division_id`/`leader_email`; head kế thừa manage dự án phòng mình + đổi leader; AdminConsole gán head + project→division.
 - **Phase 3 (defer):** màn self-serve division-admin, leader-handoff, audit/notifications.
 
-## ✅ Mô hình CHỐT (06-15, brainstorm với anh Luân) — "đừng phức tạp"
-**Quản lý dự án — 4 cấp, quyền chảy theo chuỗi (không ma trận):**
-- **Head** (rank cao nhất phòng) · **Deputy** (rank 2, **NGANG head** — quản hết dự án phòng, assign leader) → tạo dự án + full-manage mọi dự án phòng.
-- **Leader** (mỗi dự án, head/deputy assign) · **Co-operator** (mỗi dự án, leadership chỉ định) → quản dự án + tổ chức họp + client.
-- **Member** = chỉ tham gia. **Tạo dự án** = Head/Deputy/admin. **Tạo cuộc họp** = canManageProject (Head/Deputy/Leader/Co-operator/admin), KHÔNG phải member thường.
+## ✅ Mô hình CHỐT (REVISED 06-16, brainstorm với anh Luân) — "đừng phức tạp"
+> Đảo lại model 06-15 (giữ ở cuối làm lịch sử). Anh Luân chốt qua nhiều vòng hỏi-đáp — xem [[2026-06-16]] log mục 1 + [[project_mcm-permission-model]].
+
+**Quản lý dự án — quyền chảy theo chuỗi (không ma trận):**
+- **Head** (rank cao nhất phòng) = **Division admin DUY NHẤT** → tạo dự án phòng + full-manage mọi dự án phòng + assign leader. **BỎ Deputy** khỏi authz: trưởng-phòng/실장 (vd 장도진) giờ CHỈ có quyền **qua vai trò dự án được gán**, không tự động ngang head. Cột `deputy_email` để dormant.
+- **Leader** (mỗi dự án, ai cũng assign được — kể cả head) → quản dự án + tổ chức họp + client. **Co-operator** = vai trò dự án phụ (không phải tier quyền cứng riêng).
+- **Member** = chỉ tham gia. **Tạo dự án = MỌI NỘI BỘ** (đảo "head/deputy-only"): người tạo auto leader+owner, không trao quyền xuyên dự án. **Tạo/tổ chức cuộc họp** = canManageProject (head/leader/co-operator/admin), KHÔNG phải member thường.
+- **Chức vụ (직급, từ user.csv) ≠ vai trò dự án.** Chức vụ chỉ HIỂN THỊ (chip xám trung tính), KHÔNG khoá nút assign — server không gate theo title.
 
 **Cuộc họp — host/co-host:**
 - **Host = NGƯỜI TẠO** cuộc họp (mặc định). Không gán host riêng.
-- **Leader/Deputy/Head tự động có quyền host** (End/kick/mute) trên mọi cuộc họp của dự án — `viewer_is_authority`, không cần chỉ định.
+- **Leader/Head tự động có quyền host** (End/kick/mute) trên mọi cuộc họp của dự án — `viewer_is_authority`, không cần chỉ định. (Bỏ Deputy khỏi nhánh authority.)
 - **Co-host = tùy chọn**: host HOẶC cấp trên đặt, chọn 1 nội bộ bất kỳ trong danh sách mời. Dùng khi trao quyền điều hành cho người NGOÀI chuỗi quản lý.
 - Kick/mute realtime: broadcast kèm `fromAuthority` → peer chấp nhận KICK của authority kể cả khi host bầu là người khác.
+- **Auto-join họp = chỉ leadership** (`canSeeMeeting` member-arm siết về owner/manager): member thường **phải được mời thủ công** từng họp.
 
-## ✅ Đã SHIP (06-15)
+## ✅ Đã SHIP (06-15, **REVISED 06-16**)
 - **Phase 1** (commit `4db1e587`): `canManageProject` (admin/owner/manager); tách participate↔manage; 6 guest routes + member routes + role-PATCH; cross-division joiner → participate-only. KHÔNG migration.
 - **Phase 2** (commit `40a7df27`): bảng `division`(head_email) + `user_division` (migration `0022`), `project.lead_division_id`/`leader_email` (migration `0023`, backfill từ host's division). Head tự suy từ **rank cao nhất** mỗi Division (`worker/scripts/derive-divisions.mjs`, 21 phòng/385 user). `canManageProject`/`projectAccess` nhận head+leader; `isProjectLeadership` (admin/owner/leader/head, KHÔNG manager) gate delete + delegate-manager; `PATCH /v1/projects/:id/leader` (head/admin) assign leader; GET /v1/projects có LEAD arm + `can_assign_leader`; UI "Make leader". Verified: 유훈 hyu@ = head AI R&D Center, tự thấy/quản project của Luân.
+- **REVISED 06-16** (commits `88231a8b` · `855f3b1e` · `363b2263`):
+  - `88231a8b` — meeting-manager-only invite/revoke (`isMeetingManager`: organizer/host/co-host/authority/admin, không phải mọi nội bộ); ParticipantsBar tách "In the room" / "Invited · not joined"; roster badge Division-admin.
+  - `855f3b1e` — **Division admin = HEAD ONLY**: drop mọi nhánh `deputy_email` khỏi `projectAccess`/`canManageProject`/`isProjectLeadership`/`isDivisionHeadOfProject`/`isMeetingProjectAuthority` + GET /projects (is_head + lead arm). **Tạo dự án = mọi nội bộ** (`canCreateProject`). `canSeeMeeting`: thêm head/leader authority-arm + siết member-arm về owner/manager (auto-join = chỉ leadership). Chức vụ 직급 = chip xám display-only, mở khoá nút assign cho mọi người. **Re-dịch `roleDivisionAdmin`** vi/ko: "Trưởng phòng ban/부서장" (chức vụ) → "Quản trị phòng ban/부서 관리자" (tầng quyền).
+  - `363b2263` — fix modal assign-leader: nút save tàng hình (ConfirmModal portal ra `<body>` ngoài token scope → stamp Glass-Desk tokens lên `.mcm-meditor`) + `{{email}}`→`{email}` (i18n single-brace) vi/en/ko.
 - **Phase 3** (defer): self-serve division-admin, leader-handoff UI, audit/notifications.
 
 ## ✅ Đã chốt (anh Luân, 06-15)

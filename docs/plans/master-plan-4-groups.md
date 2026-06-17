@@ -4,7 +4,7 @@
 >
 > Thứ tự tổng: **G4 (chặn lỗ hổng) + G1 chạy trước → G2 xen kẽ → G3 chốt hạ.** Mục ⚡ trong G3 (backup) là ngoại lệ làm sớm được ngay.
 
-> **CẬP NHẬT TRẠNG THÁI 2026-06-15** (rà toàn bộ — xem `logs/2026-06-15.md`): **G1 ~90% xong** (8/9 🔴 + 🟡 polish đã vá trong đợt 06-11), **G4 gần trọn** (còn index-blob, revoke→Daily-token, doc hygiene). **G2 admin chưa làm. G3 remote chưa cutover** (Worker remote đã LIVE từ 06-11). Chèn thêm workstream **Glass-Desk redesign + rebrand Canvas M** (06-12/06-15, ngoài plan gốc) — đã xong + push. Kế tiếp đề xuất: đóng nốt G1/G4 → G2 gói 1+2 → G3 + Phase 6 ngay trước demo.
+> **CẬP NHẬT TRẠNG THÁI 2026-06-15** (rà toàn bộ — xem `logs/2026-06-15.md`): **G1 ~90% xong** (8/9 🔴 + 🟡 polish đã vá trong đợt 06-11), **G4 gần trọn** (còn index-blob, revoke→Daily-token, doc hygiene). **G2 admin chưa làm. G3 remote chưa cutover** (Worker remote đã LIVE từ 06-11). Chèn thêm workstream **Glass-Desk redesign + rebrand Canvas M** (06-12/06-15, ngoài plan gốc) — đã xong + push. Lưu ý: redesign Glass-Desk + rebrand "MAP CanvasMeet"→"Canvas M" này **không có trong plan gốc 06-11** nhưng nay đã hoàn tất; con số **G1 ~90%** đã tính cả khối scope phát sinh này. Kế tiếp đề xuất: đóng nốt G1/G4 → G2 gói 1+2 → G3 + Phase 6 ngay trước demo.
 
 ## GROUP 1 — APP + TÍNH NĂNG USER (chuẩn chỉnh)
 
@@ -17,7 +17,7 @@
 - [x] **Sửa project "lưu giả"** — gate owner + báo lỗi khi 403 (06-11 "Quản lý dự án" rework).
 - [x] Switch **Phòng chờ** + **Ghi hình** placebo → để **disabled + nhãn "sắp có"** (06-11), không còn hứa hão; làm thật = Phase 4 (waiting room) / Phase 5 (recording).
 - [x] **Quick-login password hardcode trong bundle** — tách `DevQuickLogin` lazy sau `import.meta.env.DEV`; **build prod grep 0 hit password** (verify 06-11). Revoke-live = kick (06-11).
-- [~] **Co-host election**: ✅ form chỉ định + **End đã đọc role** (06-11); ❌ **election live vẫn chưa đọc role `cohost` cho kick/mute** → cần room server validate (track I-2). **CÒN MỞ.**
+- [~] **Co-host election**: ✅ form chỉ định + **End đã đọc role** (06-11); ❌ **election live vẫn chưa đọc role `cohost` cho kick/mute** → cần room server validate (track I-2 = Durable Objects). **CÒN MỞ.** _(KHÔNG phải blocker cho phòng chờ — Phase 4 admission gate đã xong qua Daily-token, độc lập với track I-2 này.)_
 
 **🟡 Polish đáng giá nhất (⏱ = 1 buổi):** — _đã xong cả 5 trong đợt 06-11_
 
@@ -30,7 +30,7 @@
 **Khác:**
 
 - [ ] **Test mic thật 2 máy** → verify remote-mute icon → dọn mesh WebRTC dead code (`AudioRoom`/`AudioPeer`/`turnConfig`). _(⚠️ `MCMAssistant`/`AIToolsPanel` giờ có tham chiếu trong MeetingShell.tsx — cần xác nhận đã mount hay vẫn dead.)_
-- [ ] **Waiting room per-guest** (Phase 4 leftover) — đi cùng việc làm thật switch phòng chờ.
+- [x] **Waiting room per-guest** — **DONE — deploy 06-16, verify live 06-17.** Knock-to-join: khách ngoài gõ cửa→chờ, nội bộ @mapgroup auto-admit, host Cho vào/Từ chối; cổng duyệt ép ở Daily token (decision 1a). Migration `0025_meeting_knock` + 4 route, `WaitingRoom.tsx` (commit `37e5953c`, `3e13f1c2`). _(Lưu ý: `0025` CHƯA chạy remote — apply khi deploy worker.)_
 - [ ] (sau demo) P5 recording: Daily cloud recording → webhook → R2 auth-gated.
 
 **Bổ sung 06-11 chiều (yêu cầu anh Luân khi test):** — _đã xong toàn bộ (06-11 §9)_
