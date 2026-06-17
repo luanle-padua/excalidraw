@@ -456,9 +456,7 @@ export const MeetingHeader = ({
       >
         <Users size={18} />
         <span>
-          {realCount === 1
-            ? t("header.participantSingular", { count: realCount })
-            : t("header.participantCount", { count: realCount })}
+          {t("header.participantCount", { count: realCount })}
           {inCallCount > 0 && (
             <span className="mcm-header__stat-sub">
               {" · "}

@@ -1036,7 +1036,15 @@ app.get("/v1/files/:roomId/:fileId", async (c) => {
     fileKey(c.req.param("roomId"), c.req.param("fileId")),
   );
   if (!obj) {
-    return c.json({ error: "not found" }, 404);
+    // 204, not 404 — mirrors the scene/chat/transcript GET routes. A missing
+    // file blob is a normal race, not an error: app-generated decorations
+    // (`mcm-deco-…`) are uploaded best-effort by the throttled collab file
+    // queue, so a peer can legitimately request one a beat before it lands in
+    // R2 (or for a scene that referenced a never-uploaded/since-trashed file).
+    // 404 spammed the browser console AND marked the image permanently errored
+    // (broken thumbnail). The loader treats an empty body as "nothing stored"
+    // and simply skips that file. (B2, 06-17.)
+    return c.body(null, 204);
   }
   return new Response(obj.body, {
     headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },

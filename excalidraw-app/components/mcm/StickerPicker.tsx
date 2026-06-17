@@ -436,7 +436,10 @@ export const StickerPicker = () => {
     window.addEventListener("pointerup", onUp, true);
     window.addEventListener("click", onClick, true);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("wheel", onWheel, { capture: true, passive: false });
+    window.addEventListener("wheel", onWheel, {
+      capture: true,
+      passive: false,
+    });
     return () => {
       window.removeEventListener("pointermove", onMove, true);
       window.removeEventListener("pointerdown", onDown, true);
@@ -462,7 +465,9 @@ export const StickerPicker = () => {
         height: dims.height,
       });
     } catch (err) {
-      console.error("[StickerPicker] failed to load asset", err);
+      // Optional decoration asset — a missing/forbidden file must not spam
+      // the console as an error. Warn quietly (non-blocking) and move on.
+      console.warn("[StickerPicker] failed to load asset (non-blocking):", err);
     }
   }, []);
 

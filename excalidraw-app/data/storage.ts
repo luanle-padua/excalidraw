@@ -452,8 +452,14 @@ export const loadFilesFromStorage = async (
     [...new Set(filesIds)].map(async (id) => {
       try {
         const res = await fetchFileWithRetry(id);
-        if (res && res.status < 400) {
-          const arrayBuffer = await res.arrayBuffer();
+        const arrayBuffer =
+          res && res.status < 400 ? await res.arrayBuffer() : null;
+        // 204 / empty body = the blob isn't in R2 (a never-uploaded or
+        // since-trashed file — e.g. a best-effort `mcm-deco-…` decoration).
+        // The worker now answers 204 instead of 404 to avoid console spam;
+        // treat it as a clean miss (mark errored, skip decompress) rather
+        // than letting decompressData throw on an empty buffer.
+        if (arrayBuffer && arrayBuffer.byteLength) {
           const { data, metadata } = await decompressData<BinaryFileMetadata>(
             new Uint8Array(arrayBuffer),
             { decryptionKey },

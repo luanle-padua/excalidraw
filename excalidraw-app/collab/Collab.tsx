@@ -1524,17 +1524,29 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               // real Ends. The REGISTRY is the authority: verify finished
               // there, then flip to review. A spoofed broadcast verifies as
               // not-finished and does nothing.
+              // The ender's status='finished' write may not have reached the
+              // D1 read replica this verify hits yet (eventual consistency) — a
+              // single read can MISS it and strand everyone in the room until
+              // the slow 60s status poll ("ends a while later"). Retry the
+              // verify a few times with short backoff so a real End flips to
+              // review within ~1-2s; a spoofed broadcast still verifies as
+              // not-finished across all retries and gives up.
               const endedRoomId = this.portal.roomId;
               if (endedRoomId) {
-                void getMeeting(endedRoomId).then((m) => {
-                  if (
-                    this.portal.roomId === endedRoomId &&
-                    isFinishedStatus(m?.status ?? null)
-                  ) {
-                    appJotaiStore.set(meetingViewOnlyAtom, true);
-                    markReviewRoom(endedRoomId);
+                void (async () => {
+                  for (let attempt = 0; attempt < 5; attempt++) {
+                    const m = await getMeeting(endedRoomId);
+                    if (this.portal.roomId !== endedRoomId) {
+                      return;
+                    }
+                    if (isFinishedStatus(m?.status ?? null)) {
+                      appJotaiStore.set(meetingViewOnlyAtom, true);
+                      markReviewRoom(endedRoomId);
+                      return;
+                    }
+                    await new Promise((r) => setTimeout(r, 1000));
                   }
-                });
+                })();
               }
             } else if (action === "KICK" && target && target === mySocketId) {
               // The host removed me — MeetingShell watches this and leaves.
