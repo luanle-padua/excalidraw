@@ -1,0 +1,16 @@
+-- Realtime transport selector (socket.io → Durable Objects migration).
+--
+-- The backend that a meeting's realtime collab runs on is chosen at RUNTIME,
+-- PER MEETING, from the server — NOT from a build-time env (a build-time flag
+-- would split-brain two clients on different builds into the same room; see
+-- docs/plans/durable-objects-migration.md §7.1 / R3). The client reads this
+-- value from GET /v1/meetings/:roomId at initializeRoom() and picks the
+-- transport accordingly:
+--
+--   'socketio' (DEFAULT) — the existing Fly.io socket.io relay (unchanged).
+--   'do'                 — the Cloudflare Durable Object relay (RoomDO).
+--
+-- NON-BREAKING: every existing + new meeting defaults to 'socketio', so nothing
+-- routes to the DO until a meeting is explicitly opted in. Rollback = flip this
+-- back to 'socketio' (R2 stays authoritative, no data migration, §7.4).
+ALTER TABLE meeting ADD COLUMN realtime_backend TEXT NOT NULL DEFAULT 'socketio';

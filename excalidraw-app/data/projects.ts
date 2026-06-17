@@ -330,7 +330,27 @@ export type Meeting = {
    *  (anh Luân 06-16: a meeting belongs to its department; another department
    *  can't start it). */
   viewer_can_start?: boolean;
+  /** RUNTIME per-meeting realtime backend selector (DO migration, 06-17).
+   *  Team A stamps this on the meeting row in D1: "do" routes the realtime
+   *  collab through the Cloudflare Durable Object (raw WebSocket transport);
+   *  anything else (incl. absent/null) keeps the legacy socket.io relay on
+   *  Fly. Read at `initializeRoom` so every client in ONE meeting picks the
+   *  SAME backend (no build-time `import.meta.env` split-brain — see
+   *  docs/plans/durable-objects-migration.md §7.1). */
+  realtime_backend?: "do" | "socketio" | null;
 };
+
+/** The two realtime transports the client can drive. Resolved per-meeting at
+ *  connect time from the server-supplied `realtime_backend` flag. */
+export type RealtimeBackend = "do" | "socketio";
+
+/** Normalize a meeting's `realtime_backend` flag into a definite backend.
+ *  Defaults to "socketio" when the field is absent/null/unknown so a meeting
+ *  the server hasn't opted into DO keeps the legacy transport — NON-BREAKING
+ *  by construction. */
+export const resolveRealtimeBackend = (
+  meeting: Pick<Meeting, "realtime_backend"> | null | undefined,
+): RealtimeBackend => (meeting?.realtime_backend === "do" ? "do" : "socketio");
 
 /** Discriminated meeting lookup — callers that gate behaviour on the
  *  registry (the collab start-gate) must tell "this room is genuinely

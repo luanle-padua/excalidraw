@@ -86,8 +86,8 @@
 | `join-room` (`index.ts:888-903`) | join room; `first-in-room` nếu ≤1; else `new-user`; rồi `room-user-change` full list | `webSocketMessage` nhận join: quyết định `first-in-room` dựa **cờ `roomEverInitialized` trong `ctx.storage`** (KHÔNG `getWebSockets().length` — xem §3.1 dưới); else `new-user` cho peer khác; rồi broadcast `room-user-change` = list socketId từ attachments | **Cao** |
 | `server-broadcast` (`index.ts:905-911`) | `socket.broadcast.to(room).emit('client-broadcast', data, iv)` | Loop `getWebSockets()`, skip sender, chỉ WS `readyState===OPEN`, `ws.send(frame)` — relay opaque `(encryptedData, iv)` y nguyên | Dễ |
 | `server-volatile-broadcast` (`index.ts:913-921`) | volatile = **drop nếu socket buffer đầy (backpressure)**, KHÔNG phải drop khi peer disconnect | Raw WS không có "volatile". Path này: chỉ gửi tới WS `OPEN` **và** `bufferedAmount` dưới ngưỡng (vài trăm KB), vượt → bỏ qua. Khớp ngữ nghĩa backpressure-drop của cursor/idle (MOUSE_LOCATION `:1287`) | TB |
-| `request-room-clients` (`index.ts:934-945`) | re-emit peer list (audio mesh catch-up) | nhận control msg → gửi lại `room-user-change`, list **chỉ từ WS `OPEN`** (loại CLOSING) map qua `deserializeAttachment().socketId` | TB |
-| `rtc-signal` (`index.ts:947-957`) | TARGETED: `io.to(payload.to).emit('rtc-signal',{from,...})` | tra WS theo `deserializeAttachment().socketId === payload.to`, gửi `{from, type, data}`. Không thấy → `rtc-error{reason:'peer-offline'}` cho sender (tránh treo WebRTC) | TB |
+| `request-room-clients` (`index.ts:934-945`) | re-emit peer list (audio mesh catch-up) | nhận control msg → gửi lại `room-user-change`, list **chỉ từ WS `OPEN`** (loại CLOSING) map qua `deserializeAttachment().socketId`. **D1: hiện KHÔNG client nào emit (WebRTC mesh → Daily.co); GIỮ làm forward-compat rẻ, có comment trong `roomDO.ts`. KHÔNG xoá.** | TB |
+| `rtc-signal` (`index.ts:947-957`) | TARGETED: `io.to(payload.to).emit('rtc-signal',{from,...})` | tra WS theo `deserializeAttachment().socketId === payload.to`, gửi `{from, type, data}`. Không thấy → `rtc-error{reason:'peer-offline'}` cho sender (tránh treo WebRTC). **D1: hiện KHÔNG client nào emit (WebRTC mesh → Daily.co); GIỮ làm forward-compat rẻ, có comment trong `roomDO.ts`. KHÔNG xoá.** | TB |
 | `user-follow` FOLLOW/UNFOLLOW (`index.ts:959-990`) | sub-room `follow@<socketId>`; emit `user-follow-room-change` | Follow-map giữ **trong instance memory** (rebuild lazy 1 lần on-wake từ attachments — KHÔNG scan mọi WS mỗi close); emit `user-follow-room-change` tới followed. Mất khi evict → follower tự re-FOLLOW (không critical) | Dễ |
 | `disconnecting` (`index.ts:992-1013`) | mỗi socket tự recompute `room-user-change`; `broadcast-unfollow` nếu follow room rỗng | `webSocketClose`: xóa khỏi follow map; **debounce `room-user-change` ~250ms** gộp nhiều close (bắt buộc — deploy = N×close đồng thời); nếu followed mất hết follower → `broadcast-unfollow` | **Cao** |
 | `disconnect` (`index.ts:1015-1018`) | remove listeners | DO không cần — runtime tự dọn WS đã đóng | — |
@@ -97,7 +97,7 @@
 | socket.id (server-gen) | ổn định trong 1 session/instance | DO mint `socketId` (UUID) lúc accept, lưu `serializeAttachment({socketId,userId,email,role,joinedAt})` (≤2KB) để sống qua hibernation; client đọc từ `init-room` | TB |
 | Translation cache + rate-limit (`index.ts:46-137,315-848`) | in-memory Map + express-rate-limit (per-IP, 1 instance) | HTTP routes trên Worker, **không qua DO**. cache/rate-limit thành per-isolate (Gemini rẻ). Chi tiết §6 | TB |
 | STT `/stt` (`stt.ts:244-383`) | raw WS proxy ↔ Deepgram, mount cạnh socket.io (`index.ts:855` đã tách non-/stt) | WS proxy riêng trên Worker; Worker route theo `pathname` TRƯỚC `.get()` DO; **không vào RoomDO** | TB |
-| Screen-share LOCK | client-side (`Collab.tsx:2368-2388` early-return), prune (`:1815-1838`) | DO chỉ relay SCREEN_SHARE; lock + prune giữ client-side. KHÔNG đổi DO | — |
+| Screen-share LOCK | client-side: `applyScreenShare` dedup/early-return (`Collab.tsx:2405-2421`, guard `:2407-2413`) + `setScreenShare` broadcast (`:2426-2433`); prune-on-leave (`:1862-1883`, inside room-user-change) | DO chỉ relay SCREEN_SHARE; lock + prune giữ client-side. KHÔNG đổi DO. **(D5 — anchors re-verified 06-17)** | — |
 | Knock (waiting room) | client poll `getMyKnock` ~5s tới Worker | GIỮ HTTP poll. **Thêm:** DO handshake check `meeting_knock.status='admitted'` cho external (§4) | TB |
 | Host election | `joinedAt` nhỏ nhất thắng, qua USER_PROFILE | DO chỉ relay; logic client giữ nguyên (`restoreHostClaimForRoom`, sentinel localStorage) | — |
 | Revoke/kick (06-11) | client poll `getMeetingChecked` 60s → `kickedAtom` (`Collab.tsx:1574-1604`) | **GIỮ poll-60s** (đủ cho August). DO alarm re-check = DEFER (phá hibernation, §10/§D) | — |
@@ -158,7 +158,8 @@ Verify ở Worker **trước `.get()`** → user bị từ chối **không spin 
   - **control** = `ws.send(JSON string)` — `{ev, args}`.
   - **scene/binary** = `ws.send(ArrayBuffer)` — body `[iv:12B][ciphertext]` (cộng 1 header byte/route tối thiểu để gắn event name nếu cần).
   - Nhận: `typeof data==='string'` → control; `instanceof ArrayBuffer` → binary. Ít code, ít bug, dễ maintain hơn `[4B len][JSON][bin]` tự chế.
-- **Encrypt/decrypt KHÔNG đổi:** `_broadcastSocketData` (`Portal.tsx:88-114`) vẫn `encryptData(roomKey,...)`; switch 18 WS_SUBTYPES (`Collab.tsx:1259-1520`) vẫn decrypt y nguyên. DO không thấy plaintext.
+- **Encrypt/decrypt KHÔNG đổi:** `_broadcastSocketData` (`Portal.tsx:88-114`) vẫn `encryptData(roomKey,...)`; switch WS_SUBTYPES (`Collab.tsx:1303-1567`) vẫn decrypt y nguyên. DO không thấy plaintext.
+- **D7 — enum `WS_SUBTYPES` có 19 thành viên** (`app_constants.ts:23-70`): `INVALID_RESPONSE, INIT, UPDATE, MOUSE_LOCATION, IDLE_STATUS, USER_VISIBLE_SCENE_BOUNDS, CHAT, CHAT_REACTION, LIBRARY_FILE, LIBRARY_FILE_DELETE, LIBRARY_FILE_LOCK, RAISE_HAND, SCREEN_SHARE, MEETING_REACTION, STT_SEGMENT, USER_PROFILE, RECORDING_STATE, HOST_COMMAND, AUDIO_STATE`. `INVALID_RESPONSE` được `case`-handle riêng (early `return`) và mọi nhánh còn lại exhaustive → `default: assertNever(decryptedData, null)` (`Collab.tsx:1564-1566`) **PHẢI giữ** làm lưới biên dịch: thêm subtype mới mà quên handle = TypeScript báo lỗi ngay ở `assertNever`. KHÔNG xoá default. (Con số "18" cũ ở P1/§5 = đếm thiếu `INVALID_RESPONSE`.)
 - **`#room=roomId,roomKey` GIỮ NGUYÊN:** roomKey vẫn ở hash fragment (E2E); token Supabase đi riêng qua subprotocol.
 
 **Reconnect/resync (socket.io cho free, raw WS phải tự viết):**
@@ -214,7 +215,7 @@ Verify ở Worker **trước `.get()`** → user bị từ chối **không spin 
 
 - **Canvas sync:** 2 client vẽ/move/delete, so version + thứ tự + nội dung khớp socket.io (deletion cần version bump để broadcast — ref memory collab-gotchas).
 - **Presence:** join/leave list đúng; `first-in-room` chỉ 1 lần/đời phòng (cờ storage, KHÔNG length); `new-user` không double khi reconnect; reconnect KHÔNG full-scene re-broadcast.
-- **Lock share:** 1 người share → người khác early-return (`Collab.tsx:2368-2388`); sharer rớt ngột → prune (`:1815-1838`) không kẹt lock.
+- **Lock share:** 1 người share → người khác early-return (`Collab.tsx:2405-2421`); sharer rớt ngột → prune (`:1862-1883`) không kẹt lock.
 - **Knock:** external denied KHÔNG mở được WS (DO 403); admitted mở được; internal auto.
 - **Reconnect:** kill network 2s → tự reconnect, re-INIT, không desync; deploy Worker → mọi client tự nối lại; debounce `room-user-change` không nhấp nháy.
 - **AI:** /translate, /chatbot, /summarize trả kết quả + rate-limit hoạt động.
@@ -255,6 +256,7 @@ Verify ở Worker **trước `.get()`** → user bị từ chối **không spin 
 **9.3 Tải**
 
 - 1 phòng 100 user: memory DO (~2KB/socket → ~200KB OK < 128MB); fanout 200KB scene × 100 `ws.send` — **đo thật**, nếu chậm thì chunk fanout (`queueMicrotask`) hoặc giới hạn; **đừng hứa 10ms khi chưa đo**.
+- **D6 — 20s full-sync fanout PHẢI nằm trong kịch bản tải:** mỗi client tự `queueBroadcastAllElements` (`Collab.tsx:2021-2033`, throttle `SYNC_FULL_SCENE_INTERVAL_MS=20000`; schedule từ `broadcastElements:1968`) đẩy TOÀN BỘ scene mỗi 20s. → DO nhận **N full-scene/20s** rồi fan-out **N×(N-1)** lần (mỗi full-scene tới N-1 peer). Đây là đỉnh tải binary-relay tệ nhất, **không phải** delta nhỏ — load test §9.3 phải mô phỏng N client × full-scene mỗi 20s đồng thời (không chỉ cursor/delta) để đo backpressure thật trên DO single-thread.
 - 1 phòng 500 user (workshop): kiểm O(N) trên close (follow-map lazy, KHÔNG deserialize mọi WS mỗi close); kiểm giới hạn thật.
 - Eviction test: ép DO evict sau idle → client reconnect trong suốt, presence resync, không mất scene (R2).
 - **Hibernation thật:** phòng idle 10 phút → **0 wake event** trong DO log (không setInterval/alarm/heartbeat rò giữ ấm; `setWebSocketAutoResponse` không wake).
@@ -343,4 +345,71 @@ Tổng lõi kỹ thuật: ~3-4 tuần-người, gói trong July; August = harden
 
 ---
 
-_File neo đã xác minh khớp 100% code thực tế: `room/src/index.ts:855-1019`, `excalidraw-app/collab/Portal.tsx:30-114`, `excalidraw-app/collab/Collab.tsx:1100-1146,1240-1297,1574-1604`; `worker/src/index.ts:146-183,306-372,693-728,3467-3589`._
+## Parity acceptance checklist (Team C)
+
+> GO/NO-GO trước khi bật DO cho một phòng. Mỗi mục = một hành vi thật trên `client-broadcast` switch (`Collab.tsx:1303-1567`, 19 WS_SUBTYPES) hoặc một control-frame của DO. So sánh DO-path với socket.io-path; **bất kỳ NO-GO nào = không cắt.** Re-derived 06-17 từ code thực, không phỏng đoán.
+
+**1. Scene sync**
+- [ ] `INIT` (SCENE_INIT, `:1306-1322`): late-joiner nhận scene đầy đủ 1 lần; `socketInitialized` chống INIT trùng.
+- [ ] `UPDATE` (SCENE_UPDATE, `:1323-1331`): vẽ/move/delete reconcile đúng version + thứ tự; **deletion cần version bump** mới broadcast (ref collab-gotchas).
+- [ ] **20s full-sync** (`queueBroadcastAllElements:2021-2033`): mỗi 20s full-scene fan-out N×(N-1) không gây desync / không nhân đôi version (D6 — cũng vào load test).
+
+**2. Presence**
+- [ ] `first-in-room` (control, `:1571-1590`): CHỈ 1 lần/đời phòng (cờ `roomEverInitialized` storage, KHÔNG length); wake-from-hibernate KHÔNG clear scene người reconnect.
+- [ ] `new-user` (control): peer cũ đẩy lại USER_PROFILE + INIT; KHÔNG double khi reconnect.
+- [ ] `room-user-change` (control): join/leave list đúng; **debounce ~250ms** gộp N×close (deploy) không nhấp nháy.
+- [ ] `USER_PROFILE` (`:1464-1477`): tên/công ty/avatar + `joinedAt` layer đúng lên Collaborator; late-joiner nhận snapshot rebroadcast.
+- [ ] `MOUSE_LOCATION` (`:1332-1366`, volatile): cursor mượt; backpressure-drop khi buffer đầy (không phình vô hạn).
+- [ ] `IDLE_STATUS` (`:1402-1409`): active/idle/away đổi đúng.
+- [ ] `USER_VISIBLE_SCENE_BOUNDS` (`:1368-1400`): chỉ tác động khi đang follow đúng socketId; bỏ qua cross-follow.
+
+**3. Follow**
+- [ ] `user-follow` FOLLOW/UNFOLLOW (control): A follow B → viewport B đẩy tới A.
+- [ ] `user-follow-room-change` (control): followed nhận đúng danh sách follower.
+- [ ] `broadcast-unfollow` (control): B rời / mất hết follower → A nhận unfollow, không treo.
+
+**4. RTC / voice (D1 — kept-but-unused)**
+- [ ] `rtc-signal` + `request-room-clients`: **hiện KHÔNG client nào emit** (WebRTC mesh đã thay bằng Daily.co). Server đã build + test, GIỮ làm forward-compat (comment trong `roomDO.ts`). Verify = **chúng KHÔNG được kích hoạt vô tình**; KHÔNG cần parity hành vi vì không có caller. KHÔNG xoá code/test.
+- [ ] `AUDIO_STATE` (`:1558-1562`): in-call + muted (kể cả self-mute) render đúng icon mic mọi peer real-time.
+
+**5. Locks**
+- [ ] `SCREEN_SHARE` (`:1448-1452`): 1 người share → người khác early-return (`applyScreenShare:2405-2421`); sharer rớt ngột → prune-on-leave (`:1862-1883`) không kẹt lock; media qua Daily.co.
+- [ ] `LIBRARY_FILE_LOCK` (`:1431-1440`): lock/unlock file thư viện mirror lên ảnh canvas tham chiếu file đó.
+
+**6. Chat / reactions / raise-hand**
+- [ ] `CHAT` (`:1411-1414`): tin nhắn tới đúng thứ tự.
+- [ ] `CHAT_REACTION` (`:1416-1419`): reaction áp đúng tin.
+- [ ] `MEETING_REACTION` (`:1454-1457`): emoji nổi ephemeral, tự hết hạn, bounded list.
+- [ ] `RAISE_HAND` (`:1442-1446`): badge sticky tới khi hạ; prune khi peer rời (`:1845-1859`).
+
+**7. STT**
+- [ ] `STT_SEGMENT` (`:1459-1462`): subtitle finalized đi đường `client-broadcast` (E2E qua roomKey), giữ thứ tự per-sender (DO single-thread); `/stt` proxy KHÔNG chạm RoomDO.
+
+**8. Recording**
+- [ ] `RECORDING_STATE` (`:1479-1493`): banner "Đang ghi âm" + elapsed timer (startedAt) đúng cho late-joiner; host id check ở render-time.
+
+**9. Knock / auth**
+- [ ] External `denied`/`invited` (chưa admitted) → DO handshake **403, KHÔNG mở WS** (§4).
+- [ ] External `admitted` → 101; internal staff + admin auto skip knock.
+- [ ] JWT hết hạn/sai audience → 401; canSeeMeeting fail → 403; WS-count cap → 403.
+- [ ] **Finished = read-only (D3):** phòng `finished` → handshake **409**, reviewer KHÔNG relay được.
+- [ ] Subprotocol: token = segment KHÁC `mcm.v1`; server echo `mcm.v1` (KHÔNG echo JWT) trên 101 (M1).
+- [ ] `init-room` mang `args:[{socketId}]`; client đọc `args[0].socketId` set `.id` (M2).
+- [ ] `realtime_backend` (do|socketio) đọc end-to-end; absent/null → `socketio` (non-breaking) (M3).
+
+**10. Reconnect**
+- [ ] Kill network 2s → tự reconnect (backoff+jitter), re-`join-room`, re-INIT, KHÔNG desync.
+- [ ] Deploy Worker → mọi client tự nối lại; KHÔNG `Portal.close()` (giữ `broadcastedElementVersions`) → KHÔNG full-scene re-broadcast bão.
+- [ ] DO mint socketId mới mỗi accept → host dedup bằng `joinedAt`, KHÔNG socketId.
+
+**11. Host command / AI**
+- [ ] `HOST_COMMAND` (`:1495-1556`): END_MEETING verify qua registry (finished); KICK chỉ từ elected host hoặc `fromAuthority`; MUTE/UNMUTE target-scoped tự self-mute.
+- [ ] AI: `/translate`, `/chatbot`, `/summarize` trả kết quả + rate-limit (per-isolate) hoạt động.
+
+**12. Library-file**
+- [ ] `LIBRARY_FILE` (`:1421-1424`) + `LIBRARY_FILE_DELETE` (`:1426-1429`): file thư viện qua **R2-by-reference** (KHÔNG inline >1MiB); add/delete đồng bộ; test 30MB+.
+- [ ] `INVALID_RESPONSE` (`:1304-1305`): early-return, không vỡ switch; `default: assertNever` (`:1564-1566`) giữ làm lưới biên dịch (D7).
+
+---
+
+_File neo đã xác minh khớp 100% code thực tế: `room/src/index.ts:855-1019`, `excalidraw-app/collab/Portal.tsx:30-114`, `excalidraw-app/collab/Collab.tsx:1100-1146,1303-1567,1571-1604`; `worker/src/index.ts:146-183,306-372,693-728,3467-3589,4429-4577`; `worker/src/roomDO.ts`; `excalidraw-app/collab/RawWsTransport.ts`; `excalidraw-app/data/projects.ts:340-393`._

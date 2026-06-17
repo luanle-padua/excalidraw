@@ -27,6 +27,13 @@ import type { Socket } from "socket.io-client";
 
 class Portal {
   collab: TCollabClass;
+  // The realtime transport. Either a real socket.io `Socket` (legacy Fly
+  // relay) OR a `RawWsTransport` cast to `Socket` (Cloudflare Durable Object
+  // backend — DO migration §5). Both expose the same slice used here
+  // (.on/.off/.emit/.id/.close), so every method below is transport-agnostic;
+  // the encrypted wire payload `(event, roomId, encryptedBuffer, iv)` is
+  // identical on both. Which one is chosen is decided per-meeting in
+  // Collab.startCollaboration from the server `realtime_backend` flag.
   socket: Socket | null = null;
   socketInitialized: boolean = false; // we don't want the socket to emit any updates until it is fully initialized
   roomId: string | null = null;

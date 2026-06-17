@@ -136,6 +136,7 @@ import {
   getMeeting,
   getMeetingChecked,
   registerMeeting,
+  resolveRealtimeBackend,
 } from "../data/projects";
 import { isInternalEmail, sessionAtom } from "../data/session";
 
@@ -163,8 +164,11 @@ import { audioRoomInstanceAtom, audioStateAtom } from "../audio/audioState";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
+import { RawWsTransport } from "./RawWsTransport";
 
+import type { RealtimeBackend } from "../data/projects";
 import type { TranscriptSegment } from "../data/transcription";
+import type { Socket } from "socket.io-client";
 
 import type { MeetingFile } from "../data/meetingLibrary";
 
@@ -959,6 +963,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
     let roomId;
     let roomKey;
+    // RUNTIME per-meeting realtime backend (DO migration §7.1). Resolved from
+    // the meeting metadata the client already fetches below — NOT from
+    // import.meta.env (a build-time flag would let two differently-built
+    // clients in one room pick different backends → silent scene split-brain).
+    // Defaults to "socketio": an unregistered ad-hoc room, or a meeting the
+    // server hasn't opted into DO, keeps the legacy transport (NON-BREAKING).
+    let realtimeBackend: RealtimeBackend = "socketio";
 
     if (existingRoomLinkData) {
       ({ roomId, roomKey } = existingRoomLinkData);
@@ -1001,6 +1012,9 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         // `not-found` = genuinely unregistered ad-hoc room → editable
         // pass-through, same as before.
         const reg = fetched.kind === "found" ? fetched.meeting : null;
+        // Pick the realtime transport for THIS meeting (server-driven, so all
+        // peers agree). Absent/"socketio" → legacy Fly relay; "do" → RoomDO.
+        realtimeBackend = resolveRealtimeBackend(reg);
         const gateStatus = normalizeMeetingStatus(reg?.status);
         if (gateStatus === "scheduled" || gateStatus === "cancelled") {
           appJotaiStore.set(startGateAtom, {
@@ -1097,10 +1111,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.setIsCollaborating(true);
     LocalData.pauseSave("collaboration");
 
-    const { default: socketIOClient } = await import(
-      /* webpackChunkName: "socketIoClient" */ "socket.io-client"
-    );
-
     const fallbackInitializationHandler = () => {
       this.initializeRoom({
         roomLinkData: existingRoomLinkData,
@@ -1112,18 +1122,47 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.fallbackInitializationHandler = fallbackInitializationHandler;
 
     try {
-      // In tunnel mode, ignore VITE_APP_WS_SERVER_URL (which still defaults to
-      // localhost:3002 via .env.development) and connect to current origin so
-      // socket.io requests get proxied through the tunnel back to the room.
+      // ── REALTIME TRANSPORT SWAP (DO migration §5) ──────────────────────────
+      // Per-meeting runtime flag (resolved above from the server's meeting
+      // metadata) chooses the transport. Everything downstream — Portal.open,
+      // encrypt, the 18-subtype client-broadcast switch, host election — is
+      // byte-identical for both, because RawWsTransport mimics the slice of the
+      // socket.io Socket surface the app uses. socket.io stays the DEFAULT and
+      // the import is kept so an instant per-meeting rollback ('do' → 'socketio')
+      // needs no redeploy (plan §7.4).
       const tunnelMode = import.meta.env.VITE_DEV_TUNNEL === "true";
-      const wsServerUrl = tunnelMode
-        ? ""
-        : import.meta.env.VITE_APP_WS_SERVER_URL;
-      const wsOptions = { transports: ["websocket", "polling"] };
-      const socket = wsServerUrl
-        ? socketIOClient(wsServerUrl, wsOptions)
-        : socketIOClient(wsOptions);
-      this.portal.socket = this.portal.open(socket, roomId, roomKey);
+      let socket: Socket;
+      if (realtimeBackend === "do") {
+        // RoomDO is hosted on the mcm-storage Worker → use the storage URL as
+        // the WS base (same-origin "" in tunnel mode). The Supabase token is
+        // attached inside RawWsTransport via the WS subprotocol, not a query
+        // param. #room=roomId,roomKey stays in the hash (E2E); roomKey is never
+        // sent to the server.
+        const wsBase = tunnelMode
+          ? ""
+          : (import.meta.env.VITE_APP_STORAGE_URL as string | undefined) || "";
+        const transport = new RawWsTransport({ wsBase, roomId });
+        // Cast: RawWsTransport is a structural stand-in for the socket.io
+        // Socket surface the app touches, not a real socket.io socket.
+        socket = transport as unknown as Socket;
+        this.portal.socket = this.portal.open(socket, roomId, roomKey);
+        transport.connect();
+      } else {
+        // In tunnel mode, ignore VITE_APP_WS_SERVER_URL (which still defaults to
+        // localhost:3002 via .env.development) and connect to current origin so
+        // socket.io requests get proxied through the tunnel back to the room.
+        const { default: socketIOClient } = await import(
+          /* webpackChunkName: "socketIoClient" */ "socket.io-client"
+        );
+        const wsServerUrl = tunnelMode
+          ? ""
+          : import.meta.env.VITE_APP_WS_SERVER_URL;
+        const wsOptions = { transports: ["websocket", "polling"] };
+        socket = wsServerUrl
+          ? socketIOClient(wsServerUrl, wsOptions)
+          : socketIOClient(wsOptions);
+        this.portal.socket = this.portal.open(socket, roomId, roomKey);
+      }
 
       // If we previously claimed host for THIS roomId, re-apply the
       // sentinel joinedAt BEFORE the first USER_PROFILE broadcast so
@@ -1142,6 +1181,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       };
       setIdFromSocket();
       this.portal.socket.on("connect", setIdFromSocket);
+      // DO parity: RawWsTransport's connection id is assigned from the
+      // `init-room` control frame (the DO mints it post-accept), which lands
+      // AFTER "connect" — so refresh the id atom on init-room too. Harmless on
+      // socket.io (id is already set; idempotent) and re-applies after every
+      // reconnect (the DO re-sends init-room each accept). (plan §5)
+      this.portal.socket.on("init-room", setIdFromSocket);
 
       this.portal.socket.once("connect_error", fallbackInitializationHandler);
     } catch (error: any) {

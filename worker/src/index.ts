@@ -35,8 +35,13 @@ import { cors } from "hono/cors";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 import { guestInviteEmail, sendEmail } from "./email";
+import { RoomDO } from "./roomDO";
 
 import type { MiddlewareHandler } from "hono";
+
+// Re-export the Durable Object class so the runtime can instantiate the
+// `ROOM` binding declared in wrangler.jsonc.
+export { RoomDO };
 
 type Bindings = {
   BUCKET: R2Bucket;
@@ -63,6 +68,13 @@ type Bindings = {
   // quick-tunnel are always allowed; everything else is rejected. Plain var in
   // wrangler.jsonc, e.g. "https://app.mapgroup.co.kr".
   ALLOWED_ORIGINS?: string;
+  // Durable Object binding for the realtime relay (one DO instance per room).
+  // The WS upgrade at GET /rooms/:roomId/ws is auth-gated at the Worker then
+  // routed to env.ROOM.idFromName(roomId).get(). See docs/plans/
+  // durable-objects-migration.md and src/roomDO.ts.
+  ROOM: DurableObjectNamespace;
+  // Max concurrent WebSockets per room — handshake cap (§4, R14). Plain var.
+  ROOM_WS_CAP?: string;
 };
 
 // CORS origin check (B6, 06-17). The real risk is a random website riding a
@@ -1665,6 +1677,7 @@ app.get("/v1/meetings/:roomId", async (c) => {
             m.created_by, m.room_key, m.scene_r2_key,
             m.scene_updated_at, m.thumbnail, m.participant_count, m.duration_s,
             m.ai_summary, m.ai_summary_at, m.color, m.icon,
+            m.realtime_backend,
             m.created_at, m.updated_at, m.last_opened_at,
             p.name AS project_name, p.stage AS project_stage
      FROM meeting m LEFT JOIN project p ON p.id = m.project_id
@@ -4394,4 +4407,243 @@ app.get("/v1/portal/backdrops/:id/image", async (c) => {
   });
 });
 
-export default app;
+// ===========================================================================
+// Realtime WebSocket gate — GET /rooms/:roomId/ws  (Durable Objects migration)
+// ===========================================================================
+//
+// This is the AUTH HANDSHAKE that closes 1b/B12: socket.io relayed scene bytes
+// to ANYONE who knew the roomId (room/src/index.ts:863-920, cors origin:'*',
+// no verify). The DO transport instead verifies, AT THE WORKER, BEFORE
+// env.ROOM.get() and BEFORE returning 101:
+//   1. Supabase JWT (token from Sec-WebSocket-Protocol; ?token= fallback)
+//   2. canSeeMeeting(DB, email, role, roomId)
+//   3. knock 'admitted' for external (role≠admin && !isInternalEmail)
+//   4. WS-count cap (RPC to the DO) < N
+// FAIL → 401/403 (NEVER 101). The DO re-trusts the identity we pass in headers
+// (no JWKS in the DO hot path). See plan §4.
+//
+// Run BEFORE Hono /v1 handling via a pathname route-split in the default
+// fetch() export below. /stt is reserved for a separate split (STT proxy, not
+// migrated here) so a /stt upgrade never reaches RoomDO (plan §6).
+
+/** The protocol marker the client always sends first so the server has a
+ *  valid, echo-able subprotocol even on an anonymous (token-less) attempt.
+ *  Mirrors RawWsTransport's `["mcm.v1", token]`. It is NEVER the JWT. */
+const REALTIME_PROTOCOL_MARKER = "mcm.v1";
+
+/** Pull the bearer token for the WS handshake. Sec-WebSocket-Protocol is
+ *  preferred (query params leak into logs/referrers, R7). The client sends
+ *  `Sec-WebSocket-Protocol: mcm.v1, <jwt>` — so the TOKEN is the segment that
+ *  is NOT the "mcm.v1" marker, and we MUST echo the MARKER (never the token)
+ *  back on the 101 or the browser fails the handshake. (M1) */
+const realtimeToken = (
+  req: Request,
+): { token: string; subprotocol: string | null } => {
+  const proto = req.headers.get("Sec-WebSocket-Protocol");
+  if (proto) {
+    const segments = proto
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    // The token is the first segment that isn't the protocol marker.
+    const token = segments.find((s) => s !== REALTIME_PROTOCOL_MARKER) ?? "";
+    if (token) {
+      // Echo the marker (if the client offered it) so we never leak the JWT
+      // back in the 101 response header. Fall back to the marker regardless —
+      // it's the protocol both sides agreed on.
+      const subprotocol = segments.includes(REALTIME_PROTOCOL_MARKER)
+        ? REALTIME_PROTOCOL_MARKER
+        : null;
+      return { token, subprotocol };
+    }
+  }
+  const url = new URL(req.url);
+  const qp = url.searchParams.get("token");
+  return { token: qp ?? "", subprotocol: null };
+};
+
+type RealtimeIdentity = { sub: string; email: string; role: string };
+
+/** Verify the Supabase JWT for the WS handshake. Mirrors the /v1 middleware
+ *  (src/index.ts:146-183) — same offline ES256 JWKS verify, issuer + audience.
+ *  Returns the identity or null on any failure (caller maps to 401). */
+export const verifyRealtimeJwt = async (
+  token: string,
+  env: Bindings,
+): Promise<RealtimeIdentity | null> => {
+  if (!env.SUPABASE_URL || !token) {
+    return null;
+  }
+  const issuer = `${env.SUPABASE_URL}/auth/v1`;
+  if (!jwks) {
+    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+  }
+  try {
+    const { payload } = await jwtVerify(token, jwks, {
+      issuer,
+      audience: "authenticated",
+    });
+    const appMeta = payload.app_metadata as { role?: unknown } | undefined;
+    return {
+      sub: String(payload.sub ?? ""),
+      email: typeof payload.email === "string" ? payload.email : "",
+      role: typeof appMeta?.role === "string" ? appMeta.role : "",
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Handle the realtime WS upgrade. Returns a Response (101 on success, 401/403
+ * on auth failure, 4xx on bad request). NEVER returns 101 unless every gate
+ * passes (plan §4).
+ */
+export const handleRealtimeUpgrade = async (
+  request: Request,
+  env: Bindings,
+  roomId: string,
+): Promise<Response> => {
+  if (request.headers.get("Upgrade") !== "websocket") {
+    return new Response("expected websocket upgrade", { status: 426 });
+  }
+  if (!roomId) {
+    return new Response("missing roomId", { status: 400 });
+  }
+  if (!env.SUPABASE_URL) {
+    return new Response("auth not configured", { status: 503 });
+  }
+
+  // 1) JWT.
+  const { token, subprotocol } = realtimeToken(request);
+  const identity = await verifyRealtimeJwt(token, env);
+  if (!identity) {
+    return new Response("unauthorized", { status: 401 });
+  }
+
+  // Keep the internal-domain list warm — the knock check below depends on it.
+  await refreshInternalDomains(env.DB);
+
+  // 2) canSeeMeeting — same membership authz as the REST routes (:306-372).
+  const canSee = await canSeeMeeting(
+    env.DB,
+    identity.email,
+    identity.role,
+    roomId,
+  );
+  if (!canSee) {
+    return new Response("forbidden", { status: 403 });
+  }
+
+  // 2b) Finished = immutable review (D3). A finished meeting is read-only; a
+  //     reviewer must NOT be able to relay scene/cursor bytes into a frozen
+  //     room. Mirror the Daily-token endpoint's isFinishedLocked gate (:3508)
+  //     and reject the upgrade with 409 (NEVER 101) — same status the REST
+  //     write routes return on a locked room.
+  if (await isFinishedLocked(env.DB, roomId)) {
+    return new Response("meeting is finished (read-only)", { status: 409 });
+  }
+
+  // 3) Knock gate for EXTERNAL users (mirrors the Daily-token gate :3502-3514):
+  //    a guest with the roomKey but a non-admitted knock must NOT relay scene
+  //    bytes. Internal staff + admins skip (they auto-admit, never knock).
+  if (identity.role !== "admin" && !isInternalEmail(identity.email)) {
+    const knock = await env.DB.prepare(
+      `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
+    )
+      .bind(roomId, identity.email.toLowerCase())
+      .first<{ status: string | null }>();
+    if (knock?.status !== "admitted") {
+      return new Response("not admitted to this meeting", { status: 403 });
+    }
+  }
+
+  // 4) WS-count cap — RPC to the DO for the live connection count. Over cap →
+  //    403 (anti-DDoS, spam-open WS, R14). Done BEFORE accepting the socket.
+  const id = env.ROOM.idFromName(roomId);
+  const stub = env.ROOM.get(id);
+  const cap = Number(env.ROOM_WS_CAP ?? "500") || 500;
+  try {
+    const countRes = await stub.fetch("https://room.internal/__count", {
+      method: "GET",
+    });
+    if (countRes.ok) {
+      const { count } = (await countRes.json()) as { count: number };
+      if (typeof count === "number" && count >= cap) {
+        return new Response("room is full", { status: 403 });
+      }
+    }
+  } catch {
+    // Count RPC failed — fail open on the cap only (auth already passed); the
+    // DO is the source of truth and will still accept. Do NOT 101-bypass auth.
+  }
+
+  // OK → forward the upgrade to the DO, carrying the RE-TRUSTED identity in
+  // headers (the DO does NOT re-verify JWKS in its hot path, plan §4).
+  const fwd = new Request(request);
+  fwd.headers.set("x-mcm-sub", identity.sub);
+  fwd.headers.set("x-mcm-email", identity.email);
+  fwd.headers.set("x-mcm-role", identity.role);
+  const res = await stub.fetch(fwd);
+
+  // Echo the accepted subprotocol so the browser handshake succeeds (the token
+  // rode as the subprotocol; without echoing it back the WS open() rejects).
+  if (res.status === 101 && subprotocol) {
+    const headers = new Headers(res.headers);
+    headers.set("Sec-WebSocket-Protocol", subprotocol);
+    return new Response(res.body, {
+      status: 101,
+      statusText: res.statusText,
+      headers,
+      webSocket: (res as unknown as { webSocket?: WebSocket }).webSocket,
+    });
+  }
+  return res;
+};
+
+// Default Worker entrypoint. Route-split by pathname BEFORE Hono so the WS
+// upgrades never enter the Hono /v1 pipeline (plan §2/§6):
+//   /rooms/:roomId/ws → [AUTH GATE] → RoomDO
+//   /stt              → reserved (STT WS proxy, added with the AI migration;
+//                        split here so it can NEVER hit RoomDO)
+//   everything else   → Hono app (REST /v1)
+export default {
+  async fetch(
+    request: Request,
+    env: Bindings,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // Liveness probe (D2). The Fly room server exposed a bare GET /health;
+    // uptime monitors point at it. Answer the SAME path here in the route-split
+    // (before Hono, which only serves /v1/health) so the cutover off Fly
+    // doesn't trip the monitors. Cheap, unauthenticated, no DB touch.
+    if (path === "/health" && request.method === "GET") {
+      return new Response("ok", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      });
+    }
+
+    // Realtime: /rooms/:roomId/ws
+    const roomMatch = /^\/rooms\/([^/]+)\/ws\/?$/.exec(path);
+    if (roomMatch) {
+      return handleRealtimeUpgrade(
+        request,
+        env,
+        decodeURIComponent(roomMatch[1]),
+      );
+    }
+
+    // STT split reserved (not migrated in this change). Returning 501 here
+    // documents the split point and guarantees a /stt upgrade never falls
+    // through to RoomDO or the REST app.
+    if (path === "/stt" || path.startsWith("/stt/")) {
+      return new Response("stt proxy not yet on worker", { status: 501 });
+    }
+
+    return app.fetch(request, env, ctx);
+  },
+};
