@@ -172,6 +172,16 @@ type Variables = {
   role?: string;
 };
 
+// Role tiers (spec docs/specs/chairman-account.md §1.4). The `owner` role is the
+// developer super-admin that sits ABOVE chairman/admin: it has OPERATIONAL
+// SUPREMACY, i.e. EVERY admin power, plus sole role-provisioning. `isAdminish`
+// is the single predicate every admin-equivalent authorization check funnels
+// through, so an `owner` JWT passes every gate `admin` does WITHOUT weakening
+// any existing check (owner is strictly additive). The `chairman` role is NOT
+// built yet (forward-looking, see spec §1.1) — it is intentionally absent here.
+const isAdminish = (role: string | undefined): boolean =>
+  role === "admin" || role === "owner";
+
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // CORS (B6, 06-17): allowlist instead of wildcard. localhost / *.pages.dev /
@@ -291,7 +301,21 @@ app.route("/", aiRoutes);
 // /v1/admin/* requires the "admin" role (Supabase app_metadata.role, carried in
 // the verified JWT). Runs AFTER the JWT middleware above, so the role is set.
 app.use("/v1/admin/*", async (c, next) => {
-  if (c.get("role") !== "admin") {
+  if (!isAdminish(c.get("role"))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  return next();
+});
+
+// ---- Owner gate ----------------------------------------------------------
+// /v1/owner/* is STRICTLY owner-only — the developer super-admin tier above
+// admin/chairman (spec docs/specs/chairman-account.md §1.4). Note this is a
+// stricter gate than /v1/admin/* (which an owner ALSO passes via isAdminish);
+// these are the future owner-exclusive routes (reading chairman_audit, role
+// provisioning surfaces, etc.). No such routes exist yet — this is the thin
+// gate stub so they land behind the right tier from day one.
+app.use("/v1/owner/*", async (c, next) => {
+  if (c.get("role") !== "owner") {
     return c.json({ error: "forbidden" }, 403);
   }
   return next();
@@ -414,7 +438,7 @@ const canSeeMeeting = async (
   role: string | undefined,
   roomId: string,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   if (!email) {
@@ -492,7 +516,7 @@ const projectAccess = async (
   role: string | undefined,
   projectId: string,
 ): Promise<ProjectAccess> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return "full";
   }
   if (!email) {
@@ -566,7 +590,7 @@ const canManageProject = async (
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   const me = email?.toLowerCase();
@@ -612,7 +636,7 @@ const isProjectLeadership = async (
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   const me = email?.toLowerCase();
@@ -650,7 +674,7 @@ const isDivisionHeadOfProject = async (
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   const me = email?.toLowerCase();
@@ -682,7 +706,7 @@ const canCreateProject = async (
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   const me = email?.toLowerCase();
@@ -758,7 +782,7 @@ const isMeetingManager = async (
   email: string | undefined,
   role: string | undefined,
 ): Promise<boolean> => {
-  if (role === "admin") {
+  if (isAdminish(role)) {
     return true;
   }
   const me = email?.toLowerCase();
@@ -811,7 +835,7 @@ const roomGate: MiddlewareHandler<{
   // with externals separately (later phase). Checked only for guests so the
   // common internal path pays no extra query.
   const email = c.get("email");
-  if (roomId && c.get("role") !== "admin" && !isInternalEmail(email)) {
+  if (roomId && !isAdminish(c.get("role")) && !isInternalEmail(email)) {
     const row = await c.env.DB.prepare(
       `SELECT status FROM meeting WHERE id = ?1`,
     )
@@ -1125,7 +1149,7 @@ app.post("/v1/projects", async (c) => {
 // Guests never get folders; their surface stays /v1/me/invitations.
 app.get("/v1/projects", async (c) => {
   const host = c.req.query("host");
-  const isAdmin = c.get("role") === "admin";
+  const isAdmin = isAdminish(c.get("role"));
   const cols = `id, name, host_email, leader_email, lead_division_id, code, client, location, stage, type, branch, cover, description, color, icon, created_at, updated_at`;
   if (isAdmin) {
     const stmt = host
@@ -1336,7 +1360,7 @@ app.patch("/v1/projects/:id", async (c) => {
 app.delete("/v1/projects/:id", async (c) => {
   const id = c.req.param("id");
   const email = c.get("email");
-  const isAdmin = c.get("role") === "admin";
+  const isAdmin = isAdminish(c.get("role"));
   if (!(await isProjectLeadership(c.env.DB, id, email, c.get("role")))) {
     return c.json({ error: "leadership only" }, 403);
   }
@@ -1565,7 +1589,7 @@ app.patch("/v1/projects/:id/leader", async (c) => {
 // on the wire for back-compat but confers NO power since 06-16 (admin = head
 // only); the client ignores it. Guests get nothing.
 app.get("/v1/divisions", async (c) => {
-  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+  if (!(isAdminish(c.get("role")) || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
@@ -1605,7 +1629,7 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
                           AND mi.status <> 'revoked'))`;
   const stmt =
     access === "full"
-      ? c.get("role") === "admin"
+      ? isAdminish(c.get("role"))
         ? c.env.DB.prepare(
             `SELECT ${cols} FROM meeting m
              WHERE m.project_id = ?1 ORDER BY m.updated_at DESC`,
@@ -1646,7 +1670,7 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
 app.post("/v1/meetings", async (c) => {
   // Creating meetings is an INTERNAL action (mọi user nội bộ tạo được —
   // guests never create; they only join what they're invited to).
-  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+  if (!(isAdminish(c.get("role")) || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const b = await c.req.json<{
@@ -1799,7 +1823,7 @@ app.get("/v1/meetings/:roomId", async (c) => {
   const org = (row.organizer_email as string | null)?.toLowerCase();
   const hostEmail = (row.host_email as string | null)?.toLowerCase();
   let viewer_is_authority =
-    c.get("role") === "admin" || (!!me && (me === org || me === hostEmail));
+    isAdminish(c.get("role")) || (!!me && (me === org || me === hostEmail));
   if (!viewer_is_authority && me) {
     viewer_is_authority = await isMeetingProjectAuthority(
       c.env.DB,
@@ -1888,7 +1912,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
       b.status = next;
     }
     const role = c.get("role");
-    if (role !== "admin") {
+    if (!isAdminish(role)) {
       const row = await c.env.DB.prepare(
         `SELECT status, organizer_email, host_email FROM meeting WHERE id = ?1`,
       )
@@ -2068,7 +2092,7 @@ app.patch("/v1/meetings/:roomId", async (c) => {
 // (immutable) by the time the summary lands, and the summary is derived data,
 // not meeting content. Internal-only; roomGate already vetted visibility.
 app.post("/v1/meetings/:roomId/summary", async (c) => {
-  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+  if (!(isAdminish(c.get("role")) || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const roomId = c.req.param("roomId");
@@ -2079,7 +2103,7 @@ app.post("/v1/meetings/:roomId/summary", async (c) => {
   // The auto-summary at End-for-all writes ONCE (ai_summary was NULL). A
   // reviewer must not regenerate-and-overwrite the stored recap — restrict
   // the write to the still-empty case. Admin bypasses for ops/repair.
-  const isAdmin = c.get("role") === "admin";
+  const isAdmin = isAdminish(c.get("role"));
   const res = await c.env.DB.prepare(
     isAdmin
       ? `UPDATE meeting SET ai_summary = ?2, ai_summary_at = ?3 WHERE id = ?1`
@@ -2256,7 +2280,7 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
   if (!meeting) {
     return c.json({ error: "not found" }, 404);
   }
-  if (role !== "admin") {
+  if (!isAdminish(role)) {
     if (normalizeStatus(meeting.status) === "finished") {
       return c.json({ error: "meeting is finished (immutable)" }, 409);
     }
@@ -2282,7 +2306,7 @@ app.delete("/v1/meetings/:roomId/invitees/:email", async (c) => {
 app.post("/v1/guests", async (c) => {
   const email = c.get("email");
   const role = c.get("role");
-  if (!(role === "admin" || isInternalEmail(email))) {
+  if (!(isAdminish(role) || isInternalEmail(email))) {
     return c.json({ ok: false, error: "forbidden" }, 403);
   }
   const cr = adminCreds(c);
@@ -2344,7 +2368,7 @@ app.post("/v1/guests", async (c) => {
 app.post("/v1/guests/send-invite", async (c) => {
   const email = c.get("email");
   const role = c.get("role");
-  if (!(role === "admin" || isInternalEmail(email))) {
+  if (!(isAdminish(role) || isInternalEmail(email))) {
     return c.json({ ok: false, error: "forbidden" }, 403);
   }
   const b = await c.req
@@ -2767,25 +2791,24 @@ app.get("/v1/me/project-guests", async (c) => {
   const email = c.get("email");
   const role = c.get("role");
   const me = email?.toLowerCase();
-  if (role !== "admin" && !me) {
+  if (!isAdminish(role) && !me) {
     return c.json({ error: "forbidden" }, 403);
   }
   // Admin → all active guests across every project. Else → only guests whose
   // project_id is one the caller MANAGES (the EXISTS subquery mirrors
   // canManageProject — role owner/manager — applied per row).
-  const { results } =
-    role === "admin"
-      ? await c.env.DB.prepare(
-          `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
+  const { results } = isAdminish(role)
+    ? await c.env.DB.prepare(
+        `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
                   pg.label, pg.real_email, pg.company, pg.phone, pg.address,
                   pg.country, pg.logo_key, pg.status, pg.created_at
              FROM project_guest pg
              JOIN project p ON p.id = pg.project_id
             WHERE pg.status = 'active'
             ORDER BY p.name COLLATE NOCASE, pg.created_at DESC`,
-        ).all()
-      : await c.env.DB.prepare(
-          `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
+      ).all()
+    : await c.env.DB.prepare(
+        `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
                   pg.label, pg.real_email, pg.company, pg.phone, pg.address,
                   pg.country, pg.logo_key, pg.status, pg.created_at
              FROM project_guest pg
@@ -2797,9 +2820,9 @@ app.get("/v1/me/project-guests", async (c) => {
                    AND pm.role IN ('owner','manager')
               )
             ORDER BY p.name COLLATE NOCASE, pg.created_at DESC`,
-        )
-          .bind(me)
-          .all();
+      )
+        .bind(me)
+        .all();
   return c.json({
     guests: (results as Record<string, unknown>[]).map((g) => ({
       ...g,
@@ -2823,7 +2846,7 @@ app.delete("/v1/meetings/:roomId", async (c) => {
   if (!meeting) {
     return c.json({ error: "not found" }, 404);
   }
-  if (role !== "admin") {
+  if (!isAdminish(role)) {
     if (normalizeStatus(meeting.status) !== "cancelled") {
       return c.json({ error: "only a cancelled meeting can be deleted" }, 409);
     }
@@ -2843,7 +2866,7 @@ app.delete("/v1/meetings/:roomId", async (c) => {
 // revoked rows render struck-through/auditable rather than vanishing).
 // Internal staff + admins (same visibility rule as inviting).
 app.get("/v1/meetings/:roomId/invitees", async (c) => {
-  if (!(c.get("role") === "admin" || isInternalEmail(c.get("email")))) {
+  if (!(isAdminish(c.get("role")) || isInternalEmail(c.get("email")))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
@@ -2889,7 +2912,7 @@ app.post("/v1/meetings/:roomId/knock", async (c) => {
   }
   // Internal staff + admins auto-admit and must never sit in the waiting room —
   // they have no knock row, so a knock here is a client-side bug.
-  if (isInternalEmail(email) || role === "admin") {
+  if (isInternalEmail(email) || isAdminish(role)) {
     return c.json(
       { error: "internal users do not knock", status: "admitted" },
       409,
@@ -3098,7 +3121,7 @@ app.post("/v1/me/invitations/:meetingId/respond", async (c) => {
 // the Supabase service key server-side; only minimal fields are returned.
 app.get("/v1/directory", async (c) => {
   const me = c.get("email");
-  if (!(c.get("role") === "admin" || isInternalEmail(me))) {
+  if (!(isAdminish(c.get("role")) || isInternalEmail(me))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const cr = adminCreds(c);
@@ -3136,7 +3159,7 @@ app.get("/v1/directory", async (c) => {
     };
     for (const u of users) {
       // internal humans only — skip externals + the admin console account.
-      if (!isInternalEmail(u.email) || u.app_metadata?.role === "admin") {
+      if (!isInternalEmail(u.email) || isAdminish(u.app_metadata?.role)) {
         continue;
       }
       // Avatar: only the small "lib:NN.png" gallery refs ride along (that's
@@ -3172,7 +3195,7 @@ app.get("/v1/directory", async (c) => {
 const canManageClients = (
   email: string | undefined,
   role: string | undefined,
-): boolean => role === "admin" || isInternalEmail(email);
+): boolean => isAdminish(role) || isInternalEmail(email);
 
 // List clients (newest first). SCOPED: admin sees EVERY card (full oversight);
 // a regular staff member sees ONLY the cards they themselves added
@@ -3188,19 +3211,18 @@ app.get("/v1/clients", async (c) => {
   if (!canManageClients(me, role)) {
     return c.json({ error: "forbidden" }, 403);
   }
-  const { results } =
-    role === "admin"
-      ? await c.env.DB.prepare(
-          `SELECT id, name, company, email, note, created_by, created_at
+  const { results } = isAdminish(role)
+    ? await c.env.DB.prepare(
+        `SELECT id, name, company, email, note, created_by, created_at
              FROM client ORDER BY created_at DESC LIMIT 500`,
-        ).all()
-      : await c.env.DB.prepare(
-          `SELECT id, name, company, email, note, created_by, created_at
+      ).all()
+    : await c.env.DB.prepare(
+        `SELECT id, name, company, email, note, created_by, created_at
              FROM client WHERE lower(created_by) = ?1
             ORDER BY created_at DESC LIMIT 500`,
-        )
-          .bind(me?.toLowerCase() ?? "")
-          .all();
+      )
+        .bind(me?.toLowerCase() ?? "")
+        .all();
   return c.json({ clients: results });
 });
 
@@ -3267,16 +3289,13 @@ app.delete("/v1/clients/:id", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const id = c.req.param("id");
-  const res =
-    role === "admin"
-      ? await c.env.DB.prepare(`DELETE FROM client WHERE id = ?1`)
-          .bind(id)
-          .run()
-      : await c.env.DB.prepare(
-          `DELETE FROM client WHERE id = ?1 AND lower(created_by) = ?2`,
-        )
-          .bind(id, me?.toLowerCase() ?? "")
-          .run();
+  const res = isAdminish(role)
+    ? await c.env.DB.prepare(`DELETE FROM client WHERE id = ?1`).bind(id).run()
+    : await c.env.DB.prepare(
+        `DELETE FROM client WHERE id = ?1 AND lower(created_by) = ?2`,
+      )
+        .bind(id, me?.toLowerCase() ?? "")
+        .run();
   if (!res.meta.changes) {
     return c.json({ error: "not found" }, 404);
   }
@@ -3293,7 +3312,7 @@ app.delete("/v1/clients/:id", async (c) => {
 // /v1/me/invitations, which is the client-facing "invited to" list only.
 app.get("/v1/me/meetings", async (c) => {
   const email = c.get("email");
-  const isAdmin = c.get("role") === "admin";
+  const isAdmin = isAdminish(c.get("role"));
   if (!email && !isAdmin) {
     return c.json({ meetings: [] });
   }
@@ -3422,7 +3441,7 @@ const MAX_USER_FILE_BYTES = 50 * 1024 * 1024;
 
 app.get("/v1/me/files", async (c) => {
   const email = c.get("email")?.toLowerCase();
-  if (!email || !(c.get("role") === "admin" || isInternalEmail(email))) {
+  if (!email || !(isAdminish(c.get("role")) || isInternalEmail(email))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
@@ -3436,7 +3455,7 @@ app.get("/v1/me/files", async (c) => {
 
 app.put("/v1/me/files/:fileId", async (c) => {
   const email = c.get("email")?.toLowerCase();
-  if (!email || !(c.get("role") === "admin" || isInternalEmail(email))) {
+  if (!email || !(isAdminish(c.get("role")) || isInternalEmail(email))) {
     return c.json({ error: "forbidden" }, 403);
   }
   const fileId = c.req.param("fileId");
@@ -3635,7 +3654,7 @@ app.get("/v1/daily/token", async (c) => {
   // is the enforceable media gate; the canvas relay stays trust-the-key.
   {
     const me = c.get("email");
-    if (c.get("role") !== "admin" && !isInternalEmail(me)) {
+    if (!isAdminish(c.get("role")) && !isInternalEmail(me)) {
       const knock = await c.env.DB.prepare(
         `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
       )
@@ -3803,7 +3822,55 @@ const logAudit = async (
   }
 };
 
+// Record an OWNER content-access in owner_audit (spec §1.4 — "mọi truy cập nội
+// dung của Owner cũng ghi owner_audit", protecting the owner with a clean-hands
+// trail). Best-effort, NEVER blocks: same hygiene as logUsageEvent — a metering
+// /audit failure (un-migrated DB, transient D1 error) must not fail the request
+// it measures. (Contrast the compliance /open admin audit, which is
+// audit-BEFORE-access and aborts on failure; the owner trace is a passive
+// supplement layered on top of that, so it stays non-blocking.)
+const logOwnerAudit = async (
+  db: D1Database,
+  ownerEmail: string | undefined,
+  action: string,
+  target?: string,
+  meta?: unknown,
+) => {
+  try {
+    const ts = now();
+    await db
+      .prepare(
+        `INSERT INTO owner_audit
+           (id, owner_email, action, target, meta, ts, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)`,
+      )
+      .bind(
+        crypto.randomUUID(),
+        ownerEmail ?? null,
+        action,
+        target ?? null,
+        meta !== undefined ? JSON.stringify(meta) : null,
+        ts,
+      )
+      .run();
+  } catch {
+    // owner audit is best-effort — never block/break the measured response
+  }
+};
+
 // ---- Admin: users --------------------------------------------------------
+
+// Privileged role tiers that ONLY an owner may grant (spec
+// docs/specs/chairman-account.md §1.4: "chỉ Owner mới cấp được role
+// chairman/admin/owner"). A plain admin can still create/manage ordinary
+// members + guests, but cannot mint owners or chairmen — that would let any
+// ops-admin escalate themselves past the admin tier. `admin` is intentionally
+// NOT in this set: ordinary admin-creation stays unchanged (an admin may still
+// create another admin, as today). Returns true when `role` is one of the
+// owner-only tiers, so the caller's role can be checked against it.
+const PRIVILEGED_ROLES = new Set(["owner", "chairman"]);
+const requiresOwnerToGrant = (role: string | undefined): boolean =>
+  !!role && PRIVILEGED_ROLES.has(role);
 
 app.get("/v1/admin/users", async (c) => {
   const cr = adminCreds(c);
@@ -3841,6 +3908,12 @@ app.post("/v1/admin/users", async (c) => {
   }>();
   if (!b.email || !b.password) {
     return c.json({ error: "email + password required" }, 400);
+  }
+  // Only an OWNER may mint owners/chairmen (spec §1.4). A plain admin creating a
+  // privileged account is rejected here, BEFORE the Supabase call, so no such
+  // user is ever created. Ordinary roles (member/guest/admin) are unaffected.
+  if (requiresOwnerToGrant(b.role) && c.get("role") !== "owner") {
+    return c.json({ error: "only an owner may grant this role" }, 403);
   }
   const md: Record<string, unknown> = {};
   if (b.name) {
@@ -3881,6 +3954,11 @@ app.patch("/v1/admin/users/:id", async (c) => {
     password?: string;
     disabled?: boolean;
   }>();
+  // Promoting an existing user to owner/chairman is owner-only too (spec §1.4) —
+  // otherwise an admin could escalate any account (incl. their own) past admin.
+  if (requiresOwnerToGrant(b.role) && c.get("role") !== "owner") {
+    return c.json({ error: "only an owner may grant this role" }, 403);
+  }
   const patch: Record<string, unknown> = {};
   if (b.role) {
     patch.app_metadata = { role: b.role };
@@ -4036,6 +4114,18 @@ app.post("/v1/admin/meetings/:roomId/open", async (c) => {
       .run();
   } catch {
     return c.json({ error: "audit log unavailable — access denied" }, 500);
+  }
+  // When the caller is an OWNER, ALSO leave an owner_audit trace (spec §1.4 —
+  // even the owner is audited when accessing content). Layered ON TOP of the
+  // mandatory admin audit above, so it is best-effort and non-blocking
+  // (waitUntil) — the access is already gated + recorded by the admin trail.
+  if (c.get("role") === "owner") {
+    c.executionCtx.waitUntil(
+      logOwnerAudit(c.env.DB, c.get("email"), "owner.open_content", roomId, {
+        title: meeting.title,
+        status: meeting.status,
+      }),
+    );
   }
   return c.json({
     roomId,
@@ -5572,7 +5662,7 @@ export const handleRealtimeUpgrade = async (
   // 3) Knock gate for EXTERNAL users (mirrors the Daily-token gate :3502-3514):
   //    a guest with the roomKey but a non-admitted knock must NOT relay scene
   //    bytes. Internal staff + admins skip (they auto-admit, never knock).
-  if (identity.role !== "admin" && !isInternalEmail(identity.email)) {
+  if (!isAdminish(identity.role) && !isInternalEmail(identity.email)) {
     const knock = await env.DB.prepare(
       `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
     )

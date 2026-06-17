@@ -31,6 +31,13 @@ export type Session = {
   /** true when app_metadata.role === "admin" — gates the admin console.
    *  (The Worker independently re-checks the role on /v1/admin/*.) */
   isAdmin: boolean;
+  /** true when app_metadata.role === "owner" — the developer super-admin tier
+   *  ABOVE chairman/admin (spec docs/specs/chairman-account.md §1.4). An owner
+   *  has ALL admin powers, so it must NOT be locked out of the admin surfaces:
+   *  the AdminConsole is gated on `isAdmin || isOwner`. A dedicated Owner
+   *  console is future; for now this flag just keeps the owner inside the admin
+   *  UI. The Worker independently treats owner as admin-ish on /v1/admin/*. */
+  isOwner: boolean;
   /** Verified `app_metadata.role` from the Supabase JWT ("admin" | "guest" |
    *  undefined for ordinary staff). The Worker sets `role: "guest"` on the
    *  synthetic project-guest login; carry it through so the UI can branch on
@@ -140,6 +147,7 @@ export const deriveSession = (user: User): Session => {
     branch: typeof md.division === "string" ? md.division : undefined,
     avatar,
     isAdmin: role === "admin",
+    isOwner: role === "owner",
     role,
     projectId,
     // Verified JWT role is authoritative; domain match is the fallback for a

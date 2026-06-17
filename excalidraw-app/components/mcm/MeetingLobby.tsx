@@ -181,7 +181,9 @@ export const MeetingLobby = () => {
   // WITHOUT the review mark never bypasses the console.
   const adminReviewRoomId =
     window.location.hash.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
-  if (session.isAdmin) {
+  // Owner (developer super-admin, spec §1.4) has ALL admin powers, so it lands
+  // on the same AdminConsole as admin — a dedicated Owner console is future.
+  if (session.isAdmin || session.isOwner) {
     if (adminReviewRoomId && isReviewRoom(adminReviewRoomId)) {
       return null;
     }
