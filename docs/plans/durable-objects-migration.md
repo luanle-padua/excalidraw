@@ -2,7 +2,7 @@
 
 > **Chốt 06-17.** Chuyển lớp realtime của MAP CanvasMeet (Canvas M) từ **Node + Express + socket.io (1 instance Fly.io)** sang **1 Durable Object / 1 phòng họp** — raw WebSocket + Hibernation API — host **chung trên Worker `mcm-storage`** (Hono, D1 `mcm-db`, R2 `mcm-storage`).
 >
-> **Mốc:** **Tháng 7 = TEST NỘI BỘ trên Fly.io** (giữ nguyên socket.io hiện có) · **Tháng 8 = CẮT sang DO** _trước khi_ mở external + global client (Phi Châu đang tới).
+> **CHỐT 06-17 (REVISED): chuyển TOÀN BỘ realtime sang DO — 100%, KHÔNG Fly, KHÔNG giữ socket.io lâu dài.** DO chạy ngay trên Worker `mcm-storage` (không host riêng, không tốn host). Cờ `realtime_backend` chỉ là công tắc TẠM trong lúc build/test; đích = pure DO + **bỏ hẳn `room/` socket.io**. _(Mọi nhắc tới "Fly.io" / "giữ socket.io làm rollback lâu dài" ở các mục dưới = framing CŨ đã huỷ — bỏ qua.)_
 >
 > Migration này **nuốt luôn 1b/B12** (room-server auth gap): handshake WS của DO **verify Supabase JWT + canSeeMeeting + knock** — điều mà socket.io relay hiện tại KHÔNG làm (roadmap track I-2, blocker 1b).
 >
