@@ -43,6 +43,10 @@ app.use(express.static("public"));
 // socket.io binary frames so this is opt-in to that one endpoint.
 app.use(express.json({ limit: "2mb" }));
 
+// SUPERSEDED (DO migration I-1): the AI routes below (/translate,
+// /translate-batch, /chatbot, /summarize) + this rate-limiter are now served by
+// the Cloudflare Worker (worker/src/ai.ts). Kept here until room/ is retired
+// (going 100% Durable Objects); the client now points at the Worker (STORAGE_URL).
 // ---------------------------------------------------------------------
 // Rate limiting for the AI / cost routes (Gemini + STT).
 //

@@ -20,6 +20,8 @@
 // us the public URL — exactly what AudioContext.audioWorklet.addModule
 // wants. `?worker&url` would wrap it as a Web Worker bundle (wrong
 // scope for AudioWorklet globals).
+import { sttBackendWsUrl } from "../data/aiBackend";
+
 import sttWorkletUrl from "./sttWorklet.ts?url";
 
 export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
@@ -43,22 +45,14 @@ type DeepgramResult = {
   };
 };
 
-// Build the WS URL for /stt. Mirrors the dual-mode logic in Collab.tsx:
-//   - Tunnel mode (VITE_DEV_TUNNEL=true) → current page origin. Both
-//     vite and the room server sit behind the same Cloudflare tunnel
-//     hostname, so relative routing Just Works.
-//   - Direct dev → VITE_APP_WS_SERVER_URL (e.g. http://localhost:3002).
+// Build the WS URL for /stt. The /stt proxy moved off the Fly room server onto
+// the Cloudflare Worker (DO migration I-1, worker/src/stt.ts), so the base is
+// now the STORAGE backend, not VITE_APP_WS_SERVER_URL:
+//   - Tunnel mode (VITE_DEV_TUNNEL=true) → current page origin (the Worker sits
+//     behind the same Cloudflare tunnel hostname, so relative routing works).
+//   - Direct dev → ws(s) form of VITE_APP_STORAGE_URL (see data/aiBackend.ts).
 const buildSTTUrl = (lang: STTLang): string => {
-  const tunnelMode = import.meta.env.VITE_DEV_TUNNEL === "true";
-  const envBackend = import.meta.env.VITE_APP_WS_SERVER_URL;
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const backend =
-    !tunnelMode && envBackend
-      ? envBackend.replace(/^http(s?):/, (_m: string, s: string) =>
-          s ? "wss:" : "ws:",
-        )
-      : `${proto}//${window.location.host}`;
-  const url = new URL(backend);
+  const url = new URL(sttBackendWsUrl());
   url.pathname = "/stt";
   url.searchParams.set("lang", lang);
   return url.toString();

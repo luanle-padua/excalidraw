@@ -14,13 +14,16 @@
 //     (or the original while loading / on error). Deduplicates concurrent
 //     requests for the same text.
 //
-// The actual translation provider is server-side (room/src/index.ts →
-// Gemini); this module only fetches and caches.
+// The actual translation provider is server-side (Cloudflare Worker
+// worker/src/ai.ts → Gemini, base = VITE_APP_STORAGE_URL); this module only
+// fetches and caches. (Moved off room/src/index.ts in DO migration I-1.)
 
 import { useEffect, useState } from "react";
 
 import { appLangCodeAtom } from "../app-language/language-state";
 import { atom, useAtomValue } from "../app-jotai";
+
+import { aiBackendUrl } from "./aiBackend";
 
 export type SupportedLanguage = "vi" | "en" | "ko";
 
@@ -184,7 +187,7 @@ const fetchTranslation = async (
   }
   const promise = (async () => {
     try {
-      const res = await fetch("/translate", {
+      const res = await fetch(`${aiBackendUrl()}/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, target: targetLang }),
@@ -238,7 +241,7 @@ export const fetchBatchTranslation = async (
     typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = window.setTimeout(() => controller?.abort(), timeoutMs);
   try {
-    const res = await fetch("/translate-batch", {
+    const res = await fetch(`${aiBackendUrl()}/translate-batch`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: trimmed, targets: ALL_TARGETS }),

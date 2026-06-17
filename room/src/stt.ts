@@ -1,3 +1,8 @@
+// SUPERSEDED (DO migration I-1): this /stt proxy is now served by the
+// Cloudflare Worker (worker/src/stt.ts, route-split before RoomDO). Kept here
+// until room/ is retired (going 100% Durable Objects); the client's STT session
+// now points at the Worker (STORAGE_URL).
+//
 // Realtime Speech-to-Text WebSocket proxy.
 //
 // Each browser tab opens 1 WebSocket to `/stt?lang=<vi|en|ko>`. The

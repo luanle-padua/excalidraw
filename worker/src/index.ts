@@ -34,8 +34,10 @@ import { cors } from "hono/cors";
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
+import { aiRoutes } from "./ai";
 import { guestInviteEmail, sendEmail } from "./email";
 import { RoomDO } from "./roomDO";
+import { handleSttUpgrade } from "./stt";
 
 import type { MiddlewareHandler } from "hono";
 
@@ -75,6 +77,18 @@ type Bindings = {
   ROOM: DurableObjectNamespace;
   // Max concurrent WebSockets per room — handshake cap (§4, R14). Plain var.
   ROOM_WS_CAP?: string;
+  // AI routes (I-1, plan §6) — Gemini chat translation / chatbot / summary.
+  // GEMINI_API_KEY is a SECRET (`wrangler secret put GEMINI_API_KEY`, local:
+  // worker/.dev.vars). GEMINI_TRANSLATION_MODEL is an optional plain var
+  // (defaults to gemini-2.5-flash). Same names the Fly room server used.
+  GEMINI_API_KEY?: string;
+  GEMINI_TRANSLATION_MODEL?: string;
+  // STT proxy (I-1, plan §2/§6) — Deepgram realtime transcription. DEEPGRAM_API_KEY
+  // is a SECRET (`wrangler secret put DEEPGRAM_API_KEY`, local: worker/.dev.vars);
+  // absent ⇒ STT stays default-OFF (the /stt proxy reports "not configured").
+  // DEEPGRAM_STT_MODEL is an optional plain var (defaults to nova-3).
+  DEEPGRAM_API_KEY?: string;
+  DEEPGRAM_STT_MODEL?: string;
 };
 
 // CORS origin check (B6, 06-17). The real risk is a random website riding a
@@ -143,6 +157,16 @@ app.use(
     ],
   }),
 );
+
+// ---- AI routes (I-1, plan §6) --------------------------------------------
+// Gemini chat translation / chatbot / meeting summary, ported off the Fly room
+// server. Mounted at ROOT (not under /v1) so the request/response contract is
+// identical to the room server — the client switch is a pure base-URL change
+// (room-server URL → STORAGE_URL). These ride the CORS middleware above but are
+// deliberately NOT behind the /v1 JWT gate (the room server had no auth; the
+// per-isolate rate-limit + Gemini key being server-side are the cost guard).
+// Routes added: POST /translate, /translate-batch, /chatbot, /summarize.
+app.route("/", aiRoutes);
 
 // ---- Supabase JWT auth gate ----------------------------------------------
 // Every /v1 route (except /v1/health) now requires a valid Supabase user
@@ -4848,9 +4872,9 @@ export const handleRealtimeUpgrade = async (
 // Default Worker entrypoint. Route-split by pathname BEFORE Hono so the WS
 // upgrades never enter the Hono /v1 pipeline (plan §2/§6):
 //   /rooms/:roomId/ws → [AUTH GATE] → RoomDO
-//   /stt              → reserved (STT WS proxy, added with the AI migration;
-//                        split here so it can NEVER hit RoomDO)
-//   everything else   → Hono app (REST /v1)
+//   /stt              → STT WS proxy (PCM↔Deepgram; split here so it can NEVER
+//                        hit RoomDO)
+//   everything else   → Hono app (REST /v1 + AI routes /translate|/chatbot|...)
 export default {
   async fetch(
     request: Request,
@@ -4881,11 +4905,13 @@ export default {
       );
     }
 
-    // STT split reserved (not migrated in this change). Returning 501 here
-    // documents the split point and guarantees a /stt upgrade never falls
-    // through to RoomDO or the REST app.
+    // STT WS proxy (I-1, plan §2/§6). Split BEFORE the RoomDO route so a /stt
+    // upgrade NEVER reaches RoomDO — it's a standalone PCM↔Deepgram pipe, not a
+    // collab relay. Accepts the client socket, opens an outbound WS to Deepgram
+    // with the server-side key, pipes both ways. Default-OFF when DEEPGRAM_API_KEY
+    // is unset (reports "not configured" on the socket, then closes).
     if (path === "/stt" || path.startsWith("/stt/")) {
-      return new Response("stt proxy not yet on worker", { status: 501 });
+      return handleSttUpgrade(request, env);
     }
 
     return app.fetch(request, env, ctx);
