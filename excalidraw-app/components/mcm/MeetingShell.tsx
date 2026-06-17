@@ -291,14 +291,18 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       const cachedIsMine =
         !userProfile?.email ||
         userProfile.email.toLowerCase() === session.email.toLowerCase();
-      // Avatar precedence: a local data-URL upload wins on this device (it's
-      // intentionally NOT in user_metadata — see syncAvatarToAccount), then
-      // the account avatar, then a same-account local "lib:" pick that
-      // hasn't roamed yet. A stale other-account avatar never survives.
+      // Avatar precedence: this device's LOCAL pick is the user's latest
+      // intent and always wins — whether a data-URL upload (intentionally NOT
+      // in user_metadata; see syncAvatarToAccount) or a fresh "lib:" gallery
+      // pick. The account avatar only HYDRATES when there is no local pick yet
+      // (cross-device roam). The earlier `session.avatar ?? localAvatar` order
+      // let a STALE account avatar clobber a just-chosen "lib:" pick before
+      // syncAvatarToAccount round-tripped — the header reverted to the old
+      // avatar/initials right after saving (anh Luân: "đổi avatar nhưng header
+      // vẫn hiện chữ cũ"). The `cachedIsMine` gate still drops another
+      // account's leftover avatar, so account-switch safety is preserved.
       const localAvatar = cachedIsMine ? userProfile?.avatar : undefined;
-      const nextAvatar = localAvatar?.startsWith("data:")
-        ? localAvatar
-        : session.avatar ?? localAvatar;
+      const nextAvatar = localAvatar ?? session.avatar;
       const nextCompany =
         session.company ?? (cachedIsMine ? userProfile?.company : undefined);
       const needsProfileSync =
