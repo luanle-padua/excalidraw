@@ -24,6 +24,7 @@ import {
   recordingStateAtom,
 } from "./audioState";
 import { STTSession } from "./sttSession";
+import { cameraStateAtom, videoTilesAtom } from "./videoState";
 
 import type { STTLang } from "./sttSession";
 
@@ -38,6 +39,8 @@ export const AudioRoomController = () => {
   const setAudioRoomInstance = useSetAtom(audioRoomInstanceAtom);
   const setRecordingState = useSetAtom(recordingStateAtom);
   const setRecorderInstance = useSetAtom(recorderInstanceAtom);
+  const setVideoTiles = useSetAtom(videoTilesAtom);
+  const setCameraState = useSetAtom(cameraStateAtom);
   /** Live STT session bound to the user's own mic. Spun up when the
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
@@ -84,6 +87,8 @@ export const AudioRoomController = () => {
           errorKind: null,
           errorMessage: null,
         });
+        setVideoTiles(new Map());
+        setCameraState({ status: "off", errorMessage: null });
       }
       return;
     }
@@ -133,6 +138,26 @@ export const AudioRoomController = () => {
             }));
           }
         },
+        // CAMERA video (same call object) → drive the videoTilesAtom keyed by
+        // socket.id. ParticipantsBar renders a <video> into that person's tile;
+        // absence of an entry falls the tile back to the MCMAvatar.
+        onVideoTrack: (socketId, stream) => {
+          setVideoTiles((prev) => {
+            const next = new Map(prev);
+            next.set(socketId, stream);
+            return next;
+          });
+        },
+        onVideoRemoved: (socketId) => {
+          setVideoTiles((prev) => {
+            if (!prev.has(socketId)) {
+              return prev;
+            }
+            const next = new Map(prev);
+            next.delete(socketId);
+            return next;
+          });
+        },
         onError: (err) => {
           // Classify into a CODE; MeetingCallControls translates it at
           // render time (state must stay language-neutral). getUserMedia
@@ -169,6 +194,8 @@ export const AudioRoomController = () => {
     setAudioState,
     setRecorderInstance,
     setRecordingState,
+    setVideoTiles,
+    setCameraState,
   ]);
 
   // -----------------------------------------------------------------

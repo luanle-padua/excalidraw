@@ -878,6 +878,10 @@ export const vi = {
     pickEmoji: "Chọn emoji",
     sendReaction: "Gửi {emoji}",
     callingNoPeers: "Đang gọi…",
+    cameraOn: "Bật camera",
+    cameraOff: "Tắt camera",
+    noCameraTitle: "Thiết bị này không có camera",
+    cameraError: "Không bật được camera — kiểm tra quyền truy cập và thử lại.",
   },
 
   // ---------------- Meeting recording ------------------------------

@@ -24,4 +24,11 @@ export type AudioRoomEvents = {
   onPeerStream?: (socketId: string, stream: MediaStream) => void;
   /** a peer disconnected — recorder should remove their mix input */
   onPeerRemoved?: (socketId: string) => void;
+  /** a participant's CAMERA video track became playable — the
+   *  ParticipantsBar renders it into that person's tile (keyed by
+   *  socket.id). Fires for remote peers AND the local self-view. */
+  onVideoTrack?: (socketId: string, stream: MediaStream) => void;
+  /** a participant's camera stopped (toggle off / left) — drop their
+   *  <video> tile and fall back to the avatar. */
+  onVideoRemoved?: (socketId: string) => void;
 };

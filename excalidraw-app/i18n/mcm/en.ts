@@ -845,6 +845,10 @@ export const en: Widened<typeof vi> = {
     pickEmoji: "Pick emoji",
     sendReaction: "Send {emoji}",
     callingNoPeers: "Calling…",
+    cameraOn: "Turn on camera",
+    cameraOff: "Turn off camera",
+    noCameraTitle: "No camera detected on this device",
+    cameraError: "Couldn't start the camera — check permissions and retry.",
   },
 
   // ---------------- Meeting recording ------------------------------

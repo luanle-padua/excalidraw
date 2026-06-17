@@ -8,7 +8,7 @@
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { Mic, MicOff, UserCheck, UserX, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createPortal } from "react-dom";
 
@@ -20,6 +20,7 @@ import type {
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
+import { videoTilesAtom } from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
@@ -180,6 +181,55 @@ type Tile = {
   /** True while this participant is sharing their screen (presence over
    *  WS_SUBTYPES.SCREEN_SHARE). Drives the 📺 badge on their avatar. */
   sharingScreen?: boolean;
+  /** Live CAMERA stream (same Daily call object as audio) when this person's
+   *  camera is ON. When present the tile renders a <video> in place of the
+   *  MCMAvatar; absent ⇒ the avatar shows (default). */
+  videoStream?: MediaStream | null;
+};
+
+// Renders a participant's live camera into their tile, in place of the avatar.
+// Mirrored for self (front camera reads more naturally mirrored). If the track
+// fails to attach we render nothing here and the avatar shows through — never
+// a black tile. Muted/autoPlay/playsInline keeps it as a silent thumbnail
+// (audio plays via Daily separately).
+const TileVideo = ({
+  stream,
+  mirror,
+}: {
+  stream: MediaStream;
+  mirror: boolean;
+}) => {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return undefined;
+    }
+    setFailed(false);
+    el.srcObject = stream;
+    const play = () => el.play().catch(() => undefined);
+    play();
+    return () => {
+      // Detach so the element releases the track on unmount / stream swap.
+      el.srcObject = null;
+    };
+  }, [stream]);
+  if (failed) {
+    return null;
+  }
+  return (
+    <video
+      ref={ref}
+      className={`mcm-person__video${
+        mirror ? " mcm-person__video--mirror" : ""
+      }`}
+      muted
+      autoPlay
+      playsInline
+      onError={() => setFailed(true)}
+    />
+  );
 };
 
 // Display rules:
@@ -283,15 +333,19 @@ const Person = ({
       <div
         className={`mcm-person__avatar${
           p.avatarUrl ? " mcm-person__avatar--image" : ""
-        }`}
+        }${p.videoStream ? " mcm-person__avatar--video" : ""}`}
       >
-        <MCMAvatar
-          className="mcm-person__avatar-fill"
-          avatar={p.avatarRaw}
-          name={p.name}
-          email={p.email}
-          identityKey={p.email ?? p.id}
-        />
+        {p.videoStream ? (
+          <TileVideo stream={p.videoStream} mirror={!!p.isMe} />
+        ) : (
+          <MCMAvatar
+            className="mcm-person__avatar-fill"
+            avatar={p.avatarRaw}
+            name={p.name}
+            email={p.email}
+            identityKey={p.email ?? p.id}
+          />
+        )}
         {p.isHost && (
           <span
             className="mcm-person__host-badge"
@@ -675,6 +729,9 @@ export const ParticipantsBar = ({
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioState = useAtomValue(audioStateAtom);
+  // Live camera streams keyed by socket.id (same call object as audio). A tile
+  // whose socket.id is present here renders a <video>; otherwise the avatar.
+  const videoTiles = useAtomValue(videoTilesAtom);
   const raisedHands = useAtomValue(raisedHandsAtom);
   const screenSharePresence = useAtomValue(screenShareStateAtom);
   const liveReactions = useAtomValue(meetingReactionsAtom);
@@ -939,6 +996,7 @@ export const ParticipantsBar = ({
     isCohost: cohostEmails.has((myProfile?.email ?? "").toLowerCase()),
     title: titleFor(myProfile?.email),
     sharingScreen: screenSharePresence.has(selfSocketId),
+    videoStream: videoTiles.get(selfSocketId) ?? null,
   });
 
   // Everyone else
@@ -983,6 +1041,7 @@ export const ParticipantsBar = ({
       isCohost: cohostEmails.has((peerProfile?.email ?? "").toLowerCase()),
       title: titleFor(peerProfile?.email),
       sharingScreen: screenSharePresence.has(socketId),
+      videoStream: videoTiles.get(socketId) ?? null,
     });
   }
 

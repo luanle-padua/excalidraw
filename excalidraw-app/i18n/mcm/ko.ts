@@ -852,6 +852,11 @@ export const ko: Widened<typeof vi> = {
     pickEmoji: "이모지 선택",
     sendReaction: "{emoji} 보내기",
     callingNoPeers: "통화 중…",
+    cameraOn: "카메라 켜기",
+    cameraOff: "카메라 끄기",
+    noCameraTitle: "이 기기에서 카메라를 찾을 수 없습니다",
+    cameraError:
+      "카메라를 시작할 수 없습니다 — 권한을 확인하고 다시 시도하세요.",
   },
 
   // ---------------- Meeting recording ------------------------------

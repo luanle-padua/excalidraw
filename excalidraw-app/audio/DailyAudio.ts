@@ -72,6 +72,18 @@ export class DailyAudio {
   private localStream: MediaStream | null = null;
   private muted = false;
   private active = false;
+  /** local camera is publishing (default OFF — opt-in via toggleCamera) */
+  private cameraOn = false;
+  /** the local self-view MediaStream while the camera is on (mirrored in UI) */
+  private localVideoStream: MediaStream | null = null;
+  /** session_id → socket.id for VIDEO tracks specifically, so a
+   *  participant-left / track-stopped that only carries a session can still
+   *  resolve the tile to drop (video peers may differ from audio peers — a
+   *  listener-only participant with camera on has no audio RemotePeer). */
+  private videoSessionToSocket = new Map<string, string>();
+  /** socket.ids that currently have a published remote video track, so we can
+   *  clean up on stop()/leave without re-deriving from Daily state. */
+  private videoSockets = new Set<string>();
 
   /** keyed by socket.id, like the mesh */
   private peers = new Map<string, RemotePeer>();
@@ -147,7 +159,10 @@ export class DailyAudio {
       throw err;
     }
 
-    // 3) Join Daily with our mic as the audio source; no camera. Tag identity.
+    // 3) Join Daily with our mic as the audio source. Camera is DEFAULT OFF
+    //    (videoSource:false at join) — the user opts in later via
+    //    toggleCamera(), which calls setLocalVideo(true) / startCamera() on the
+    //    same call object. Identity is tagged so peers map us to collab.
     const micTrack = this.localStream?.getAudioTracks()[0] ?? null;
     const call = Daily.createCallObject({
       audioSource: micTrack ?? false,
@@ -202,6 +217,14 @@ export class DailyAudio {
       return;
     }
     this.active = false;
+    // Tear down every remote video tile + the local self-view.
+    for (const socketId of Array.from(this.videoSockets)) {
+      this.events.onVideoRemoved?.(socketId);
+    }
+    this.videoSockets.clear();
+    this.videoSessionToSocket.clear();
+    this.releaseLocalVideo();
+    this.cameraOn = false;
     for (const peer of this.peers.values()) {
       this.teardownPeer(peer);
     }
@@ -268,14 +291,163 @@ export class DailyAudio {
     return out;
   }
 
+  // ---- camera (opt-in video on the SAME call object) --------------------
+
+  /** Whether the local camera is currently publishing. */
+  isCameraOn(): boolean {
+    return this.cameraOn;
+  }
+
+  /**
+   * Turn the local camera on/off on the EXISTING call object — no new Daily
+   * room. Default is OFF; this is only ever called from a user toggle.
+   *
+   * Returns the resulting camera state. Throws on permission denial (the UI
+   * surfaces a toast and stays OFF). Requires an active call (mic joined).
+   */
+  async setCamera(on: boolean): Promise<boolean> {
+    const call = this.call;
+    if (!call || !this.active) {
+      // Can't publish video before joining the call.
+      return this.cameraOn;
+    }
+    if (on === this.cameraOn) {
+      return this.cameraOn;
+    }
+    if (on) {
+      // Acquire a reasonably-sized camera (NOT full HD) to keep Daily/egress
+      // cost down; Daily applies simulcast/quality defaults on top.
+      let camStream: MediaStream;
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 360 },
+            frameRate: { ideal: 24, max: 30 },
+            facingMode: "user",
+          },
+          audio: false,
+        });
+      } catch (err) {
+        // Re-thrown for the caller (the camera toggle) to surface via the
+        // cameraStateAtom toast — deliberately NOT routed through
+        // events.onError, which is the AUDIO call's error channel and would
+        // wrongly flip the whole call into an error state.
+        warn("camera getUserMedia failed", err);
+        throw err;
+      }
+      if (!this.active || this.call !== call) {
+        // toggled off / left while awaiting the permission prompt
+        for (const t of camStream.getTracks()) {
+          t.stop();
+        }
+        return this.cameraOn;
+      }
+      const camTrack = camStream.getVideoTracks()[0] ?? null;
+      this.releaseLocalVideo();
+      this.localVideoStream = camStream;
+      try {
+        await call.setInputDevicesAsync({ videoSource: camTrack ?? false });
+        call.setLocalVideo(true);
+      } catch (err) {
+        warn("setLocalVideo(on) failed", err);
+        this.releaseLocalVideo();
+        throw err;
+      }
+      this.cameraOn = true;
+      // Self-view: surface the local camera stream to our own tile (mirrored
+      // in the UI). The local track does NOT arrive via track-started for the
+      // local participant in a way we subscribe to, so we publish it here.
+      const selfSocketId = this.getSocketId();
+      if (selfSocketId && camTrack) {
+        this.videoSockets.add(selfSocketId);
+        this.events.onVideoTrack?.(selfSocketId, new MediaStream([camTrack]));
+      }
+    } else {
+      try {
+        call.setLocalVideo(false);
+      } catch (err) {
+        warn("setLocalVideo(off) failed", err);
+      }
+      this.cameraOn = false;
+      const selfSocketId = this.getSocketId();
+      if (selfSocketId && this.videoSockets.has(selfSocketId)) {
+        this.videoSockets.delete(selfSocketId);
+        this.events.onVideoRemoved?.(selfSocketId);
+      }
+      this.releaseLocalVideo();
+    }
+    return this.cameraOn;
+  }
+
+  private releaseLocalVideo() {
+    if (this.localVideoStream) {
+      for (const t of this.localVideoStream.getTracks()) {
+        t.stop();
+      }
+      this.localVideoStream = null;
+    }
+  }
+
   // ---- Daily events ------------------------------------------------------
 
   private wire(call: DailyCall) {
     call.on("track-started", this.onTrackStarted);
     call.on("track-stopped", this.onTrackStopped);
+    call.on("track-started", this.onVideoStarted);
+    call.on("track-stopped", this.onVideoStopped);
     call.on("participant-updated", this.onParticipantUpdated);
     call.on("participant-left", this.onParticipantLeft);
     call.on("error", this.onFatalError);
+  }
+
+  // ---- remote camera video tracks → ParticipantsBar tiles ----------------
+
+  private onVideoStarted = (e: DailyEventObjectTrack) => {
+    // Only CAMERA tracks (type "video"); screen share is "screenVideo" and
+    // lives on a different call object entirely.
+    if (e.type !== "video" || !e.participant) {
+      return;
+    }
+    // The local self-view is published directly in setCamera(); ignore the
+    // local echo here so we don't double-emit (and to keep the mirror flag
+    // purely a UI concern keyed on isMe).
+    if (e.participant.local) {
+      return;
+    }
+    const socketId = this.socketIdOf(e.participant);
+    if (!socketId) {
+      return; // userData not propagated yet — participant-updated retries
+    }
+    this.videoSessionToSocket.set(e.participant.session_id, socketId);
+    this.videoSockets.add(socketId);
+    this.events.onVideoTrack?.(socketId, new MediaStream([e.track]));
+    log(`remote video from ${e.participant.user_name} (${socketId})`);
+  };
+
+  private onVideoStopped = (e: DailyEventObjectTrack) => {
+    if (e.type !== "video" || !e.participant || e.participant.local) {
+      return;
+    }
+    const socketId =
+      this.socketIdOf(e.participant) ??
+      this.videoSessionToSocket.get(e.participant.session_id);
+    if (socketId) {
+      this.dropVideo(socketId);
+    }
+  };
+
+  private dropVideo(socketId: string) {
+    if (!this.videoSockets.has(socketId)) {
+      return;
+    }
+    this.videoSockets.delete(socketId);
+    for (const [sid, sock] of this.videoSessionToSocket) {
+      if (sock === socketId) {
+        this.videoSessionToSocket.delete(sid);
+      }
+    }
+    this.events.onVideoRemoved?.(socketId);
   }
 
   private socketIdOf(p: DailyParticipant | null | undefined): string | null {
@@ -343,7 +515,30 @@ export class DailyAudio {
       return;
     }
     const socketId = this.socketIdOf(p);
-    if (!socketId || this.peers.has(socketId)) {
+    if (!socketId) {
+      return;
+    }
+    // Camera: a remote video track became playable after userData arrived
+    // (or after the camera was toggled on mid-call). onVideoStarted may have
+    // bailed for want of a socketId; reconcile here.
+    const vTrack = p.tracks.video.persistentTrack;
+    if (
+      vTrack &&
+      p.tracks.video.state === "playable" &&
+      !this.videoSockets.has(socketId)
+    ) {
+      this.videoSessionToSocket.set(p.session_id, socketId);
+      this.videoSockets.add(socketId);
+      this.events.onVideoTrack?.(socketId, new MediaStream([vTrack]));
+    } else if (
+      this.videoSockets.has(socketId) &&
+      p.tracks.video.state !== "playable" &&
+      p.tracks.video.state !== "loading"
+    ) {
+      // camera turned off mid-call without a clean track-stopped
+      this.dropVideo(socketId);
+    }
+    if (this.peers.has(socketId)) {
       return;
     }
     const track = p.tracks.audio.persistentTrack;
@@ -374,11 +569,15 @@ export class DailyAudio {
   private onParticipantLeft = (e: DailyEventObjectParticipantLeft) => {
     const sessionId = e.participant.session_id;
     const socketId =
-      this.socketIdOf(e.participant) ?? this.sessionToSocket.get(sessionId);
+      this.socketIdOf(e.participant) ??
+      this.sessionToSocket.get(sessionId) ??
+      this.videoSessionToSocket.get(sessionId);
     if (socketId) {
       this.dropPeer(socketId);
+      this.dropVideo(socketId);
     }
     this.sessionToSocket.delete(sessionId);
+    this.videoSessionToSocket.delete(sessionId);
   };
 
   private onFatalError = (e: DailyEventObjectFatalError) => {

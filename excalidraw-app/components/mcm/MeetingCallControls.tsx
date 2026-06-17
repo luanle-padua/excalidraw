@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioRoomInstanceAtom, audioStateAtom } from "../../audio/audioState";
+import { cameraStateAtom } from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
@@ -60,6 +61,26 @@ const MicOffIcon = () => (
   </svg>
 );
 
+const CameraOnIcon = () => (
+  <Icon d="M23 7l-7 5 7 5V7z M14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z" />
+);
+
+const CameraOffIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    width="18"
+    height="18"
+  >
+    <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
 const PhoneOffIcon = () => (
   <Icon d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91 M23 1L1 23" />
 );
@@ -91,6 +112,13 @@ export const MeetingCallControls = () => {
   const audioRoom = useAtomValue(audioRoomInstanceAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const setAudioState = useSetAtom(audioStateAtom);
+  const cameraState = useAtomValue(cameraStateAtom);
+  const setCameraState = useSetAtom(cameraStateAtom);
+  // Whether this device has any camera at all — drives the disabled-with-reason
+  // state on the toggle. Probed once when the call goes live (enumerateDevices
+  // only labels devices after a getUserMedia grant, but the *kind* is always
+  // present, so counting `videoinput` is enough to know a camera exists).
+  const [hasCamera, setHasCamera] = useState(true);
   // Finished meeting opened for review = read-only, extract-only. There is
   // no live call to join, so the entire mic/join/leave control bar is hidden.
   const viewOnly = useAtomValue(meetingViewOnlyAtom);
@@ -170,6 +198,48 @@ export const MeetingCallControls = () => {
     audioRoom?.toggleMute();
   }, [audioRoom]);
 
+  // Probe for a camera device once the call is live so we can disable the
+  // toggle (with a reason) when there's nothing to turn on.
+  useEffect(() => {
+    if (audioState.status !== "live") {
+      return;
+    }
+    let alive = true;
+    navigator.mediaDevices
+      ?.enumerateDevices()
+      .then((devices) => {
+        if (alive) {
+          setHasCamera(devices.some((d) => d.kind === "videoinput"));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [audioState.status]);
+
+  // Camera toggle — opt-in on the EXISTING call object, default OFF. On
+  // permission denial / no device we stay off and surface the reason via the
+  // cameraStateAtom (the tile keeps showing the avatar).
+  const toggleCamera = useCallback(async () => {
+    if (!audioRoom) {
+      return;
+    }
+    const turningOn = !audioRoom.isCameraOn();
+    if (turningOn) {
+      setCameraState({ status: "starting", errorMessage: null });
+    }
+    try {
+      const on = await audioRoom.setCamera(turningOn);
+      setCameraState({ status: on ? "on" : "off", errorMessage: null });
+    } catch (err) {
+      setCameraState({
+        status: "error",
+        errorMessage: err instanceof Error ? err.message : null,
+      });
+    }
+  }, [audioRoom, setCameraState]);
+
   // Recording (test-mic + meeting recording) used to live in this
   // component. It's been removed pending a host-only control flow —
   // we don't want N participants each cutting their own audio file
@@ -227,6 +297,39 @@ export const MeetingCallControls = () => {
         >
           {muted || !canTransmit ? <MicOffIcon /> : <MicOnIcon />}
         </button>
+
+        {(() => {
+          const camOn = cameraState.status === "on";
+          const camStarting = cameraState.status === "starting";
+          const camTitle = !hasCamera
+            ? t("callControls.noCameraTitle")
+            : cameraState.status === "error"
+            ? t("callControls.cameraError")
+            : camOn
+            ? t("callControls.cameraOff")
+            : t("callControls.cameraOn");
+          return (
+            <button
+              type="button"
+              className={`mcm-call-controls__btn mcm-call-controls__btn--cam${
+                camOn ? " mcm-call-controls__btn--cam-on" : ""
+              }`}
+              onClick={hasCamera && !camStarting ? toggleCamera : undefined}
+              disabled={!hasCamera || camStarting}
+              aria-pressed={camOn}
+              aria-label={camTitle}
+              title={camTitle}
+            >
+              {camStarting ? (
+                <span className="mcm-call-controls__spinner" />
+              ) : camOn ? (
+                <CameraOnIcon />
+              ) : (
+                <CameraOffIcon />
+              )}
+            </button>
+          );
+        })()}
 
         <button
           type="button"
