@@ -94,6 +94,13 @@ type Bindings = {
 // CORS origin check (B6, 06-17). The real risk is a random website riding a
 // leaked bearer token; an explicit allowlist closes that. Dev origins stay open
 // so the cloudflared quick-tunnel + Pages preview flow keeps working.
+// Defensive secret read: strip a leading UTF-8 BOM + surrounding whitespace.
+// `wrangler secret put` piped from a PowerShell/BOM source stamps a BOM onto the
+// value (﻿), which then poisons any header/URL built from it — the 06-17
+// outage (Supabase apikey + Daily key + SUPABASE_URL all carried a BOM → 500/502
+// on every upstream call). Normalize at the read site so a bad rotate can't recur.
+const cleanSecret = (s?: string): string => (s ?? "").trim();
+
 const isAllowedOrigin = (origin: string, env: Bindings): boolean => {
   if (!origin) {
     return false;
@@ -3546,7 +3553,7 @@ app.delete("/v1/me/files/:fileId", async (c) => {
 const DAILY_API = "https://api.daily.co/v1";
 
 app.get("/v1/daily/token", async (c) => {
-  const apiKey = c.env.DAILY_API_KEY;
+  const apiKey = cleanSecret(c.env.DAILY_API_KEY);
   if (!apiKey) {
     return c.json({ error: "daily not configured" }, 503);
   }
@@ -3693,8 +3700,8 @@ const supaAdmin = (
   });
 
 const adminCreds = (c: { env: Bindings }) => {
-  const url = c.env.SUPABASE_URL;
-  const key = c.env.SUPABASE_SERVICE_API_KEY;
+  const url = cleanSecret(c.env.SUPABASE_URL).replace(/\/+$/, "");
+  const key = cleanSecret(c.env.SUPABASE_SERVICE_API_KEY);
   return url && key ? { url, key } : null;
 };
 
