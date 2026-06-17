@@ -43,9 +43,12 @@
     text-align: center;
   }
 
-  // Dropdown = small glass popover. Inline copy of the mcm-glass mixin
-  // (MeetingShell.scss — section 3 of the design spec); this file can't
-  // @use it without re-emitting the whole sheet. Local 14px blur per 5.9.
+  // Dropdown popover. This floats over the live CANVAS, so — unlike the
+  // wallpaper-backed dashboard panes — a translucent glass fill let the
+  // drawing bleed through and made the invitations unreadable. Pin it to a
+  // SOLID surface (matching the user menu next door) while keeping the same
+  // gradient stroke (::before), shadow, radius and z-index. Local 14px blur
+  // token kept only for the contrast fallback.
   &__panel {
     position: absolute;
     top: calc(100% + 8px);
@@ -55,18 +58,11 @@
     max-height: 420px;
     overflow-y: auto;
     padding: 6px;
-    --mcm-glass-blur: 14px;
-    background: var(--mcm-glass-bg);
+    background: var(--mcm-surface);
     box-shadow: var(--mcm-highlight), var(--mcm-shadow-3);
     border-radius: var(--mcm-radius-md);
     transform-origin: top right;
     animation: mcm-bell-pop var(--mcm-dur-base) var(--mcm-ease-spring) both;
-
-    @supports (backdrop-filter: blur(1px)) {
-      background: var(--mcm-glass-bg-tr);
-      // #{}-escape: dart-sass intercepts bare saturate() as a color fn.
-      backdrop-filter: blur(var(--mcm-glass-blur)) #{"saturate(var(--mcm-glass-sat))"};
-    }
 
     &::before {
       content: "";

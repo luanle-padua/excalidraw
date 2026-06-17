@@ -1274,6 +1274,20 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     // itself via __avatar-image below.
   }
 
+  // Shared <MCMAvatar> fills the circle. We round the AVATAR itself
+  // (not the parent) so the absolute status badges can still spill
+  // outside the 48px circle without being clipped. A chosen picture
+  // covers it; otherwise identity initials render on the same hue used
+  // everywhere else. Sized up for the big 48px tile.
+  &__avatar-fill {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    font-size: 17px;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   // Custom uploaded / library avatar fills the circle. We round the
   // IMAGE (not the parent) so badges can still spill outside the
   // 48px circle without being clipped. The gradient background
@@ -1287,16 +1301,6 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 50%;
     -webkit-user-select: none;
     user-select: none;
-  }
-
-  // Emoji face takes the full circle area — sized to read clearly
-  // at the 48px container. Subtle drop-shadow keeps it legible on
-  // any gradient background.
-  &__avatar-emoji {
-    font-size: 32px;
-    line-height: 1;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.22));
-    letter-spacing: 0;
   }
 
   &--speaking &__avatar {
@@ -1682,6 +1686,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    // Large preview tile → readable identity initials when no picture.
+    font-size: 22px;
 
     img {
       width: 100%;
@@ -1689,10 +1695,6 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       object-fit: cover;
       display: block;
     }
-  }
-
-  &__preview-emoji {
-    font-size: 28px;
   }
 
   &__preview-meta {
@@ -2334,6 +2336,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       border-radius: 50%;
       object-fit: cover;
       flex-shrink: 0;
+      // Tiny box → single tight initial reads better than two cramped ones.
+      font-size: 8px;
       -webkit-user-select: none;
       user-select: none;
     }
@@ -5559,8 +5563,14 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    // 18px badge → small initials so two letters still fit cleanly. The
+    // bot 🤖 glyph wants the larger size, so only shrink the text avatar.
     font-size: 12px;
     background: var(--mcm-surface-2, #f0f0f3);
+
+    &.mcm-avatar--initials {
+      font-size: 9px;
+    }
 
     img {
       width: 100%;
@@ -8073,6 +8083,11 @@ body:has(.excalidraw.theme--dark) {
     justify-content: center;
     font-size: 17px;
     overflow: hidden;
+
+    // Identity initials read better a touch smaller than the old emoji.
+    &.mcm-avatar--initials {
+      font-size: 13px;
+    }
 
     img {
       width: 100%;
@@ -11476,6 +11491,46 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+// ----- SHARED AVATAR (MCMAvatar) -----------------------------------------
+// Base for the one shared <MCMAvatar> used across every person surface.
+// The call site's own class still owns the box (size / shape / ring); this
+// only lays out the contents: an <img> fills the box, and the initials
+// fallback centres identity-hued text on a soft tint of the same hue. Every
+// avatar therefore reads identically — same initials, same colour — whether
+// it falls back to text or shows a chosen picture.
+.mcm-avatar {
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  line-height: 1;
+  // Identity-hued text + soft same-hue fill for the initials state. When an
+  // <img> fills the box these are simply covered.
+  color: var(--pa, var(--mcm-accent));
+  // Initials sizing: each call site's avatar class may set its own
+  // font-size; this is the calm default for the ~20-28px boxes most
+  // surfaces use. Larger avatars (profile header) bump it via their class.
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  user-select: none;
+
+  > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &--initials {
+    background: color-mix(
+      in srgb,
+      var(--pa, var(--mcm-accent)) 18%,
+      var(--mcm-surface)
+    );
+  }
+}
+
 // Round avatar shared by the chip + the dropdown header. The <img> is
 // the resolved library / uploaded picture; when it can't load, the
 // element carries the identity-hued initial instead (same `--pa`
@@ -11540,7 +11595,6 @@ body:has(.excalidraw.theme--dark) {
 }
 
 .mcm-user__menu {
-  // Small glass popover — lighter blur than the big panes.
   --mcm-glass-blur: 14px;
   top: calc(100% + 8px);
   right: 0;
@@ -11549,10 +11603,20 @@ body:has(.excalidraw.theme--dark) {
   padding: 6px;
   animation: mcm-user-menu-in var(--mcm-dur-base, 200ms)
     var(--mcm-ease-spring, ease);
+  // Borrow the glass mixin for the gradient stroke (::before), shadow and
+  // radius, but this popover floats over the live CANVAS — a translucent
+  // glass fill let the drawing bleed through and made it unreadable. Pin it
+  // to a SOLID surface (the app's other dropdowns/menus do the same).
   @include mcm-glass(var(--mcm-radius-md, 12px));
-  // Anchored popover — must beat the mixin's `position: relative`.
   & {
     position: absolute;
+    background: var(--mcm-surface);
+  }
+  // Override the mixin's translucent backdrop-filter fill with the same
+  // solid surface so it stays opaque even where backdrop-filter is honoured.
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-surface);
+    backdrop-filter: none;
   }
 }
 

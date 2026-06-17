@@ -1969,12 +1969,13 @@ export const AdminConsole = () => {
               </div>
               <div className="mcm-admin__card">
                 <span className="mcm-admin__card-num">
-                  {t("admin.rtBackendDo")} {realtime?.summary.rooms_on_do ?? 0}{" "}
-                  · {t("admin.rtBackendSocketio")}{" "}
-                  {realtime?.summary.rooms_on_socketio ?? 0}
+                  {realtime
+                    ? (realtime.summary.rooms_on_do ?? 0) +
+                      (realtime.summary.rooms_on_socketio ?? 0)
+                    : "—"}
                 </span>
                 <span className="mcm-admin__card-label">
-                  {t("admin.rtRollout")}
+                  {t("admin.rtLiveRooms")}
                 </span>
               </div>
             </div>
@@ -2009,7 +2010,6 @@ export const AdminConsole = () => {
                 <thead>
                   <tr>
                     <th>{t("admin.rtColMeeting")}</th>
-                    <th>{t("admin.rtColBackend")}</th>
                     <th>{t("admin.rtColPeople")}</th>
                     <th>{t("admin.rtColHost")}</th>
                     <th>{t("admin.rtColSince")}</th>
@@ -2021,19 +2021,6 @@ export const AdminConsole = () => {
                     <tr key={r.room_id}>
                       <td>
                         <strong>{r.title || r.room_id}</strong>
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            r.backend === "do"
-                              ? "mcm-pill mcm-pill--on"
-                              : "mcm-pill mcm-pill--neutral"
-                          }
-                        >
-                          {r.backend === "do"
-                            ? t("admin.rtBackendDo")
-                            : t("admin.rtBackendSocketio")}
-                        </span>
                       </td>
                       <td>
                         {r.connected_exact ? "" : "~"}
@@ -2062,7 +2049,7 @@ export const AdminConsole = () => {
                   ))}
                   {realtime && realtime.rooms.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="mcm-table__sub">
+                      <td colSpan={5} className="mcm-table__sub">
                         {t("admin.rtEmpty")}
                       </td>
                     </tr>
@@ -2745,28 +2732,13 @@ export const AdminConsole = () => {
               </div>
             </div>
             <p className="mcm-admin__note">{t("admin.securityNote")}</p>
-            <h4 className="mcm-admin__h4">{t("admin.tabAudit")}</h4>
-            <div className="mcm-tablecard">
-              <table className="mcm-table">
-                <tbody>
-                  {audit.length === 0 && (
-                    <tr>
-                      <td>{t("admin.empty")}</td>
-                    </tr>
-                  )}
-                  {audit.slice(0, 20).map((e) => (
-                    <tr key={e.id}>
-                      <td>{fmtDate(e.ts)}</td>
-                      <td>{e.actor_email || "—"}</td>
-                      <td>
-                        <code>{e.action}</code>
-                      </td>
-                      <td className="mcm-table__sub">{e.target || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+              onClick={() => setTab("audit")}
+            >
+              <ScrollText size={15} /> {t("admin.securityViewAudit")}
+            </button>
           </div>
         )}
 

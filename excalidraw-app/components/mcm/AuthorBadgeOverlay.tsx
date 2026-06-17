@@ -17,13 +17,10 @@ import {
   BOT_USERNAME,
   collabAPIAtom,
 } from "../../collab/Collab";
-import {
-  peerProfilesAtom,
-  resolveAvatarUrlWithDefault,
-  userProfileAtom,
-} from "../../data/userProfile";
+import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { MCMAvatar } from "./Avatar";
 import { shortDisplayName } from "./animalEmoji";
 import { findOrCreateToolbarExtras } from "./toolbarExtras";
 
@@ -248,19 +245,24 @@ export const AuthorBadgeOverlay = () => {
   // the snapshotted name so the badge survives the author leaving.
   const resolveIdentity = (author: Author) => {
     if (author.id === BOT_SOCKET_ID) {
-      return { name: BOT_USERNAME, avatar: null as string | null, isBot: true };
+      return {
+        name: BOT_USERNAME,
+        avatar: null as string | null,
+        email: null as string | null,
+        // EMAIL-keyed default for logged-in authors (stable identity →
+        // same initials/colour everywhere); socketId for anonymous peers.
+        identityKey: author.id,
+        isBot: true,
+      };
     }
     const profile =
       author.id === mySocketId ? myProfile : peerProfiles.get(author.id);
     const rawName = author.name || profile?.username || t("participants.guest");
     return {
       name: shortDisplayName(rawName) || rawName,
-      // EMAIL-keyed default for logged-in authors (stable identity →
-      // same default face everywhere); socketId for anonymous peers.
-      avatar: resolveAvatarUrlWithDefault(
-        profile?.avatar,
-        profile?.email ?? author.id,
-      ),
+      avatar: profile?.avatar ?? null,
+      email: profile?.email ?? null,
+      identityKey: profile?.email ?? author.id,
       isBot: false,
     };
   };
@@ -307,17 +309,17 @@ export const AuthorBadgeOverlay = () => {
                   // eslint-disable-next-line react/forbid-dom-props
                   style={{ left: b.left, top: b.top }}
                 >
-                  <span className="mcm-author-badge__avatar">
-                    {id.isBot ? (
-                      "🤖"
-                    ) : (
-                      <img
-                        src={id.avatar ?? undefined}
-                        alt=""
-                        draggable={false}
-                      />
-                    )}
-                  </span>
+                  {id.isBot ? (
+                    <span className="mcm-author-badge__avatar">🤖</span>
+                  ) : (
+                    <MCMAvatar
+                      className="mcm-author-badge__avatar"
+                      avatar={id.avatar}
+                      name={id.name}
+                      email={id.email}
+                      identityKey={id.identityKey}
+                    />
+                  )}
                   <span className="mcm-author-badge__name">{id.name}</span>
                 </div>
               );

@@ -24,56 +24,13 @@ import { useEffect, useRef, useState } from "react";
 import { useAtomValue } from "../../app-jotai";
 import { getDirectory } from "../../data/invite";
 import { signOut } from "../../data/session";
-import {
-  resolveAvatarUrlWithDefault,
-  userProfileAtom,
-} from "../../data/userProfile";
+import { userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
-import { personColor } from "./meetingColors";
+import { MCMAvatar } from "./Avatar";
 
 import type { DirectoryUser } from "../../data/invite";
 import type { Session } from "../../data/session";
-
-/** Avatar with graceful degradation: the resolved library / uploaded
- *  image first, and — should that file ever fail to load — the same
- *  identity-hued initial badge every other person surface uses. */
-const UserAvatar = ({
-  url,
-  name,
-  email,
-  large,
-}: {
-  url: string;
-  name: string;
-  email: string;
-  large?: boolean;
-}) => {
-  const [failed, setFailed] = useState(false);
-
-  // A new avatar pick deserves a fresh load attempt.
-  useEffect(() => {
-    setFailed(false);
-  }, [url]);
-
-  const cls = `mcm-user__ava${large ? " mcm-user__ava--lg" : ""}`;
-  if (failed) {
-    return (
-      <span
-        className={cls}
-        style={{ ["--pa" as string]: personColor(email || name) }}
-        aria-hidden="true"
-      >
-        {(name.trim()[0] ?? "?").toUpperCase()}
-      </span>
-    );
-  }
-  return (
-    <span className={cls} aria-hidden="true">
-      <img src={url} alt="" draggable={false} onError={() => setFailed(true)} />
-    </span>
-  );
-};
 
 type Props = {
   session: Session;
@@ -140,7 +97,6 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
   const orgLine = [title, division, session.company]
     .filter(Boolean)
     .join(" · ");
-  const avatarUrl = resolveAvatarUrlWithDefault(profile?.avatar, session.email);
 
   return (
     <div className="mcm-user" ref={rootRef}>
@@ -153,7 +109,12 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
         aria-label={t("user.menuAria")}
         title={`${displayName} · ${session.email}`}
       >
-        <UserAvatar url={avatarUrl} name={displayName} email={session.email} />
+        <MCMAvatar
+          className="mcm-user__ava"
+          avatar={profile?.avatar}
+          name={displayName}
+          email={session.email}
+        />
         <span className="mcm-user__id">
           <span className="mcm-user__name">{displayName}</span>
         </span>
@@ -168,11 +129,11 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
         >
           <div className="mcm-user__menu-eyebrow">{t("user.signedInAs")}</div>
           <div className="mcm-user__menu-head">
-            <UserAvatar
-              url={avatarUrl}
+            <MCMAvatar
+              className="mcm-user__ava mcm-user__ava--lg"
+              avatar={profile?.avatar}
               name={displayName}
               email={session.email}
-              large
             />
             <div className="mcm-user__menu-id">
               <div className="mcm-user__menu-name">{displayName}</div>

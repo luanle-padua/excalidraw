@@ -2,7 +2,29 @@
 
 > **🎯 HAI MỐC GO-LIVE (chốt 06-17):** **Tháng 7 = TEST NỘI BỘ** (chỉ @mapgroup) · **Tháng 8 = MỞ KHÁCH NGOÀI**. Tháng 7 gồm Recording (P5) + full Admin Console (P-A) + Phase 6 hardening (B1–B11), **trừ 1b** (canvas-relay-auth = chấp nhận tạm cho nội bộ). Tháng 8 thêm **1b auth room server + email-verify + cohost server-validation** trước khi mở external. Chi tiết blocker: memory `mcm-july-v1-scope` + audit task `wztvf5jk8`.
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-17** — **app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects** (DO migration BUILT + DEPLOYED, nuốt 1b/B12; room server socket.io/Fly bị khai tử). I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE; Phase 6 go-live blocker phần lớn ✅ (chi tiết dưới); còn lại B1 spend-cap + B3 rotate. Chi tiết hôm nay: `logs/2026-06-17.md`.
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-17 (cuối ngày, sau lượt ship lớn)** — **app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects** (DO migration BUILT + DEPLOYED + **client ép DO theo build**, nuốt 1b/B12; room server socket.io/Fly bị khai tử). I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE, **B9 DR (backup/archive/cron/trash) DONE**, **B7 AI rate-limit DONE**, **AI cost-metering FIXED (`waitUntil`)**, **D1 migration 0029**. Phase 6 go-live blocker phần lớn ✅ (chi tiết dưới). **CÒN LẠI chặn tháng 7: B1 spend-cap (Luân) + B3 rotate (Luân) + B5 daily-token-room cap + B8 STT-OFF/consent.** Chairman = đã viết spec (`specs/chairman-account.md`), CHƯA code. Chi tiết hôm nay: `logs/2026-06-17.md`.
+
+> **📊 ĐÁNH GIÁ NHANH (06-17 cuối ngày) — đứng đâu:** **Hạ tầng + tiền-mặt-tích-cực phần lớn đã khoá.** 8/11 blocker B1–B11 đã đóng (B2,B4,B6,B7,B9,B10 ✅; B11 huỷ). 3 việc còn lại đều **ngắn**: **B1** (đặt trần chi GCP/Deepgram/Daily — 30', việc Luân, làm TRƯỚC) · **B3** (rotate secrets — việc Luân) · **B5+B8** (chặn auto-tạo Daily room + STT-default-OFF — code S). **Tháng 7 (test nội bộ) gần sẵn sàng**; rủi ro còn lại là *soft host-control* (chấp nhận cho nội bộ). **Tháng 8 (khách ngoài)** cần thêm: cohost server-validation (kick/mute) qua DO, email-verify out-of-band, guest data-lifecycle (revoke≠delete) — xem cuối doc.
+
+## 🎯 Ưu tiên 1–2 tuần tới (chốt 06-17 cuối ngày)
+
+**MUST cho THÁNG 7 (test nội bộ) — theo thứ tự:**
+1. **B1 spend-cap** (Luân, 30') — đặt budget/quota GCP-Gemini + Deepgram + Daily. *Hàng rào tiền cứng, làm TRƯỚC tất cả.*
+2. **B3 rotate secrets** (Luân) — xoay toàn bộ key đã từng commit.
+3. **B8 STT default-OFF + banner consent** (code S) — đặc biệt cho đa quốc gia/Phi.
+4. **B5 chặn auto-tạo Daily room** + rate-limit `/daily/token` (code M) — chống loop đốt phí.
+5. **Phase 5 Recording → R2** (feature lớn còn lại của tháng 7) — Daily cloud recording → webhook → R2 auth-gated → xem trong review-mode.
+6. **Smoke-test DO 2-client thật** + test 2-account (invite→magic-link→auto-join, revoke=kick ≤60s) trên prod.
+7. **R2 lifecycle rule trên `trash/`** (Luân) + dọn Daily-room orphan trong cascade.
+
+**CAN-WAIT cho THÁNG 8 (khách ngoài):**
+8. **Cohost server-validation (kick/mute live qua DO)** — đóng nốt host-control client-soft (track I-2).
+9. **Email-verify out-of-band** cho khách thật.
+10. **Guest data-lifecycle (revoke ≠ delete)** — sửa chỗ hard-delete → soft-revoke.
+11. **(tuỳ exec) Chairman account MVP** — nếu lãnh đạo muốn oversight; spec đã sẵn.
+12. **Regenerate architecture.md** (đang stale 06-11).
+
+---
 
 ## ✅ Đã xong
 
@@ -64,7 +86,9 @@ Ngoài plan gốc — yêu cầu anh Luân "redesign UI/UX như app Apple, trend
 - [x] **Trang khách (ClientPortal) Glass-Desk đa quốc gia** (06-16): card kính mờ + **nền xoay 7 theme** (`PortalBackdrop` data-driven, lazy-load, opaque base chống lộ panel khi crossfade) đã **nén WebP 15.3MB→741KB**; **calendar trong suốt** bên phải; greeting ra ngoài nền, **Cormorant Garamond**, "Hi {name}" hero; **phòng chờ đồng bộ** cùng nền/kính. _(Theme-theo-từng-client/insight = làm sau khi cần.)_
 - Còn: **quét i18n lại** (đang **tạm dừng** tới khi UI chốt — chuỗi mới hardcode tiếng Việt) · **test tay login-link** 2 account.
 
-### Phase 5 — Recording → R2 (auth-gated)
+### Phase 5 — Recording → R2 (auth-gated) — _scope tháng 7, CHƯA build (06-17)_
+
+> Backup/DR foundation cho recording đã có (soft-delete `trash/`, archive, IA-tier plan ở `runbooks/backup.md`) nhưng **luồng recording chính chưa làm**. Đây là feature lớn còn lại của tháng 7.
 
 - [ ] **Daily cloud recording** (audio+screen đều trên Daily) → webhook `recording.ready` → **Worker copy về R2 private** (Daily không ghi thẳng R2 — chỉ AWS S3).
 - [ ] **Tải qua Worker có auth** (verify JWT + membership) — không link công khai. R2 vì **egress free** (S3 ~$0.09/GB).
@@ -76,6 +100,8 @@ Ngoài plan gốc — yêu cầu anh Luân "redesign UI/UX như app Apple, trend
 ### Phase A — Admin Console (track riêng)
 
 Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = account RIÊNG** (`admin@mapgroup.co.kr`, role qua Supabase `app_metadata`); **không meeting host nào là admin**. Module: Dashboard · Users&Roles · Meetings · Recordings · Cost&Usage · API/Integrations · Storage · Audit log · Security · Settings · Analytics · Compliance/GDPR · Announcements. → spec đầy đủ: **[admin-console.md](../specs/admin-console.md)**. Build: A1 (role+gate+/admin+Dashboard+Users+Meetings) → A2 (Cost+API+Recordings+Storage+Audit) → A3 (Security+Settings+Analytics+Compliance).
+
+**Tiến độ 06-17:** ✅ role+gate+console + Users + Meetings + **AI&Cost tab** (đo `usage_events`, metering FIXED bằng `waitUntil`) + **System-status tab** + **Realtime monitor tab** (DO connections + reject audit) + **Backup DB / Archive&Delete project / weekly Cron** + **client backdrops/branding upload** (per-country). ⏳ Còn: Recordings tab (chờ Phase 5), Security/Settings/Analytics/Compliance (A3), Audit-log viewer UI.
 
 ---
 
@@ -90,7 +116,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 > 11 blocker; phần lớn là **việc S của Luân (ops/secrets/cost)**, không phải code dev. Effort: S <1 ngày · M 1-3 ngày. Thứ tự = "chặn máu" trước.
 
 **Tuần 1 — chặn tiền + bảo mật + dữ liệu (gần như toàn Luân):**
-- **B1 · Spend-cap** GCP/Gemini + Deepgram + Daily quota (30', hàng rào tiền *duy nhất app-bug không vượt được* — làm TRƯỚC mọi rate-limit). **S** ⏳ _CÒN — việc anh Luân._
+- **B1 · Spend-cap** GCP/Gemini + Deepgram + Daily quota (30', hàng rào tiền *duy nhất app-bug không vượt được* — làm TRƯỚC mọi rate-limit). **S** ⏳ _**CÒN — việc anh Luân (ưu tiên #1 cho tháng 7).** Rate-limit per-isolate ở Worker đã có (B7 ✅) nhưng đó KHÔNG phải trần tiền cứng — vẫn cần đặt budget/quota ở dashboard GCP + Deepgram + Daily._
 - **B2 · Migration remote** ✅ _06-17: áp **0017–0027** lên remote D1, **27/27** schema_version khớp (knock `0025` + usage `0026` + `realtime_backend` `0027`)._
 - **B3 · Rotate toàn bộ secrets** (Gemini/Deepgram/Supabase/Daily/Resend) — key đã commit = coi như lộ; thay `*.example` + pre-commit hook chặn `.env.development`/`.dev.vars`. Rotate = cách thật duy nhất (hook chỉ chặn commit mới). **S** ⏳ _CÒN — việc anh Luân; key 06-17 đã set sạch BOM nhưng VẪN phải xoay trước external._
 - **B4 · Bỏ password khỏi email mời** (`/v1/guests/send-invite` nhúng `password` → magic-link). **S** ✅ _verified lỗ có thật → đã fix._
@@ -103,9 +129,9 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - Phụ: **Daily room orphan** — `deleteDailyRoom()` vào `deleteMeetingCascade`; **scrub hardcoded pw** `MapMeet@2026`/`MapAdmin@2026` (14 file → seed script). **S**
 
 **Tuần 3 — cost guard:**
-- **B5 · Chặn `/v1/daily/token` auto-tạo room** → chỉ host/owner `POST .../daily-room` + rate-limit (~1 req/s/user). **M**
+- **B5 · Chặn `/v1/daily/token` auto-tạo room** → chỉ host/owner `POST .../daily-room` + rate-limit (~1 req/s/user). **M** ⏳ _CÒN — cost-guard tháng 7 (token đã gate `canSeeMeeting`+knock; chưa chặn auto-create room loop)._
 - **B7 · Auth + rate-limit AI/STT routes** ✅ _06-17: AI/STT dời lên Worker (I-1, `8e734411`) + **JWT-gate** (`9c72569b`, đóng lỗ cost-abuse public) + rate-limit **per-isolate** (đủ cho internal). Nâng DO/KV-limiter chỉ khi external lạm dụng thật._
-- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0026` ✅ applied remote 06-17). **S**
+- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0028` ✅ applied remote 06-17). **S** ⏳ _CÒN: usage đã đo + hiện trên admin Cost/Status tab (06-17); **chưa** set STT default-OFF + banner consent. Nhẹ — làm cho tháng 7 (consent đặc biệt cần khi đi đa quốc gia/Phi)._
 
 **Tuần 4 — runbook + verify:**
 - **(I-6) Runbooks** `docs/runbooks/`: deploy · key-rotation · incident (room crash→restart; data-loss→restore). Ngắn, cho PM tự làm.
@@ -114,7 +140,13 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - ~~**Daily-token check membership**~~ ✅ 06-16: token gate `canSeeMeeting` + (external) **admitted-knock**, base meeting id (strip `-audio`).
 - Token refresh họp >4h (Daily token hết hạn 4h) · scene size limit — *để sau nếu chưa đụng.*
 
-**→ Tháng 8 (mở khách ngoài):** ~~**1b auth room server**~~ ✅ **đã đóng bởi DO handshake 06-17** (JWT + canSeeMeeting + knock verify trước 101 — xem Phase 7/I-2). Còn: **email-verify out-of-band** + **cohost server-validation** (DO mở khoá election live đọc role cohost). _KHÔNG over-engineer: bỏ multi-region/k8s/E2E-crypto/SSO/CI-CD-deploy — xem audit mục 5._
+**→ Tháng 8 (mở khách ngoài) — GAP CÒN MỞ (verify code 06-17):**
+- ~~**1b auth room server**~~ ✅ **đã đóng bởi DO handshake 06-17** — verify code: `handleRealtimeUpgrade` (`index.ts:5515`) verify **JWT + canSeeMeeting + isFinishedLocked + knock-admitted + WS-cap** TRƯỚC khi trả `101`. Lỗ relay-không-verify (socket.io không bao giờ vá) đã đóng.
+- ⏳ **Cohost server-validation (kick/mute live)** — DO chỉ relay byte, **KHÔNG** validate `HOST_COMMAND`; host election + kick/mute vẫn **client-soft** (`roomDO.ts:109` "client-side"). Khách ngoài có thể spoof host-claim → phải để DO đọc role cohost/host từ D1 + ép kick/mute server-side. **(blocker tháng 8, track I-2.)**
+- ⏳ **Email-verify out-of-band** (xác thực email khách thật trước khi cấp quyền).
+- ⏳ **Guest data-lifecycle (revoke ≠ delete)** — code hiện hard-delete guest ở vài đường; cần đổi sang soft-revoke giữ history (memory `mcm-guest-data-lifecycle`, plan `guest-data-lifecycle.md`). Quan trọng khi có khách thật + đa quốc gia.
+- ⏳ **(tuỳ chọn exec) Chairman account** — spec xong (`specs/chairman-account.md`), CHƯA code. Nếu lãnh đạo muốn giám sát/oversight xuyên dự án thì build trước tháng 8; nếu không, để sau.
+- _KHÔNG over-engineer: bỏ multi-region/k8s/E2E-crypto/SSO/CI-CD-deploy — xem audit mục 5._
 
 ### 🟣 Phase 7 — Serverless infra migration (June) — **BUILT + DEPLOYED LIVE 06-17**
 
@@ -134,11 +166,12 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 
 ### 🧹 Dọn dẹp / nợ nhỏ
 
-- Xoá **mesh dead code** (`AudioRoom`/`AudioPeer`/`turnConfig`) sau khi verify mic.
-- **R2 orphan cleanup** (xoá blob khi meeting bị xoá) + dọn 3 meeting rác cũ.
-- **E2E key hardening** — `room_key` lưu D1 (server đọc được, không E2E thật).
-- **Gộp audio+screen 1 Daily room** (giờ 2 room `<id>` + `<id>-audio`) cho unified recording + giảm cost.
+- ✅ Xoá **mesh dead code** (`AudioRoom`/`AudioPeer`/`turnConfig`) — dropped 06-17 (`746eb8ca`).
+- ✅ **R2 orphan/soft-delete** — blob meeting bị xoá → `trash/` (B9, `8f637542`). Còn: gắn lifecycle rule trên `trash/` (việc Luân) + dọn Daily room orphan trong cascade.
+- **E2E key hardening** — `room_key` lưu D1 (server đọc được, không E2E thật). **Chủ ý giữ** (managed key = nền cho admin compliance + Chairman); chỉ ghi rõ là ranh giới *chính sách* không phải mật mã thuần — KHÔNG nâng lên client-only-key vì sẽ phá compliance/Chairman (xem `specs/chairman-account.md §4`).
+- **Gộp audio+screen 1 Daily room** (giờ 2 room `<id>` + `<id>-audio`) cho unified recording + giảm cost — làm chung với Phase 5.
 - **Data residency** (R2/Daily region) cho client xuyên quốc gia; **mời theo email cụ thể** + invite UI.
+- **Regenerate `docs/generated/architecture.md`** — đang STALE (06-11, banner đã cảnh báo): mô tả room-server socket.io đã khai tử, §5 known-gaps liệt kê nhiều thứ nay đã đóng (CORS, rate-limit, backup/DR, finished blob-PUT). Tạo lại bản 06-17 (đừng sửa tay).
 
 ---
 

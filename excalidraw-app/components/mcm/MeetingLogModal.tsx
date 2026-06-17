@@ -24,13 +24,10 @@ import {
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
-import {
-  peerProfilesAtom,
-  resolveAvatarUrlWithDefault,
-  userProfileAtom,
-} from "../../data/userProfile";
+import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { MCMAvatar } from "./Avatar";
 import { shortDisplayName } from "./animalEmoji";
 
 import type {
@@ -394,21 +391,18 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                       ? myProfile ?? undefined
                       : peerProfiles.get(run.socketId);
                   const speakerName = speakerProfile?.username || run.username;
-                  const avatarUrl = resolveAvatarUrlWithDefault(
-                    speakerProfile?.avatar,
-                    speakerProfile?.email ?? run.socketId,
-                  );
                   return (
                     <div
                       key={`${run.socketId}-${run.startTs}-${idx}`}
                       className="mcm-log-modal__run"
                     >
                       <div className="mcm-log-modal__run-head">
-                        <img
+                        <MCMAvatar
                           className="mcm-log-modal__run-avatar"
-                          src={avatarUrl}
-                          alt=""
-                          draggable={false}
+                          avatar={speakerProfile?.avatar}
+                          name={speakerName}
+                          email={speakerProfile?.email}
+                          identityKey={speakerProfile?.email ?? run.socketId}
                         />
                         <span
                           className="mcm-log-modal__run-spk"

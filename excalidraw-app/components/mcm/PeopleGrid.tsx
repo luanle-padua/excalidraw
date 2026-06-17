@@ -1,8 +1,8 @@
 import { X } from "lucide-react";
 
-import { resolveAvatarUrlWithDefault } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { MCMAvatar } from "./Avatar";
 import { personColor } from "./meetingColors";
 
 /** One person as the meeting surfaces know them — resolved from the staff
@@ -44,11 +44,11 @@ export const PersonChip = ({
       .filter(Boolean)
       .join(" · ")}
   >
-    <img
+    <MCMAvatar
       className="mcm-pchip__ava"
-      src={resolveAvatarUrlWithDefault(person.avatar, person.email)}
-      alt=""
-      loading="lazy"
+      avatar={person.avatar}
+      name={person.name}
+      email={person.email}
     />
     <span className="mcm-pchip__name">{person.name}</span>
     {person.title && <span className="mcm-pchip__title">{person.title}</span>}

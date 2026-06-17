@@ -11,9 +11,9 @@ import {
   type ProjectMember,
 } from "../../data/projects";
 import { isInternalEmail } from "../../data/session";
-import { resolveAvatarUrlWithDefault } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { MCMAvatar } from "./Avatar";
 import { ConfirmModal } from "./ConfirmModal";
 import { MemberPicker } from "./MemberPicker";
 
@@ -226,14 +226,11 @@ export const ProjectMemberRoster = ({
                   const actionable = !isOwner;
                   return (
                     <li key={m.email} className="mcm-roster__role-row">
-                      <img
+                      <MCMAvatar
                         className="mcm-roster__avatar"
-                        src={resolveAvatarUrlWithDefault(
-                          u?.avatar ?? null,
-                          m.email,
-                        )}
-                        alt=""
-                        loading="lazy"
+                        avatar={u?.avatar ?? null}
+                        name={u?.name}
+                        email={m.email}
                       />
                       <span className="mcm-roster__role-name">
                         {u?.name ?? m.email.split("@")[0]}

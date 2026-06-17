@@ -40,12 +40,9 @@ import {
 
 import { useT } from "../i18n/mcm";
 
-import {
-  peerProfilesAtom,
-  resolveAvatarUrlWithDefault,
-  userProfileAtom,
-} from "../data/userProfile";
+import { peerProfilesAtom, userProfileAtom } from "../data/userProfile";
 
+import { MCMAvatar } from "./mcm/Avatar";
 import { shortDisplayName } from "./mcm/animalEmoji";
 
 import "./ChatPanel.scss";
@@ -528,17 +525,6 @@ const GroupRow = ({
     : group.isMine
     ? t("chat.you")
     : shortDisplayName(resolvedName) || t("participants.guest");
-  // ALWAYS a real image URL — when the sender hasn't picked an
-  // avatar, `resolveAvatarUrlWithDefault` falls back to a
-  // deterministic library image keyed off the sender's EMAIL (stable
-  // identity — same default face in every session/surface), or off
-  // socketId for anonymous peers, so the chat never reverts to a
-  // plain unicode emoji "animal" face.
-  const avatarImageUrl = resolveAvatarUrlWithDefault(
-    senderProfile?.avatar,
-    senderProfile?.email ?? group.socketId,
-  );
-
   return (
     <div
       className={`ChatView__group${
@@ -553,12 +539,13 @@ const GroupRow = ({
           🤖
         </div>
       ) : (
-        <div
+        <MCMAvatar
           className="ChatView__avatar ChatView__avatar--image"
-          aria-hidden="true"
-        >
-          <img src={avatarImageUrl} alt="" draggable={false} />
-        </div>
+          avatar={senderProfile?.avatar}
+          name={resolvedName}
+          email={senderProfile?.email}
+          identityKey={senderProfile?.email ?? group.socketId}
+        />
       )}
 
       <div className="ChatView__group-body">

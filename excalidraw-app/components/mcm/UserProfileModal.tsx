@@ -20,14 +20,16 @@ import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 
 import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
+import { sessionAtom } from "../../data/session";
 import {
   AVATAR_LIBRARY,
-  resolveAvatarUrl,
   saveUserProfile,
   syncAvatarToAccount,
   userProfileAtom,
 } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
+
+import { MCMAvatar } from "./Avatar";
 
 import type { UserProfile } from "../../data/userProfile";
 
@@ -80,6 +82,7 @@ type Props = {
 export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
   const t = useT();
   const profile = useAtomValue(userProfileAtom);
+  const session = useAtomValue(sessionAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const excalidrawAPI = useExcalidrawAPI();
 
@@ -174,8 +177,6 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
     }
   };
 
-  const previewUrl = resolveAvatarUrl(avatar);
-
   return (
     <div
       className="mcm-profile-modal"
@@ -204,15 +205,12 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
 
         <div className="mcm-profile-modal__body">
           <div className="mcm-profile-modal__preview">
-            <div className="mcm-profile-modal__preview-avatar">
-              {previewUrl ? (
-                <img src={previewUrl} alt="" draggable={false} />
-              ) : (
-                <span className="mcm-profile-modal__preview-emoji" aria-hidden>
-                  🙂
-                </span>
-              )}
-            </div>
+            <MCMAvatar
+              className="mcm-profile-modal__preview-avatar"
+              avatar={avatar}
+              name={trimmedName || session?.name}
+              email={session?.email}
+            />
             <div className="mcm-profile-modal__preview-meta">
               <div className="mcm-profile-modal__preview-name">
                 {trimmedName || t("profile.namePlaceholder")}

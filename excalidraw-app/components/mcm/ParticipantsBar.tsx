@@ -34,23 +34,20 @@ import {
   type DirectoryUser,
   type MeetingInvitee,
 } from "../../data/invite";
-import {
-  listKnocks,
-  patchKnock,
-  type WaitingKnock,
-} from "../../data/knock";
+import { listKnocks, patchKnock, type WaitingKnock } from "../../data/knock";
 import { sessionAtom } from "../../data/session";
 import {
   hostSocketIdAtom,
   meetingViewerAuthorityAtom,
   peerAudioAtom,
   peerProfilesAtom,
-  resolveAvatarUrlWithDefault,
+  resolveAvatarUrl,
   userProfileAtom,
 } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
-import { pickEmojiFor, shortDisplayName } from "./animalEmoji";
+import { MCMAvatar } from "./Avatar";
+import { shortDisplayName } from "./animalEmoji";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
 
 import type { HTMLAttributes } from "react";
@@ -160,10 +157,14 @@ type Tile = {
   /** Company line from the user's profile — if present we render it
    *  underneath the display name. Empty / undefined skips the line. */
   company?: string;
-  /** Resolved URL to an avatar image (library or uploaded). When set,
-   *  we render <img> instead of the deterministic emoji fallback so
-   *  the tile carries a recognisable face. */
+  /** Resolved URL to an avatar image (library or uploaded) — only when the
+   *  user actually PICKED one. When set, the tile shows that picture; when
+   *  null the shared <MCMAvatar> falls back to identity initials. Drives the
+   *  `--image` class so the gradient ring only shows behind a real photo. */
   avatarUrl?: string | null;
+  /** Raw stored avatar value (`"lib:NN.png"` / `data:…`) passed straight to
+   *  the shared <MCMAvatar>, which resolves an image or renders initials. */
+  avatarRaw?: string | null;
   /** True for the participant currently elected as host (the
    *  link-sharer in steady state). Drives the small "Host" pill that
    *  sits above the avatar so everyone in the room sees who's host
@@ -222,10 +223,6 @@ const Person = ({
   // names ("Mai", "Park Junho") are preserved verbatim on hover.
   const fullName = p.name.replace(/\s*\(.*?\)\s*$/, "");
   const displayName = shortDisplayName(p.name);
-  // Always pick an emoji — animal names map to their species,
-  // everyone else gets a deterministic cute critter keyed off
-  // socketId so the face is stable across sessions.
-  const emoji = pickEmojiFor(p.id, p.name);
   // Always show the short name now — the bar is in 2-row vertical
   // layout (avatar on top, name below). Speaker / me still get
   // their own visual accents via colour modifiers.
@@ -287,23 +284,14 @@ const Person = ({
         className={`mcm-person__avatar${
           p.avatarUrl ? " mcm-person__avatar--image" : ""
         }`}
-        // gradient per-participant — has to be inline since the colour
-        // mix is data-driven
-        // eslint-disable-next-line react/forbid-dom-props
-        style={{ background: p.avatarUrl ? undefined : p.avatar }}
       >
-        {p.avatarUrl ? (
-          <img
-            className="mcm-person__avatar-image"
-            src={p.avatarUrl}
-            alt=""
-            draggable={false}
-          />
-        ) : (
-          <span className="mcm-person__avatar-emoji" aria-hidden="true">
-            {emoji}
-          </span>
-        )}
+        <MCMAvatar
+          className="mcm-person__avatar-fill"
+          avatar={p.avatarRaw}
+          name={p.name}
+          email={p.email}
+          identityKey={p.email ?? p.id}
+        />
         {p.isHost && (
           <span
             className="mcm-person__host-badge"
@@ -505,23 +493,17 @@ const ParticipantsPanel = ({
         )}
         <ul className="mcm-pp__list">
           {tiles.map((p) => {
-            const emoji = pickEmojiFor(p.id, p.name);
             const fullName = p.name.replace(/\s*\(.*?\)\s*$/, "");
             const canModerate = iAmHost && !p.isMe && !p.isHost;
             return (
               <li key={p.id} className="mcm-pp__row">
-                <span
+                <MCMAvatar
                   className="mcm-pp__avatar"
-                  // gradient per participant (data-driven)
-                  // eslint-disable-next-line react/forbid-dom-props
-                  style={{ background: p.avatarUrl ? undefined : p.avatar }}
-                >
-                  {p.avatarUrl ? (
-                    <img src={p.avatarUrl} alt="" draggable={false} />
-                  ) : (
-                    <span aria-hidden="true">{emoji}</span>
-                  )}
-                </span>
+                  avatar={p.avatarRaw}
+                  name={p.name}
+                  email={p.email}
+                  identityKey={p.email ?? p.id}
+                />
                 <div className="mcm-pp__meta">
                   <span className="mcm-pp__name">
                     {fullName}
@@ -598,16 +580,11 @@ const ParticipantsPanel = ({
                     key={k.email}
                     className="mcm-pp__row mcm-pp__row--invited"
                   >
-                    <span
+                    <MCMAvatar
                       className="mcm-pp__avatar"
-                      // gradient per knocker (data-driven)
-                      // eslint-disable-next-line react/forbid-dom-props
-                      style={{ background: gradientFor(k.email) }}
-                    >
-                      <span aria-hidden="true">
-                        {pickEmojiFor(k.email, fullName)}
-                      </span>
-                    </span>
+                      name={fullName}
+                      email={k.email}
+                    />
                     <div className="mcm-pp__meta">
                       <span className="mcm-pp__name">
                         {fullName}
@@ -648,15 +625,11 @@ const ParticipantsPanel = ({
             <ul className="mcm-pp__list mcm-pp__list--invited">
               {invited.map((iv) => (
                 <li key={iv.email} className="mcm-pp__row mcm-pp__row--invited">
-                  <span
+                  <MCMAvatar
                     className="mcm-pp__avatar"
-                    // eslint-disable-next-line react/forbid-dom-props
-                    style={{ background: gradientFor(iv.email) }}
-                  >
-                    <span aria-hidden="true">
-                      {pickEmojiFor(iv.email, iv.name)}
-                    </span>
-                  </span>
+                    name={iv.name}
+                    email={iv.email}
+                  />
                   <div className="mcm-pp__meta">
                     <span className="mcm-pp__name">
                       {iv.name}
@@ -958,12 +931,10 @@ export const ParticipantsBar = ({
     handRaised: raisedHands.has(selfSocketId),
     reactions: reactionsBySocket.get(selfSocketId) ?? [],
     company: myProfile?.company,
-    // Default-avatar key: EMAIL when logged in (stable identity → same
-    // default face every session/device); socketId only for anonymous.
-    avatarUrl: resolveAvatarUrlWithDefault(
-      myProfile?.avatar,
-      myProfile?.email ?? selfSocketId,
-    ),
+    // Only a REAL pick yields an image; otherwise the tile shows identity
+    // initials (keyed off EMAIL when logged in, socketId for anonymous).
+    avatarUrl: resolveAvatarUrl(myProfile?.avatar),
+    avatarRaw: myProfile?.avatar ?? null,
     isHost: !!hostSocketId && hostSocketId === selfSocketId,
     isCohost: cohostEmails.has((myProfile?.email ?? "").toLowerCase()),
     title: titleFor(myProfile?.email),
@@ -1005,11 +976,9 @@ export const ParticipantsBar = ({
       reactions: reactionsBySocket.get(socketId) ?? [],
       isFollowed,
       company: peerProfile?.company,
-      // EMAIL-keyed default for logged-in peers; socketId for anonymous.
-      avatarUrl: resolveAvatarUrlWithDefault(
-        peerProfile?.avatar,
-        peerProfile?.email ?? socketId,
-      ),
+      // Only a REAL pick yields an image; otherwise identity initials.
+      avatarUrl: resolveAvatarUrl(peerProfile?.avatar),
+      avatarRaw: peerProfile?.avatar ?? null,
       isHost: !!hostSocketId && hostSocketId === socketId,
       isCohost: cohostEmails.has((peerProfile?.email ?? "").toLowerCase()),
       title: titleFor(peerProfile?.email),

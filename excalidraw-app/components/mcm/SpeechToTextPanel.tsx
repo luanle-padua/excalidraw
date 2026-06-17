@@ -28,13 +28,10 @@ import {
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { preferredLanguageAtom, useTranslate } from "../../data/translation";
-import {
-  peerProfilesAtom,
-  resolveAvatarUrlWithDefault,
-  userProfileAtom,
-} from "../../data/userProfile";
+import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
+import { MCMAvatar } from "./Avatar";
 import { shortDisplayName } from "./animalEmoji";
 
 import type { STTLang } from "../../audio/sttSession";
@@ -136,24 +133,16 @@ const SegmentRow = ({
       ? myProfile ?? undefined
       : peerProfiles.get(seg.socketId);
   const speakerName = speakerProfile?.username || seg.username;
-  // Always render an img — `resolveAvatarUrlWithDefault` falls back
-  // to a deterministic library image when the speaker hasn't picked
-  // an avatar (keyed off their EMAIL when logged in, socketId only
-  // for anonymous peers), so the transcript never reverts to a plain
-  // unicode emoji.
-  const avatarUrl = resolveAvatarUrlWithDefault(
-    speakerProfile?.avatar,
-    speakerProfile?.email ?? seg.socketId,
-  );
   const shortName = shortDisplayName(speakerName);
   return (
     <div className="mcm-stt__line">
       <div className="mcm-stt__line-head">
-        <img
+        <MCMAvatar
           className="mcm-stt__line-avatar"
-          src={avatarUrl}
-          alt=""
-          draggable={false}
+          avatar={speakerProfile?.avatar}
+          name={speakerName}
+          email={speakerProfile?.email}
+          identityKey={speakerProfile?.email ?? seg.socketId}
         />
         <span
           className="mcm-stt__line-spk"
@@ -194,19 +183,15 @@ const InterimLine = ({
       ? myProfile ?? undefined
       : peerProfiles.get(entry.socketId);
   const name = speakerProfile?.username || entry.username;
-  // Same EMAIL-first default key as SegmentRow above.
-  const avatarUrl = resolveAvatarUrlWithDefault(
-    speakerProfile?.avatar,
-    speakerProfile?.email ?? entry.socketId,
-  );
   return (
     <div className="mcm-stt__line mcm-stt__line--interim">
       <div className="mcm-stt__line-head">
-        <img
+        <MCMAvatar
           className="mcm-stt__line-avatar"
-          src={avatarUrl}
-          alt=""
-          draggable={false}
+          avatar={speakerProfile?.avatar}
+          name={name}
+          email={speakerProfile?.email}
+          identityKey={speakerProfile?.email ?? entry.socketId}
         />
         <span
           className="mcm-stt__line-spk"
