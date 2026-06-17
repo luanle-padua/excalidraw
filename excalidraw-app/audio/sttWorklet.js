@@ -15,15 +15,17 @@
 //   Pack into ArrayBuffer, post to main thread every ~250ms worth of audio
 //
 // The main thread relays the ArrayBuffer to the STT WebSocket.
-
-// IMPORTANT: this file is loaded as a Worklet, NOT imported normally.
-// Vite resolves the URL via `?worker&url` so the worklet code is
-// served separately. Do not import anything from the app codebase
-// here — the worklet runs in an isolated global scope.
-
-/* eslint-disable */
-// @ts-nocheck — AudioWorkletProcessor / registerProcessor are globals
-//               on the worklet scope, not on the main-thread Window.
+//
+// IMPORTANT: this MUST stay PLAIN JAVASCRIPT (no TypeScript syntax). It is
+// loaded as a Worklet via `import './sttWorklet.js?url'` in sttSession.ts —
+// Vite emits the file VERBATIM as a static asset (it is NOT transpiled or
+// bundled, because the worklet runs in its own isolated global scope and
+// imports nothing). A `.ts` version worked in `vite dev` (the dev server
+// transpiles on the fly) but the production build copied the raw `.ts`, which
+// (a) contains un-parseable TS syntax and (b) is served as `video/mp2t` by the
+// host — both make `audioWorklet.addModule()` fail with "Unable to load a
+// worklet's module". Keeping this as `.js` makes the emitted asset valid JS
+// served with a JavaScript MIME type.
 
 const TARGET_SAMPLE_RATE = 16000;
 // Buffer ~250ms of 16kHz mono before posting → 4 messages/sec.
@@ -31,13 +33,10 @@ const TARGET_SAMPLE_RATE = 16000;
 const TARGET_BUFFER_SAMPLES = 16000 / 4;
 
 class STTDownsampler extends AudioWorkletProcessor {
-  private downsampleStride: number;
-  private downsampleOffset = 0;
-  private outputBuffer: Int16Array;
-  private outputCursor = 0;
-
   constructor() {
     super();
+    this.downsampleOffset = 0;
+    this.outputCursor = 0;
     // AudioWorkletGlobalScope.sampleRate is the AudioContext's rate.
     this.downsampleStride = Math.max(
       1,
@@ -46,7 +45,7 @@ class STTDownsampler extends AudioWorkletProcessor {
     this.outputBuffer = new Int16Array(TARGET_BUFFER_SAMPLES);
   }
 
-  process(inputs: Float32Array[][]): boolean {
+  process(inputs) {
     const input = inputs[0];
     if (!input || input.length === 0) {
       return true; // no mic data this tick, keep alive

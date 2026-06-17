@@ -18,12 +18,13 @@
 
 // `?url` makes Vite emit the worklet as a standalone asset and hand
 // us the public URL — exactly what AudioContext.audioWorklet.addModule
-// wants. `?worker&url` would wrap it as a Web Worker bundle (wrong
-// scope for AudioWorklet globals).
+// wants. It MUST point at the PLAIN-JS `.js` worklet: `?url` copies the
+// file verbatim (no transpile/bundle), so a `.ts` source ships raw
+// TypeScript served as video/mp2t and addModule() fails in the prod build.
 import { sttBackendWsUrl } from "../data/aiBackend";
 import { supabase } from "../data/supabaseClient";
 
-import sttWorkletUrl from "./sttWorklet.ts?url";
+import sttWorkletUrl from "./sttWorklet.js?url";
 
 // Protocol marker the server expects first on the /stt handshake, mirroring the
 // realtime DO transport (`["mcm.v1", token]`). The Worker (worker/src/stt.ts)
