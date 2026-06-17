@@ -305,10 +305,10 @@ export default defineConfig(({ mode }) => {
           maximumFileSizeToCacheInBytes: 4 * 1024 ** 2, // 4MB
         },
         manifest: {
-          short_name: "Excalidraw",
-          name: "Excalidraw",
+          short_name: "Canvas M",
+          name: "Canvas M",
           description:
-            "Excalidraw is a whiteboard tool that lets you easily sketch diagrams that have a hand-drawn feel to them.",
+            "Canvas M — a realtime meeting whiteboard for MAP-GROUP.",
           icons: [
             {
               src: "android-chrome-192x192.png",
@@ -332,7 +332,7 @@ export default defineConfig(({ mode }) => {
             },
           ],
           start_url: "/",
-          id: "excalidraw",
+          id: "canvas-m",
           display: "standalone",
           theme_color: "#121212",
           background_color: "#ffffff",
