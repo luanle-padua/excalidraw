@@ -25,9 +25,14 @@ import {
 } from "../../collab/Collab";
 import { aiBackendUrl } from "../../data/aiBackend";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
+import {
+  buildContextFiles,
+  buildParticipants,
+} from "../../data/meetingContext";
 import { meetingFilesAtom } from "../../data/meetingLibrary";
 import { preferredLanguageAtom } from "../../data/translation";
 import { transcriptionLogAtom } from "../../data/transcription";
+import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { findOrCreateToolbarExtras } from "./toolbarExtras";
@@ -67,6 +72,8 @@ export const CanvasBotTool = () => {
   const messages = useAtomValue(chatMessagesAtom);
   const files = useAtomValue(meetingFilesAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
 
   const [toolbarEl, setToolbarEl] = useState<HTMLElement | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -79,8 +86,22 @@ export const CanvasBotTool = () => {
 
   const placeStartRef = useRef<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const ctxRef = useRef({ transcriptLog, messages, files, preferredLang });
-  ctxRef.current = { transcriptLog, messages, files, preferredLang };
+  const ctxRef = useRef({
+    transcriptLog,
+    messages,
+    files,
+    preferredLang,
+    myProfile,
+    peerProfiles,
+  });
+  ctxRef.current = {
+    transcriptLog,
+    messages,
+    files,
+    preferredLang,
+    myProfile,
+    peerProfiles,
+  };
 
   useEffect(() => {
     setToolbarEl(findOrCreateToolbarExtras());
@@ -340,7 +361,14 @@ export const CanvasBotTool = () => {
     setPending(null);
     setDraft("");
     try {
-      const { transcriptLog, messages, preferredLang } = ctxRef.current;
+      const {
+        transcriptLog,
+        messages,
+        files,
+        preferredLang,
+        myProfile,
+        peerProfiles,
+      } = ctxRef.current;
       const recent = messages
         .slice(-10)
         .map((m) => ({ username: m.username, text: m.text }));
@@ -350,6 +378,13 @@ export const CanvasBotTool = () => {
         lang: s.lang,
       }));
       const canvasText = collectCanvasText();
+      // Meeting-context: WHO is here (local + peer profiles) and WHAT files
+      // are on the shelf (library atom). Shared shape with the chat @bot via
+      // data/meetingContext. meetingTitle/meetingStatus aren't in scope here
+      // without invasive plumbing — TODO once a shared meeting-info atom
+      // exists (MeetingHeader fetches them ad-hoc today).
+      const participants = buildParticipants(myProfile, peerProfiles);
+      const contextFiles = buildContextFiles(files);
       const res = await fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -359,6 +394,8 @@ export const CanvasBotTool = () => {
           recent,
           transcript,
           canvasText,
+          participants,
+          files: contextFiles,
         }),
       });
       if (!res.ok) {

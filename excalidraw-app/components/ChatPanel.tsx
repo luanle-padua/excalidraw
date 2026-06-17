@@ -27,6 +27,7 @@ import {
 } from "../collab/Collab";
 import { aiBackendUrl } from "../data/aiBackend";
 import { fetchWithAuth } from "../data/fetchWithAuth";
+import { buildContextFiles, buildParticipants } from "../data/meetingContext";
 import { meetingFilesAtom } from "../data/meetingLibrary";
 import { transcriptionLogAtom } from "../data/transcription";
 import { findActiveMention, parseMessage } from "../data/mentions";
@@ -600,6 +601,10 @@ export const ChatView = () => {
   const transcriptLog = useAtomValue(transcriptionLogAtom);
   const excalidrawAPI = useExcalidrawAPI();
   const preferredLang = useAtomValue(preferredLanguageAtom);
+  // Meeting-context roster: local + peer profiles → participant names. Same
+  // source/shape the canvas bot uses (data/meetingContext).
+  const myProfile = useAtomValue(userProfileAtom);
+  const peerProfiles = useAtomValue(peerProfilesAtom);
   const [translationEnabled, setTransEnabledAtom] = useAtom(
     translationEnabledAtom,
   );
@@ -868,6 +873,12 @@ export const ChatView = () => {
         lang: s.lang,
       }));
       const canvasText = collectCanvasText();
+      // Meeting-context: WHO is here + WHAT files are present. Shared shape
+      // with the canvas bot via data/meetingContext. meetingTitle/status
+      // aren't in scope here without invasive plumbing — TODO once a shared
+      // meeting-info atom exists (MeetingHeader fetches them ad-hoc today).
+      const participants = buildParticipants(myProfile, peerProfiles);
+      const contextFiles = buildContextFiles(files);
       const res = await fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -877,6 +888,8 @@ export const ChatView = () => {
           recent: recentContext,
           transcript,
           canvasText,
+          participants,
+          files: contextFiles,
         }),
       });
       if (!res.ok) {

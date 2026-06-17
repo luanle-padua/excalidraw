@@ -160,7 +160,14 @@ Return ONLY the translated sentence(s). Nothing else.`;
 
 const CHATBOT_SYSTEM_PROMPT = `You are MCM Bot, an AI assistant embedded in a live architecture/construction design review meeting.
 
+You are reading this meeting like a live LOG. Treat everything below as the meeting's current state — WHO is here, WHAT materials are on the table, and WHAT is being discussed. Answer questions about the meeting itself ("who's in the meeting", "what files do we have", "what are we discussing") directly from this context.
+
 Context the participants share:
+- A meeting header: its title and status, the list of PARTICIPANTS (name +
+  optional role) currently in the room, and the FILES/MATERIALS present
+  (DXF/IFC/PDF drawings, images). When asked who is participating or what
+  files exist, answer from these lists — don't say "I don't have that info"
+  when the list is right here.
 - A canvas (floor plans, renders, annotations). You receive the TEXT on it
   (labels, dimensions, drawing/file names) — you do NOT see the images, so
   never claim to "see" a drawing; reason from the text and from what was said.
@@ -542,6 +549,10 @@ aiRoutes.post("/chatbot", async (c) => {
         recent?: unknown;
         transcript?: unknown;
         canvasText?: unknown;
+        participants?: unknown;
+        files?: unknown;
+        meetingTitle?: unknown;
+        meetingStatus?: unknown;
         meetingId?: unknown;
         roomId?: unknown;
       }
@@ -575,6 +586,71 @@ aiRoutes.post("/chatbot", async (c) => {
         .slice(0, 40)
     : [];
 
+  // --- Meeting-context fields (NEW, all optional + backward-compatible) ----
+  // These describe the live meeting "log": who's here, what materials are
+  // present, the meeting's title/status. Structured into a reusable
+  // `meetingContext` shape that a future retrieval-grounded project AI can
+  // reuse (docs/specs/ai-project-knowledge-strategy.md — retrieval, not
+  // fine-tuning). Validated defensively: arrays only, hard count caps, every
+  // string truncated, so a malformed/oversized client payload can't blow up
+  // the prompt or the route.
+  const NAME_MAX = 80;
+  const ROLE_MAX = 60;
+  const participants = Array.isArray(body?.participants)
+    ? (body.participants as unknown[])
+        .map((p) => {
+          if (typeof p === "string") {
+            return { name: p.trim().slice(0, NAME_MAX) };
+          }
+          if (p && typeof p === "object") {
+            const rec = p as { name?: unknown; role?: unknown };
+            const name =
+              typeof rec.name === "string"
+                ? rec.name.trim().slice(0, NAME_MAX)
+                : "";
+            const role =
+              typeof rec.role === "string" && rec.role.trim()
+                ? rec.role.trim().slice(0, ROLE_MAX)
+                : undefined;
+            return name ? { name, role } : null;
+          }
+          return null;
+        })
+        .filter((p): p is { name: string; role?: string } => !!p && !!p.name)
+        .slice(0, 50)
+    : [];
+  const files = Array.isArray(body?.files)
+    ? (body.files as unknown[])
+        .map((f) => {
+          if (typeof f === "string") {
+            return { name: f.trim().slice(0, NAME_MAX) };
+          }
+          if (f && typeof f === "object") {
+            const rec = f as { name?: unknown; kind?: unknown };
+            const name =
+              typeof rec.name === "string"
+                ? rec.name.trim().slice(0, NAME_MAX)
+                : "";
+            const kind =
+              typeof rec.kind === "string" && rec.kind.trim()
+                ? rec.kind.trim().slice(0, ROLE_MAX)
+                : undefined;
+            return name ? { name, kind } : null;
+          }
+          return null;
+        })
+        .filter((f): f is { name: string; kind?: string } => !!f && !!f.name)
+        .slice(0, 50)
+    : [];
+  const meetingTitle =
+    typeof body?.meetingTitle === "string"
+      ? body.meetingTitle.trim().slice(0, 200)
+      : "";
+  const meetingStatus =
+    typeof body?.meetingStatus === "string"
+      ? body.meetingStatus.trim().slice(0, 60)
+      : "";
+
   if (!question) {
     return c.json({ error: "Missing question" }, 400);
   }
@@ -603,7 +679,35 @@ aiRoutes.post("/chatbot", async (c) => {
 
   const canvasLines = canvasText.join("\n");
 
+  const participantLines = participants
+    .map((p) => (p.role ? `- ${p.name} (${p.role})` : `- ${p.name}`))
+    .join("\n");
+  const fileLines = files
+    .map((f) => (f.kind ? `- ${f.name} (${f.kind})` : `- ${f.name}`))
+    .join("\n");
+
   const contextBlocks: string[] = [];
+  // Meeting header first — it frames everything else (who/what/where).
+  const headerBits: string[] = [];
+  if (meetingTitle) {
+    headerBits.push(`Title: ${meetingTitle}`);
+  }
+  if (meetingStatus) {
+    headerBits.push(`Status: ${meetingStatus}`);
+  }
+  if (headerBits.length) {
+    contextBlocks.push(`Meeting:\n${headerBits.join("\n")}`);
+  }
+  if (participantLines) {
+    contextBlocks.push(
+      `Participants currently in the meeting (name + optional role). When asked who is here / who is participating, answer from this list:\n${participantLines}`,
+    );
+  }
+  if (fileLines) {
+    contextBlocks.push(
+      `Files/materials present in the meeting (name + optional kind, e.g. DXF/IFC/PDF/image). When asked what files/materials exist, answer from this list:\n${fileLines}`,
+    );
+  }
   if (canvasLines) {
     contextBlocks.push(
       `Notes/text on the canvas. Participant notes are labeled "Name: text" (people often discuss by writing on the canvas, not just in chat) — attribute them to that name. Unlabeled lines are plain labels/dimensions/drawing or file names:\n${canvasLines}`,
@@ -624,6 +728,18 @@ aiRoutes.post("/chatbot", async (c) => {
       )}\n\n(The above is context only — do NOT summarise it back unless asked.)\n\nNew question:\n${question}`
     : `New question:\n${question}`;
 
+  // Graceful fallback the bot renders verbatim when Gemini is unreachable /
+  // errors / returns nothing. The client treats /chatbot as "200 → answer",
+  // so we ALWAYS return 200 with an answer string here — a non-200 would make
+  // the canvas/chat bot hard-fail (the 502 the user hit on empty canvases).
+  // The real error is logged server-side (console) and metering stays as-is.
+  const FALLBACK_BY_LANG: Record<string, string> = {
+    vi: "Mình tạm thời chưa kết nối được tới trợ lý. Bạn thử lại sau giây lát nhé.",
+    en: "I couldn't reach the assistant just now. Please try again in a moment.",
+    ko: "지금 어시스턴트에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  };
+  const fallbackAnswer = FALLBACK_BY_LANG[language] || FALLBACK_BY_LANG.vi;
+
   try {
     const cfRes = await fetch(geminiUrl(model, apiKey), {
       method: "POST",
@@ -636,19 +752,23 @@ aiRoutes.post("/chatbot", async (c) => {
     });
     if (!cfRes.ok) {
       const text = await cfRes.text();
-      console.error("Chatbot Gemini error:", cfRes.status, text);
-      return c.json({ error: `Gemini ${cfRes.status}` }, 502);
+      console.error("Chatbot Gemini error:", cfRes.status, text.slice(0, 200));
+      // Never bubble a 502 — answer gracefully so the bot can render it.
+      return c.json({ answer: fallbackAnswer });
     }
     const json = (await cfRes.json()) as GeminiResponse;
     const answer = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
     if (!answer) {
-      return c.json({ error: "Empty answer from Gemini" }, 502);
+      console.error("Chatbot Gemini returned empty answer");
+      return c.json({ answer: fallbackAnswer });
     }
     meterGemini(c, "chatbot", json.usageMetadata, meetingId);
     return c.json({ answer });
   } catch (err) {
+    // Network failure / aborted fetch / JSON parse error — log and still
+    // return 200 with the fallback so the client never sees a 5xx here.
     console.error("Chatbot fetch failed", err);
-    return c.json({ error: "Chatbot request failed" }, 500);
+    return c.json({ answer: fallbackAnswer });
   }
 });
 
