@@ -1,4 +1,5 @@
 import path from "path";
+
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import svgrPlugin from "vite-plugin-svgr";
@@ -7,6 +8,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import checker from "vite-plugin-checker";
 import { createHtmlPlugin } from "vite-plugin-html";
 import Sitemap from "vite-plugin-sitemap";
+
 import { woff2BrowserPlugin } from "../scripts/woff2/woff2-vite-plugins";
 export default defineConfig(({ mode }) => {
   // To load .env variables
@@ -207,7 +209,13 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       Sitemap({
-        hostname: "https://excalidraw.com",
+        // Canvas M is an internal, login-required tool — this hostname only
+        // appears in the generated sitemap.xml. robots.txt disallows all
+        // crawling, so this is effectively unused; kept neutral so no
+        // upstream (excalidraw.com) domain leaks into the build output.
+        // TODO(canvas-m): set to the real Canvas M production origin if a
+        // public canonical URL is ever assigned.
+        hostname: "https://canvas-m.local",
         outDir: "build",
         changefreq: "monthly",
         // its static in public folder
@@ -239,6 +247,10 @@ export default defineConfig(({ mode }) => {
         },
 
         workbox: {
+          // Scope all workbox caches under a Canvas M id so the precache
+          // bucket is named `workbox-precache-...-canvas-m-...` instead of a
+          // generic/inherited name — old upstream caches won't be reused.
+          cacheId: "canvas-m",
           // don't precache fonts, locales and separate chunks
           globIgnores: [
             "fonts.css",
@@ -361,38 +373,12 @@ export default defineConfig(({ mode }) => {
               ],
             },
           },
-          screenshots: [
-            {
-              src: "/screenshots/virtual-whiteboard.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-            {
-              src: "/screenshots/wireframe.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-            {
-              src: "/screenshots/illustration.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-            {
-              src: "/screenshots/shapes.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-            {
-              src: "/screenshots/collaboration.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-            {
-              src: "/screenshots/export.png",
-              type: "image/png",
-              sizes: "462x945",
-            },
-          ],
+          // Screenshots removed: the upstream marketing images visibly showed
+          // "excalidraw.com" in a phone mockup, leaking the original brand in
+          // the PWA install dialog. Screenshots are optional metadata — the
+          // install UI simply omits the preview gallery without them.
+          // TODO(canvas-m): add real Canvas M install-preview screenshots
+          //   under public/screenshots and restore this `screenshots` array.
         },
       }),
       createHtmlPlugin({

@@ -2424,14 +2424,21 @@ app.get("/v1/projects/:projectId/guests", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT id, login, label, real_email, company, phone, address,
-            created_by, created_at, status
+            country, logo_key, created_by, created_at, status
        FROM project_guest
       WHERE project_id = ?1 AND status = 'active'
       ORDER BY created_at DESC`,
   )
     .bind(projectId)
     .all();
-  return c.json({ guests: results });
+  // Surface the logo as a portal image URL (not the raw R2 key) so the roster
+  // can preview it; country comes straight through for the country dropdown.
+  return c.json({
+    guests: (results as Record<string, unknown>[]).map((g) => ({
+      ...g,
+      logo_url: g.logo_key ? `/v1/portal/guests/${g.id}/logo` : null,
+    })),
+  });
 });
 
 // Issue a guest ID for the project: create a Supabase user with a SYNTHETIC
@@ -2461,6 +2468,7 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
     company?: string;
     phone?: string;
     address?: string;
+    country?: string;
   };
   const b = await c.req
     .json<GuestDetailBody>()
@@ -2474,6 +2482,8 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
   const company = cap(b.company, 200);
   const phone = cap(b.phone, 64);
   const address = cap(b.address, 400);
+  // Client-branding country tag (06-17) — drives the entry-page backdrop.
+  const country = normCountry(b.country);
   if (realEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(realEmail)) {
     return c.json({ error: "invalid email" }, 400);
   }
@@ -2517,8 +2527,8 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO project_guest
        (id, project_id, login, label, real_email, company, phone, address,
-        supa_id, created_by, created_at, status)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, 'active')`,
+        country, supa_id, created_by, created_at, status)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'active')`,
   )
     .bind(
       id,
@@ -2529,6 +2539,7 @@ app.post("/v1/projects/:projectId/guests", async (c) => {
       company,
       phone,
       address,
+      country,
       supaId || null,
       email ?? null,
       now(),
@@ -2557,6 +2568,7 @@ app.patch("/v1/projects/:projectId/guests/:id", async (c) => {
     company?: string;
     phone?: string;
     address?: string;
+    country?: string;
   };
   const b = await c.req
     .json<GuestPatchBody>()
@@ -2569,8 +2581,9 @@ app.patch("/v1/projects/:projectId/guests/:id", async (c) => {
     (s || "").trim().slice(0, n) || null;
   const res = await c.env.DB.prepare(
     `UPDATE project_guest
-        SET label = ?1, real_email = ?2, company = ?3, phone = ?4, address = ?5
-      WHERE id = ?6 AND project_id = ?7 AND status = 'active'`,
+        SET label = ?1, real_email = ?2, company = ?3, phone = ?4, address = ?5,
+            country = ?6
+      WHERE id = ?7 AND project_id = ?8 AND status = 'active'`,
   )
     .bind(
       cap(b.label, 200),
@@ -2578,6 +2591,7 @@ app.patch("/v1/projects/:projectId/guests/:id", async (c) => {
       cap(b.company, 200),
       cap(b.phone, 64),
       cap(b.address, 400),
+      normCountry(b.country),
       id,
       projectId,
     )
@@ -2764,7 +2778,7 @@ app.get("/v1/me/project-guests", async (c) => {
       ? await c.env.DB.prepare(
           `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
                   pg.label, pg.real_email, pg.company, pg.phone, pg.address,
-                  pg.status, pg.created_at
+                  pg.country, pg.logo_key, pg.status, pg.created_at
              FROM project_guest pg
              JOIN project p ON p.id = pg.project_id
             WHERE pg.status = 'active'
@@ -2773,7 +2787,7 @@ app.get("/v1/me/project-guests", async (c) => {
       : await c.env.DB.prepare(
           `SELECT pg.id, pg.project_id, p.name AS project_name, pg.login,
                   pg.label, pg.real_email, pg.company, pg.phone, pg.address,
-                  pg.status, pg.created_at
+                  pg.country, pg.logo_key, pg.status, pg.created_at
              FROM project_guest pg
              JOIN project p ON p.id = pg.project_id
             WHERE pg.status = 'active'
@@ -2786,7 +2800,12 @@ app.get("/v1/me/project-guests", async (c) => {
         )
           .bind(me)
           .all();
-  return c.json({ guests: results });
+  return c.json({
+    guests: (results as Record<string, unknown>[]).map((g) => ({
+      ...g,
+      logo_url: g.logo_key ? `/v1/portal/guests/${g.id}/logo` : null,
+    })),
+  });
 });
 
 // ORGANIZER delete — only a CANCELLED meeting may be deleted (the lifecycle's
@@ -5018,12 +5037,42 @@ app.get("/v1/admin/analytics", async (c) => {
 const MAX_BACKDROP_BYTES = 5 * 1024 * 1024;
 const backdropKey = (id: string) => `backdrops/${id}`;
 
+// Client-branding helpers (06-17): a backdrop / guest may be tagged with an
+// ISO-3166 alpha-2 COUNTRY ("VN", "KR", …). Normalize to upper-case 2-letter or
+// null (blank / malformed → global). Defensive: never trusts client casing or
+// length, so the tag column stays clean for the per-country resolve lookup.
+export const normCountry = (v: unknown): string | null => {
+  if (typeof v !== "string") {
+    return null;
+  }
+  const s = v.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(s) ? s : null;
+};
+
+// Resolve a client's backdrop rotation from the full sort-ordered list: the
+// backdrops tagged with their COUNTRY, else the GLOBAL (untagged) ones as the
+// fallback. No country → the whole list (admin preview / legacy). Pure so the
+// /v1/portal/backdrops route and its test share one source of truth.
+export const resolveBackdropsForCountry = <
+  T extends { country: string | null },
+>(
+  all: T[],
+  country: string | null,
+): T[] => {
+  if (!country) {
+    return all;
+  }
+  const tagged = all.filter((r) => r.country === country);
+  return tagged.length ? tagged : all.filter((r) => r.country === null);
+};
+
 type BackdropRow = {
   id: string;
   title: string | null;
   r2_key: string;
   sort_order: number;
   created_at: number;
+  country: string | null;
 };
 
 // Admin: upload a new backdrop. FIRST multipart route — Hono on Workers exposes
@@ -5059,6 +5108,10 @@ app.post("/v1/admin/backdrops", async (c) => {
   const rawTitle = form.get("title");
   const title =
     typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : null;
+  // Optional COUNTRY tag (06-17): the client entry page resolves the backdrop by
+  // the client's country; NULL = a global/default backdrop. Admin sends one
+  // `country` per upload (the multi-select uploads share the same tag).
+  const country = normCountry(form.get("country"));
   const id = crypto.randomUUID();
   const key = backdropKey(id);
   await c.env.BUCKET.put(key, bytes, {
@@ -5070,18 +5123,22 @@ app.post("/v1/admin/backdrops", async (c) => {
   const sortOrder = (max?.mx ?? -1) + 1;
   const createdAt = now();
   await c.env.DB.prepare(
-    `INSERT INTO portal_backdrop (id, title, r2_key, sort_order, created_at)
-     VALUES (?1, ?2, ?3, ?4, ?5)`,
+    `INSERT INTO portal_backdrop (id, title, r2_key, sort_order, created_at, country)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
   )
-    .bind(id, title, key, sortOrder, createdAt)
+    .bind(id, title, key, sortOrder, createdAt, country)
     .run();
-  await logAudit(c.env.DB, c.get("email"), "backdrop.create", id, { title });
+  await logAudit(c.env.DB, c.get("email"), "backdrop.create", id, {
+    title,
+    country,
+  });
   const row: BackdropRow = {
     id,
     title,
     r2_key: key,
     sort_order: sortOrder,
     created_at: createdAt,
+    country,
   };
   return c.json(row);
 });
@@ -5089,7 +5146,7 @@ app.post("/v1/admin/backdrops", async (c) => {
 // Admin: list backdrops in rotation order.
 app.get("/v1/admin/backdrops", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT id, title, r2_key, sort_order, created_at
+    `SELECT id, title, r2_key, sort_order, created_at, country
      FROM portal_backdrop ORDER BY sort_order ASC, created_at ASC`,
   ).all<BackdropRow>();
   return c.json({ backdrops: results });
@@ -5098,7 +5155,11 @@ app.get("/v1/admin/backdrops", async (c) => {
 // Admin: rename and/or reorder.
 app.patch("/v1/admin/backdrops/:id", async (c) => {
   const id = c.req.param("id");
-  const b = await c.req.json<{ title?: string; sort_order?: number }>();
+  const b = await c.req.json<{
+    title?: string;
+    sort_order?: number;
+    country?: string | null;
+  }>();
   const sets: string[] = [];
   const binds: (string | number | null)[] = [];
   if (b.title !== undefined) {
@@ -5112,6 +5173,11 @@ app.patch("/v1/admin/backdrops/:id", async (c) => {
     }
     sets.push(`sort_order = ?${binds.length + 1}`);
     binds.push(Math.trunc(b.sort_order));
+  }
+  // Re-tag the country (06-17). Explicit null/"" clears it back to global.
+  if (b.country !== undefined) {
+    sets.push(`country = ?${binds.length + 1}`);
+    binds.push(normCountry(b.country));
   }
   if (!sets.length) {
     return c.json({ error: "nothing to update" }, 400);
@@ -5149,14 +5215,22 @@ app.delete("/v1/admin/backdrops/:id", async (c) => {
 // Portal: ANY authenticated user (the guest portal must read this — NOT
 // admin-gated). Returns the rotation list with an image URL per item.
 app.get("/v1/portal/backdrops", async (c) => {
+  // Optional ?country=XX → resolve the rotation for ONE client's country
+  // (06-17): country-tagged backdrops first, falling back to the GLOBAL
+  // (untagged) rotation when that country has none. No param → every backdrop
+  // (the staff/admin preview + legacy callers). `country` is returned so the
+  // client can tell a country-specific hit from the global fallback.
+  const want = normCountry(c.req.query("country"));
   const { results } = await c.env.DB.prepare(
-    `SELECT id, title FROM portal_backdrop
+    `SELECT id, title, country FROM portal_backdrop
      ORDER BY sort_order ASC, created_at ASC`,
-  ).all<{ id: string; title: string | null }>();
+  ).all<{ id: string; title: string | null; country: string | null }>();
+  const rows = resolveBackdropsForCountry(results, want);
   return c.json({
-    backdrops: results.map((r) => ({
+    backdrops: rows.map((r) => ({
       id: r.id,
       title: r.title,
+      country: r.country,
       url: `/v1/portal/backdrops/${r.id}/image`,
     })),
   });
@@ -5183,6 +5257,165 @@ app.get("/v1/portal/backdrops/:id/image", async (c) => {
         obj.httpMetadata?.contentType ?? "application/octet-stream",
       etag: obj.httpEtag,
       "cache-control": "public, max-age=86400",
+    },
+  });
+});
+
+// ---- Client branding: guest country / company / logo (06-17) -------------
+// A project guest IS the external client; the host brands their entry page with
+// a COUNTRY (picks the backdrop) + COMPANY + LOGO. country/company live on the
+// project_guest row (edited via the guest add/update routes above); the LOGO is
+// an image uploaded to R2 at `guest-logos/<guestId>` (logo_key on the row).
+const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const guestLogoKey = (guestId: string) => `guest-logos/${guestId}`;
+
+// Host: upload (replace) a guest's logo. Multipart (file). Same gate as managing
+// the project's guests. Stores the bytes in R2, stamps logo_key, returns the
+// portal image URL the client page will fetch.
+app.post("/v1/projects/:projectId/guests/:id/logo", async (c) => {
+  const projectId = c.req.param("projectId");
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const guest = await c.env.DB.prepare(
+    `SELECT id FROM project_guest WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(id, projectId)
+    .first<{ id: string }>();
+  if (!guest) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const form = await c.req.formData();
+  const entry: unknown = form.get("file");
+  const file = entry as {
+    arrayBuffer?: () => Promise<ArrayBuffer>;
+    type?: string;
+  } | null;
+  if (
+    !file ||
+    typeof file === "string" ||
+    typeof file.arrayBuffer !== "function"
+  ) {
+    return c.json({ error: "file required" }, 400);
+  }
+  const contentType = file.type || "application/octet-stream";
+  if (!contentType.startsWith("image/")) {
+    return c.json({ error: "image content-type required" }, 400);
+  }
+  const bytes = await file.arrayBuffer();
+  if (!bytes.byteLength) {
+    return c.json({ error: "empty file" }, 400);
+  }
+  if (bytes.byteLength > MAX_LOGO_BYTES) {
+    return c.json({ error: "file too large (max 2MB)" }, 413);
+  }
+  const key = guestLogoKey(id);
+  await c.env.BUCKET.put(key, bytes, { httpMetadata: { contentType } });
+  await c.env.DB.prepare(
+    `UPDATE project_guest SET logo_key = ?1 WHERE id = ?2 AND project_id = ?3`,
+  )
+    .bind(key, id, projectId)
+    .run();
+  await logAudit(c.env.DB, email, "project_guest.logo", projectId, { id });
+  return c.json({ ok: true, id, url: `/v1/portal/guests/${id}/logo` });
+});
+
+// Host: remove a guest's logo (drop the R2 object + clear logo_key).
+app.delete("/v1/projects/:projectId/guests/:id/logo", async (c) => {
+  const projectId = c.req.param("projectId");
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await canManageProjectGuests(c.env.DB, projectId, email, role))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT logo_key FROM project_guest WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(id, projectId)
+    .first<{ logo_key: string | null }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (row.logo_key) {
+    await c.env.BUCKET.delete(row.logo_key);
+  }
+  await c.env.DB.prepare(
+    `UPDATE project_guest SET logo_key = NULL WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(id, projectId)
+    .run();
+  await logAudit(c.env.DB, email, "project_guest.logo.remove", projectId, {
+    id,
+  });
+  return c.json({ ok: true, id });
+});
+
+// Portal: stream a guest's logo by guest id (any authenticated user — the
+// client portal fetches its OWN logo through fetchWithAuth, same trick as the
+// backdrop image). The bytes aren't confidential beyond the login; the id is a
+// UUID. 404 when the guest has no logo.
+app.get("/v1/portal/guests/:id/logo", async (c) => {
+  const row = await c.env.DB.prepare(
+    `SELECT logo_key FROM project_guest WHERE id = ?1`,
+  )
+    .bind(c.req.param("id"))
+    .first<{ logo_key: string | null }>();
+  if (!row?.logo_key) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.logo_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type":
+        obj.httpMetadata?.contentType ?? "application/octet-stream",
+      etag: obj.httpEtag,
+      "cache-control": "private, max-age=3600",
+    },
+  });
+});
+
+// Portal: a GUEST resolves their OWN branding. The JWT email IS the synthetic
+// login, so we look the guest up by `login = email` (their active row), and
+// return their country + company + the logo image URL. The client page uses
+// `country` to pick the backdrop (GET /v1/portal/backdrops?country=XX) and
+// overlays `logo_url`. Staff/admin (no guest row) get an empty payload → the
+// page falls back to the default rotation, no logo.
+app.get("/v1/portal/me", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ guest: null });
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT id, label, company, country, logo_key
+       FROM project_guest
+      WHERE login = ?1 AND status = 'active'
+      ORDER BY created_at DESC LIMIT 1`,
+  )
+    .bind(email)
+    .first<{
+      id: string;
+      label: string | null;
+      company: string | null;
+      country: string | null;
+      logo_key: string | null;
+    }>();
+  if (!row) {
+    return c.json({ guest: null });
+  }
+  return c.json({
+    guest: {
+      id: row.id,
+      label: row.label,
+      company: row.company,
+      country: row.country,
+      logo_url: row.logo_key ? `/v1/portal/guests/${row.id}/logo` : null,
     },
   });
 });

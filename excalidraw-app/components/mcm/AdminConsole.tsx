@@ -92,6 +92,7 @@ import {
   uploadBackdrop,
   type AdminBackdrop,
 } from "../../data/backdrops";
+import { COUNTRIES, countryFlag } from "../../data/countries";
 import { showAppToast } from "../../data/appToast";
 import { createGuest } from "../../data/guests";
 import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
@@ -266,6 +267,8 @@ export const AdminConsole = () => {
     {},
   );
   const [newBackdropTitle, setNewBackdropTitle] = useState("");
+  // Country tag applied to the next backdrop upload(s); "" = a global backdrop.
+  const [newBackdropCountry, setNewBackdropCountry] = useState("");
 
   const openDetail = async (roomId: string) => {
     setLoading(true);
@@ -643,18 +646,33 @@ export const AdminConsole = () => {
   const settingOf = (key: string) =>
     settings[key] ?? SETTING_DEFAULTS[key] ?? "";
 
-  const handleBackdropUpload = async (file: File | null) => {
-    if (!file || busy) {
+  // MULTI-SELECT upload: the admin can pick MANY images at once (file input has
+  // `multiple`) and they ALL get the currently-selected country tag + title.
+  // We upload sequentially (the worker assigns sort_order per insert) and only
+  // count image files, ignoring any non-image the OS picker let through.
+  const handleBackdropUpload = async (files: FileList | File[] | null) => {
+    const list = (files ? Array.from(files) : []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (!list.length || busy) {
       return;
     }
     setBusy(true);
     try {
-      await uploadBackdrop(file, newBackdropTitle);
+      for (const file of list) {
+        await uploadBackdrop(file, newBackdropTitle, newBackdropCountry);
+      }
       setNewBackdropTitle("");
       await refreshBackdrops();
     } finally {
       setBusy(false);
     }
+  };
+
+  // Re-tag an existing backdrop's country (the per-card country <select>).
+  const handleBackdropCountry = async (id: string, country: string) => {
+    await updateBackdrop(id, { country: country || null });
+    await refreshBackdrops();
   };
 
   const handleBackdropDelete = async (id: string) => {
@@ -2769,10 +2787,8 @@ export const AdminConsole = () => {
               onDrop={(e) => {
                 e.preventDefault();
                 setBackdropDragOver(false);
-                const file = e.dataTransfer.files?.[0];
-                if (file && file.type.startsWith("image/")) {
-                  void handleBackdropUpload(file);
-                }
+                // Accept a multi-file drop too — all get the selected country.
+                void handleBackdropUpload(e.dataTransfer.files);
               }}
             >
               <span className="mcm-admin__backdrop-drop">
@@ -2784,14 +2800,30 @@ export const AdminConsole = () => {
                 onChange={(e) => setNewBackdropTitle(e.target.value)}
                 placeholder={t("admin.backdropTitlePlaceholder")}
               />
+              {/* Country tag for the next upload(s); "" = a global backdrop. */}
+              <select
+                className="mcm-admin__backdrop-countryinput"
+                value={newBackdropCountry}
+                onChange={(e) => setNewBackdropCountry(e.target.value)}
+                aria-label={t("admin.backdropCountry")}
+              >
+                <option value="">{t("admin.backdropCountryGlobal")}</option>
+                {COUNTRIES.map((co) => (
+                  <option key={co.code} value={co.code}>
+                    {countryFlag(co.code)} {co.name}
+                  </option>
+                ))}
+              </select>
               <label className="mcm-btn mcm-btn--primary mcm-btn--sm">
                 <Upload size={14} /> {t("admin.backdropUpload")}
+                {/* `multiple` — pick MANY images in one go; all share the tag. */}
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   hidden
                   onChange={(e) => {
-                    void handleBackdropUpload(e.target.files?.[0] ?? null);
+                    void handleBackdropUpload(e.target.files);
                     e.target.value = "";
                   }}
                 />
@@ -2844,6 +2876,31 @@ export const AdminConsole = () => {
                             }
                           }}
                         />
+                      </label>
+
+                      {/* Country tag — which client country shows this backdrop
+                          ("" = global/default rotation). */}
+                      <label className="mcm-admin__backdrop-field">
+                        <span className="mcm-admin__backdrop-label">
+                          {t("admin.backdropCountry")}
+                        </span>
+                        <select
+                          className="mcm-admin__backdrop-country"
+                          value={b.country ?? ""}
+                          disabled={busy}
+                          onChange={(e) =>
+                            void handleBackdropCountry(b.id, e.target.value)
+                          }
+                        >
+                          <option value="">
+                            {t("admin.backdropCountryGlobal")}
+                          </option>
+                          {COUNTRIES.map((co) => (
+                            <option key={co.code} value={co.code}>
+                              {countryFlag(co.code)} {co.name}
+                            </option>
+                          ))}
+                        </select>
                       </label>
 
                       <div className="mcm-admin__backdrop-actions">

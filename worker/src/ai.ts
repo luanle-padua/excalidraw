@@ -226,7 +226,11 @@ const geminiUrl = (model: string, apiKey: string): string =>
 // counts off usageMetadata, compute the Flash cost, write a usage_events row.
 // Fire-and-forget (logUsageEvent never throws) so it can't slow/break the route.
 const meterGemini = (
-  c: { env: AiBindings; get: (k: "email") => string | undefined },
+  c: {
+    env: AiBindings;
+    get: (k: "email") => string | undefined;
+    executionCtx?: { waitUntil: (p: Promise<unknown>) => void };
+  },
   kind: string,
   usage: GeminiUsage | undefined,
   meetingId?: string,
@@ -237,7 +241,7 @@ const meterGemini = (
   const tokensIn = usage?.promptTokenCount ?? 0;
   const tokensOut = usage?.candidatesTokenCount ?? 0;
   const cost = geminiFlashCostUsd(tokensIn, tokensOut);
-  void logUsageEvent(
+  const row = logUsageEvent(
     c.env.DB,
     "gemini",
     kind,
@@ -248,6 +252,16 @@ const meterGemini = (
     meetingId,
     c.get("email"),
   );
+  // CRITICAL: the INSERT is async I/O. A bare fire-and-forget (`void row`) is
+  // CANCELLED the moment the route returns its Response — Workers tears down the
+  // request context, killing the in-flight INSERT. That's why usage_events
+  // stayed empty despite successful Gemini calls. `waitUntil` keeps it alive
+  // past the response. (`c.executionCtx` getter throws when absent, e.g. tests.)
+  try {
+    c.executionCtx?.waitUntil(row);
+  } catch {
+    void row;
+  }
 };
 
 // `meetingId` from the request body/query, when the client supplies it. Best

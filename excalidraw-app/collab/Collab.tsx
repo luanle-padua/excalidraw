@@ -136,7 +136,6 @@ import {
   getMeeting,
   getMeetingChecked,
   registerMeeting,
-  resolveRealtimeBackend,
 } from "../data/projects";
 import { isInternalEmail, sessionAtom } from "../data/session";
 
@@ -166,7 +165,6 @@ import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
 import { RawWsTransport } from "./RawWsTransport";
 
-import type { RealtimeBackend } from "../data/projects";
 import type { TranscriptSegment } from "../data/transcription";
 import type { Socket } from "socket.io-client";
 
@@ -971,13 +969,15 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
     let roomId;
     let roomKey;
-    // RUNTIME per-meeting realtime backend (DO migration §7.1). Resolved from
-    // the meeting metadata the client already fetches below — NOT from
-    // import.meta.env (a build-time flag would let two differently-built
-    // clients in one room pick different backends → silent scene split-brain).
-    // Defaults to "socketio": an unregistered ad-hoc room, or a meeting the
-    // server hasn't opted into DO, keeps the legacy transport (NON-BREAKING).
-    let realtimeBackend: RealtimeBackend = "socketio";
+    // REALTIME BACKEND — FORCED to Durable Objects (06-17). Realtime is now
+    // 100% DO; the legacy socket.io room server is RETIRED, so a socket.io
+    // connection can never succeed anymore (the WS opens then closes
+    // immediately — the bug this fixes). There is no per-meeting transport
+    // choice left: EVERY entry path uses the DO transport below — live
+    // meetings, unregistered ad-hoc rooms, and crucially the review/finished
+    // view-only path (which skips the metadata fetch and so never re-resolved
+    // the old flag — it used to fall through to the dead relay). The
+    // `realtime_backend` meeting flag is kept only for the admin rollout view.
 
     if (existingRoomLinkData) {
       ({ roomId, roomKey } = existingRoomLinkData);
@@ -1020,9 +1020,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         // `not-found` = genuinely unregistered ad-hoc room → editable
         // pass-through, same as before.
         const reg = fetched.kind === "found" ? fetched.meeting : null;
-        // Pick the realtime transport for THIS meeting (server-driven, so all
-        // peers agree). Absent/"socketio" → legacy socket.io relay; "do" → RoomDO.
-        realtimeBackend = resolveRealtimeBackend(reg);
+        // Realtime transport is forced to the Durable Object backend for every
+        // meeting now (socket.io relay retired) — see realtimeBackend above.
         const gateStatus = normalizeMeetingStatus(reg?.status);
         if (gateStatus === "scheduled" || gateStatus === "cancelled") {
           appJotaiStore.set(startGateAtom, {
@@ -1130,47 +1129,29 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.fallbackInitializationHandler = fallbackInitializationHandler;
 
     try {
-      // ── REALTIME TRANSPORT SWAP (DO migration §5) ──────────────────────────
-      // Per-meeting runtime flag (resolved above from the server's meeting
-      // metadata) chooses the transport. Everything downstream — Portal.open,
-      // encrypt, the 18-subtype client-broadcast switch, host election — is
-      // byte-identical for both, because RawWsTransport mimics the slice of the
-      // socket.io Socket surface the app uses. socket.io stays the DEFAULT and
-      // the import is kept so an instant per-meeting rollback ('do' → 'socketio')
-      // needs no redeploy (plan §7.4).
+      // ── REALTIME TRANSPORT (DO migration §5) ───────────────────────────────
+      // 100% Durable Objects: the ONLY transport is RawWsTransport (raw
+      // WebSocket to the RoomDO route `/rooms/:id/ws` on the mcm-storage
+      // Worker). The legacy socket.io relay is retired, so there is no
+      // transport branch anymore — every meeting connects via the DO. Everything
+      // downstream — Portal.open, encrypt, the 18-subtype client-broadcast
+      // switch, host election — is unchanged because RawWsTransport presents the
+      // slice of the socket.io Socket surface the app uses.
       const tunnelMode = import.meta.env.VITE_DEV_TUNNEL === "true";
-      let socket: Socket;
-      if (realtimeBackend === "do") {
-        // RoomDO is hosted on the mcm-storage Worker → use the storage URL as
-        // the WS base (same-origin "" in tunnel mode). The Supabase token is
-        // attached inside RawWsTransport via the WS subprotocol, not a query
-        // param. #room=roomId,roomKey stays in the hash (E2E); roomKey is never
-        // sent to the server.
-        const wsBase = tunnelMode
-          ? ""
-          : (import.meta.env.VITE_APP_STORAGE_URL as string | undefined) || "";
-        const transport = new RawWsTransport({ wsBase, roomId });
-        // Cast: RawWsTransport is a structural stand-in for the socket.io
-        // Socket surface the app touches, not a real socket.io socket.
-        socket = transport as unknown as Socket;
-        this.portal.socket = this.portal.open(socket, roomId, roomKey);
-        transport.connect();
-      } else {
-        // In tunnel mode, ignore VITE_APP_WS_SERVER_URL (which still defaults to
-        // localhost:3002 via .env.development) and connect to current origin so
-        // socket.io requests get proxied through the tunnel back to the room.
-        const { default: socketIOClient } = await import(
-          /* webpackChunkName: "socketIoClient" */ "socket.io-client"
-        );
-        const wsServerUrl = tunnelMode
-          ? ""
-          : import.meta.env.VITE_APP_WS_SERVER_URL;
-        const wsOptions = { transports: ["websocket", "polling"] };
-        socket = wsServerUrl
-          ? socketIOClient(wsServerUrl, wsOptions)
-          : socketIOClient(wsOptions);
-        this.portal.socket = this.portal.open(socket, roomId, roomKey);
-      }
+      // RoomDO is hosted on the mcm-storage Worker → use the storage URL as the
+      // WS base (same-origin "" in tunnel mode). The Supabase token is attached
+      // inside RawWsTransport via the WS subprotocol, not a query param.
+      // #room=roomId,roomKey stays in the hash (E2E); roomKey is never sent to
+      // the server.
+      const wsBase = tunnelMode
+        ? ""
+        : (import.meta.env.VITE_APP_STORAGE_URL as string | undefined) || "";
+      const transport = new RawWsTransport({ wsBase, roomId });
+      // Cast: RawWsTransport is a structural stand-in for the socket.io Socket
+      // surface the app touches, not a real socket.io socket.
+      const socket = transport as unknown as Socket;
+      this.portal.socket = this.portal.open(socket, roomId, roomKey);
+      transport.connect();
 
       // If we previously claimed host for THIS roomId, re-apply the
       // sentinel joinedAt BEFORE the first USER_PROFILE broadcast so

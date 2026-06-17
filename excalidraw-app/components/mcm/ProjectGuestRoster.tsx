@@ -13,6 +13,7 @@
 import {
   Check,
   Copy,
+  Image as ImageIcon,
   KeyRound,
   Mail,
   MapPin,
@@ -23,16 +24,20 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { showAppToast } from "../../data/appToast";
+import { COUNTRIES, countryFlag, countryName } from "../../data/countries";
 import {
   cleanProjectGuests,
+  fetchGuestLogo,
   issueProjectGuest,
   listProjectGuests,
+  removeGuestLogo,
   resetProjectGuest,
   revokeProjectGuest,
   updateProjectGuest,
+  uploadGuestLogo,
   type GuestContactInput,
   type ProjectGuest,
 } from "../../data/projectGuests";
@@ -49,6 +54,7 @@ const emptyContact = (): GuestContactInput => ({
   company: "",
   phone: "",
   address: "",
+  country: "",
 });
 
 /** Copy text to the clipboard, falling back to a prompt the host can copy
@@ -79,6 +85,12 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
     password: string;
   } | null>(null);
   const [credsCopied, setCredsCopied] = useState(false);
+  // guest id → logo object URL (the logo route is auth-gated; we fetch the blob
+  // and createObjectURL it, like the backdrop thumbs). Revoked on reload/unmount.
+  const [logoThumbs, setLogoThumbs] = useState<Record<string, string>>({});
+  // The per-guest hidden <input type=file> we click for logo upload.
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const [logoTargetId, setLogoTargetId] = useState<string | null>(null);
 
   const setFormField = (k: keyof GuestContactInput, v: string) =>
     setForm((f) => ({ ...f, [k]: v }));
@@ -92,6 +104,86 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // Fetch a logo thumbnail for every guest that has one (and we haven't yet).
+  useEffect(() => {
+    let cancelled = false;
+    guests.forEach((g) => {
+      if (g.logo_url && !logoThumbs[g.id]) {
+        void fetchGuestLogo(g.logo_url).then((src) => {
+          if (src && !cancelled) {
+            setLogoThumbs((m) => ({ ...m, [g.id]: src }));
+          } else if (src) {
+            URL.revokeObjectURL(src);
+          }
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [guests, logoThumbs]);
+
+  // Revoke every logo object URL on unmount.
+  useEffect(
+    () => () => {
+      setLogoThumbs((m) => {
+        Object.values(m).forEach((u) => URL.revokeObjectURL(u));
+        return {};
+      });
+    },
+    [],
+  );
+
+  const onLogoPicked = async (file: File | null) => {
+    const id = logoTargetId;
+    setLogoTargetId(null);
+    if (!file || !id || busyId) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      showAppToast(t("projGuest.errLogo"));
+      return;
+    }
+    setBusyId(id);
+    const url = await uploadGuestLogo(projectId, id, file);
+    setBusyId(null);
+    if (!url) {
+      showAppToast(t("projGuest.errLogo"));
+      return;
+    }
+    // Drop the stale thumb so the effect re-fetches the new one after reload.
+    setLogoThumbs((m) => {
+      if (m[id]) {
+        URL.revokeObjectURL(m[id]);
+      }
+      const { [id]: _drop, ...rest } = m;
+      return rest;
+    });
+    showAppToast(t("projGuest.logoSaved"));
+    reload();
+  };
+
+  const removeLogo = async (g: ProjectGuest) => {
+    if (busyId) {
+      return;
+    }
+    setBusyId(g.id);
+    const ok = await removeGuestLogo(projectId, g.id);
+    setBusyId(null);
+    if (!ok) {
+      showAppToast(t("projGuest.errLogo"));
+      return;
+    }
+    setLogoThumbs((m) => {
+      if (m[g.id]) {
+        URL.revokeObjectURL(m[g.id]);
+      }
+      const { [g.id]: _drop, ...rest } = m;
+      return rest;
+    });
+    reload();
+  };
 
   const issue = async () => {
     if (!form.label.trim() || issuing) {
@@ -169,6 +261,7 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
       company: g.company ?? "",
       phone: g.phone ?? "",
       address: g.address ?? "",
+      country: g.country ?? "",
     });
   };
 
@@ -206,6 +299,18 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
   return (
     <div className="mcm-roster mcm-roster--manager">
       <p className="mcm-roster__hint">{t("projGuest.hint")}</p>
+
+      {/* Shared hidden logo picker — `logoTargetId` says which guest it's for. */}
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          void onLogoPicked(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
 
       {/* Issue form — contact card. Representative name is the only required
           field; email/company/phone/address are optional reference details. */}
@@ -251,6 +356,20 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
               placeholder={t("projGuest.addressPlaceholder")}
               aria-label={t("projGuest.addressLabel")}
             />
+            {/* Country → picks this client's entry-page backdrop. */}
+            <select
+              className="mcm-roster__in"
+              value={form.country ?? ""}
+              onChange={(e) => setFormField("country", e.target.value)}
+              aria-label={t("projGuest.countryLabel")}
+            >
+              <option value="">{t("projGuest.countryNone")}</option>
+              {COUNTRIES.map((co) => (
+                <option key={co.code} value={co.code}>
+                  {countryFlag(co.code)} {co.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -334,6 +453,19 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
                     placeholder={t("projGuest.addressPlaceholder")}
                     aria-label={t("projGuest.addressLabel")}
                   />
+                  <select
+                    className="mcm-roster__in"
+                    value={editForm.country ?? ""}
+                    onChange={(e) => setEditField("country", e.target.value)}
+                    aria-label={t("projGuest.countryLabel")}
+                  >
+                    <option value="">{t("projGuest.countryNone")}</option>
+                    {COUNTRIES.map((co) => (
+                      <option key={co.code} value={co.code}>
+                        {countryFlag(co.code)} {co.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="mcm-roster__edit-actions">
                   <button
@@ -356,6 +488,17 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
               </li>
             ) : (
               <li key={g.id} className="mcm-roster__guest">
+                {/* Company logo thumb (or a placeholder) — the client's brand. */}
+                <span
+                  className="mcm-roster__guest-logo"
+                  aria-hidden={!logoThumbs[g.id]}
+                >
+                  {logoThumbs[g.id] ? (
+                    <img src={logoThumbs[g.id]} alt={g.company ?? ""} />
+                  ) : (
+                    <ImageIcon size={16} />
+                  )}
+                </span>
                 <span className="mcm-roster__guest-main">
                   <span className="mcm-roster__guest-head">
                     <UsersRound size={14} aria-hidden="true" />
@@ -365,6 +508,11 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
                     {g.company && (
                       <span className="mcm-roster__guest-company">
                         {g.company}
+                      </span>
+                    )}
+                    {g.country && (
+                      <span className="mcm-roster__guest-country">
+                        {countryFlag(g.country)} {countryName(g.country)}
                       </span>
                     )}
                   </span>
@@ -394,6 +542,39 @@ export const ProjectGuestRoster = ({ projectId }: { projectId: string }) => {
                   </span>
                 </span>
                 <span className="mcm-roster__guest-actions">
+                  <button
+                    type="button"
+                    className="mcm-icon-btn mcm-icon-btn--sm"
+                    title={
+                      g.logo_url
+                        ? t("projGuest.logoReplace")
+                        : t("projGuest.logoUpload")
+                    }
+                    aria-label={
+                      g.logo_url
+                        ? t("projGuest.logoReplace")
+                        : t("projGuest.logoUpload")
+                    }
+                    onClick={() => {
+                      setLogoTargetId(g.id);
+                      logoInputRef.current?.click();
+                    }}
+                    disabled={busyId === g.id}
+                  >
+                    <ImageIcon size={14} />
+                  </button>
+                  {g.logo_url && (
+                    <button
+                      type="button"
+                      className="mcm-icon-btn mcm-icon-btn--sm"
+                      title={t("projGuest.logoRemove")}
+                      aria-label={t("projGuest.logoRemove")}
+                      onClick={() => void removeLogo(g)}
+                      disabled={busyId === g.id}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="mcm-icon-btn mcm-icon-btn--sm"

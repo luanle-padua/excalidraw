@@ -345,12 +345,18 @@ export type Meeting = {
 export type RealtimeBackend = "do" | "socketio";
 
 /** Normalize a meeting's `realtime_backend` flag into a definite backend.
- *  Defaults to "socketio" when the field is absent/null/unknown so a meeting
- *  the server hasn't opted into DO keeps the legacy transport — NON-BREAKING
- *  by construction. */
+ *
+ *  FORCED "do" (06-17): realtime is now 100% Durable Objects. The legacy
+ *  socket.io room server is RETIRED — it no longer exists, so a socket.io
+ *  connection can NEVER succeed (the WS opens then closes immediately). Every
+ *  meeting therefore resolves to the DO transport regardless of the stored
+ *  flag: new meetings carry "do", but OLD/finished/ad-hoc meetings created
+ *  before the DO default carry "socketio"/absent/null — they must still use
+ *  DO, not the dead relay. The `realtime_backend` field is kept for the admin
+ *  console rollout view; it no longer routes the client transport. */
 export const resolveRealtimeBackend = (
-  meeting: Pick<Meeting, "realtime_backend"> | null | undefined,
-): RealtimeBackend => (meeting?.realtime_backend === "do" ? "do" : "socketio");
+  _meeting: Pick<Meeting, "realtime_backend"> | null | undefined,
+): RealtimeBackend => "do";
 
 /** Discriminated meeting lookup — callers that gate behaviour on the
  *  registry (the collab start-gate) must tell "this room is genuinely

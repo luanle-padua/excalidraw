@@ -59,6 +59,13 @@ export const en: Widened<typeof vi> = {
     realEmailPlaceholder: "nam@abcconsulting.com",
     companyLabel: "Company",
     companyPlaceholder: "e.g. ABC Consulting",
+    countryLabel: "Country",
+    countryNone: "Country (picks backdrop)",
+    logoUpload: "Upload logo",
+    logoReplace: "Replace logo",
+    logoRemove: "Remove logo",
+    logoSaved: "Logo saved",
+    errLogo: "Couldn't save the logo (image up to 2MB).",
     phoneLabel: "Phone",
     phonePlaceholder: "e.g. +84 901 234 567",
     addressLabel: "Address",
@@ -495,7 +502,9 @@ export const en: Widened<typeof vi> = {
     loadForbidden: "Couldn't load — check admin permissions.",
     // ---- Backdrops (extra) ----
     backdropName: "Name",
-    backdropDrop: "Drag & drop an image here, or",
+    backdropDrop: "Drag & drop image(s) here, or",
+    backdropCountry: "Country",
+    backdropCountryGlobal: "Global (default)",
   },
 
   clients: {

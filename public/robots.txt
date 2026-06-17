@@ -1,13 +1,4 @@
-User-agent: Twitterbot
-Disallow:
-
-User-agent: facebookexternalhit
-Disallow:
-
+# Canvas M is an internal, login-required tool — nothing here should be
+# indexed by public search engines or social-card crawlers.
 User-agent: *
-Allow: /$
-Allow: /
-Allow: /sitemap.xml
 Disallow: /
-
-Sitemap: https://excalidraw.com/sitemap.xml

@@ -22,6 +22,7 @@ export type GuestContact = {
   company: string | null; // công ty
   phone: string | null; // số điện thoại
   address: string | null; // địa chỉ
+  country: string | null; // ISO alpha-2 — picks the client entry-page backdrop
 };
 
 /** What the host can submit when issuing or editing a guest's contact card. */
@@ -31,15 +32,18 @@ export type GuestContactInput = {
   company?: string;
   phone?: string;
   address?: string;
+  country?: string; // ISO alpha-2; "" = unset (global backdrop)
 };
 
-/** One project guest as returned by the list endpoint. */
+/** One project guest as returned by the list endpoint. `logo_url` is a relative,
+ *  auth-gated image URL (fetch via fetchWithAuth) or null when no logo is set. */
 export type ProjectGuest = GuestContact & {
   id: string;
   login: string;
   created_by: string | null;
   created_at: number;
   status: string;
+  logo_url: string | null;
 };
 
 /** One project guest in the CENTRALIZED manager — carries the owning project's
@@ -52,6 +56,7 @@ export type MyProjectGuest = GuestContact & {
   login: string;
   status: string;
   created_at: number;
+  logo_url: string | null;
 };
 
 /** Credentials shown to the host ONCE — never recoverable afterwards. */
@@ -112,6 +117,7 @@ export const issueProjectGuest = async (
           company: contact.company,
           phone: contact.phone,
           address: contact.address,
+          country: contact.country,
         }),
       },
     );
@@ -161,12 +167,72 @@ export const updateProjectGuest = async (
           company: contact.company,
           phone: contact.phone,
           address: contact.address,
+          country: contact.country,
         }),
       },
     );
     return res.ok;
   } catch {
     return false;
+  }
+};
+
+/** Upload (replace) a guest's company LOGO — multipart, capped at 2MB by the
+ *  worker. Returns the relative portal image URL on success, else null. */
+export const uploadGuestLogo = async (
+  projectId: string,
+  id: string,
+  file: File,
+): Promise<string | null> => {
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/guests/${encodeURIComponent(id)}/logo`,
+      { method: "POST", body: form },
+    );
+    if (!res.ok) {
+      return null;
+    }
+    const d = (await res.json()) as { ok?: boolean; url?: string };
+    return d.ok ? d.url ?? null : null;
+  } catch {
+    return null;
+  }
+};
+
+/** Remove a guest's logo (drops the R2 object + clears logo_key). */
+export const removeGuestLogo = async (
+  projectId: string,
+  id: string,
+): Promise<boolean> => {
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(
+        projectId,
+      )}/guests/${encodeURIComponent(id)}/logo`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Fetch a guest's logo as an object URL (auth-gated image; caller revokes). */
+export const fetchGuestLogo = async (
+  logoUrl: string,
+): Promise<string | null> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}${logoUrl}`);
+    if (!res.ok) {
+      return null;
+    }
+    return URL.createObjectURL(await res.blob());
+  } catch {
+    return null;
   }
 };
 

@@ -70,6 +70,13 @@ export const vi = {
     realEmailPlaceholder: "nam@tuvanabc.com",
     companyLabel: "Công ty",
     companyPlaceholder: "VD: Tư vấn ABC",
+    countryLabel: "Quốc gia",
+    countryNone: "Quốc gia (chọn ảnh nền)",
+    logoUpload: "Tải logo",
+    logoReplace: "Thay logo",
+    logoRemove: "Xoá logo",
+    logoSaved: "Đã lưu logo",
+    errLogo: "Không lưu được logo (ảnh tối đa 2MB).",
     phoneLabel: "Số điện thoại",
     phonePlaceholder: "VD: 0901 234 567",
     addressLabel: "Địa chỉ",
@@ -516,7 +523,9 @@ export const vi = {
     loadForbidden: "Không tải được — kiểm tra quyền admin.",
     // ---- Backdrops (extra) ----
     backdropName: "Tên",
-    backdropDrop: "Kéo & thả ảnh vào đây, hoặc",
+    backdropDrop: "Kéo & thả (nhiều) ảnh vào đây, hoặc",
+    backdropCountry: "Quốc gia",
+    backdropCountryGlobal: "Chung (mặc định)",
   },
 
   // ---------------- Client list (CRM-lite contact book) ------------

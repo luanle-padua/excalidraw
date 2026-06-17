@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  fetchBrandingLogo,
+  getPortalBranding,
   listPortalBackdrops,
   type PortalBackdropImage,
 } from "../../data/backdrops";
@@ -64,11 +66,30 @@ export const PortalBackdrop = () => {
   // can revoke their object URLs on unmount.
   const [sources, setSources] = useState<string[]>(THEMES);
   const fetchedRef = useRef<PortalBackdropImage[]>([]);
+  // The signed-in client's company logo (object URL) — overlaid on the backdrop.
+  // null for staff/admin or a client with no logo. Revoked on unmount.
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const logoRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const items = await listPortalBackdrops();
+      // Resolve THIS client's branding first: country picks the backdrop, the
+      // logo overlays it. Staff/admin (or pre-identification) → null → the full
+      // default rotation, no logo. Never throws (getPortalBranding swallows).
+      const branding = await getPortalBranding();
+      if (branding?.logoUrl) {
+        const src = await fetchBrandingLogo(branding.logoUrl);
+        if (cancelled) {
+          if (src) {
+            URL.revokeObjectURL(src);
+          }
+        } else if (src) {
+          logoRef.current = src;
+          setLogoSrc(src);
+        }
+      }
+      const items = await listPortalBackdrops(branding?.country);
       // PRELOAD + VALIDATE before adopting: only keep admin images that actually
       // decode. This is what makes a blank impossible — if the fetch raced with a
       // StrictMode unmount/remount (so an object URL got revoked), or an image is
@@ -100,6 +121,10 @@ export const PortalBackdrop = () => {
       cancelled = true;
       fetchedRef.current.forEach((it) => URL.revokeObjectURL(it.src));
       fetchedRef.current = [];
+      if (logoRef.current) {
+        URL.revokeObjectURL(logoRef.current);
+        logoRef.current = null;
+      }
     };
   }, []);
 
@@ -131,6 +156,16 @@ export const PortalBackdrop = () => {
         />
       ))}
       <span className="mcm-portal__bg-scrim" />
+      {/* The signed-in client's company logo, overlaid on the backdrop. */}
+      {logoSrc && (
+        <img
+          className="mcm-portal__client-logo"
+          src={logoSrc}
+          alt=""
+          aria-hidden="true"
+          decoding="async"
+        />
+      )}
       <img
         className="mcm-portal__watermark"
         src="/canvas-m.png"

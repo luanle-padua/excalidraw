@@ -514,6 +514,28 @@
       box-shadow: var(--mcm-ring);
     }
   }
+  // Country tag <select> on the upload pane — mirrors the title input.
+  &__backdrop-countryinput {
+    flex: 0 1 auto;
+    min-width: 150px;
+    max-width: 220px;
+    height: 34px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: var(--mcm-radius-sm);
+    padding: 0 10px;
+    @include t-body;
+    font-family: inherit;
+    background: var(--mcm-surface-0);
+    color: var(--mcm-text);
+    outline: none;
+    transition: border-color var(--mcm-dur-base) var(--mcm-ease),
+      box-shadow var(--mcm-dur-base) var(--mcm-ease);
+
+    &:focus {
+      border-color: var(--mcm-accent);
+      box-shadow: var(--mcm-ring);
+    }
+  }
 
   &__backdrop-grid {
     display: grid;
@@ -583,7 +605,8 @@
     @include t-label;
     color: var(--mcm-text-soft);
   }
-  &__backdrop-title {
+  &__backdrop-title,
+  &__backdrop-country {
     width: 100%;
     height: 32px;
     border: 1px solid var(--mcm-hairline);

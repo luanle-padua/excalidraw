@@ -66,6 +66,13 @@ export const ko: Widened<typeof vi> = {
     realEmailPlaceholder: "nam@abcconsulting.com",
     companyLabel: "회사",
     companyPlaceholder: "예: ABC 컨설팅",
+    countryLabel: "국가",
+    countryNone: "국가 (배경 선택)",
+    logoUpload: "로고 업로드",
+    logoReplace: "로고 교체",
+    logoRemove: "로고 삭제",
+    logoSaved: "로고 저장됨",
+    errLogo: "로고를 저장하지 못했습니다 (이미지 최대 2MB).",
     phoneLabel: "전화번호",
     phonePlaceholder: "예: +84 901 234 567",
     addressLabel: "주소",
@@ -499,7 +506,9 @@ export const ko: Widened<typeof vi> = {
     loadForbidden: "불러오지 못했습니다 — 관리자 권한을 확인하세요.",
     // ---- Backdrops (extra) ----
     backdropName: "이름",
-    backdropDrop: "이미지를 끌어다 놓거나,",
+    backdropDrop: "이미지를 끌어다 놓거나 (여러 개 가능),",
+    backdropCountry: "국가",
+    backdropCountryGlobal: "공통 (기본)",
   },
 
   clients: {

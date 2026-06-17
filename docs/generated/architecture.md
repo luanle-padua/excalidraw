@@ -1,5 +1,14 @@
 # MAP CanvasMeet — Kiến trúc hiện thời
 
+> ⚠️ **STALE (2026-06-11) — đọc cẩn thận.** File này sinh **trước** khi realtime
+> chuyển sang Durable Objects. Phần mô tả "room server socket.io" bên dưới đã
+> **KHÔNG còn đúng**: realtime giờ chạy 100% trên **Durable Objects (`RoomDO`)**
+> trong Worker, và AI (Gemini) + STT (Deepgram) cũng đã dời **lên Worker** (đo vào
+> `usage_events`). App host trên **Cloudflare Pages** (`map-canvasm.pages.dev`).
+> Để biết trạng thái hạ tầng + cách deploy ĐÚNG hiện tại, xem
+> [`../runbooks/deploy.md`](../runbooks/deploy.md) + bộ nhớ dự án (memory). Đừng
+> sửa tay file này — regenerate khi cần.
+
 > **Generated doc** — tổng hợp từ khảo sát code ngày **2026-06-11**. File này được sinh tự động và sẽ bị ghi đè hoàn toàn ở lần cập nhật sau; không sửa tay.
 >
 > Nguồn chi tiết hơn: `docs/roadmap.md`, `docs/dev-phase-notes.md`, `docs/production-data-plan.md`, `docs/host-and-scheduling.md`, `docs/2026-06-01-plan-ha-tang-cloudflare.md`.

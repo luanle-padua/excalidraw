@@ -4,7 +4,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 
 ## Đọc theo thứ tự này (người mới / quay lại sau nghỉ)
 
-1. **`generated/architecture.md`** — Bức tranh hệ thống HIỆN TẠI (sinh tự động 2026-06-11). Hiểu cái gì đang chạy trước khi đọc kế hoạch.
+1. **`generated/architecture.md`** — Bức tranh hệ thống (sinh tự động 2026-06-11). ⚠️ **STALE**: realtime giờ là Durable Objects, AI/STT trên Worker, app trên Cloudflare Pages. Trạng thái hạ tầng + deploy ĐÚNG hiện tại nằm ở `runbooks/deploy.md`.
 2. **`plans/master-plan-4-groups.md`** — Việc SẮP LÀM, chia 4 nhóm, thứ tự đã chốt với anh Luân 06-11. Đây là "kim chỉ nam" hiện hành.
 3. **`plans/roadmap.md`** — Phase nào xong / đang dở (nguồn chuẩn duy nhất về phase).
 4. **`plans/production-data-plan.md`** + **`plans/dev-phase-notes.md`** — Kế hoạch dữ liệu production và danh sách "việc tạm cần finalize".
@@ -14,7 +14,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 8. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
 9. **`logs/`** — Nhật ký từng phiên làm việc (tiếng Việt), chi tiết kỹ thuật
    - gotchas. Tra cứu khi cần biết "hôm đó đã làm gì, vướng gì".
-10. **`runbooks/`** — Hướng dẫn vận hành từng-bước, copy-paste được: deploy (`deploy.md`), xoay key (`key-rotation.md`), xử lý sự cố (`incident.md`).
+10. **`runbooks/`** — Hướng dẫn vận hành từng-bước, copy-paste được: chạy local (`run-local.md`), deploy (`deploy.md` — Worker + Pages, có gotcha `--branch=main`), backup/restore (`backup.md`), xoay key (`key-rotation.md`), xử lý sự cố (`incident.md`).
 
 ## Dòng thời gian dự án (qua logs/)
 
