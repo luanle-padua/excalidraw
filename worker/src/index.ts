@@ -113,6 +113,17 @@ const isAllowedOrigin = (origin: string, env: Bindings): boolean => {
   if (host === "localhost" || host === "127.0.0.1") {
     return true;
   }
+  // Private LAN IPs (RFC1918) — lets a local dev server reached over the LAN
+  // (e.g. http://172.16.x.x:3001 for cross-device testing) call the ONLINE
+  // Worker so the local dev link operates identically to production. A public
+  // attacker page can't be served from a private-IP origin.
+  if (
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(host)
+  ) {
+    return true;
+  }
   if (
     host.endsWith(".pages.dev") ||
     host.endsWith(".workers.dev") ||
@@ -180,7 +191,10 @@ const jwtGate: MiddlewareHandler<{
   Bindings: Bindings;
   Variables: Variables;
 }> = async (c, next) => {
-  const supabaseUrl = c.env.SUPABASE_URL;
+  // Trim + strip trailing slashes: a stray newline or trailing "/" in the
+  // SUPABASE_URL secret made `new URL()` throw "Invalid URL string" → uncaught
+  // 500 on EVERY authed request (the 06-17 outage). Normalize defensively.
+  const supabaseUrl = c.env.SUPABASE_URL?.trim().replace(/\/+$/, "");
   if (!supabaseUrl) {
     return c.json({ error: "auth not configured" }, 503);
   }
@@ -191,7 +205,15 @@ const jwtGate: MiddlewareHandler<{
   const token = authz.slice(7);
   const issuer = `${supabaseUrl}/auth/v1`;
   if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+    // A malformed SUPABASE_URL must surface as a clear 503 (misconfig), never
+    // an uncaught new-URL throw that 500s every authed route.
+    let jwksUrl: URL;
+    try {
+      jwksUrl = new URL(`${issuer}/.well-known/jwks.json`);
+    } catch {
+      return c.json({ error: "auth misconfigured" }, 503);
+    }
+    jwks = createRemoteJWKSet(jwksUrl);
   }
   try {
     const { payload } = await jwtVerify(token, jwks, {
