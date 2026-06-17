@@ -377,10 +377,15 @@ phẩm.
 **5. Giới hạn phạm vi (scope limits) — đề xuất.**
    - **Read-only tuyệt đối:** Chairman KHÔNG sửa/xoá gì (khác admin). Enforce ở Worker:
      `/v1/chairman/*` chỉ GET + POST reasoning, không có PATCH/DELETE nội dung.
-   - **Cân nhắc loại trừ 1:1 / HR-sensitive:** nếu có loại cuộc họp riêng tư (đánh giá
-     cá nhân, kỷ luật) → có thể đánh dấu `confidentiality = 'private'` mà **cả chairman
-     cũng không vào**. Đây là **open question** cho anh Luân (xem §6) — mặc định doc
-     này cho chairman thấy tất cả.
+   - **KHÔNG loại trừ — Chairman có QUYỀN TỐI THƯỢNG (CHỐT 06-17, anh Luân):**
+     Chairman thấy **MỌI** cuộc họp, kể cả 1:1 / HR / đánh giá cá nhân / kỷ luật /
+     `confidential`. **Không có tier `private` nào chặn được Chairman.** → Hệ quả
+     quan trọng: vì **không có nội dung nào ngoài tầm**, toàn bộ đối trọng (an toàn
+     đạo đức/pháp lý) phải dồn sang **3 chỗ KHÁC, không phải việc giấu nội dung**:
+     **(a)** `chairman_audit` audit-before-access — bên thứ ba (DPO/hội đồng) kiểm
+     Chairman đã soi ai, chạy reasoning gì (§4) — bắt buộc, không bỏ; **(b)** **cực
+     ít người** giữ role (đề xuất 1–2 người, do super-admin cấp); **(c)** consent/
+     policy công khai (§3). Read-only tuyệt đối vẫn giữ (Chairman KHÔNG sửa/xoá).
 
 **6. Data retention.** `chairman_insight` (phân tích hành vi) nhạy hơn cả transcript.
    Đề xuất: **TTL có hạn** (vd insight hành vi cá nhân giữ N tháng rồi auto-purge, trừ
@@ -507,9 +512,11 @@ hành vi từng người". Rủi ro thấp vì chỉ đọc cuộc đã xong (sn
 4 vô dụng nếu nền chưa vô hình + chưa audit. 6–9 chỉ làm khi MVP chứng minh giá trị.
 
 ### Open questions cho anh Luân quyết
-1. **Confidential vs Chairman:** Chairman thấy **mọi** cuộc kể cả `confidential`
-   (doc mặc định CÓ). Có muốn một mức **`private`** mà *kể cả chairman* không vào
-   (đánh giá cá nhân/HR)? → ảnh hưởng §2.2 + §4.5.
+1. ~~**Confidential vs Chairman / tier `private`?**~~ ✅ **CHỐT 06-17: Chairman
+   quyền TỐI THƯỢNG — thấy MỌI cuộc (kể cả `confidential`, 1:1, HR). KHÔNG có tier
+   `private` chặn Chairman.** Đối trọng dồn sang `chairman_audit` + cực ít người giữ
+   role + consent công khai (xem §4.5). → vì vậy Q#2 (ai kiểm chairman) và Q#3 (bao
+   nhiêu người) giờ là **bắt buộc trả lời**, không còn optional.
 2. **Audit của chairman ai được kiểm?** Cần một vai "super-admin/DPO" đọc
    `chairman_audit`? Hay chỉ ghi để có (chưa ai đọc)? → ảnh hưởng §2.5 + §4.4.
 3. **Bao nhiêu người là chairman?** 1 (chỉ Chủ tịch) hay +1 trợ lý? → cấp role.
