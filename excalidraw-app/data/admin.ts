@@ -156,6 +156,53 @@ export const getAdminStats = async (): Promise<AdminStats | null> => {
   }
 };
 
+// ---- Realtime monitoring (live rooms, DO vs socket.io rollout) -----------
+
+export type AdminRealtimeRoom = {
+  room_id: string;
+  title: string | null;
+  backend: "do" | "socketio";
+  connected: number;
+  connected_exact: boolean;
+  host_present: boolean;
+  state: "active" | "idle" | "full";
+  since: number;
+  since_label: string;
+};
+
+export type AdminRealtimeRejections = {
+  denied: number;
+  revoked: number;
+  finished: number;
+  room_full: number;
+  total: number;
+};
+
+export type AdminRealtime = {
+  health: "ok" | "warn" | "down";
+  generated_at: number;
+  summary: {
+    live_meetings: number;
+    people_connected: number;
+    rooms_on_do: number;
+    rooms_on_socketio: number;
+    rooms_full: number;
+    ws_cap: number;
+  };
+  rooms: AdminRealtimeRoom[];
+  rejections_24h: AdminRealtimeRejections | null;
+  observability_url: string;
+};
+
+export const getAdminRealtime = async (): Promise<AdminRealtime | null> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/realtime`);
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+};
+
 // ---- A2: audit / storage / cost / integrations --------------------------
 
 export type AdminAuditEntry = {

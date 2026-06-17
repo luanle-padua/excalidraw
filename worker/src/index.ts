@@ -4071,6 +4071,229 @@ app.get("/v1/admin/stats", async (c) => {
   return c.json({ stats: row });
 });
 
+// ---- Admin: realtime monitoring ------------------------------------------
+// Read-only live view of every meeting whose realtime collab is active. For DO
+// rooms we fan out the same `__count` RPC the auth gate uses (in parallel, with
+// a short timeout — a slow/missing DO degrades to "idle", it NEVER fails the
+// page or wakes the DO). socket.io rooms have no DO to poll, so we approximate
+// the connected count from recent meeting_participant rows. Auto-admin-gated by
+// app.use("/v1/admin/*").
+app.get("/v1/admin/realtime", async (c) => {
+  const ROOM_WS_CAP = Number(c.env.ROOM_WS_CAP ?? "500") || 500;
+  // ~90s recency window for "present" in a socket.io room and for host_present.
+  const RECENT_MS = 90 * 1000;
+  const recentCutoff = now() - RECENT_MS;
+
+  type LiveMeeting = {
+    id: string;
+    title: string | null;
+    realtime_backend: string | null;
+    host_email: string | null;
+    last_opened_at: number | null;
+    created_at: number;
+  };
+  const { results: liveRows } = await c.env.DB.prepare(
+    `SELECT id, title, realtime_backend, host_email, last_opened_at, created_at
+       FROM meeting
+      WHERE status = 'live'
+      ORDER BY last_opened_at DESC
+      LIMIT 50`,
+  ).all<LiveMeeting>();
+  const live = liveRows ?? [];
+
+  // host_present + socket.io connected count both lean on the recent
+  // participant set. One query per live meeting is cheap at LIMIT 50; run them
+  // in parallel.
+  const recentSets = await Promise.all(
+    live.map(async (m) => {
+      const { results } = await c.env.DB.prepare(
+        `SELECT lower(user_email) AS email
+           FROM meeting_participant
+          WHERE meeting_id = ?1 AND last_seen_at > ?2`,
+      )
+        .bind(m.id, recentCutoff)
+        .all<{ email: string }>();
+      return { id: m.id, emails: (results ?? []).map((r) => r.email) };
+    }),
+  );
+  const recentByMeeting = new Map(recentSets.map((r) => [r.id, r.emails]));
+
+  // Fan out __count to every DO room in PARALLEL. Timeout/error → idle, count 0
+  // (and counted toward the error tally for the health signal). MIRRORS the
+  // exact call in handleRealtimeUpgrade (https://room.internal/__count).
+  let doErrors = 0;
+  let doRooms = 0;
+  let socketioRooms = 0;
+  const counts = await Promise.allSettled(
+    live.map(async (m) => {
+      if (m.realtime_backend === "do") {
+        const stub = c.env.ROOM.get(c.env.ROOM.idFromName(m.id));
+        const res = await stub.fetch("https://room.internal/__count", {
+          method: "GET",
+          signal: AbortSignal.timeout(800),
+        });
+        if (!res.ok) {
+          throw new Error(`__count ${res.status}`);
+        }
+        const { count } = (await res.json()) as { count: number };
+        return { id: m.id, connected: typeof count === "number" ? count : 0 };
+      }
+      // socket.io / null: approximate from the recent participant set.
+      return {
+        id: m.id,
+        connected: (recentByMeeting.get(m.id) ?? []).length,
+      };
+    }),
+  );
+  const connectedByMeeting = new Map<string, number>();
+  live.forEach((m, i) => {
+    const settled = counts[i];
+    const isDo = m.realtime_backend === "do";
+    if (isDo) {
+      doRooms += 1;
+    } else {
+      socketioRooms += 1;
+    }
+    if (settled.status === "fulfilled") {
+      connectedByMeeting.set(m.id, settled.value.connected);
+    } else {
+      // DO __count failed → idle, 0 connected. Do NOT fail the page.
+      connectedByMeeting.set(m.id, 0);
+      if (isDo) {
+        doErrors += 1;
+      }
+    }
+  });
+
+  const fmtSince = (ms: number | null): string => {
+    if (!ms) {
+      return "—";
+    }
+    const mins = Math.max(0, Math.round((now() - ms) / 60000));
+    if (mins < 1) {
+      return "vừa xong";
+    }
+    if (mins < 60) {
+      return `${mins} phút`;
+    }
+    const h = Math.floor(mins / 60);
+    const rem = mins % 60;
+    return rem ? `${h} giờ ${rem} phút` : `${h} giờ`;
+  };
+
+  let roomsFull = 0;
+  let peopleConnected = 0;
+  const rooms = live.map((m) => {
+    const connected = connectedByMeeting.get(m.id) ?? 0;
+    const isDo = m.realtime_backend === "do";
+    const settled = counts[live.indexOf(m)];
+    const doFailed = isDo && settled?.status === "rejected";
+    const full = connected >= ROOM_WS_CAP;
+    if (full) {
+      roomsFull += 1;
+    }
+    peopleConnected += connected;
+    const state: "active" | "idle" | "full" = full
+      ? "full"
+      : doFailed || connected === 0
+      ? "idle"
+      : "active";
+    const since = m.last_opened_at ?? m.created_at;
+    const hostEmail = m.host_email?.toLowerCase() ?? null;
+    const recent = recentByMeeting.get(m.id) ?? [];
+    return {
+      room_id: m.id,
+      title: m.title,
+      backend: isDo ? "do" : "socketio",
+      connected,
+      // DO count is exact; socket.io is an approximation from last_seen_at.
+      connected_exact: isDo && !doFailed,
+      host_present: hostEmail ? recent.includes(hostEmail) : false,
+      state,
+      since,
+      since_label: fmtSince(since),
+    };
+  });
+
+  // rejections_24h — grouped by reason out of the audit_log meta JSON (there is
+  // no `reason` column; logAudit stores { reason } inside meta). Returns null if
+  // the table or rows aren't there yet (best-effort; never fails the page).
+  let rejections: {
+    denied: number;
+    revoked: number;
+    finished: number;
+    room_full: number;
+    total: number;
+  } | null = null;
+  try {
+    const dayAgo = now() - 86_400_000;
+    const { results: rejRows } = await c.env.DB.prepare(
+      `SELECT json_extract(meta, '$.reason') AS reason, COUNT(*) AS n
+         FROM audit_log
+        WHERE action = 'realtime.reject' AND ts > ?1
+        GROUP BY reason`,
+    )
+      .bind(dayAgo)
+      .all<{ reason: string | null; n: number }>();
+    if (rejRows) {
+      const agg = {
+        denied: 0,
+        revoked: 0,
+        finished: 0,
+        room_full: 0,
+        total: 0,
+      };
+      for (const r of rejRows) {
+        const n = Number(r.n) || 0;
+        agg.total += n;
+        if (r.reason === "denied") {
+          agg.denied += n;
+        } else if (r.reason === "revoked") {
+          agg.revoked += n;
+        } else if (r.reason === "finished") {
+          agg.finished += n;
+        } else if (r.reason === "room_full") {
+          agg.room_full += n;
+        }
+      }
+      rejections = agg;
+    }
+  } catch {
+    rejections = null;
+  }
+
+  // Health: down if >50% of DO rooms errored on __count; warn on any idle/full
+  // or a rejection spike; else ok.
+  const idleCount = rooms.filter((r) => r.state === "idle").length;
+  const rejectionSpike = (rejections?.total ?? 0) > 20;
+  let health: "ok" | "warn" | "down" = "ok";
+  if (doRooms > 0 && doErrors / doRooms > 0.5) {
+    health = "down";
+  } else if (idleCount > 0 || roomsFull > 0 || rejectionSpike) {
+    health = "warn";
+  }
+
+  // Cloudflare observability deep-link for the mcm-storage Worker.
+  const observabilityUrl =
+    "https://dash.cloudflare.com/?to=/:account/workers/services/view/mcm-storage/production/observability";
+
+  return c.json({
+    health,
+    generated_at: now(),
+    summary: {
+      live_meetings: live.length,
+      people_connected: peopleConnected,
+      rooms_on_do: doRooms,
+      rooms_on_socketio: socketioRooms,
+      rooms_full: roomsFull,
+      ws_cap: ROOM_WS_CAP,
+    },
+    rooms,
+    rejections_24h: rejections,
+    observability_url: observabilityUrl,
+  });
+});
+
 // ---- Admin: audit log ----------------------------------------------------
 app.get("/v1/admin/audit", async (c) => {
   const { results } = await c.env.DB.prepare(
@@ -4518,6 +4741,12 @@ export const handleRealtimeUpgrade = async (
   const { token, subprotocol } = realtimeToken(request);
   const identity = await verifyRealtimeJwt(token, env);
   if (!identity) {
+    // Best-effort reject audit (powers the admin Realtime "rejections_24h"
+    // metric). No verified email here, so attribute to null. NEVER block the
+    // 401 on the audit write.
+    void logAudit(env.DB, undefined, "realtime.reject", roomId, {
+      reason: "denied",
+    });
     return new Response("unauthorized", { status: 401 });
   }
 
@@ -4532,6 +4761,9 @@ export const handleRealtimeUpgrade = async (
     roomId,
   );
   if (!canSee) {
+    void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+      reason: "denied",
+    });
     return new Response("forbidden", { status: 403 });
   }
 
@@ -4541,6 +4773,9 @@ export const handleRealtimeUpgrade = async (
   //     and reject the upgrade with 409 (NEVER 101) — same status the REST
   //     write routes return on a locked room.
   if (await isFinishedLocked(env.DB, roomId)) {
+    void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+      reason: "finished",
+    });
     return new Response("meeting is finished (read-only)", { status: 409 });
   }
 
@@ -4554,6 +4789,12 @@ export const handleRealtimeUpgrade = async (
       .bind(roomId, identity.email.toLowerCase())
       .first<{ status: string | null }>();
     if (knock?.status !== "admitted") {
+      // A previously-admitted guest whose knock was flipped to 'revoked' =
+      // a kick; anything else (never knocked / still pending) = denied. The
+      // admin Realtime page splits these two in its 24h rejection breakdown.
+      void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+        reason: knock?.status === "revoked" ? "revoked" : "denied",
+      });
       return new Response("not admitted to this meeting", { status: 403 });
     }
   }
@@ -4570,6 +4811,9 @@ export const handleRealtimeUpgrade = async (
     if (countRes.ok) {
       const { count } = (await countRes.json()) as { count: number };
       if (typeof count === "number" && count >= cap) {
+        void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+          reason: "room_full",
+        });
         return new Response("room is full", { status: 403 });
       }
     }

@@ -20,6 +20,8 @@ import {
   Lock,
   LogOut,
   Plug,
+  Radio,
+  RefreshCw,
   ScrollText,
   Settings,
   ShieldAlert,
@@ -46,6 +48,7 @@ import {
   getAdminIntegrations,
   getAdminMeetingDetail,
   getAdminProjectMembers,
+  getAdminRealtime,
   getAdminSettings,
   getAdminStats,
   getAdminStorage,
@@ -64,6 +67,7 @@ import {
   type AdminMeetingDetail,
   type AdminProject,
   type AdminProjectMember,
+  type AdminRealtime,
   type AdminStats,
   type AdminStorage,
   type AdminUser,
@@ -94,6 +98,7 @@ type Tab =
   | "clients"
   | "projects"
   | "meetings"
+  | "realtime"
   | "analytics"
   | "cost"
   | "integrations"
@@ -183,6 +188,21 @@ const fmtDur = (s: number | null | undefined): string => {
   return h > 0 ? `${h}h${m}m` : `${m}m`;
 };
 
+// Realtime health → traffic-light dot. 🟢 ok · 🟡 warn · 🔴 down.
+const HEALTH_LIGHT: Record<"ok" | "warn" | "down", string> = {
+  ok: "🟢",
+  warn: "🟡",
+  down: "🔴",
+};
+const fmtClock = (ms: number | null | undefined): string =>
+  ms
+    ? new Date(ms).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    : "—";
+
 export const AdminConsole = () => {
   const t = useT();
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -195,6 +215,8 @@ export const AdminConsole = () => {
   const [storage, setStorage] = useState<AdminStorage | null>(null);
   const [audit, setAudit] = useState<AdminAuditEntry[]>([]);
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [realtime, setRealtime] = useState<AdminRealtime | null>(null);
+  const [realtimeAt, setRealtimeAt] = useState<number | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [detail, setDetail] = useState<AdminMeetingDetail | null>(null);
@@ -441,9 +463,28 @@ export const AdminConsole = () => {
     [],
   );
 
+  const refreshRealtime = useCallback(async () => {
+    const r = await getAdminRealtime();
+    setRealtime(r);
+    setRealtimeAt(Date.now());
+  }, []);
+
   useEffect(() => {
     void getAdminStats().then(setStats);
   }, []);
+
+  // Realtime tab: poll every 15s while it's the active tab; clear on
+  // unmount / tab change. READ-ONLY — just refetches the snapshot.
+  useEffect(() => {
+    if (tab !== "realtime") {
+      return undefined;
+    }
+    void refreshRealtime();
+    const id = window.setInterval(() => {
+      void refreshRealtime();
+    }, 15_000);
+    return () => window.clearInterval(id);
+  }, [tab, refreshRealtime]);
 
   useEffect(() => {
     setDetail(null);
@@ -818,6 +859,13 @@ export const AdminConsole = () => {
             onClick={() => setTab("meetings")}
           >
             <LayoutDashboard size={16} /> {t("admin.tabMeetings")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${tab === "realtime" ? " --active" : ""}`}
+            onClick={() => setTab("realtime")}
+          >
+            <Radio size={16} /> {t("admin.tabRealtime")}
           </button>
           <button
             type="button"
@@ -1705,6 +1753,176 @@ export const AdminConsole = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {tab === "realtime" && (
+          <div className="mcm-admin__pad">
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {realtime?.summary.live_meetings ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.rtLiveMeetings")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {realtime?.summary.people_connected ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.rtPeopleConnected")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {realtime ? HEALTH_LIGHT[realtime.health] : "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {realtime
+                    ? realtime.health === "ok"
+                      ? t("admin.rtHealthOk")
+                      : realtime.health === "warn"
+                      ? t("admin.rtHealthWarn")
+                      : t("admin.rtHealthDown")
+                    : t("admin.rtHealth")}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {t("admin.rtBackendDo")} {realtime?.summary.rooms_on_do ?? 0}{" "}
+                  · {t("admin.rtBackendSocketio")}{" "}
+                  {realtime?.summary.rooms_on_socketio ?? 0}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.rtRollout")}
+                </span>
+              </div>
+            </div>
+
+            <div className="mcm-admin__detail-head">
+              <span className="mcm-admin__note">
+                {t("admin.rtUpdatedAt", { time: fmtClock(realtimeAt) })}
+              </span>
+              <div className="mcm-admin__detail-actions">
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                  onClick={() => void refreshRealtime()}
+                >
+                  <RefreshCw size={15} /> {t("admin.rtRefresh")}
+                </button>
+                {realtime?.observability_url && (
+                  <a
+                    className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                    href={realtime.observability_url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    {t("admin.rtOpenCloudflare")}
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className="mcm-tablecard">
+              <table className="mcm-table">
+                <thead>
+                  <tr>
+                    <th>{t("admin.rtColMeeting")}</th>
+                    <th>{t("admin.rtColBackend")}</th>
+                    <th>{t("admin.rtColPeople")}</th>
+                    <th>{t("admin.rtColHost")}</th>
+                    <th>{t("admin.rtColSince")}</th>
+                    <th>{t("admin.rtColState")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(realtime?.rooms ?? []).map((r) => (
+                    <tr key={r.room_id}>
+                      <td>
+                        <strong>{r.title || r.room_id}</strong>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            r.backend === "do"
+                              ? "mcm-pill mcm-pill--on"
+                              : "mcm-pill mcm-pill--neutral"
+                          }
+                        >
+                          {r.backend === "do"
+                            ? t("admin.rtBackendDo")
+                            : t("admin.rtBackendSocketio")}
+                        </span>
+                      </td>
+                      <td>
+                        {r.connected_exact ? "" : "~"}
+                        {r.connected}
+                      </td>
+                      <td>{r.host_present ? "✓" : "✗"}</td>
+                      <td>{r.since_label}</td>
+                      <td>
+                        <span
+                          className={
+                            r.state === "full"
+                              ? "mcm-pill mcm-pill--off"
+                              : r.state === "active"
+                              ? "mcm-pill mcm-pill--on"
+                              : "mcm-pill mcm-pill--neutral"
+                          }
+                        >
+                          {r.state === "full"
+                            ? `● ${t("admin.rtStateFull")}`
+                            : r.state === "active"
+                            ? `● ${t("admin.rtStateActive")}`
+                            : `○ ${t("admin.rtStateIdle")}`}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {realtime && realtime.rooms.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="mcm-table__sub">
+                        {t("admin.rtEmpty")}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 className="mcm-admin__h4">{t("admin.rtSafety")}</h4>
+            <div className="mcm-admin__cards">
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {realtime?.rejections_24h
+                    ? `${realtime.rejections_24h.total}`
+                    : "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.rtRejections")}
+                  {realtime?.rejections_24h
+                    ? ` (${t("admin.rtRejDenied")} ${
+                        realtime.rejections_24h.denied
+                      } · ${t("admin.rtRejRevoked")} ${
+                        realtime.rejections_24h.revoked
+                      } · ${t("admin.rtRejFinished")} ${
+                        realtime.rejections_24h.finished
+                      })`
+                    : ""}
+                </span>
+              </div>
+              <div className="mcm-admin__card">
+                <span className="mcm-admin__card-num">
+                  {realtime?.summary.rooms_full ?? "—"}
+                </span>
+                <span className="mcm-admin__card-label">
+                  {t("admin.rtRoomsFull")} (≥ {realtime?.summary.ws_cap ?? "—"})
+                </span>
+              </div>
             </div>
           </div>
         )}
