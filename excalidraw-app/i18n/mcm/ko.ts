@@ -405,6 +405,16 @@ export const ko: Widened<typeof vi> = {
       "이 회의의 내용을 읽기 전용·완전 비공개(컴플라이언스)로 열까요?\n\n방에 입장하지 않고 최신 저장 상태를 봅니다 — 참석자에게 보이지 않습니다. 이 접근은 감사 로그(admin.open_content)에 영구 기록됩니다.",
     openContentNoKey: "저장된 키가 없는 회의입니다 — 내용을 열 수 없습니다.",
     openContentFailed: "회의 내용을 열지 못했습니다.",
+    // ---- Backdrops (client-page backgrounds) ----
+    tabBackdrops: "배경",
+    backdropsIntro:
+      "고객 포털 및 게스트 대기실에서 번갈아 표시되는 배경 이미지입니다. 화살표로 순서를 바꿀 수 있으며, 목록이 비어 있으면 기본 제공 이미지가 표시됩니다.",
+    backdropUpload: "이미지 업로드",
+    backdropTitlePlaceholder: "제목 (선택)",
+    backdropEmpty: "배경이 없습니다 — 기본 제공 이미지가 표시됩니다.",
+    backdropDelete: "삭제",
+    backdropMoveUp: "위로",
+    backdropMoveDown: "아래로",
   },
 
   clients: {

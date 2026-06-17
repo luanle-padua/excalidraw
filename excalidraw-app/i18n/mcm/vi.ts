@@ -422,6 +422,16 @@ export const vi = {
       "Mở nội dung cuộc họp này ở chế độ CHỈ XEM, ẨN HOÀN TOÀN (compliance)?\n\nBạn xem bản lưu mới nhất, KHÔNG vào phòng — người trong họp không thấy bạn. Lượt truy cập sẽ được ghi vĩnh viễn vào nhật ký kiểm toán (admin.open_content).",
     openContentNoKey: "Cuộc họp không có khoá lưu trữ — không thể mở nội dung.",
     openContentFailed: "Không mở được nội dung cuộc họp.",
+    // ---- Backdrops (ảnh nền trang khách) ----
+    tabBackdrops: "Ảnh nền",
+    backdropsIntro:
+      "Ảnh nền luân phiên trên cổng khách & phòng chờ. Đổi thứ tự bằng mũi tên; nếu danh sách trống, hệ thống dùng ảnh mặc định đi kèm.",
+    backdropUpload: "Tải ảnh lên",
+    backdropTitlePlaceholder: "Tiêu đề (tuỳ chọn)",
+    backdropEmpty: "Chưa có ảnh nền — đang hiển thị ảnh mặc định.",
+    backdropDelete: "Xoá",
+    backdropMoveUp: "Lên",
+    backdropMoveDown: "Xuống",
   },
 
   // ---------------- Client list (CRM-lite contact book) ------------

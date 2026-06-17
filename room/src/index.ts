@@ -1,5 +1,6 @@
 import debug from "debug";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import http from "http";
 import { Server as SocketIO } from "socket.io";
 
@@ -23,14 +24,6 @@ type RTCSignalPayload = {
   type: "offer" | "answer" | "ice";
 };
 
-type CloudflareTurnIceServers = {
-  iceServers: {
-    urls: string[] | string;
-    username?: string;
-    credential?: string;
-  };
-};
-
 const serverDebug = debug("server");
 const ioDebug = debug("io");
 const socketDebug = debug("socket");
@@ -50,75 +43,56 @@ app.use(express.static("public"));
 // socket.io binary frames so this is opt-in to that one endpoint.
 app.use(express.json({ limit: "2mb" }));
 
+// ---------------------------------------------------------------------
+// Rate limiting for the AI / cost routes (Gemini + STT).
+//
+// These endpoints each cost real money per call, so we cap how often a
+// single client can hit them. Single-instance, in-memory limiter
+// (express-rate-limit) — deliberately NOT a distributed store; the room
+// server runs as one PM2 process. Keyed by IP (the routes carry no user
+// identity), 429 on limit. Tune the per-route windows below.
+// ---------------------------------------------------------------------
+const rateLimitMessage = (res: express.Response) => {
+  res.status(429).json({ error: "Too many requests, please slow down" });
+};
+
+// Translation is per-chat-message and cache-backed, so it's the cheapest
+// and highest-volume — allow ~20/min per client.
+const translateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => rateLimitMessage(res),
+});
+
+// Chatbot answers are a full Gemini round-trip with transcript context —
+// pricier, so a tighter ~5/min.
+const chatbotLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => rateLimitMessage(res),
+});
+
+// Summaries ingest the whole meeting transcript — the most expensive
+// single call. Keep it to ~1/min per client.
+const summarizeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => rateLimitMessage(res),
+});
+
 app.get("/", (req, res) => {
   res.send("Excalidraw collaboration server is up :)");
 });
 
-// ---------------------------------------------------------------------
-// Cloudflare TURN credentials proxy
-//
-// We never ship the long-lived API token to the browser. Instead the
-// browser calls /turn-credentials, the server hits Cloudflare's
-// credentials endpoint with the long-lived token, and forwards back the
-// short-lived TURN username/password the browser needs to relay media
-// through Cloudflare's TURN servers.
-//
-// Cached in-memory for ~23h (credentials TTL is 24h) so we don't burn
-// API calls on every page load.
-// ---------------------------------------------------------------------
-type TurnCredentialCache = {
-  expiresAt: number;
-  body: CloudflareTurnIceServers;
-};
-let turnCache: TurnCredentialCache | null = null;
-const TURN_TTL_SECONDS = 24 * 60 * 60;
-const TURN_CACHE_REFRESH_BEFORE_MS = 60 * 60 * 1000; // refresh 1h before expiry
-
-app.get("/turn-credentials", async (_req, res) => {
-  const tokenId = process.env.CLOUDFLARE_TURN_TOKEN_ID;
-  const apiToken = process.env.CLOUDFLARE_TURN_API_TOKEN;
-
-  if (!tokenId || !apiToken) {
-    res.status(503).json({ error: "TURN not configured on this server" });
-    return;
-  }
-
-  const now = Date.now();
-  if (turnCache && turnCache.expiresAt - TURN_CACHE_REFRESH_BEFORE_MS > now) {
-    res.json(turnCache.body);
-    return;
-  }
-
-  try {
-    const cfRes = await fetch(
-      `https://rtc.live.cloudflare.com/v1/turn/keys/${tokenId}/credentials/generate`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ttl: TURN_TTL_SECONDS }),
-      },
-    );
-    if (!cfRes.ok) {
-      const text = await cfRes.text();
-      console.error("Cloudflare TURN error:", cfRes.status, text);
-      res
-        .status(502)
-        .json({ error: "Failed to fetch TURN credentials from Cloudflare" });
-      return;
-    }
-    const body = (await cfRes.json()) as CloudflareTurnIceServers;
-    turnCache = {
-      body,
-      expiresAt: now + TURN_TTL_SECONDS * 1000,
-    };
-    res.json(body);
-  } catch (err) {
-    console.error("TURN credentials fetch failed", err);
-    res.status(500).json({ error: "TURN credentials fetch failed" });
-  }
+// Lightweight liveness probe for PM2 / uptime monitoring.
+app.get("/health", (req, res) => {
+  res.json({ ok: true, uptime: process.uptime() });
 });
 
 // ---------------------------------------------------------------------
@@ -338,7 +312,7 @@ ${text}`;
   return result;
 };
 
-app.post("/translate-batch", async (req, res) => {
+app.post("/translate-batch", translateLimiter, async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "Translation provider not configured" });
@@ -407,7 +381,7 @@ app.post("/translate-batch", async (req, res) => {
   }
 });
 
-app.post("/translate", async (req, res) => {
+app.post("/translate", translateLimiter, async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "Translation provider not configured" });
@@ -513,7 +487,7 @@ Style:
 
 OUTPUT: just the reply.`;
 
-app.post("/chatbot", async (req, res) => {
+app.post("/chatbot", chatbotLimiter, async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "Assistant provider not configured" });
@@ -676,7 +650,7 @@ RULES
 
 Return ONLY the JSON object. No backticks, no preamble.`;
 
-app.post("/summarize", async (req, res) => {
+app.post("/summarize", summarizeLimiter, async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(503).json({ error: "Summary provider (Gemini) not configured" });

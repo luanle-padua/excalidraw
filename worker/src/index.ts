@@ -58,6 +58,47 @@ type Bindings = {
   // RESEND_FROM is a plain var in wrangler.jsonc ("Canvas M <addr>").
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
+  // CORS allowlist (B6) — comma-separated extra origins permitted to call /v1
+  // (e.g. the production app origin). localhost / *.pages.dev / *.workers.dev /
+  // quick-tunnel are always allowed; everything else is rejected. Plain var in
+  // wrangler.jsonc, e.g. "https://app.mapgroup.co.kr".
+  ALLOWED_ORIGINS?: string;
+};
+
+// CORS origin check (B6, 06-17). The real risk is a random website riding a
+// leaked bearer token; an explicit allowlist closes that. Dev origins stay open
+// so the cloudflared quick-tunnel + Pages preview flow keeps working.
+const isAllowedOrigin = (origin: string, env: Bindings): boolean => {
+  if (!origin) {
+    return false;
+  }
+  let host: string;
+  let protocol: string;
+  try {
+    const u = new URL(origin);
+    host = u.hostname;
+    protocol = u.protocol;
+  } catch {
+    return false;
+  }
+  if (protocol !== "https:" && protocol !== "http:") {
+    return false;
+  }
+  if (host === "localhost" || host === "127.0.0.1") {
+    return true;
+  }
+  if (
+    host.endsWith(".pages.dev") ||
+    host.endsWith(".workers.dev") ||
+    host.endsWith(".trycloudflare.com")
+  ) {
+    return true;
+  }
+  const extra = (env.ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return extra.includes(origin);
 };
 
 // Auth context attached by the JWT middleware for downstream handlers.
@@ -70,12 +111,15 @@ type Variables = {
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// TEST PHASE: allow any origin (pages.dev, localhost, tunnel). Lock this
-// down to the app's real origin(s) before rollout.
+// CORS (B6, 06-17): allowlist instead of wildcard. localhost / *.pages.dev /
+// *.workers.dev / quick-tunnel + ALLOWED_ORIGINS env are permitted; any other
+// origin gets no CORS headers (browser blocks it). Returning the request's own
+// origin (not "*") is required once we send credentials/Authorization broadly.
 app.use(
   "*",
   cors({
-    origin: "*",
+    origin: (origin, c) =>
+      isAllowedOrigin(origin, c.env as Bindings) ? origin : null,
     allowMethods: ["GET", "PUT", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: [
       "Content-Type",
@@ -2193,7 +2237,6 @@ app.post("/v1/guests/send-invite", async (c) => {
       to?: string;
       link?: string;
       meetingTitle?: string;
-      password?: string;
     }>()
     .catch(() => ({} as Record<string, never>));
   const to = (b.to || "").trim();
@@ -2201,11 +2244,10 @@ app.post("/v1/guests/send-invite", async (c) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || !link) {
     return c.json({ ok: false, error: "invalid" }, 400);
   }
+  // SECURITY (B4): never email login credentials — only the meeting link.
   const { subject, html, text } = guestInviteEmail({
     meetingTitle: b.meetingTitle,
     link,
-    email: to,
-    password: b.password,
     appName: "Canvas M",
   });
   const r = await sendEmail(
@@ -3917,6 +3959,24 @@ app.delete("/v1/admin/projects/:id", async (c) => {
 // participants, per-meeting notes), then the meeting row itself. Shared by
 // the admin route and the organizer's delete-cancelled route so neither
 // leaves orphans behind.
+// Best-effort delete of a Daily room (cost cleanup — an orphaned room keeps
+// billing/occupying the Daily account). 404 = already gone, treat as success;
+// other failures are swallowed so they never block the D1/R2 cascade.
+const deleteDailyRoom = async (env: Bindings, name: string): Promise<void> => {
+  const apiKey = env.DAILY_API_KEY;
+  if (!apiKey) {
+    return;
+  }
+  try {
+    await fetch(`${DAILY_API}/rooms/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+  } catch {
+    /* best-effort */
+  }
+};
+
 const deleteMeetingCascade = async (
   env: Bindings,
   roomId: string,
@@ -3947,10 +4007,17 @@ const deleteMeetingCascade = async (
   await env.DB.prepare(`DELETE FROM meeting_participant WHERE meeting_id = ?1`)
     .bind(roomId)
     .run();
+  // Waiting-room knock rows (migration 0025) — keyed by the base meeting id.
+  await env.DB.prepare(`DELETE FROM meeting_knock WHERE room_id = ?1`)
+    .bind(roomId)
+    .run();
   await env.DB.prepare(`DELETE FROM note WHERE scope = 'meeting' AND ref = ?1`)
     .bind(roomId)
     .run();
   await env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId).run();
+  // Cost cleanup: drop both Daily rooms (screen-share <id> + audio <id>-audio).
+  await deleteDailyRoom(env, roomId);
+  await deleteDailyRoom(env, `${roomId}-audio`);
   // Tombstone: deleted stays deleted — the upsert PUT/POST routes check this
   // so a client still holding the room open can't resurrect the meeting.
   await env.DB.prepare(
@@ -4149,6 +4216,182 @@ app.get("/v1/admin/analytics", async (c) => {
      ORDER BY meetings DESC LIMIT 5`,
   ).all();
   return c.json({ counts, topProjects, topParticipants });
+});
+
+// ---- Portal backdrops (admin-managed client-page backgrounds) ------------
+// The client portal + guest waiting room crossfade these images. Admin uploads
+// /renames/reorders/deletes them here; the client reads /v1/portal/backdrops
+// (any authenticated user) and falls back to bundled defaults if empty/failing.
+const MAX_BACKDROP_BYTES = 5 * 1024 * 1024;
+const backdropKey = (id: string) => `backdrops/${id}`;
+
+type BackdropRow = {
+  id: string;
+  title: string | null;
+  r2_key: string;
+  sort_order: number;
+  created_at: number;
+};
+
+// Admin: upload a new backdrop. FIRST multipart route — Hono on Workers exposes
+// the standard Fetch API via c.req.formData(); a File field carries the bytes.
+app.post("/v1/admin/backdrops", async (c) => {
+  const form = await c.req.formData();
+  // form.get returns FormDataEntryValue | null; the multipart File arrives as a
+  // Blob-like with arrayBuffer()/type. Read it as unknown and duck-type it (the
+  // Workers tsconfig doesn't expose a `File` value for instanceof).
+  const entry: unknown = form.get("file");
+  const file = entry as {
+    arrayBuffer?: () => Promise<ArrayBuffer>;
+    type?: string;
+  } | null;
+  if (
+    !file ||
+    typeof file === "string" ||
+    typeof file.arrayBuffer !== "function"
+  ) {
+    return c.json({ error: "file required" }, 400);
+  }
+  const contentType = file.type || "application/octet-stream";
+  if (!contentType.startsWith("image/")) {
+    return c.json({ error: "image content-type required" }, 400);
+  }
+  const bytes = await file.arrayBuffer();
+  if (!bytes.byteLength) {
+    return c.json({ error: "empty file" }, 400);
+  }
+  if (bytes.byteLength > MAX_BACKDROP_BYTES) {
+    return c.json({ error: "file too large (max 5MB)" }, 413);
+  }
+  const rawTitle = form.get("title");
+  const title =
+    typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : null;
+  const id = crypto.randomUUID();
+  const key = backdropKey(id);
+  await c.env.BUCKET.put(key, bytes, {
+    httpMetadata: { contentType },
+  });
+  const max = await c.env.DB.prepare(
+    `SELECT COALESCE(MAX(sort_order), -1) AS mx FROM portal_backdrop`,
+  ).first<{ mx: number }>();
+  const sortOrder = (max?.mx ?? -1) + 1;
+  const createdAt = now();
+  await c.env.DB.prepare(
+    `INSERT INTO portal_backdrop (id, title, r2_key, sort_order, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5)`,
+  )
+    .bind(id, title, key, sortOrder, createdAt)
+    .run();
+  await logAudit(c.env.DB, c.get("email"), "backdrop.create", id, { title });
+  const row: BackdropRow = {
+    id,
+    title,
+    r2_key: key,
+    sort_order: sortOrder,
+    created_at: createdAt,
+  };
+  return c.json(row);
+});
+
+// Admin: list backdrops in rotation order.
+app.get("/v1/admin/backdrops", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, title, r2_key, sort_order, created_at
+     FROM portal_backdrop ORDER BY sort_order ASC, created_at ASC`,
+  ).all<BackdropRow>();
+  return c.json({ backdrops: results });
+});
+
+// Admin: rename and/or reorder.
+app.patch("/v1/admin/backdrops/:id", async (c) => {
+  const id = c.req.param("id");
+  const b = await c.req.json<{ title?: string; sort_order?: number }>();
+  const sets: string[] = [];
+  const binds: (string | number | null)[] = [];
+  if (b.title !== undefined) {
+    const title = (b.title ?? "").trim();
+    sets.push(`title = ?${binds.length + 1}`);
+    binds.push(title || null);
+  }
+  if (b.sort_order !== undefined) {
+    if (!Number.isFinite(b.sort_order)) {
+      return c.json({ error: "invalid sort_order" }, 400);
+    }
+    sets.push(`sort_order = ?${binds.length + 1}`);
+    binds.push(Math.trunc(b.sort_order));
+  }
+  if (!sets.length) {
+    return c.json({ error: "nothing to update" }, 400);
+  }
+  await c.env.DB.prepare(
+    `UPDATE portal_backdrop SET ${sets.join(", ")} WHERE id = ?${
+      binds.length + 1
+    }`,
+  )
+    .bind(...binds, id)
+    .run();
+  await logAudit(c.env.DB, c.get("email"), "backdrop.update", id, b);
+  return c.json({ ok: true, id });
+});
+
+// Admin: delete the row + its R2 object.
+app.delete("/v1/admin/backdrops/:id", async (c) => {
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key FROM portal_backdrop WHERE id = ?1`,
+  )
+    .bind(id)
+    .first<{ r2_key: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await c.env.BUCKET.delete(row.r2_key);
+  await c.env.DB.prepare(`DELETE FROM portal_backdrop WHERE id = ?1`)
+    .bind(id)
+    .run();
+  await logAudit(c.env.DB, c.get("email"), "backdrop.delete", id);
+  return c.json({ ok: true, id });
+});
+
+// Portal: ANY authenticated user (the guest portal must read this — NOT
+// admin-gated). Returns the rotation list with an image URL per item.
+app.get("/v1/portal/backdrops", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, title FROM portal_backdrop
+     ORDER BY sort_order ASC, created_at ASC`,
+  ).all<{ id: string; title: string | null }>();
+  return c.json({
+    backdrops: results.map((r) => ({
+      id: r.id,
+      title: r.title,
+      url: `/v1/portal/backdrops/${r.id}/image`,
+    })),
+  });
+});
+
+// Portal: stream a backdrop image (any authenticated user). Mirrors the blob
+// stream routes; long Cache-Control since the bytes are immutable per id.
+app.get("/v1/portal/backdrops/:id/image", async (c) => {
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key FROM portal_backdrop WHERE id = ?1`,
+  )
+    .bind(c.req.param("id"))
+    .first<{ r2_key: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type":
+        obj.httpMetadata?.contentType ?? "application/octet-stream",
+      etag: obj.httpEtag,
+      "cache-control": "public, max-age=86400",
+    },
+  });
 });
 
 export default app;

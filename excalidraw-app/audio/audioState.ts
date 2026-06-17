@@ -4,7 +4,7 @@
 
 import { atom } from "../app-jotai";
 
-import type { PeerState } from "./AudioRoom";
+import type { PeerState } from "./audioTypes";
 import type { DailyAudio } from "./DailyAudio";
 import type { MeetingRecorder, RecordingResult } from "./MeetingRecorder";
 

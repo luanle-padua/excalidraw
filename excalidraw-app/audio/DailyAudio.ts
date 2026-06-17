@@ -34,7 +34,7 @@ import type {
   DailyParticipant,
 } from "@daily-co/daily-js";
 
-import type { AudioRoomEvents, PeerState } from "./AudioRoom";
+import type { AudioRoomEvents, PeerState } from "./audioTypes";
 
 export type DailyTokenFetcher = (
   roomId: string,

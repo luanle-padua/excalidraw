@@ -57,13 +57,15 @@ export const createGuest = async (
   }
 };
 
-/** Email a guest their meeting link (+ optional login password) via the
- *  worker's Resend integration. Best-effort: returns ok:false if Resend isn't
- *  configured or the send fails — the host can always copy/paste manually. */
+/** Email a guest their meeting link via the worker's Resend integration.
+ *  Best-effort: returns ok:false if Resend isn't configured or the send fails
+ *  — the host can always copy/paste manually. SECURITY (B4): the email carries
+ *  the link only, never login credentials — the host shares any temp password
+ *  out-of-band. */
 export const sendGuestInvite = async (
   to: string,
   link: string,
-  opts?: { meetingTitle?: string; password?: string },
+  opts?: { meetingTitle?: string },
 ): Promise<{ ok: boolean }> => {
   try {
     const res = await fetchWithAuth(`${STORAGE_URL}/v1/guests/send-invite`, {

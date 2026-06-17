@@ -33,10 +33,6 @@ export default defineConfig(({ mode }) => {
           ws: true,
           changeOrigin: true,
         },
-        "/turn-credentials": {
-          target: "http://localhost:3002",
-          changeOrigin: true,
-        },
         "/translate": {
           target: "http://localhost:3002",
           changeOrigin: true,

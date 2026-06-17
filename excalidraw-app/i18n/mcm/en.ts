@@ -399,6 +399,16 @@ export const en: Widened<typeof vi> = {
     openContentNoKey:
       "This meeting has no stored key — content cannot be opened.",
     openContentFailed: "Could not open the meeting content.",
+    // ---- Backdrops (client-page backgrounds) ----
+    tabBackdrops: "Backdrops",
+    backdropsIntro:
+      "Background images that rotate on the client portal & guest waiting room. Drag order with the arrows; the client falls back to the bundled defaults if this list is empty.",
+    backdropUpload: "Upload image",
+    backdropTitlePlaceholder: "Title (optional)",
+    backdropEmpty: "No backdrops yet — the bundled defaults are shown.",
+    backdropDelete: "Delete",
+    backdropMoveUp: "Move up",
+    backdropMoveDown: "Move down",
   },
 
   clients: {

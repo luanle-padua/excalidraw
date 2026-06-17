@@ -95,12 +95,11 @@ function esc(s: string): string {
 export type GuestInviteOpts = {
   meetingTitle?: string;
   link: string;
-  /** If given (with `password`), shown as the login email in the credentials block. */
-  email?: string;
-  /** If given, the email also shows login credentials (email + this password). */
-  password?: string;
   appName?: string;
 };
+// SECURITY (B4, 06-17): the invite email NEVER carries login credentials.
+// A mistyped recipient must not receive a working password. Guests log in via
+// the magic-link flow; the host shares any temp password out-of-band.
 
 /**
  * Compose a guest meeting-invite email (subject + html + text).
@@ -111,39 +110,13 @@ export function guestInviteEmail(opts: GuestInviteOpts): {
   html: string;
   text: string;
 } {
-  const app = opts.appName ?? "MAP CanvasMeet";
+  const app = opts.appName ?? "Canvas M";
   const title = opts.meetingTitle?.trim() || "cuộc họp";
   const link = opts.link;
 
   const subject = opts.meetingTitle
     ? `[${app}] Lời mời: ${opts.meetingTitle}`
     : `[${app}] Lời mời tham gia cuộc họp`;
-
-  const loginEmail = opts.email?.trim() || "(email bạn nhận thư này)";
-
-  const credBlockHtml = opts.password
-    ? `
-      <p style="margin:24px 0 8px;font-size:14px;color:#374151;">
-        Thông tin đăng nhập của bạn:
-      </p>
-      <table style="border-collapse:collapse;font-size:14px;color:#111827;">
-        <tr>
-          <td style="padding:4px 12px 4px 0;color:#6b7280;">Email</td>
-          <td style="padding:4px 0;"><strong>${esc(loginEmail)}</strong></td>
-        </tr>
-        <tr>
-          <td style="padding:4px 12px 4px 0;color:#6b7280;">Mật khẩu</td>
-          <td style="padding:4px 0;"><strong>${esc(opts.password)}</strong></td>
-        </tr>
-      </table>
-      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">
-        Dùng email và mật khẩu trên để đăng nhập.
-      </p>`
-    : "";
-
-  const credBlockText = opts.password
-    ? `\nThông tin đăng nhập:\n  Email: ${loginEmail}\n  Mật khẩu: ${opts.password}\nDùng email + mật khẩu trên để đăng nhập.\n`
-    : "";
 
   const html = `<!doctype html>
 <html lang="vi">
@@ -165,7 +138,6 @@ export function guestInviteEmail(opts: GuestInviteOpts): {
     link,
   )}</a>
         </p>
-        ${credBlockHtml}
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 16px;" />
         <p style="margin:0;font-size:11px;color:#9ca3af;">
           Thư tự động từ ${esc(
@@ -182,7 +154,7 @@ export function guestInviteEmail(opts: GuestInviteOpts): {
 Bạn được mời tham gia ${title}.
 
 Vào phòng họp: ${link}
-${credBlockText}
+
 — Thư tự động từ ${app}. Nếu bạn không mong đợi thư này, hãy bỏ qua.`;
 
   return { subject, html, text };

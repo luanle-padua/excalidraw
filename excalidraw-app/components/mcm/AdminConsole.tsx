@@ -1,5 +1,7 @@
 import {
+  ArrowDown,
   ArrowLeft,
+  ArrowUp,
   ArrowUpDown,
   BarChart3,
   Briefcase,
@@ -13,6 +15,7 @@ import {
   FileText,
   FolderKanban,
   HardDrive,
+  Image as ImageIcon,
   LayoutDashboard,
   Lock,
   LogOut,
@@ -65,6 +68,14 @@ import {
   type AdminStorage,
   type AdminUser,
 } from "../../data/admin";
+import {
+  deleteBackdrop,
+  fetchBackdropImage,
+  listAdminBackdrops,
+  updateBackdrop,
+  uploadBackdrop,
+  type AdminBackdrop,
+} from "../../data/backdrops";
 import { createGuest } from "../../data/guests";
 import { markReviewRoom, markStealthRoom } from "../../data/reviewMode";
 import { isInternalEmail as isInternal, signOut } from "../../data/session";
@@ -90,6 +101,7 @@ type Tab =
   | "audit"
   | "settings"
   | "security"
+  | "backdrops"
   | "recordings";
 
 const SETTING_DEFAULTS: Record<string, string> = {
@@ -188,6 +200,15 @@ export const AdminConsole = () => {
   const [detail, setDetail] = useState<AdminMeetingDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Client-page backdrops (admin-managed). `backdropThumbs` maps id → object
+  // URL of the fetched image (the image route is auth-gated, so a bare <img
+  // src> can't carry the JWT — we fetch the blob and createObjectURL it).
+  const [backdrops, setBackdrops] = useState<AdminBackdrop[]>([]);
+  const [backdropThumbs, setBackdropThumbs] = useState<Record<string, string>>(
+    {},
+  );
+  const [newBackdropTitle, setNewBackdropTitle] = useState("");
 
   const openDetail = async (roomId: string) => {
     setLoading(true);
@@ -386,6 +407,40 @@ export const AdminConsole = () => {
     }
   }, []);
 
+  const refreshBackdrops = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await listAdminBackdrops();
+      setBackdrops(rows);
+      // Fetch any thumbnails we don't already have an object URL for.
+      setBackdropThumbs((prev) => {
+        rows.forEach((r) => {
+          if (!prev[r.id]) {
+            void fetchBackdropImage(r.id).then((src) => {
+              if (src) {
+                setBackdropThumbs((m) => ({ ...m, [r.id]: src }));
+              }
+            });
+          }
+        });
+        return prev;
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Revoke any backdrop thumbnail object URLs when the console unmounts.
+  useEffect(
+    () => () => {
+      setBackdropThumbs((m) => {
+        Object.values(m).forEach((src) => URL.revokeObjectURL(src));
+        return {};
+      });
+    },
+    [],
+  );
+
   useEffect(() => {
     void getAdminStats().then(setStats);
   }, []);
@@ -417,8 +472,10 @@ export const AdminConsole = () => {
     } else if (tab === "security") {
       void refreshUsers();
       void getAdminAudit().then(setAudit);
+    } else if (tab === "backdrops") {
+      void refreshBackdrops();
     }
-  }, [tab, refreshUsers, refreshMeetings, refreshProjects]);
+  }, [tab, refreshUsers, refreshMeetings, refreshProjects, refreshBackdrops]);
 
   const setSetting = (key: string, value: string) => {
     setSettings((s) => ({ ...s, [key]: value }));
@@ -432,6 +489,67 @@ export const AdminConsole = () => {
   };
   const settingOf = (key: string) =>
     settings[key] ?? SETTING_DEFAULTS[key] ?? "";
+
+  const handleBackdropUpload = async (file: File | null) => {
+    if (!file || busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await uploadBackdrop(file, newBackdropTitle);
+      setNewBackdropTitle("");
+      await refreshBackdrops();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBackdropDelete = async (id: string) => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await deleteBackdrop(id);
+      setBackdropThumbs((m) => {
+        if (m[id]) {
+          URL.revokeObjectURL(m[id]);
+        }
+        const { [id]: _drop, ...rest } = m;
+        return rest;
+      });
+      await refreshBackdrops();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Reorder by swapping sort_order with the neighbour in `dir` direction.
+  const handleBackdropMove = async (id: string, dir: -1 | 1) => {
+    if (busy) {
+      return;
+    }
+    const idx = backdrops.findIndex((b) => b.id === id);
+    const swapIdx = idx + dir;
+    if (idx === -1 || swapIdx < 0 || swapIdx >= backdrops.length) {
+      return;
+    }
+    const a = backdrops[idx];
+    const b = backdrops[swapIdx];
+    setBusy(true);
+    try {
+      await updateBackdrop(a.id, { sort_order: b.sort_order });
+      await updateBackdrop(b.id, { sort_order: a.sort_order });
+      await refreshBackdrops();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBackdropRename = async (id: string, title: string) => {
+    await updateBackdrop(id, { title });
+    await refreshBackdrops();
+  };
 
   const handleCreate = async () => {
     if (!nuEmail.trim() || !nuPassword || busy) {
@@ -746,6 +864,15 @@ export const AdminConsole = () => {
             onClick={() => setTab("security")}
           >
             <ShieldAlert size={16} /> {t("admin.tabSecurity")}
+          </button>
+          <button
+            type="button"
+            className={`mcm-admin__tab${
+              tab === "backdrops" ? " --active" : ""
+            }`}
+            onClick={() => setTab("backdrops")}
+          >
+            <ImageIcon size={16} /> {t("admin.tabBackdrops")}
           </button>
           <button
             type="button"
@@ -1982,6 +2109,94 @@ export const AdminConsole = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {tab === "backdrops" && (
+          <div className="mcm-admin__pad mcm-admin__backdrops">
+            <p className="mcm-admin__note">{t("admin.backdropsIntro")}</p>
+            <div className="mcm-admin__backdrop-upload">
+              <input
+                value={newBackdropTitle}
+                onChange={(e) => setNewBackdropTitle(e.target.value)}
+                placeholder={t("admin.backdropTitlePlaceholder")}
+              />
+              <label className="mcm-btn mcm-btn--primary mcm-btn--sm">
+                <UserPlus size={14} /> {t("admin.backdropUpload")}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    void handleBackdropUpload(e.target.files?.[0] ?? null);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            {backdrops.length === 0 ? (
+              <p className="mcm-admin__note">{t("admin.backdropEmpty")}</p>
+            ) : (
+              <div className="mcm-admin__backdrop-grid">
+                {backdrops.map((b, i) => (
+                  <div key={b.id} className="mcm-admin__backdrop-card">
+                    <div
+                      className="mcm-admin__backdrop-thumb"
+                      // Fetched (auth-gated) image as an object URL.
+                      // eslint-disable-next-line react/forbid-dom-props
+                      style={
+                        backdropThumbs[b.id]
+                          ? {
+                              backgroundImage: `url("${backdropThumbs[b.id]}")`,
+                            }
+                          : undefined
+                      }
+                    >
+                      {!backdropThumbs[b.id] && <ImageIcon size={24} />}
+                    </div>
+                    <input
+                      className="mcm-admin__backdrop-title"
+                      defaultValue={b.title ?? ""}
+                      placeholder={t("admin.backdropTitlePlaceholder")}
+                      onBlur={(e) => {
+                        if (e.target.value !== (b.title ?? "")) {
+                          void handleBackdropRename(b.id, e.target.value);
+                        }
+                      }}
+                    />
+                    <div className="mcm-admin__backdrop-actions">
+                      <button
+                        type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm"
+                        disabled={busy || i === 0}
+                        title={t("admin.backdropMoveUp")}
+                        onClick={() => void handleBackdropMove(b.id, -1)}
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm"
+                        disabled={busy || i === backdrops.length - 1}
+                        title={t("admin.backdropMoveDown")}
+                        onClick={() => void handleBackdropMove(b.id, 1)}
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className="mcm-icon-btn mcm-icon-btn--sm mcm-icon-btn--danger"
+                        disabled={busy}
+                        title={t("admin.backdropDelete")}
+                        onClick={() => void handleBackdropDelete(b.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
