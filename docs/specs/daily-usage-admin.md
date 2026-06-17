@@ -315,3 +315,31 @@ render in the `cost` tab card.
   the rooms `config` reference before use.
 - Domain-wide `/presence` `total_count` presence — derive counts from the keyed
   object instead.
+
+---
+
+## TODO (2026-06-18) — make the Daily caps editable from Admin
+
+**Decided 06-17 (anh Luân):** the Daily cost caps must be MANAGED from the admin
+page, not hardcoded. Build next.
+
+**Current state:** the caps are hardcoded constants in `worker/src/index.ts`
+(`DAILY_ROOM_EXP_HOURS = 6`, `DAILY_ROOM_MAX_PARTICIPANTS = 50`, ~L3640) applied
+on `POST /rooms` inside `GET /v1/daily/token`. The admin "Media / Daily.co" card
+is **display-only** (`getAdminDaily` → usage snapshot; no setter).
+
+**Plan (small — reuse the existing `system_settings` pattern that already powers
+internal_domains + retention in the Settings tab):**
+1. Worker: read the two caps from `system_settings` keys (e.g.
+   `daily_room_max_participants`, `daily_room_exp_hours`) with the current
+   constants as DEFAULTS when unset. Validate (max_participants 2–200; exp 1–24h).
+2. Admin Settings tab: two inputs (max participants, room expiry hours) wired to
+   the existing settings GET/PUT (`/v1/admin/settings` ~index.ts:5348). Save →
+   applies to the NEXT room mint, no deploy.
+3. Optional (note, not blocker): a **monthly participant-minute soft-ceiling**
+   field → when month-to-date (already computed in `/v1/admin/daily`) exceeds it,
+   show a WARNING banner on the card. NOT a hard block — Daily has no
+   account-level spend cap (verified), so this is alert-only.
+
+Build order: worker settings-backed caps → Settings UI → (optional) soft-ceiling
+banner. One small team, deploy with the rest.
