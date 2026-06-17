@@ -4040,6 +4040,13 @@ const deleteMeetingCascade = async (
   roomId: string,
   actor?: string,
 ): Promise<void> => {
+  // Soft-delete blobs (B9): R2 has NO S3-style versioning, so a hard delete is
+  // PERMANENT. Move each blob to a `trash/<deletedAt>/...` prefix instead —
+  // recoverable, and aligned with the project rule "revoke ≠ delete, don't
+  // hard-delete, keep history/moat" (memory mcm-guest-data-lifecycle). Set a
+  // dashboard lifecycle rule on the `trash/` prefix to expire it after N days
+  // (cost control). Bucket Locks (retention) guard against bucket-level deletes.
+  const trashAt = now();
   for (const prefix of [
     `scenes/${roomId}`,
     `files/${roomId}`,
@@ -4051,6 +4058,17 @@ const deleteMeetingCascade = async (
     do {
       const listed = await env.BUCKET.list({ prefix, cursor });
       for (const obj of listed.objects) {
+        const blob = await env.BUCKET.get(obj.key);
+        if (blob) {
+          await env.BUCKET.put(`trash/${trashAt}/${obj.key}`, blob.body, {
+            httpMetadata: blob.httpMetadata,
+            customMetadata: {
+              ...(obj.customMetadata ?? {}),
+              trashedFrom: obj.key,
+              trashedAt: String(trashAt),
+            },
+          });
+        }
         await env.BUCKET.delete(obj.key);
       }
       cursor = listed.truncated ? listed.cursor : undefined;
