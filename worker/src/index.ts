@@ -38,7 +38,13 @@ import { aiRoutes } from "./ai";
 import { guestInviteEmail, sendEmail } from "./email";
 import { RoomDO } from "./roomDO";
 import { handleSttUpgrade } from "./stt";
-import { logUsageEvent } from "./usage";
+import {
+  logUsageEvent,
+  dailyCostUsdRange,
+  DAILY_PARTICIPANT_MIN_USD_LOW,
+  DAILY_PARTICIPANT_MIN_USD_HIGH,
+  DAILY_FREE_MINUTES,
+} from "./usage";
 
 import type { MiddlewareHandler } from "hono";
 
@@ -2038,6 +2044,13 @@ app.patch("/v1/meetings/:roomId", async (c) => {
         if (!res.meta.changes) {
           return c.json({ error: "status changed concurrently — retry" }, 409);
         }
+        // Self-meter Daily media spend on End-for-all (docs/specs/daily-usage-
+        // admin.md §3): pull this room's session minutes once and log a
+        // usage_events row so Daily flows into the /v1/admin/usage trend. Fire-
+        // and-forget via waitUntil — best-effort, must not delay the response.
+        if (next === "finished") {
+          c.executionCtx.waitUntil(meterDailyMeeting(c.env, roomId, me));
+        }
         // Already written — keep the main UPDATE below status-neutral.
         b.status = undefined;
       }
@@ -3617,6 +3630,16 @@ app.delete("/v1/me/files/:fileId", async (c) => {
 
 const DAILY_API = "https://api.daily.co/v1";
 
+// B5 cost-limit knobs for auto-created Daily rooms (docs/specs/daily-usage-
+// admin.md §4). Easy to tune in one place. `exp` is set to NOW + this many
+// hours so rooms can't run forever and accrue billable minutes; the meeting
+// token itself already expires at 4h, so 6h gives a comfortable margin while
+// still bounding abandoned rooms. `max_participants` caps peak simultaneous
+// participants (→ caps peak participant-minutes); 50 is a sane internal-meeting
+// ceiling, far above typical MCM headcount.
+const DAILY_ROOM_EXP_HOURS = 6;
+const DAILY_ROOM_MAX_PARTICIPANTS = 50;
+
 app.get("/v1/daily/token", async (c) => {
   const apiKey = cleanSecret(c.env.DAILY_API_KEY);
   if (!apiKey) {
@@ -3694,6 +3717,17 @@ app.get("/v1/daily/token", async (c) => {
           enable_screenshare: true,
           start_video_off: true,
           start_audio_off: true,
+          // B5 cost-limits (docs/specs/daily-usage-admin.md §4): the two
+          // VERIFIED room cost-control props. `exp` auto-expires the room so an
+          // abandoned room stops accruing billable participant-minutes — bound
+          // it to DAILY_ROOM_EXP_HOURS from now (a meeting longer than that
+          // re-creates the room on next token mint). `max_participants` caps
+          // peak simultaneous participants → caps peak participant-minutes.
+          // (`eject_at_room_exp` / `eject_after_elapsed` are Daily props too but
+          // their EXACT names are unverified per the spec — TODO confirm against
+          // the rooms config reference before relying on them.)
+          exp: Math.floor(now() / 1000) + DAILY_ROOM_EXP_HOURS * 60 * 60,
+          max_participants: DAILY_ROOM_MAX_PARTICIPANTS,
         },
       }),
     });
@@ -4403,6 +4437,71 @@ const deleteDailyRoom = async (env: Bindings, name: string): Promise<void> => {
   }
 };
 
+// Self-meter Daily media at meeting finalize (docs/specs/daily-usage-admin.md
+// §3 hybrid). When a meeting goes live→finished (End-for-all), pull THIS room's
+// session history from Daily once, sum participant-minutes, and write a single
+// usage_events row (provider='daily', kind='media') with an estimated cost — so
+// Daily spend flows into the already-built /v1/admin/usage trend + by_provider
+// with NO new aggregation, and the cost survives even if the room is later
+// deleted. Best-effort: same hygiene as logUsageEvent — never throws, never
+// blocks the response (always called via waitUntil). Daily room name == roomId
+// for screenshare; audio is the derived "<roomId>-audio" room, so meter both.
+const meterDailyMeeting = async (
+  env: Bindings,
+  roomId: string,
+  actor?: string,
+): Promise<void> => {
+  const apiKey = cleanSecret(env.DAILY_API_KEY);
+  if (!apiKey) {
+    return;
+  }
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  try {
+    let participantSeconds = 0;
+    // Screenshare room == roomId; voice room == "<roomId>-audio" (DailyAudio.ts).
+    for (const name of [roomId, `${roomId}-audio`]) {
+      const res = await fetch(
+        `${DAILY_API}/meetings?room=${encodeURIComponent(name)}&limit=100`,
+        { headers },
+      );
+      if (!res.ok) {
+        continue;
+      }
+      const json = (await res.json()) as {
+        data?: Array<{ participants?: Array<{ duration?: number }> }>;
+      };
+      for (const m of json.data ?? []) {
+        for (const p of m.participants ?? []) {
+          participantSeconds += Number.isFinite(p.duration)
+            ? (p.duration as number)
+            : 0;
+        }
+      }
+    }
+    if (participantSeconds <= 0) {
+      return; // nothing billable (no Daily session ever joined) — skip the row
+    }
+    const participantMinutes = participantSeconds / 60;
+    // Free-tier subtraction is handled domain-wide in the admin panel; for a
+    // single meeting we log the FULL gross estimate (low end) so the trend is
+    // additive and never under-counts. Use the low rate to stay conservative.
+    const { low } = dailyCostUsdRange(participantMinutes, 0);
+    await logUsageEvent(
+      env.DB,
+      "daily",
+      "media",
+      0,
+      0,
+      Math.round(participantSeconds),
+      low,
+      roomId,
+      actor,
+    );
+  } catch {
+    // best-effort — metering must never affect the finalize response
+  }
+};
+
 const deleteMeetingCascade = async (
   env: Bindings,
   roomId: string,
@@ -4947,6 +5046,185 @@ app.get("/v1/admin/usage", async (c) => {
     // usage_events table missing (pre-0028 DB) — return the empty shape
     return c.json(empty);
   }
+});
+
+// ---- Admin: Daily.co media usage (B5 / daily-usage-admin spec) ------------
+// Daily has NO /usage or /billing endpoint — "usage" is SUMMED BY US from the
+// REST API (docs/specs/daily-usage-admin.md). This route proxies three cheap
+// server-side calls (the DAILY_API_KEY never leaves the Worker) and computes a
+// snapshot. Best-effort: a missing key returns the all-zero shape (mirrors the
+// AI cost endpoint), never a 500. Result is cached in module memory for 60s so
+// repeated admin loads don't hammer Daily's UNDOCUMENTED REST rate limits.
+//
+// Daily REST calls used (all VERIFIED against the spec):
+//   GET /presence  → active rooms + live participants (the ONLY live-activity
+//                    source; /rooms does NOT show which rooms are active)
+//   GET /rooms     → provisioned-room inventory (count only, not activity)
+//   GET /meetings?timeframe_start=<month> → month-to-date participant-minutes
+//                    (Σ participant.duration/60) for the cost estimate RANGE
+type DailySnapshot = {
+  configured: boolean;
+  live: { active_rooms: number; live_participants: number; as_of: number };
+  month: {
+    participant_minutes: number;
+    call_minutes: number;
+    recording_minutes: number;
+  };
+  rooms: { total: number };
+  cost_estimate_usd: { low: number; high: number };
+  rates: {
+    participant_min_low: number;
+    participant_min_high: number;
+    free_minutes: number;
+  };
+  // Echoed so the panel can label the numbers honestly (spec §8).
+  unverified: string[];
+};
+
+// In-memory 60s cache. Module-scoped so it survives across requests on a warm
+// isolate; a cold isolate just refetches (acceptable — it's an estimate).
+let dailyCache: { at: number; snap: DailySnapshot } | null = null;
+const DAILY_CACHE_MS = 60_000;
+
+const DAILY_UNVERIFIED = [
+  "rate_limits",
+  "recording_duration_unit",
+  "billing_tier",
+];
+
+const zeroDailySnapshot = (configured: boolean): DailySnapshot => ({
+  configured,
+  live: { active_rooms: 0, live_participants: 0, as_of: now() },
+  month: { participant_minutes: 0, call_minutes: 0, recording_minutes: 0 },
+  rooms: { total: 0 },
+  cost_estimate_usd: { low: 0, high: 0 },
+  rates: {
+    participant_min_low: DAILY_PARTICIPANT_MIN_USD_LOW,
+    participant_min_high: DAILY_PARTICIPANT_MIN_USD_HIGH,
+    free_minutes: DAILY_FREE_MINUTES,
+  },
+  unverified: DAILY_UNVERIFIED,
+});
+
+app.get("/v1/admin/daily", async (c) => {
+  const apiKey = cleanSecret(c.env.DAILY_API_KEY);
+  // No key → all-zero shape (best-effort, like the AI cost fallback). The panel
+  // shows "Daily not configured" off the `configured` flag.
+  if (!apiKey) {
+    return c.json(zeroDailySnapshot(false));
+  }
+
+  // Serve a fresh-enough cached snapshot (respects undocumented rate limits).
+  if (dailyCache && now() - dailyCache.at < DAILY_CACHE_MS) {
+    return c.json(dailyCache.snap);
+  }
+
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  const snap = zeroDailySnapshot(true);
+
+  // --- live: /presence (keyed by room name; derive counts from the object) ---
+  try {
+    const res = await fetch(`${DAILY_API}/presence`, { headers });
+    if (res.ok) {
+      const json = (await res.json()) as Record<
+        string,
+        Array<unknown> | undefined
+      >;
+      let activeRooms = 0;
+      let liveParticipants = 0;
+      for (const room of Object.keys(json)) {
+        const arr = json[room];
+        if (Array.isArray(arr) && arr.length > 0) {
+          activeRooms += 1;
+          liveParticipants += arr.length;
+        }
+      }
+      snap.live = {
+        active_rooms: activeRooms,
+        live_participants: liveParticipants,
+        as_of: now(),
+      };
+    }
+  } catch {
+    // best-effort — leave live at zero
+  }
+
+  // --- inventory: /rooms (count only; /rooms can't tell us "active") --------
+  try {
+    const res = await fetch(`${DAILY_API}/rooms?limit=100`, { headers });
+    if (res.ok) {
+      const json = (await res.json()) as {
+        total_count?: number;
+        data?: Array<unknown>;
+      };
+      snap.rooms.total =
+        typeof json.total_count === "number"
+          ? json.total_count
+          : json.data?.length ?? 0;
+    }
+  } catch {
+    // best-effort — leave rooms.total at zero
+  }
+
+  // --- month-to-date: /meetings since 00:00 UTC on the 1st ------------------
+  // ONE pull (cursor-paginated until a short page). limit/max is UNVERIFIED, so
+  // page defensively and cap total pages so a busy month can't run unbounded.
+  try {
+    const d = new Date();
+    const startOfMonthSec = Math.floor(
+      Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000,
+    );
+    let cursor: string | undefined;
+    let participantSeconds = 0;
+    let callSeconds = 0;
+    for (let page = 0; page < 20; page++) {
+      const qs = new URLSearchParams({
+        timeframe_start: String(startOfMonthSec),
+        limit: "100",
+      });
+      if (cursor) {
+        qs.set("starting_after", cursor);
+      }
+      const res = await fetch(`${DAILY_API}/meetings?${qs.toString()}`, {
+        headers,
+      });
+      if (!res.ok) {
+        break;
+      }
+      const json = (await res.json()) as {
+        data?: Array<{
+          id?: string;
+          duration?: number;
+          participants?: Array<{ duration?: number }>;
+        }>;
+      };
+      const data = json.data ?? [];
+      for (const m of data) {
+        callSeconds += Number.isFinite(m.duration) ? (m.duration as number) : 0;
+        for (const p of m.participants ?? []) {
+          participantSeconds += Number.isFinite(p.duration)
+            ? (p.duration as number)
+            : 0;
+        }
+      }
+      if (data.length < 100) {
+        break;
+      }
+      cursor = data[data.length - 1]?.id;
+      if (!cursor) {
+        break;
+      }
+    }
+    const participantMinutes = Math.round(participantSeconds / 60);
+    snap.month.participant_minutes = participantMinutes;
+    snap.month.call_minutes = Math.round(callSeconds / 60);
+    snap.cost_estimate_usd = dailyCostUsdRange(participantMinutes);
+  } catch {
+    // best-effort — leave month/cost at zero
+  }
+
+  dailyCache = { at: now(), snap };
+  return c.json(snap);
 });
 
 // ---- Admin: system status (Admin Console P0) -----------------------------
@@ -5767,7 +6045,7 @@ export default {
     // with the server-side key, pipes both ways. Default-OFF when DEEPGRAM_API_KEY
     // is unset (reports "not configured" on the socket, then closes).
     if (path === "/stt" || path.startsWith("/stt/")) {
-      return handleSttUpgrade(request, env);
+      return handleSttUpgrade(request, env, ctx);
     }
 
     return app.fetch(request, env, ctx);

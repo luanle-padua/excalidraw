@@ -220,10 +220,17 @@ const buildDeepgramUrl = (lang: string, model: string): string => {
     utterance_end_ms: String(tuning.utteranceEnd),
     vad_events: "true",
   });
+  // Nova-3 keyterm prompting uses the SINGULAR param `keyterm` (one per term).
+  // `keyterms`/`keywords` are NOT recognized on nova-3 streaming → Deepgram
+  // silently ignores them, so the whole BIM/Korean vocab boost would no-op.
   for (const term of DEEPGRAM_KEYTERMS) {
-    params.append("keyterms", term);
+    params.append("keyterm", term);
   }
-  return `wss://api.deepgram.com/v1/listen?${params.toString()}`;
+  // Cloudflare Workers' fetch()-based WebSocket upgrade requires an http(s)
+  // scheme, NOT ws(s) (CF treats the request as HTTP and upgrades it). This was
+  // ported from the Node `ws` room server which wanted wss://; on the Worker
+  // wss:// fails the upgrade → no transcripts. Must be https://.
+  return `https://api.deepgram.com/v1/listen?${params.toString()}`;
 };
 
 export class DeepgramAdapter implements SttAdapter {

@@ -382,6 +382,29 @@ export type AdminUsage = {
   recent: AdminUsageCall[];
 };
 
+// ---- Daily.co media usage (B5 / daily-usage-admin spec) -----------------
+// Daily exposes NO usage/billing endpoint — the Worker SUMS this from /presence
+// + /rooms + /meetings (server-side key) and caches 60s. Every $ is a low→high
+// RANGE because MCM's exact Daily billing tier is unverified.
+
+export type AdminDaily = {
+  configured: boolean;
+  live: { active_rooms: number; live_participants: number; as_of: number };
+  month: {
+    participant_minutes: number;
+    call_minutes: number;
+    recording_minutes: number;
+  };
+  rooms: { total: number };
+  cost_estimate_usd: { low: number; high: number };
+  rates: {
+    participant_min_low: number;
+    participant_min_high: number;
+    free_minutes: number;
+  };
+  unverified: string[];
+};
+
 // ---- System status (per-service health probes) --------------------------
 
 export type AdminSystemService = {
@@ -447,6 +470,23 @@ export const getAdminUsage = async (): Promise<AdminResult<AdminUsage>> => {
     return { ok: true, data: (await res.json()) as AdminUsage };
   } catch {
     return import.meta.env.DEV ? { ok: true, data: MOCK_USAGE } : { ok: false };
+  }
+};
+
+// Daily media usage. AdminResult so the card distinguishes a 403/load-fail
+// (permission banner) from a genuinely-empty/zero dataset. Dev falls back to a
+// mock so the card renders locally before the Worker route is reachable.
+export const getAdminDaily = async (): Promise<AdminResult<AdminDaily>> => {
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/admin/daily`);
+    if (!res.ok) {
+      return import.meta.env.DEV
+        ? { ok: true, data: MOCK_DAILY }
+        : { ok: false };
+    }
+    return { ok: true, data: (await res.json()) as AdminDaily };
+  } catch {
+    return import.meta.env.DEV ? { ok: true, data: MOCK_DAILY } : { ok: false };
   }
 };
 
@@ -767,6 +807,24 @@ const MOCK_USAGE: AdminUsage = {
       meeting_id: `room-${100 + i}`,
     };
   }),
+};
+
+const MOCK_DAILY: AdminDaily = {
+  configured: true,
+  live: { active_rooms: 2, live_participants: 5, as_of: Date.now() },
+  month: {
+    participant_minutes: 3_240,
+    call_minutes: 1_180,
+    recording_minutes: 0,
+  },
+  rooms: { total: 14 },
+  cost_estimate_usd: { low: 0, high: 0 },
+  rates: {
+    participant_min_low: 0.00036,
+    participant_min_high: 0.004,
+    free_minutes: 10_000,
+  },
+  unverified: ["rate_limits", "recording_duration_unit", "billing_tier"],
 };
 
 const MOCK_SYSTEM_STATUS: AdminSystemStatus = {

@@ -50,6 +50,44 @@ export const deepgramSttCostUsd = (seconds: number | undefined): number => {
 };
 
 /**
+ * Daily.co list pricing — PER PARTICIPANT-MINUTE (https://www.daily.co/pricing/
+ * video-sdk/, figures 2026-06-17). MCM uses audio + screenshare only (webcam
+ * off), so the real billing tier sits somewhere between the audio-only floor
+ * and the $0.004 video ceiling — which tier MCM actually lands at is UNVERIFIED
+ * (see docs/specs/daily-usage-admin.md §1f), so every Daily $ is shown as a
+ * low→high RANGE, never a single number.
+ *   audio-only floor: $0.00036 / participant-min
+ *   video ceiling:    $0.004   / participant-min
+ *   free allowance:   10,000 participant-min / month
+ * Tweak here and every Daily estimate follows.
+ */
+export const DAILY_PARTICIPANT_MIN_USD_LOW = 0.00036;
+export const DAILY_PARTICIPANT_MIN_USD_HIGH = 0.004;
+export const DAILY_FREE_MINUTES = 10_000;
+
+/**
+ * Estimated USD cost RANGE for a block of Daily participant-minutes, with the
+ * monthly free allowance subtracted. Returns { low, high }; negative billable
+ * minutes (still inside the free tier) clamp to 0. `freeRemaining` lets a
+ * per-meeting meter pass how much of the free allowance is already spent so the
+ * subtraction isn't double-counted (default: full allowance available).
+ */
+export const dailyCostUsdRange = (
+  participantMinutes: number | undefined,
+  freeRemaining: number = DAILY_FREE_MINUTES,
+): { low: number; high: number } => {
+  const mins = Number.isFinite(participantMinutes)
+    ? Math.max(participantMinutes as number, 0)
+    : 0;
+  const free = Number.isFinite(freeRemaining) ? Math.max(freeRemaining, 0) : 0;
+  const billable = Math.max(mins - free, 0);
+  return {
+    low: billable * DAILY_PARTICIPANT_MIN_USD_LOW,
+    high: billable * DAILY_PARTICIPANT_MIN_USD_HIGH,
+  };
+};
+
+/**
  * Best-effort write of ONE usage_events row (Admin Console P0). Called after a
  * SUCCESSFUL billable upstream call (Gemini generateContent / Deepgram STT). It
  * stamps a UUID + now() timestamps and NEVER throws — a metering failure (table

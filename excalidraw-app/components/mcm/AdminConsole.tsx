@@ -53,6 +53,7 @@ import {
   getAdminAnalytics,
   getAdminAudit,
   getAdminCost,
+  getAdminDaily,
   getAdminIntegrations,
   getAdminMeetingDetail,
   getAdminProjectMembers,
@@ -72,6 +73,7 @@ import {
   type AdminAnalytics,
   type AdminAuditEntry,
   type AdminCost,
+  type AdminDaily,
   type AdminIntegration,
   type AdminMeeting,
   type AdminMeetingDetail,
@@ -235,6 +237,10 @@ export const AdminConsole = () => {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [meetings, setMeetings] = useState<AdminMeeting[]>([]);
   const [cost, setCost] = useState<AdminCost | null>(null);
+  // Daily media usage — AdminResult so the card tells a 403/load-fail apart
+  // from a zero dataset (mirrors usage/system).
+  const [daily, setDaily] = useState<AdminDaily | null>(null);
+  const [dailyFailed, setDailyFailed] = useState(false);
   // AI usage + system status. `*Failed` flags drive the admin-permission banner
   // (the /v1/admin/* routes 403 without role=admin; fetchWithAuth swallows it,
   // so we distinguish "load failed" from "loaded empty").
@@ -602,6 +608,10 @@ export const AdminConsole = () => {
       void refreshMeetings();
     } else if (tab === "cost") {
       void getAdminCost().then(setCost);
+      void getAdminDaily().then((r) => {
+        setDailyFailed(!r.ok);
+        setDaily(r.ok ? r.data : null);
+      });
     } else if (tab === "usage") {
       void getAdminUsage().then((r) => {
         setUsageFailed(!r.ok);
@@ -2367,6 +2377,86 @@ export const AdminConsole = () => {
                     </span>
                   </div>
                 </div>
+              </>
+            )}
+            {/* Media / Daily.co (B5) — live snapshot + month-to-date minutes +
+                an ESTIMATE cost RANGE. Daily has no usage/billing API, so the
+                Worker sums /presence + /rooms + /meetings (cached 60s); every $
+                is a low→high band because MCM's exact billing tier is
+                unverified. dailyFailed → permission banner, else show the card
+                with the "not configured" caption when configured===false. */}
+            <h4 className="mcm-admin__h4">Media / Daily.co</h4>
+            {dailyFailed ? (
+              <div className="mcm-admin__banner" role="alert">
+                <AlertTriangle size={16} />
+                {t("admin.loadForbidden")}
+              </div>
+            ) : (
+              <>
+                {daily && !daily.configured && (
+                  <p className="mcm-admin__note">
+                    Daily.co is not configured (no API key) — showing zeros.
+                  </p>
+                )}
+                <div className="mcm-admin__cards">
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {daily?.live.active_rooms ?? "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">Active rooms</span>
+                  </div>
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {daily?.live.live_participants ?? "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      Live participants
+                    </span>
+                  </div>
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {daily?.rooms.total ?? "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      Rooms provisioned
+                    </span>
+                  </div>
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {daily?.month.participant_minutes?.toLocaleString() ??
+                        "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      Participant-min (month)
+                    </span>
+                  </div>
+                  <div className="mcm-admin__card">
+                    <span className="mcm-admin__card-num">
+                      {daily
+                        ? `${fmtUsd(daily.cost_estimate_usd.low)}–${fmtUsd(
+                            daily.cost_estimate_usd.high,
+                          )}`
+                        : "—"}
+                    </span>
+                    <span className="mcm-admin__card-label">
+                      Est. cost (range)
+                    </span>
+                  </div>
+                </div>
+                <p className="mcm-admin__note">
+                  Estimate only — see the Daily dashboard for the authoritative
+                  invoice. First{" "}
+                  {(daily?.rates.free_minutes ?? 10000).toLocaleString()}{" "}
+                  participant-minutes/month are free. Billing tier unverified,
+                  so cost is shown as a low→high band.{" "}
+                  <a
+                    href="https://dashboard.daily.co/billing"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Daily dashboard ↗
+                  </a>
+                </p>
               </>
             )}
             <h4 className="mcm-admin__h4">{t("admin.costBilling")}</h4>
