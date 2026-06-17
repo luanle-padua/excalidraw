@@ -831,8 +831,8 @@ app.put("/v1/scenes/:roomId", async (c) => {
     }
   }
   await c.env.DB.prepare(
-    `INSERT INTO meeting (id, project_id, title, scene_r2_key, scene_updated_at, created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5)
+    `INSERT INTO meeting (id, project_id, title, scene_r2_key, scene_updated_at, created_at, updated_at, realtime_backend)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?5, ?5, 'do')
      ON CONFLICT(id) DO UPDATE SET
        scene_r2_key = excluded.scene_r2_key,
        scene_updated_at = excluded.scene_updated_at,
@@ -1665,9 +1665,10 @@ app.post("/v1/meetings", async (c) => {
                           organizer_email, host_email, status, scheduled_at,
                           duration_min, topic, description, type, discipline,
                           priority, confidentiality, waiting_room,
-                          recording_enabled, created_at, updated_at)
+                          recording_enabled, created_at, updated_at,
+                          realtime_backend)
      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15,
-             ?16, ?17, ?18, ?19, ?20, ?20)
+             ?16, ?17, ?18, ?19, ?20, ?20, 'do')
      ON CONFLICT(id) DO UPDATE SET
        project_id = COALESCE(meeting.project_id, excluded.project_id),
        title      = COALESCE(meeting.title, excluded.title),
