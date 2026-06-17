@@ -325,5 +325,17 @@ export const handleSttUpgrade = async (
   server.addEventListener("close", () => cleanup("client-closed"));
   server.addEventListener("error", () => cleanup("client-error"));
 
-  return new Response(null, { status: 101, webSocket: client });
+  // Echo the agreed subprotocol on the 101 (RFC 6455). The client always opens
+  // with `Sec-WebSocket-Protocol: mcm.v1[, <jwt>]`, and per the spec the browser
+  // FAILS the WS open unless the server echoes back exactly one offered
+  // subprotocol. The realtime DO route (index.ts) does this; this proxy was
+  // ported without it, so every authenticated /stt handshake was rejected before
+  // any audio could flow — i.e. transcription silently never started.
+  const respHeaders = new Headers();
+  respHeaders.set("Sec-WebSocket-Protocol", STT_PROTOCOL_MARKER);
+  return new Response(null, {
+    status: 101,
+    webSocket: client,
+    headers: respHeaders,
+  });
 };

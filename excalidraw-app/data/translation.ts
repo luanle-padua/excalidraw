@@ -237,7 +237,10 @@ export const fetchBatchTranslation = async (
   if (!trimmed) {
     return null;
   }
-  const timeoutMs = options?.timeoutMs ?? 4000;
+  // 8s, not 4s: a cold Worker isolate + Gemini round trip for the batch of all
+  // languages can exceed 4s, and aborting mid-flight made every sender silently
+  // broadcast without translations (receivers then saw the original text).
+  const timeoutMs = options?.timeoutMs ?? 8000;
   const controller =
     typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = window.setTimeout(() => controller?.abort(), timeoutMs);
@@ -249,6 +252,9 @@ export const fetchBatchTranslation = async (
       signal: controller?.signal,
     });
     if (!res.ok) {
+      // Surface the failure instead of swallowing it — a batch error used to be
+      // indistinguishable from "same language", so translation just looked dead.
+      console.warn(`[translate] batch failed: ${res.status} ${res.statusText}`);
       return null;
     }
     const body = (await res.json()) as {

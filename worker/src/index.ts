@@ -3755,9 +3755,14 @@ app.get("/v1/daily/token", async (c) => {
         user_name: userName,
         ...(uid ? { user_id: uid } : {}),
         exp: Math.floor(now() / 1000) + 4 * 60 * 60,
-        // audio = voice call (room "<id>-audio"); screenVideo/screenAudio =
-        // screen share (room "<id>"). One token shape serves both.
-        permissions: { canSend: ["audio", "screenVideo", "screenAudio"] },
+        // audio = voice call + camera (room "<id>-audio"); screenVideo/
+        // screenAudio = screen share (room "<id>"). One token shape serves both.
+        // "video" (camera) MUST be present or the SFU refuses to relay a
+        // participant's camera to peers — they'd only ever see their own
+        // self-view (which is rendered locally, bypassing Daily).
+        permissions: {
+          canSend: ["audio", "video", "screenVideo", "screenAudio"],
+        },
       },
     }),
   });

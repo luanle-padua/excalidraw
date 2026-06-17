@@ -302,6 +302,9 @@ ${text}`;
         // infer intent without paraphrasing — pure 0 was too literal for chat.
         temperature: 0.2,
         maxOutputTokens: 1024,
+        // Disable thinking — translation needs no reasoning, and on gemini-2.5
+        // thinking tokens come out of maxOutputTokens (slower + can empty out).
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });
@@ -358,6 +361,16 @@ ${text}`;
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens: 2048,
+        // gemini-2.5-flash is a THINKING model: with structured output its
+        // internal thinking tokens are drawn from maxOutputTokens, so it can
+        // burn the whole budget on thinking and return an EMPTY candidate
+        // (finishReason MAX_TOKENS) → we throw → the route 502s and the client
+        // silently shows the untranslated original. Translation is deterministic
+        // and needs zero reasoning, so disable thinking. It is also much faster
+        // this way, which matters because the client aborts the batch call on a
+        // timeout. (The plain /chatbot path works precisely because it sends no
+        // schema and has a graceful fallback.)
+        thinkingConfig: { thinkingBudget: 0 },
         // Force JSON output — eliminates fragile string parsing.
         responseMimeType: "application/json",
         responseSchema: {
@@ -903,6 +916,11 @@ aiRoutes.post("/summarize", async (c) => {
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 4096,
+          // Disable thinking (gemini-2.5-flash): with structured output the
+          // thinking budget is drawn from maxOutputTokens and can empty the
+          // candidate (MAX_TOKENS) → 502. The recap is extraction, not
+          // reasoning, so this is safe and faster.
+          thinkingConfig: { thinkingBudget: 0 },
           // Strict JSON output — eliminates fragile post-parsing.
           responseMimeType: "application/json",
           responseSchema: {

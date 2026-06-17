@@ -52,6 +52,10 @@ type RemotePeer = {
   socketId: string;
   sessionId: string;
   stream: MediaStream;
+  /** hidden <audio> element that actually plays this peer's voice to the
+   *  speakers. call-object mode does NOT auto-play remote audio, so without
+   *  this the peer is recorded but inaudible live (see playPeerAudio). */
+  audioEl: HTMLAudioElement | null;
   analyser: AnalyserNode | null;
   buffer: Uint8Array<ArrayBuffer> | null;
   raf: number | null;
@@ -479,6 +483,7 @@ export class DailyAudio {
       socketId,
       sessionId,
       stream,
+      audioEl: null,
       analyser: null,
       buffer: null,
       raf: null,
@@ -487,6 +492,7 @@ export class DailyAudio {
     };
     this.peers.set(socketId, peer);
     this.attachAnalyser(peer);
+    this.playPeerAudio(peer);
     this.setPeerState(socketId, {
       socketId,
       speaking: false,
@@ -549,6 +555,7 @@ export class DailyAudio {
         socketId,
         sessionId: p.session_id,
         stream,
+        audioEl: null,
         analyser: null,
         buffer: null,
         raf: null,
@@ -557,6 +564,7 @@ export class DailyAudio {
       };
       this.peers.set(socketId, peer);
       this.attachAnalyser(peer);
+      this.playPeerAudio(peer);
       this.setPeerState(socketId, {
         socketId,
         speaking: false,
@@ -604,12 +612,52 @@ export class DailyAudio {
       cancelAnimationFrame(peer.raf);
       peer.raf = null;
     }
+    if (peer.audioEl) {
+      peer.audioEl.pause();
+      peer.audioEl.srcObject = null;
+      peer.audioEl.remove();
+      peer.audioEl = null;
+    }
     peer.analyser = null;
     peer.buffer = null;
   }
 
-  /** Speaking detection via a speaker-disconnected analyser (no playback —
-   *  daily-js already plays the audio). Mirrors AudioPeer's logic. */
+  /** Play a remote peer's voice to the speakers. daily-js in call-object mode
+   *  does NOT auto-play remote audio (that is a Prebuilt/iframe feature), so we
+   *  attach the track to a hidden <audio> element ourselves — exactly like
+   *  DailyScreenShare.playRemoteScreenAudio does for screen-share audio. Without
+   *  this the remote track only reaches the speaking analyser (disconnected from
+   *  the speakers) and the recorder mixer, so the meeting is RECORDED but nobody
+   *  hears anyone live. */
+  private playPeerAudio(peer: RemotePeer) {
+    if (peer.audioEl) {
+      return;
+    }
+    const el = document.createElement("audio");
+    el.autoplay = true;
+    el.setAttribute("playsinline", "");
+    el.srcObject = peer.stream;
+    el.style.display = "none";
+    document.body.appendChild(el);
+    peer.audioEl = el;
+    const tryPlay = () => el.play();
+    tryPlay().catch((err) => {
+      // Autoplay policy may block until a user gesture — retry once on the next
+      // click/keydown anywhere in the page.
+      warn("peer audio autoplay blocked; will resume on next gesture", err);
+      const resume = () => {
+        tryPlay().catch(() => undefined);
+        window.removeEventListener("pointerdown", resume);
+        window.removeEventListener("keydown", resume);
+      };
+      window.addEventListener("pointerdown", resume, { once: true });
+      window.addEventListener("keydown", resume, { once: true });
+    });
+  }
+
+  /** Speaking detection via a speaker-disconnected analyser. Playback is handled
+   *  separately by playPeerAudio (call-object mode does NOT auto-play), so this
+   *  analyser stays disconnected from the destination. Mirrors AudioPeer. */
   private attachAnalyser(peer: RemotePeer) {
     try {
       if (!this.analyserCtx) {
