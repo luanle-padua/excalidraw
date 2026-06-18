@@ -1,0 +1,72 @@
+// AI-in-use indicator — a small, classy Glass Desk pill that fades in while
+// any AI endpoint is being called (translate / chatbot / summarize / STT).
+// Informational only: pointer-events disabled, never interactive.
+
+.mcm-ai-pill {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%) translateY(6px);
+  z-index: 40;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 9px;
+  border-radius: var(--mcm-radius-pill, 999px);
+
+  // Translucent glass fill so it sits lightly over the canvas.
+  background: color-mix(in srgb, var(--mcm-surface, #fff) 78%, transparent);
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
+  box-shadow: var(--mcm-elev, 0 8px 22px rgba(0, 0, 0, 0.12));
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+
+  color: var(--mcm-text-soft, rgba(0, 0, 0, 0.62));
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+  pointer-events: none;
+
+  // Fade out by default; --active fades + lifts it into view.
+  opacity: 0;
+  transition: opacity 320ms var(--mcm-ease, ease),
+    transform 320ms var(--mcm-ease-spring, ease);
+
+  &.--active {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  &__icon {
+    color: var(--mcm-accent, #6366f1);
+    // Gentle shimmer so it reads as "thinking" without being noisy.
+    animation: mcm-ai-shimmer 1.6s ease-in-out infinite;
+  }
+
+  &__label {
+    line-height: 1;
+  }
+}
+
+@keyframes mcm-ai-shimmer {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcm-ai-pill {
+    transition: opacity 200ms linear;
+  }
+  .mcm-ai-pill__icon {
+    animation: none;
+  }
+}

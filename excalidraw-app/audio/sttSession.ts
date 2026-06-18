@@ -21,6 +21,7 @@
 // wants. It MUST point at the PLAIN-JS `.js` worklet: `?url` copies the
 // file verbatim (no transpile/bundle), so a `.ts` source ships raw
 // TypeScript served as video/mp2t and addModule() fails in the prod build.
+import { beginAiActivity, endAiActivity } from "../data/aiActivity";
 import { sttBackendWsUrl } from "../data/aiBackend";
 import { supabase } from "../data/supabaseClient";
 
@@ -35,6 +36,10 @@ export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
 
 export type STTSessionOptions = {
   lang: STTLang;
+  /** Meeting/room id — sent to /stt so the Worker can verify the opener is a
+   *  member before opening the metered Deepgram stream (06-18 cross-review:
+   *  without it the STT membership gate was a no-op). */
+  meetingId?: string;
   onInterim?: (text: string) => void;
   onFinal?: (text: string, segmentTs: number) => void;
   onReady?: () => void;
@@ -58,10 +63,14 @@ type DeepgramResult = {
 //   - Tunnel mode (VITE_DEV_TUNNEL=true) → current page origin (the Worker sits
 //     behind the same Cloudflare tunnel hostname, so relative routing works).
 //   - Direct dev → ws(s) form of VITE_APP_STORAGE_URL (see data/aiBackend.ts).
-const buildSTTUrl = (lang: STTLang): string => {
+const buildSTTUrl = (lang: STTLang, meetingId?: string): string => {
   const url = new URL(sttBackendWsUrl());
   url.pathname = "/stt";
   url.searchParams.set("lang", lang);
+  // The Worker gates the Deepgram stream on meeting membership keyed by this id.
+  if (meetingId) {
+    url.searchParams.set("meetingId", meetingId);
+  }
   return url.toString();
 };
 
@@ -72,6 +81,9 @@ export class STTSession {
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private opts: STTSessionOptions;
   private closed = false;
+  /** true while we're holding the AI-in-use indicator up for this STT
+   *  session — so begin/end stay balanced even on an error/double-stop. */
+  private aiActive = false;
 
   constructor(opts: STTSessionOptions) {
     this.opts = opts;
@@ -83,7 +95,7 @@ export class STTSession {
       return;
     }
 
-    const wsUrl = buildSTTUrl(this.opts.lang);
+    const wsUrl = buildSTTUrl(this.opts.lang, this.opts.meetingId);
     // Pass the Supabase access token via the WS subprotocol so the Worker can
     // verify it before opening the metered Deepgram stream (auth, B-AI 06-17).
     // Mirrors the realtime DO handshake: `["mcm.v1", <jwt>]`. Without a token
@@ -116,6 +128,12 @@ export class STTSession {
         return;
       }
       if (msg.type === "ready") {
+        // Deepgram is live — raise the AI-in-use indicator for the duration
+        // of the transcription session (cleared in stop()).
+        if (!this.aiActive && !this.closed) {
+          this.aiActive = true;
+          beginAiActivity();
+        }
         this.opts.onReady?.();
         return;
       }
@@ -185,6 +203,12 @@ export class STTSession {
       return;
     }
     this.closed = true;
+
+    // Drop the AI-in-use indicator we raised on {type:"ready"}.
+    if (this.aiActive) {
+      this.aiActive = false;
+      endAiActivity();
+    }
 
     if (this.ws) {
       try {

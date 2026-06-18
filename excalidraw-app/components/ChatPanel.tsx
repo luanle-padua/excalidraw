@@ -25,6 +25,7 @@ import {
   isBotMessage,
   meetingViewOnlyAtom,
 } from "../collab/Collab";
+import { withAiActivity } from "../data/aiActivity";
 import { aiBackendUrl } from "../data/aiBackend";
 import { fetchWithAuth } from "../data/fetchWithAuth";
 import { buildContextFiles, buildParticipants } from "../data/meetingContext";
@@ -866,19 +867,24 @@ export const ChatView = () => {
       // meeting-info atom exists (MeetingHeader fetches them ad-hoc today).
       const participants = buildParticipants(myProfile, peerProfiles);
       const contextFiles = buildContextFiles(files);
-      const res = await fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: rawQuestion,
-          language: preferredLang,
-          recent: recentContext,
-          transcript,
-          canvasText,
-          participants,
-          files: contextFiles,
+      const res = await withAiActivity(() =>
+        fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // meetingId gates the AI route (worker aiRoomGate): proves this
+            // caller is a member of the room before the bot runs.
+            meetingId: collabAPI.portal.roomId ?? undefined,
+            question: rawQuestion,
+            language: preferredLang,
+            recent: recentContext,
+            transcript,
+            canvasText,
+            participants,
+            files: contextFiles,
+          }),
         }),
-      });
+      );
       if (!res.ok) {
         throw new Error(`chatbot ${res.status}`);
       }

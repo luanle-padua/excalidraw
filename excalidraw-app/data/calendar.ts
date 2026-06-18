@@ -66,6 +66,85 @@ export const getMyMeetings = async (): Promise<CalMeeting[]> => {
   return r.ok ? r.items : [];
 };
 
+// ---------------------------------------------------------------------
+// Shared lobby poller
+// ---------------------------------------------------------------------
+// Three lobby widgets (NotificationBell, MeetingDueNotice, ActivityLog)
+// all need the SAME `/v1/me/meetings` list on the SAME 60s cadence. Left
+// alone they each own a setInterval and hit the route independently — 3×
+// the traffic for identical data (and a quota cap-breaker once the org
+// grows). This module-level store runs ONE poll for all subscribers,
+// dedups concurrent fetches, and pushes the latest list to every reader.
+// Mirrors the subscribe/inflight pattern in data/translation.ts.
+
+const LOBBY_POLL_MS = 60 * 1000;
+
+type LobbySubscriber = (meetings: CalMeeting[]) => void;
+const lobbySubscribers = new Set<LobbySubscriber>();
+let lobbyLatest: CalMeeting[] = [];
+let lobbyTimer: number | null = null;
+let lobbyInflight: Promise<void> | null = null;
+
+const runLobbyPoll = (): Promise<void> => {
+  // Dedup: a poll already in flight serves every caller that arrives
+  // before it resolves (e.g. several widgets mounting at once).
+  if (lobbyInflight) {
+    return lobbyInflight;
+  }
+  lobbyInflight = (async () => {
+    const r = await getMyMeetingsChecked();
+    // Keep the last-known list on a transient error — a flaky poll
+    // shouldn't blank every widget for a minute.
+    if (r.ok) {
+      lobbyLatest = r.items;
+      for (const s of lobbySubscribers) {
+        s(lobbyLatest);
+      }
+    }
+  })().finally(() => {
+    lobbyInflight = null;
+  });
+  return lobbyInflight;
+};
+
+/**
+ * Subscribe to the shared lobby meeting list. The callback fires once
+ * with the current list as soon as it's available, then on every 60s
+ * poll. Returns an unsubscribe fn; polling stops when the last
+ * subscriber leaves. `refresh()` forces an immediate (deduped) re-poll.
+ */
+export const subscribeLobbyMeetings = (
+  cb: LobbySubscriber,
+): { unsubscribe: () => void; refresh: () => Promise<void> } => {
+  lobbySubscribers.add(cb);
+
+  // Start the interval on the first subscriber.
+  if (lobbyTimer === null && typeof window !== "undefined") {
+    lobbyTimer = window.setInterval(() => void runLobbyPoll(), LOBBY_POLL_MS);
+  }
+
+  // Hand the new subscriber the cached list immediately (if any), then
+  // kick a fresh poll so it isn't waiting up to 60s for first data.
+  if (lobbyLatest.length > 0) {
+    cb(lobbyLatest);
+  }
+  void runLobbyPoll();
+
+  return {
+    unsubscribe: () => {
+      lobbySubscribers.delete(cb);
+      if (lobbySubscribers.size === 0 && lobbyTimer !== null) {
+        window.clearInterval(lobbyTimer);
+        lobbyTimer = null;
+        // Drop the cache so a later sign-in starts clean rather than
+        // flashing the previous user's meetings.
+        lobbyLatest = [];
+      }
+    },
+    refresh: runLobbyPoll,
+  };
+};
+
 /** Free-text note scoped to a day (YYYY-MM-DD) or a meeting (roomId). Returns
  *  the note body, or "" on a miss / error (loud-quiet: never throws). */
 export const getNote = async (

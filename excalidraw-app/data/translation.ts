@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { appLangCodeAtom } from "../app-language/language-state";
 import { atom, useAtomValue } from "../app-jotai";
 
+import { beginAiActivity, endAiActivity } from "./aiActivity";
 import { aiBackendUrl } from "./aiBackend";
 import { fetchWithAuth } from "./fetchWithAuth";
 
@@ -38,8 +39,15 @@ export const SUPPORTED_LANGUAGES: Array<{
   { code: "ko", label: "Korean", nativeLabel: "한국어" },
 ];
 
-const TRANSLATION_LS_KEY = "mcm:chatTranslations";
+// Base localStorage key — the LIVE key is namespaced by identity (see
+// translationLsKey) so two accounts sharing one browser can't read each
+// other's cached chat translations.
+const TRANSLATION_LS_KEY_BASE = "mcm:chatTranslations";
 const TRANSLATION_CACHE_MAX = 500;
+// Hard ceiling on the in-memory cache so a long-running session with lots of
+// distinct chat lines can't grow the Map without bound. Slightly above the
+// persisted cap (we keep a little extra hot in RAM before evicting).
+const MEMORY_CACHE_MAX = 1000;
 
 // Map an Excalidraw editor language code (e.g. "vi-VN", "ko-KR",
 // "de-DE") down to one of the languages MCM chrome + Gemini chat
@@ -111,6 +119,29 @@ export const setTranslationEnabled = (enabled: boolean): void => {
 const memoryCache = new Map<string, string>(); // key: `${lang}:${text}`
 const inflight = new Map<string, Promise<string>>();
 
+// localStorage key, namespaced by the logged-in identity. Defaults to the
+// shared base (pre-login / no identity yet); switched in place by
+// setTranslationCacheIdentity once we know who's signed in.
+let translationLsKey = TRANSLATION_LS_KEY_BASE;
+
+/** LRU-style set with a hard size cap: re-inserting moves a key to the
+ *  "most recent" end (Map keeps insertion order), and once we exceed the
+ *  cap we evict the oldest entry. Keeps the in-memory cache bounded. */
+const cacheSet = (key: string, value: string): void => {
+  // Delete-then-set so an existing key counts as freshly used (moved to end).
+  if (memoryCache.has(key)) {
+    memoryCache.delete(key);
+  }
+  memoryCache.set(key, value);
+  while (memoryCache.size > MEMORY_CACHE_MAX) {
+    const oldest = memoryCache.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    memoryCache.delete(oldest);
+  }
+};
+
 // Subscribers re-render when a new translation lands so React UI updates.
 type Subscriber = () => void;
 const subscribers = new Set<Subscriber>();
@@ -122,7 +153,7 @@ const notifySubscribers = () => {
 
 const loadCacheFromStorage = (): void => {
   try {
-    const raw = window.localStorage.getItem(TRANSLATION_LS_KEY);
+    const raw = window.localStorage.getItem(translationLsKey);
     if (!raw) {
       return;
     }
@@ -130,7 +161,7 @@ const loadCacheFromStorage = (): void => {
     if (parsed && typeof parsed === "object") {
       for (const [k, v] of Object.entries(parsed)) {
         if (typeof v === "string") {
-          memoryCache.set(k, v);
+          cacheSet(k, v);
         }
       }
     }
@@ -156,7 +187,7 @@ const persistCacheToStorage = (() => {
         for (const [k, v] of entries) {
           obj[k] = v;
         }
-        window.localStorage.setItem(TRANSLATION_LS_KEY, JSON.stringify(obj));
+        window.localStorage.setItem(translationLsKey, JSON.stringify(obj));
       } catch {
         // quota exceeded or blocked — best-effort
       }
@@ -167,6 +198,42 @@ const persistCacheToStorage = (() => {
 if (typeof window !== "undefined") {
   loadCacheFromStorage();
 }
+
+/** Derive a safe per-identity localStorage suffix from an email. Lower-cased
+ *  and stripped to a small charset so it can't break the key or collide. */
+const identitySuffix = (email: string): string =>
+  email.toLowerCase().replace(/[^a-z0-9@._-]/g, "_");
+
+/** Point the persisted translation cache at the signed-in identity's slot.
+ *  Called on login so two accounts sharing a browser keep separate caches.
+ *  Idempotent — re-setting the same identity is a no-op. */
+export const setTranslationCacheIdentity = (email: string | null): void => {
+  const nextKey = email
+    ? `${TRANSLATION_LS_KEY_BASE}:${identitySuffix(email)}`
+    : TRANSLATION_LS_KEY_BASE;
+  if (nextKey === translationLsKey) {
+    return;
+  }
+  translationLsKey = nextKey;
+  // Swap to the new identity's persisted cache: drop the previous account's
+  // hot entries, then hydrate this account's slot.
+  memoryCache.clear();
+  if (typeof window !== "undefined") {
+    loadCacheFromStorage();
+  }
+};
+
+/** Wipe the in-memory + persisted translation cache for the CURRENT identity.
+ *  Called on logout so the next user on this browser starts clean. */
+export const clearTranslationCache = (): void => {
+  memoryCache.clear();
+  try {
+    window.localStorage.removeItem(translationLsKey);
+  } catch {
+    // ignore
+  }
+  translationLsKey = TRANSLATION_LS_KEY_BASE;
+};
 
 const cacheKey = (lang: string, text: string) => `${lang}:${text}`;
 
@@ -187,6 +254,8 @@ const fetchTranslation = async (
     return existing;
   }
   const promise = (async () => {
+    // Surface the AI-in-use indicator for the duration of the call.
+    beginAiActivity();
     try {
       const res = await fetchWithAuth(`${aiBackendUrl()}/translate`, {
         method: "POST",
@@ -202,12 +271,14 @@ const fetchTranslation = async (
       return translated || text;
     } catch {
       return text;
+    } finally {
+      endAiActivity();
     }
   })();
   inflight.set(key, promise);
   try {
     const translated = await promise;
-    memoryCache.set(key, translated);
+    cacheSet(key, translated);
     persistCacheToStorage();
     notifySubscribers();
     return translated;
@@ -244,6 +315,7 @@ export const fetchBatchTranslation = async (
   const controller =
     typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = window.setTimeout(() => controller?.abort(), timeoutMs);
+  beginAiActivity();
   try {
     const res = await fetchWithAuth(`${aiBackendUrl()}/translate-batch`, {
       method: "POST",
@@ -271,7 +343,7 @@ export const fetchBatchTranslation = async (
         result[lang] = v.trim();
         // Warm the per-(lang,text) memory cache so legacy useTranslate
         // calls on the same text resolve instantly without re-fetching.
-        memoryCache.set(cacheKey(lang, trimmed), v.trim());
+        cacheSet(cacheKey(lang, trimmed), v.trim());
       }
     }
     if (Object.keys(result).length === 0) {
@@ -291,6 +363,7 @@ export const fetchBatchTranslation = async (
     return null;
   } finally {
     window.clearTimeout(timer);
+    endAiActivity();
   }
 };
 

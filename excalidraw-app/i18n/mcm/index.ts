@@ -30,6 +30,8 @@
 //   2. Create `<code>.ts` mirroring vi.ts.
 //   3. Register it in the `LOCALES` map below.
 
+import { useCallback } from "react";
+
 import { useAtomValue } from "../../app-jotai";
 import { preferredLanguageAtom } from "../../data/translation";
 
@@ -117,7 +119,15 @@ export const useT = (): ((
   params?: Record<string, string | number>,
 ) => string) => {
   const lang = useAtomValue(preferredLanguageAtom);
-  return (key, params) => t(lang, key, params);
+  // Memoize on `lang` so consumers get a STABLE translator reference across
+  // re-renders — without this, every render produced a new function, which
+  // re-armed any effect that (correctly) listed `t` as a dep (cf. the
+  // ActivityLog poll-refire bug).
+  return useCallback(
+    (key: McmKey, params?: Record<string, string | number>) =>
+      t(lang, key, params),
+    [lang],
+  );
 };
 
 /** Read the current locale dictionary directly — handy when you need

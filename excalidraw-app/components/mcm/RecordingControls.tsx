@@ -298,7 +298,16 @@ const useRecording = (): RecordingApi => {
       const result = await recorder.stop();
       recorder.close();
       setRecorderInstance(null);
-      setLastResult(result);
+      // Revoke the PREVIOUS recording's object URL before replacing it —
+      // each recorder.stop() mints a fresh blob: URL, and without this the
+      // last one leaks for the lifetime of the page (a multi-recording
+      // session would pin every prior take's blob in memory).
+      setLastResult((prev) => {
+        if (prev && prev.url !== result.url) {
+          URL.revokeObjectURL(prev.url);
+        }
+        return result;
+      });
       setLastResultStartedAt(finalStartedAt);
       if (result.blob.size > 0) {
         triggerDownload(result, finalStartedAt);

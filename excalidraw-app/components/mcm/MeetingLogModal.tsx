@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
 import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
+import { withAiActivity } from "../../data/aiActivity";
 import { aiBackendUrl } from "../../data/aiBackend";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
@@ -227,19 +228,24 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
     setSummaryLoading(true);
     setSummaryError(null);
     try {
-      const res = await fetchWithAuth(`${aiBackendUrl()}/summarize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          segments: log.map((s) => ({
-            speaker: s.username,
-            text: s.text,
-            lang: s.lang,
-            ts: s.ts,
-          })),
-          language: preferredLang,
+      const res = await withAiActivity(() =>
+        fetchWithAuth(`${aiBackendUrl()}/summarize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // meetingId gates the AI route (worker aiRoomGate): proves this
+            // caller is a member of the room before summarization runs.
+            meetingId: roomId ?? undefined,
+            segments: log.map((s) => ({
+              speaker: s.username,
+              text: s.text,
+              lang: s.lang,
+              ts: s.ts,
+            })),
+            language: preferredLang,
+          }),
         }),
-      });
+      );
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");
         throw new Error(

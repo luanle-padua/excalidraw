@@ -149,6 +149,8 @@ export const en: Widened<typeof vi> = {
     summaryTitle: "AI summary",
     showMore: "Show more",
     showLess: "Show less",
+    label: "AI",
+    inUse: "AI is working…",
   },
   cal: {
     title: "Calendar",
@@ -375,6 +377,8 @@ export const en: Widened<typeof vi> = {
     setWaitingRoom: "Waiting room on by default",
     setRecording: "Recording on by default",
     setRetention: "Data retention (days)",
+    setDailyMaxParticipants: "Max participants per call room (2–200)",
+    setDailyExpHours: "Call room lifetime (hours, 1–24)",
     securityNote:
       "Failed-login tracking needs log drains (later). The admin action log lives in the Audit tab.",
     securityViewAudit: "View full audit log →",

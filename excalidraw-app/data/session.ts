@@ -13,6 +13,10 @@ import { atom, appJotaiStore } from "../app-jotai";
 
 import { fetchWithAuth } from "./fetchWithAuth";
 import { supabase } from "./supabaseClient";
+import {
+  clearTranslationCache,
+  setTranslationCacheIdentity,
+} from "./translation";
 
 import type { User } from "@supabase/supabase-js";
 
@@ -163,6 +167,9 @@ export const setSession = (s: Session): Session => {
 
 export const clearSession = (): void => {
   appJotaiStore.set(sessionAtom, null);
+  // Wipe the per-identity translation cache so the next user on this browser
+  // doesn't inherit the previous account's cached chat translations.
+  clearTranslationCache();
 };
 
 /** Sign out of Supabase (clears its persisted session) + our atom. */
@@ -190,7 +197,12 @@ export const initAuthSync = (): void => {
     appJotaiStore.set(sessionAtom, user ? deriveSession(user) : null);
     appJotaiStore.set(authReadyAtom, true);
     if (user) {
+      // Namespace the persisted translation cache by identity so accounts
+      // sharing a browser keep separate caches.
+      setTranslationCacheIdentity(user.email ?? null);
       syncInternalDomains();
+    } else {
+      clearTranslationCache();
     }
   };
   void supabase.auth.getSession().then(({ data }) => apply(data.session?.user));

@@ -5,7 +5,7 @@ import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom, isCollaboratingAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
-import { getMyMeetings, type CalMeeting } from "../../data/calendar";
+import { subscribeLobbyMeetings, type CalMeeting } from "../../data/calendar";
 import { getLastMeeting } from "../../data/lastMeeting";
 import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
@@ -34,7 +34,6 @@ import { normalizeMeetingStatus } from "./meetingStatus";
 const DUE_PAST_MS = 10 * 60 * 1000;
 // …and how far AHEAD we pre-announce ("about to start").
 const DUE_SOON_MS = 5 * 60 * 1000;
-const POLL_MS = 60 * 1000;
 
 // Soft attention: prefix the tab title with a bell while the notice is up.
 // Deliberately NOT the Notification API — no permission prompt, no OS toast.
@@ -115,25 +114,18 @@ export const MeetingDueNotice = () => {
 
   // Poll the calendar while signed in and OUTSIDE a meeting. Re-arms when
   // the user leaves a meeting (isCollaborating flips false → fresh fetch).
+  // Reads from the SHARED lobby poller so the three lobby widgets hit
+  // /v1/me/meetings once per 60s between them, not three times.
   useEffect(() => {
     if (!session || isCollaborating) {
       setDue(null);
       return;
     }
-    let cancelled = false;
-    const check = async () => {
-      const list = await getMyMeetings();
-      if (!cancelled) {
-        lastListRef.current = list;
-        setDue(findMostDue(list));
-      }
-    };
-    void check();
-    const id = window.setInterval(() => void check(), POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
+    const { unsubscribe } = subscribeLobbyMeetings((list) => {
+      lastListRef.current = list;
+      setDue(findMostDue(list));
+    });
+    return unsubscribe;
   }, [session, isCollaborating]);
 
   const visible = !!session && !isCollaborating && !!collabAPI && !!due;

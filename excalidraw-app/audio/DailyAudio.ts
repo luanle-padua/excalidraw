@@ -56,9 +56,15 @@ type RemotePeer = {
    *  speakers. call-object mode does NOT auto-play remote audio, so without
    *  this the peer is recorded but inaudible live (see playPeerAudio). */
   audioEl: HTMLAudioElement | null;
+  /** speaking-detection source node — kept so teardown can disconnect() it;
+   *  otherwise the MediaStreamSource leaks (the AudioContext holds a ref). */
+  sourceNode: MediaStreamAudioSourceNode | null;
   analyser: AnalyserNode | null;
   buffer: Uint8Array<ArrayBuffer> | null;
   raf: number | null;
+  /** removes the one-shot autoplay-resume gesture listeners (pointerdown/
+   *  keydown) if the peer is torn down before the gesture ever fires. */
+  removeResumeListeners: (() => void) | null;
   speaking: boolean;
   lastLoudAt: number;
 };
@@ -484,9 +490,11 @@ export class DailyAudio {
       sessionId,
       stream,
       audioEl: null,
+      sourceNode: null,
       analyser: null,
       buffer: null,
       raf: null,
+      removeResumeListeners: null,
       speaking: false,
       lastLoudAt: 0,
     };
@@ -556,9 +564,11 @@ export class DailyAudio {
         sessionId: p.session_id,
         stream,
         audioEl: null,
+        sourceNode: null,
         analyser: null,
         buffer: null,
         raf: null,
+        removeResumeListeners: null,
         speaking: false,
         lastLoudAt: 0,
       };
@@ -612,11 +622,29 @@ export class DailyAudio {
       cancelAnimationFrame(peer.raf);
       peer.raf = null;
     }
+    // Drop any pending autoplay-resume gesture listeners — without this a peer
+    // who left before the user ever clicked leaks a window pointerdown/keydown
+    // listener (and a closure capturing the dead <audio>).
+    if (peer.removeResumeListeners) {
+      peer.removeResumeListeners();
+      peer.removeResumeListeners = null;
+    }
     if (peer.audioEl) {
       peer.audioEl.pause();
       peer.audioEl.srcObject = null;
       peer.audioEl.remove();
       peer.audioEl = null;
+    }
+    // Disconnect the analyser source node so the AudioContext stops holding a
+    // reference to this peer's MediaStream (otherwise it leaks until the whole
+    // context is closed on stop()).
+    if (peer.sourceNode) {
+      try {
+        peer.sourceNode.disconnect();
+      } catch {
+        // already disconnected — ignore
+      }
+      peer.sourceNode = null;
     }
     peer.analyser = null;
     peer.buffer = null;
@@ -645,13 +673,21 @@ export class DailyAudio {
       // Autoplay policy may block until a user gesture — retry once on the next
       // click/keydown anywhere in the page.
       warn("peer audio autoplay blocked; will resume on next gesture", err);
-      const resume = () => {
-        tryPlay().catch(() => undefined);
+      const removeResumeListeners = () => {
         window.removeEventListener("pointerdown", resume);
         window.removeEventListener("keydown", resume);
+        if (peer.removeResumeListeners === removeResumeListeners) {
+          peer.removeResumeListeners = null;
+        }
+      };
+      const resume = () => {
+        tryPlay().catch(() => undefined);
+        removeResumeListeners();
       };
       window.addEventListener("pointerdown", resume, { once: true });
       window.addEventListener("keydown", resume, { once: true });
+      // Tracked so teardownPeer can drop these if the peer leaves first.
+      peer.removeResumeListeners = removeResumeListeners;
     });
   }
 
@@ -670,6 +706,7 @@ export class DailyAudio {
       analyser.fftSize = 512;
       analyser.smoothingTimeConstant = 0.85;
       src.connect(analyser); // NOT connected to destination → no double audio
+      peer.sourceNode = src; // kept so teardownPeer can disconnect() it
       peer.analyser = analyser;
       peer.buffer = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
       const tick = () => {

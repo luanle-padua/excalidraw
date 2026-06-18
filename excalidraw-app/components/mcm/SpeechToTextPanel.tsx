@@ -582,6 +582,7 @@ export const SpeechToTextPanel = () => {
       const lang: STTLang = (preferredLang ?? "multi") as STTLang;
       const session = new STTSession({
         lang,
+        meetingId: collabAPI?.portal.roomId ?? undefined,
         onReady: () => {
           // Server signalled Deepgram upstream is open. Now safe to
           // pump audio.

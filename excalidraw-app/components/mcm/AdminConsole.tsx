@@ -133,6 +133,10 @@ const SETTING_DEFAULTS: Record<string, string> = {
   default_waiting_room: "on",
   default_recording: "off",
   retention_days: "365",
+  // Daily.co room provisioning caps (paired with the worker lane). Bound the
+  // call size + token lifetime so a stale/abused room can't run up cost.
+  daily_room_max_participants: "50",
+  daily_room_exp_hours: "12",
 };
 
 const isAdminUser = (u: AdminUser): boolean => u.app_metadata?.role === "admin";
@@ -647,10 +651,33 @@ export const AdminConsole = () => {
     setSettings((s) => ({ ...s, [key]: value }));
     setSettingsDirty(true);
   };
+  // Clamp an integer-ish setting into [min, max], falling back to the default
+  // for blank/garbage input — keeps the Daily caps inside the worker's bounds.
+  const clampSetting = (key: string, min: number, max: number): string => {
+    const raw = settings[key] ?? SETTING_DEFAULTS[key] ?? "";
+    const n = Math.round(Number(raw));
+    if (!Number.isFinite(n)) {
+      return SETTING_DEFAULTS[key] ?? String(min);
+    }
+    return String(Math.min(max, Math.max(min, n)));
+  };
   const saveSettings = async () => {
+    // Validate the Daily caps before persisting (UI inputs also enforce the
+    // range, but a hand-typed value could slip past): participants 2–200,
+    // expiry 1–24h. Pairs with the worker lane that reads these keys.
+    const validated: Record<string, string> = {
+      ...settings,
+      daily_room_max_participants: clampSetting(
+        "daily_room_max_participants",
+        2,
+        200,
+      ),
+      daily_room_exp_hours: clampSetting("daily_room_exp_hours", 1, 24),
+    };
     setBusy(true);
-    await putAdminSettings(settings);
+    await putAdminSettings(validated);
     setBusy(false);
+    setSettings(validated);
     setSettingsDirty(false);
   };
   const settingOf = (key: string) =>
@@ -2743,6 +2770,30 @@ export const AdminConsole = () => {
                 type="number"
                 value={settingOf("retention_days")}
                 onChange={(e) => setSetting("retention_days", e.target.value)}
+              />
+            </label>
+            <label className="mcm-admin__field">
+              <span>{t("admin.setDailyMaxParticipants")}</span>
+              <input
+                type="number"
+                min={2}
+                max={200}
+                value={settingOf("daily_room_max_participants")}
+                onChange={(e) =>
+                  setSetting("daily_room_max_participants", e.target.value)
+                }
+              />
+            </label>
+            <label className="mcm-admin__field">
+              <span>{t("admin.setDailyExpHours")}</span>
+              <input
+                type="number"
+                min={1}
+                max={24}
+                value={settingOf("daily_room_exp_hours")}
+                onChange={(e) =>
+                  setSetting("daily_room_exp_hours", e.target.value)
+                }
               />
             </label>
             <button

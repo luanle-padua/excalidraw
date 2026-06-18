@@ -37,6 +37,7 @@ import {
   screenShareMediaAtom,
 } from "../../screenshare/screenShareState";
 
+import { AiActivityIndicator } from "./AiActivityIndicator";
 import { AppToast } from "./AppToast";
 import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
 import { CADViewPane } from "./cad/CADViewPane";
@@ -401,6 +402,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       <MeetingDueNotice />
       {/* App-level error toast (showAppToast) — same corner, error tone. */}
       <AppToast />
+      {/* Subtle AI-in-use pill — fades in whenever any AI endpoint is in
+          flight (translate / chatbot / summarize / STT). */}
+      <AiActivityIndicator />
       <ProjectFolder />
     </div>
   );

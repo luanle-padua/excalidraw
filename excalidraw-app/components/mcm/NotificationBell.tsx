@@ -5,7 +5,7 @@ import { useAtomValue } from "../../app-jotai";
 import { collabAPIAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
-import { getMyMeetings, type CalMeeting } from "../../data/calendar";
+import { subscribeLobbyMeetings, type CalMeeting } from "../../data/calendar";
 import { respondInvitation } from "../../data/invitations";
 import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
@@ -25,8 +25,6 @@ import "./NotificationBell.scss";
  * Mounted in the lobby header — only rendered while signed in and outside
  * a meeting (the lobby itself guarantees that).
  */
-
-const POLL_MS = 60 * 1000;
 
 /** /v1/me/meetings also carries my own RSVP state ('invited' | 'accepted' |
  *  'declined' | NULL when I'm not a direct invitee) — the calendar type
@@ -80,19 +78,10 @@ export const NotificationBell = () => {
       setItems([]);
       return;
     }
-    let cancelled = false;
-    const check = async () => {
-      const list = await getMyMeetings();
-      if (!cancelled) {
-        setItems(findPending(list as PendingInvite[]));
-      }
-    };
-    void check();
-    const id = window.setInterval(() => void check(), POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
+    const { unsubscribe } = subscribeLobbyMeetings((list) => {
+      setItems(findPending(list as PendingInvite[]));
+    });
+    return unsubscribe;
   }, [session]);
 
   // Click anywhere outside the bell closes the panel.

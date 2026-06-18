@@ -243,6 +243,7 @@ export const AudioRoomController = () => {
     const lang: STTLang = (preferredLang ?? "multi") as STTLang;
     const session = new STTSession({
       lang,
+      meetingId: collabAPI?.portal.roomId ?? undefined,
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);
       },

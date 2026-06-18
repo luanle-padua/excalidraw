@@ -22,7 +22,9 @@ import {
   BOT_SOCKET_ID,
   BOT_USERNAME,
   chatMessagesAtom,
+  collabAPIAtom,
 } from "../../collab/Collab";
+import { withAiActivity } from "../../data/aiActivity";
 import { aiBackendUrl } from "../../data/aiBackend";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
@@ -74,6 +76,8 @@ export const CanvasBotTool = () => {
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const myProfile = useAtomValue(userProfileAtom);
   const peerProfiles = useAtomValue(peerProfilesAtom);
+  const collabAPI = useAtomValue(collabAPIAtom);
+  const meetingId = collabAPI?.portal.roomId ?? null;
 
   const [toolbarEl, setToolbarEl] = useState<HTMLElement | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -93,6 +97,7 @@ export const CanvasBotTool = () => {
     preferredLang,
     myProfile,
     peerProfiles,
+    meetingId,
   });
   ctxRef.current = {
     transcriptLog,
@@ -101,6 +106,7 @@ export const CanvasBotTool = () => {
     preferredLang,
     myProfile,
     peerProfiles,
+    meetingId,
   };
 
   useEffect(() => {
@@ -368,6 +374,7 @@ export const CanvasBotTool = () => {
         preferredLang,
         myProfile,
         peerProfiles,
+        meetingId: ctxMeetingId,
       } = ctxRef.current;
       const recent = messages
         .slice(-10)
@@ -385,19 +392,24 @@ export const CanvasBotTool = () => {
       // exists (MeetingHeader fetches them ad-hoc today).
       const participants = buildParticipants(myProfile, peerProfiles);
       const contextFiles = buildContextFiles(files);
-      const res = await fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: request,
-          language: preferredLang,
-          recent,
-          transcript,
-          canvasText,
-          participants,
-          files: contextFiles,
+      const res = await withAiActivity(() =>
+        fetchWithAuth(`${aiBackendUrl()}/chatbot`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // meetingId gates the AI route (worker aiRoomGate): proves this
+            // caller is a member of the room before the bot runs.
+            meetingId: ctxMeetingId ?? undefined,
+            question: request,
+            language: preferredLang,
+            recent,
+            transcript,
+            canvasText,
+            participants,
+            files: contextFiles,
+          }),
         }),
-      });
+      );
       if (!res.ok) {
         throw new Error(`chatbot ${res.status}`);
       }

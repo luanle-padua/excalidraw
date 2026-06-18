@@ -167,6 +167,9 @@ export const vi = {
     summaryTitle: "Tóm tắt AI",
     showMore: "Xem thêm",
     showLess: "Thu gọn",
+    // AI-in-use indicator (small pill shown while an AI endpoint runs).
+    label: "AI",
+    inUse: "AI đang xử lý…",
   },
   // ---------------- Calendar ---------------------------------------
   cal: {
@@ -399,6 +402,8 @@ export const vi = {
     setWaitingRoom: "Bật phòng chờ mặc định",
     setRecording: "Bật ghi hình mặc định",
     setRetention: "Giữ dữ liệu (ngày)",
+    setDailyMaxParticipants: "Số người tối đa mỗi phòng gọi (2–200)",
+    setDailyExpHours: "Thời hạn phòng gọi (giờ, 1–24)",
     securityNote:
       "Theo dõi đăng nhập sai cần log-drains (làm sau). Nhật ký thao tác admin nằm ở tab Audit.",
     securityViewAudit: "Xem nhật ký Audit →",

@@ -2,7 +2,7 @@ import { History } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
-import { getMyMeetings, type CalMeeting } from "../../data/calendar";
+import { subscribeLobbyMeetings, type CalMeeting } from "../../data/calendar";
 import { isInternalEmail, sessionAtom } from "../../data/session";
 import { listMyFiles } from "../../data/userFiles";
 import { useT } from "../../i18n/mcm";
@@ -23,7 +23,6 @@ import "./ActivityLog.scss";
  * table; until then this stays maintenance-free.
  */
 
-const POLL_MS = 60 * 1000;
 const LOG_LIMIT = 50;
 
 type ActivityKind = "created" | "invited" | "joined" | "upload";
@@ -43,16 +42,16 @@ type ActivityEvent = {
 
 const tsToMs = (ts: number): number => (ts < 1e12 ? ts * 1000 : ts);
 
-/** Compose the personal timeline from the surfaces we already fetch. */
+/** Compose the personal timeline from the surfaces we already fetch.
+ *  Meetings come from the shared lobby poller (passed in); the file shelf
+ *  is fetched here since no other lobby widget needs it. */
 const buildEvents = async (
   myEmail: string,
   fallbackTitle: string,
+  meetings: CalMeeting[],
 ): Promise<ActivityEvent[]> => {
   const internal = isInternalEmail(myEmail);
-  const [meetings, files] = await Promise.all([
-    getMyMeetings(),
-    internal ? listMyFiles() : Promise.resolve([]),
-  ]);
+  const files = internal ? await listMyFiles() : [];
   const events: ActivityEvent[] = [];
   for (const m of meetings as CalMeeting[]) {
     const title = m.title || fallbackTitle;
@@ -116,6 +115,13 @@ export const ActivityLog = () => {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  // Keep the translator out of the poll-effect deps: useT() returns a NEW
+  // function every render, so listing `t` re-armed the interval + refetched
+  // on every render. Read it through a ref instead — the fallback title is
+  // purely cosmetic and the next poll picks up a language change anyway.
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     const myEmail = session?.email?.toLowerCase();
     if (!myEmail) {
@@ -123,19 +129,24 @@ export const ActivityLog = () => {
       return;
     }
     let cancelled = false;
-    const check = async () => {
-      const list = await buildEvents(myEmail, t("folder.meetingFallbackTitle"));
-      if (!cancelled) {
-        setEvents(list);
-      }
-    };
-    void check();
-    const id = window.setInterval(() => void check(), POLL_MS);
+    // Drive off the SHARED lobby poller (one /v1/me/meetings per 60s for
+    // all three lobby widgets); rebuild the timeline whenever it ticks.
+    const { unsubscribe } = subscribeLobbyMeetings((meetings) => {
+      void buildEvents(
+        myEmail,
+        tRef.current("folder.meetingFallbackTitle"),
+        meetings,
+      ).then((list) => {
+        if (!cancelled) {
+          setEvents(list);
+        }
+      });
+    });
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      unsubscribe();
     };
-  }, [session?.email, t]);
+  }, [session?.email]);
 
   useEffect(() => {
     if (!open) {

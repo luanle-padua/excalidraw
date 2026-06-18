@@ -156,6 +156,8 @@ export const ko: Widened<typeof vi> = {
     summaryTitle: "AI 요약",
     showMore: "더 보기",
     showLess: "접기",
+    label: "AI",
+    inUse: "AI 처리 중…",
   },
   cal: {
     title: "일정",
@@ -382,6 +384,8 @@ export const ko: Widened<typeof vi> = {
     setWaitingRoom: "기본 대기실 켜기",
     setRecording: "기본 녹화 켜기",
     setRetention: "데이터 보존 (일)",
+    setDailyMaxParticipants: "통화방 최대 인원 (2–200)",
+    setDailyExpHours: "통화방 유효 시간 (시간, 1–24)",
     securityNote:
       "로그인 실패 추적은 로그 드레인이 필요합니다(추후). 관리자 작업 로그는 Audit 탭에 있습니다.",
     securityViewAudit: "전체 감사 로그 보기 →",
