@@ -1135,6 +1135,9 @@ export const ko: Widened<typeof vi> = {
     providerTitle: "정확도 테스트를 위한 음성 인식 모델 선택",
     providerLabel: "STT 모델",
     providerSoon: "곧 추가 예정",
+    spokenLangLabel: "내가 말하는 언어",
+    spokenLangTitle:
+      "Deepgram이 내 마이크를 받아쓰는 언어 — 앱 언어와 독립적",
     sttOn: "STT: 켜짐",
     sttOff: "STT: 꺼짐",
     sttToggleOnTitle: "음성 인식 끄기",

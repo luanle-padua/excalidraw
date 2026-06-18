@@ -49,6 +49,12 @@ export type STTSessionOptions = {
   /** Per-session provider override for A/B testing. Omit to use the Worker's
    *  STT_PROVIDER env default (deepgram). */
   provider?: STTProvider;
+  /** An AudioContext that was already RESUMED inside a user gesture (DailyAudio
+   *  unlocks one on the Join click). Reuse it instead of `new AudioContext()` —
+   *  a context created here runs in a React effect with no user activation, so
+   *  iOS Safari leaves it SUSPENDED and the worklet never emits PCM (06-18).
+   *  When provided, the session does NOT close it on stop() (it's shared). */
+  audioCtx?: AudioContext;
   onInterim?: (text: string) => void;
   onFinal?: (text: string, segmentTs: number) => void;
   onReady?: () => void;
@@ -99,6 +105,9 @@ export class STTSession {
   private sourceNode: MediaStreamAudioSourceNode | null = null;
   private opts: STTSessionOptions;
   private closed = false;
+  /** true when WE created the AudioContext (so stop() must close it); false when
+   *  it was handed in (DailyAudio owns + closes it). */
+  private ownsCtx = false;
   /** true while we're holding the AI-in-use indicator up for this STT
    *  session — so begin/end stay balanced even on an error/double-stop. */
   private aiActive = false;
@@ -189,14 +198,21 @@ export class STTSession {
       this.opts.onClose?.();
     };
 
-    // AudioContext defaults to 48000 in modern browsers. The worklet
-    // downsamples to 16000 at runtime so we don't need to force a rate.
-    this.audioCtx = new AudioContext();
-    // iOS/iPadOS Safari starts a fresh AudioContext SUSPENDED — without an
-    // explicit resume the worklet never pulls samples, so no PCM reaches
-    // Deepgram and the transcript stays silently empty. start() runs inside the
-    // "Join audio" user gesture, so resume() is allowed here. Best-effort: if
-    // it's blocked the worklet simply stays idle (no worse than before).
+    // Reuse the AudioContext DailyAudio unlocked inside the Join gesture (see
+    // STTSessionOptions.audioCtx). A context we'd create HERE runs in a React
+    // effect with no user activation, so iOS/iPadOS Safari leaves it SUSPENDED
+    // and the worklet never pulls samples → Deepgram gets silence → empty
+    // transcript (06-18). Only fall back to our own context when none is handed
+    // in (desktop test/upload path, where there's no Daily call).
+    if (this.opts.audioCtx) {
+      this.audioCtx = this.opts.audioCtx;
+      this.ownsCtx = false;
+    } else {
+      this.audioCtx = new AudioContext();
+      this.ownsCtx = true;
+    }
+    // Best-effort resume — a no-op if already running (the shared context is),
+    // and the only hope for a self-owned one (may be blocked off-gesture).
     if (this.audioCtx.state === "suspended") {
       try {
         await this.audioCtx.resume();
@@ -207,11 +223,15 @@ export class STTSession {
     try {
       await this.audioCtx.audioWorklet.addModule(sttWorkletUrl);
     } catch (err) {
-      this.opts.onError?.(
-        `Failed to load STT worklet: ${(err as Error).message}`,
-      );
-      await this.stop();
-      return;
+      const msg = (err as Error)?.message ?? "";
+      // A SHARED context reused across STT sessions already has the processor
+      // registered — that's success, not failure. Only a real load error
+      // (bad asset / unsupported) should abort.
+      if (!/already.*regist/i.test(msg)) {
+        this.opts.onError?.(`Failed to load STT worklet: ${msg}`);
+        await this.stop();
+        return;
+      }
     }
 
     this.sourceNode = this.audioCtx.createMediaStreamSource(stream);
@@ -275,10 +295,15 @@ export class STTSession {
       this.workletNode = null;
     }
     if (this.audioCtx) {
-      try {
-        await this.audioCtx.close();
-      } catch {
-        /* ignore */
+      // Only close a context WE created. A shared one belongs to DailyAudio
+      // (it unlocked it in the Join gesture and may still be using it for other
+      // STT sessions / the call); closing it here would break them.
+      if (this.ownsCtx) {
+        try {
+          await this.audioCtx.close();
+        } catch {
+          /* ignore */
+        }
       }
       this.audioCtx = null;
     }

@@ -126,6 +126,12 @@ export class DailyAudio {
   /** Persistent silent element played inside the Join gesture to unlock audio
    *  autoplay for a no-mic listener (06-18). */
   private audioUnlockEl: HTMLAudioElement | null = null;
+  /** AudioContext created + resumed INSIDE the Join click gesture so it is
+   *  guaranteed "running" on iOS/iPadOS Safari (a context created later in a
+   *  React effect can't be resumed — no user activation in scope — and stays
+   *  SUSPENDED, which silently starved the STT worklet of audio). STTSession
+   *  reuses this via getCaptureContext() instead of newing its own (06-18). */
+  private captureCtx: AudioContext | null = null;
 
   constructor(opts: {
     roomId: string;
@@ -259,9 +265,14 @@ export class DailyAudio {
       this.releaseMic();
       return;
     }
-    // If muted was toggled before join finished, honour it.
-    if (this.muted && micTrack) {
-      call.setLocalAudio(false);
+    // PUBLISH the mic. The Daily room is created with `start_audio_off: true`
+    // (worker room-create), so passing audioSource at join does NOT auto-publish
+    // — without an explicit setLocalAudio the track never reaches the SFU and
+    // NOBODY hears this participant (06-18: this was why an iPad speaker was
+    // silent on every peer; desktop only "recovered" by toggling mute). Publish
+    // unless the user pre-muted before join finished.
+    if (micTrack) {
+      call.setLocalAudio(!this.muted);
     }
     this.emitState();
   }
@@ -293,6 +304,10 @@ export class DailyAudio {
     if (this.analyserCtx) {
       this.analyserCtx.close().catch(() => undefined);
       this.analyserCtx = null;
+    }
+    if (this.captureCtx) {
+      this.captureCtx.close().catch(() => undefined);
+      this.captureCtx = null;
     }
     const call = this.call;
     this.call = null;
@@ -850,6 +865,25 @@ export class DailyAudio {
     } catch {
       // ignore
     }
+    // Create + resume the STT capture context HERE, inside the Join gesture, so
+    // iOS Safari keeps it running. STTSession (which starts later, in a React
+    // effect with no user activation) reuses it via getCaptureContext() — a
+    // context it created itself would stay SUSPENDED and produce no PCM.
+    try {
+      if (!this.captureCtx) {
+        this.captureCtx = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+      }
+      void this.captureCtx.resume();
+    } catch {
+      // ignore — STT falls back to its own context if this is unavailable
+    }
+  }
+
+  /** The Join-gesture-unlocked AudioContext for STT capture (see captureCtx).
+   *  null until the user has joined audio. */
+  getCaptureContext(): AudioContext | null {
+    return this.captureCtx;
   }
 
   private playPeerAudio(peer: RemotePeer) {

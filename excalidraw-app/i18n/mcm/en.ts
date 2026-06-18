@@ -1125,6 +1125,9 @@ export const en: Widened<typeof vi> = {
     providerTitle: "Pick the speech-to-text model to test accuracy",
     providerLabel: "STT model",
     providerSoon: "to be added soon",
+    spokenLangLabel: "Language I speak",
+    spokenLangTitle:
+      "Language Deepgram transcribes YOUR mic in — independent of the app language",
     sttOn: "STT: on",
     sttOff: "STT: off",
     sttToggleOnTitle: "Turn off speech recognition",

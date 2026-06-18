@@ -16,7 +16,16 @@
 
 import { atom } from "../app-jotai";
 
-export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
+import { preferredLanguageAtom } from "./translation";
+
+import type { STTLang } from "../audio/sttSession";
+
+export type { STTLang };
+
+/** Languages the LOCAL user can pick as the one they SPEAK — i.e. what
+ *  Deepgram transcribes their mic in. Restricted to the nova-3
+ *  monolingual languages this app supports (subset of STTLang). */
+export const SPOKEN_LANGUAGES: STTLang[] = ["en", "ko", "vi"];
 
 export type TranscriptSegment = {
   id: string;
@@ -41,6 +50,7 @@ export type InterimEntry = {
 
 const STT_ENABLED_LS_KEY = "mcm:sttEnabled";
 const STT_TRANSLATE_LS_KEY = "mcm:sttTranslateEnabled";
+const STT_SPOKEN_LANG_LS_KEY = "mcm:sttSpokenLang";
 const TRANSCRIPT_LOG_LS_PREFIX = "mcm:transcript:";
 const SUMMARY_LS_PREFIX = "mcm:summary:";
 
@@ -88,6 +98,47 @@ export const setSttTranslateEnabled = (enabled: boolean): void => {
     window.localStorage.setItem(STT_TRANSLATE_LS_KEY, enabled ? "1" : "0");
   } catch {
     // ignore
+  }
+};
+
+// Read the persisted spoken-language choice. Returns null when nothing is
+// stored (so the atom can fall back to the UI preferred language) or when the
+// stored value is no longer a supported language.
+const readSpokenLang = (): STTLang | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const v = window.localStorage.getItem(STT_SPOKEN_LANG_LS_KEY);
+    return v !== null && (SPOKEN_LANGUAGES as string[]).includes(v)
+      ? (v as STTLang)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
+// Primitive override: null = "not yet chosen", so the derived atom below
+// falls back to the user's current UI preferred language. Seeded from
+// localStorage so a prior choice survives reloads.
+const sttSpokenLangOverrideAtom = atom<STTLang | null>(readSpokenLang());
+
+/** The language Deepgram transcribes the LOCAL user's mic in. INDEPENDENT of
+ *  the app UI language — a user whose UI is English may speak Korean. Reads as
+ *  the UI preferred language until the user explicitly picks one (so behaviour
+ *  is unchanged until they do). The write side updates the in-memory override;
+ *  pair it with `setSttSpokenLanguage` to persist, exactly like the
+ *  `sttEnabledAtom` / `setSttEnabled` pattern above. */
+export const sttSpokenLanguageAtom = atom<STTLang, [STTLang], void>(
+  (get) => get(sttSpokenLangOverrideAtom) ?? get(preferredLanguageAtom),
+  (_get, set, lang) => set(sttSpokenLangOverrideAtom, lang),
+);
+
+export const setSttSpokenLanguage = (lang: STTLang): void => {
+  try {
+    window.localStorage.setItem(STT_SPOKEN_LANG_LS_KEY, lang);
+  } catch {
+    // ignore — best-effort
   }
 };
 

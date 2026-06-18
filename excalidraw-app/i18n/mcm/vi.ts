@@ -1170,6 +1170,9 @@ export const vi = {
     providerTitle: "Chọn model nhận dạng giọng nói để thử độ chính xác",
     providerLabel: "Model STT",
     providerSoon: "sắp có",
+    spokenLangLabel: "Ngôn ngữ tôi nói",
+    spokenLangTitle:
+      "Ngôn ngữ Deepgram dùng để ghi lại lời nói từ MIC của bạn — độc lập với ngôn ngữ giao diện",
     sttOn: "STT: bật",
     sttOff: "STT: tắt",
     sttToggleOnTitle: "Tắt nhận dạng giọng nói",

@@ -568,6 +568,34 @@ const canSeeMeeting = async (
     return false;
   }
   const e = email.toLowerCase();
+  // GUEST identity reconciliation (06-18 bug fix). An external guest authenticates
+  // as a SYNTHETIC login (pg-<hex>@guest.canvasm.app) but a meeting_invitee row
+  // may have been written with their REAL email (EditMeetingForm stores whatever
+  // the inviter typed), or vice-versa. project_guest is the ONLY synthetic↔real
+  // map; resolve the *other* identity for THIS authenticated guest so the invitee
+  // check can match either spelling. Strictly scoped to one row keyed by the
+  // caller's own login/real_email — it can never widen access to anyone else.
+  // No-op for internal/admin (they never have a project_guest row).
+  let altEmail: string | null = null;
+  {
+    const g = await db
+      .prepare(
+        `SELECT lower(login) AS login, lower(real_email) AS real_email
+           FROM project_guest
+          WHERE status <> 'revoked'
+            AND (lower(login) = ?1 OR lower(real_email) = ?1)
+          LIMIT 1`,
+      )
+      .bind(e)
+      .first<{ login: string | null; real_email: string | null }>();
+    if (g) {
+      // Pick the counterpart spelling (whichever didn't match the JWT email).
+      const other = g.login === e ? g.real_email : g.login;
+      if (other && other !== e) {
+        altEmail = other;
+      }
+    }
+  }
   const row = await db
     .prepare(
       `SELECT
@@ -578,7 +606,8 @@ const canSeeMeeting = async (
               AND (lower(organizer_email) = ?2 OR lower(host_email) = ?2))
            AS owner,
          (SELECT 1 FROM meeting_invitee
-            WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked')
+            WHERE meeting_id = ?1 AND status <> 'revoked'
+              AND (email = ?2 OR (?3 IS NOT NULL AND email = ?3)))
            AS invited,
          (SELECT 1 FROM project_member pm
             JOIN meeting m ON m.project_id = pm.project_id
@@ -591,7 +620,7 @@ const canSeeMeeting = async (
               AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2))
            AS authority`,
     )
-    .bind(roomId, e)
+    .bind(roomId, e, altEmail)
     .first<{
       registered: number | null;
       conf: string | null;

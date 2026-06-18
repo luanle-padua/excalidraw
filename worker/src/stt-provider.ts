@@ -264,16 +264,25 @@ const buildDeepgramUrl = (lang: string, model: string): string => {
     channels: "1",
     interim_results: "true",
     smart_format: "true",
-    numerals: "true",
+    // NOTE: `numerals` was REMOVED (06-18). It has spotty per-model/-language
+    // support (Deepgram lists it only for a few monolingual models) and nova-3
+    // streaming returns a generic HTTP 400 "Bad Request" when it (or a keyterm
+    // in the wrong language — see below) is present. `smart_format` already
+    // converts spoken numbers to digits, so nothing is lost.
     endpointing: String(tuning.endpointing),
     utterance_end_ms: String(tuning.utteranceEnd),
     vad_events: "true",
   });
   // Nova-3 keyterm prompting uses the SINGULAR param `keyterm` (one per term).
-  // `keyterms`/`keywords` are NOT recognized on nova-3 streaming → Deepgram
-  // silently ignores them, so the whole BIM/Korean vocab boost would no-op.
-  for (const term of DEEPGRAM_KEYTERMS) {
-    params.append("keyterm", term);
+  // CRITICAL (06-18): the keyterms are KOREAN BIM vocab; sending them with a
+  // NON-Korean `language` (e.g. en/vi) makes Deepgram reject the whole upgrade
+  // with HTTP 400 — which broke STT for every English/Vietnamese speaker. Only
+  // attach them when transcribing Korean, where they match the language and
+  // actually boost recognition. (en/vi lose only the boost, not transcription.)
+  if (lang === "ko") {
+    for (const term of DEEPGRAM_KEYTERMS) {
+      params.append("keyterm", term);
+    }
   }
   // Cloudflare Workers' fetch()-based WebSocket upgrade requires an http(s)
   // scheme, NOT ws(s) (CF treats the request as HTTP and upgrades it). This was

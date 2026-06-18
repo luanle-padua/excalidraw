@@ -14,8 +14,11 @@ import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
 import { getDailyToken } from "../data/projects";
 import { sttProviderAtom } from "../data/sttProviders";
-import { sttEnabledAtom, sttLiveErrorAtom } from "../data/transcription";
-import { preferredLanguageAtom } from "../data/translation";
+import {
+  sttEnabledAtom,
+  sttLiveErrorAtom,
+  sttSpokenLanguageAtom,
+} from "../data/transcription";
 
 import { DailyAudio } from "./DailyAudio";
 import {
@@ -37,7 +40,10 @@ export const AudioRoomController = () => {
   const audioState = useAtomValue(audioStateAtom);
   const sttEnabled = useAtomValue(sttEnabledAtom);
   const sttProvider = useAtomValue(sttProviderAtom);
-  const preferredLang = useAtomValue(preferredLanguageAtom);
+  // Language the local user SPEAKS — drives Deepgram capture, independent of
+  // the app UI language. Defaults to the UI preferred language until the user
+  // picks one in the STT panel.
+  const spokenLang = useAtomValue(sttSpokenLanguageAtom);
   const setAudioState = useSetAtom(audioStateAtom);
   const setAudioRoomInstance = useSetAtom(audioRoomInstanceAtom);
   const setRecordingState = useSetAtom(recordingStateAtom);
@@ -259,13 +265,17 @@ export const AudioRoomController = () => {
       return;
     }
 
-    const lang: STTLang = (preferredLang ?? "multi") as STTLang;
+    const lang: STTLang = (spokenLang ?? "multi") as STTLang;
     // A fresh session is starting — clear any stale error from a prior attempt.
     setSttLiveError(null);
     const session = new STTSession({
       lang,
       meetingId: collabAPI?.portal.roomId ?? undefined,
       provider: sttProvider,
+      // Reuse the AudioContext DailyAudio unlocked in the Join gesture — on iOS
+      // a context created here (no user activation) stays SUSPENDED and the
+      // worklet emits no PCM, so Deepgram gets silence (06-18).
+      audioCtx: roomRef.current?.getCaptureContext() ?? undefined,
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);
         // First successful interim proves capture→Deepgram is flowing — drop
@@ -297,7 +307,7 @@ export const AudioRoomController = () => {
     audioState.canTransmit,
     sttEnabled,
     sttProvider,
-    preferredLang,
+    spokenLang,
     collabAPI,
   ]);
 

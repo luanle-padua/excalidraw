@@ -2,7 +2,6 @@ import { ArrowLeft, Briefcase, Pencil, Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
-import { listClients, type Client } from "../../data/clients";
 import {
   getDirectory,
   inviteToMeeting,
@@ -10,6 +9,7 @@ import {
   revokeInvitee,
   type DirectoryUser,
 } from "../../data/invite";
+import { listProjectGuests, type ProjectGuest } from "../../data/projectGuests";
 import { getMeeting, updateMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
@@ -83,10 +83,12 @@ export const EditMeetingForm = ({
   const [origCohost, setOrigCohost] = useState("");
 
   const [dir, setDir] = useState<DirectoryUser[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  // PROJECT-SCOPED guests of THIS meeting's project — the invitable external
+  // contacts, invited by their synthetic `login` (their JWT identity, what
+  // `meeting_invitee`/`canSeeMeeting` match on), never their real_email.
+  const [guests, setGuests] = useState<ProjectGuest[]>([]);
   const [q, setQ] = useState("");
-  const [clientQ, setClientQ] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [guestQ, setGuestQ] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selected, setSelected] = useState<Map<string, Selected>>(new Map());
   /** Emails invited BEFORE this edit session — the diff base for save. */
@@ -97,17 +99,24 @@ export const EditMeetingForm = ({
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const [m, invitees, directory, clientList] = await Promise.all([
+      const [m, invitees, directory] = await Promise.all([
         getMeeting(roomId),
         listInvitees(roomId),
         getDirectory(),
-        listClients(),
       ]);
       if (!alive) {
         return;
       }
+      // Guests are PER-PROJECT — list THIS meeting's project's issued guests so
+      // the picker (and invitee name resolution) matches what canSeeMeeting checks.
+      const guestList = m?.project_id
+        ? await listProjectGuests(m.project_id)
+        : [];
+      if (!alive) {
+        return;
+      }
       setDir(directory);
-      setClients(clientList);
+      setGuests(guestList);
       if (m) {
         setStatus(m.status);
         setTitle(m.title ?? "");
@@ -142,15 +151,15 @@ export const EditMeetingForm = ({
       const next = new Map<string, Selected>();
       for (const iv of active) {
         const u = directory.find((x) => x.email === iv.email);
-        const cl = clientList.find((x) => x.email?.toLowerCase() === iv.email);
+        const g = guestList.find((x) => x.login.toLowerCase() === iv.email);
         next.set(iv.email, {
           email: iv.email,
           name:
             u?.name ??
-            (cl
-              ? cl.company
-                ? `${cl.name} · ${cl.company}`
-                : cl.name
+            (g
+              ? g.company
+                ? `${g.label ?? g.login} · ${g.company}`
+                : g.label ?? g.login
               : iv.email),
           kind: iv.kind === "internal" ? "internal" : "guest",
         });
@@ -173,19 +182,27 @@ export const EditMeetingForm = ({
   // mid-`live` you can still fix the agenda and invite people, not the clock.
   const canEditSchedule = normalized === "scheduled";
 
-  const clientMatches = useMemo(() => {
-    const n = clientQ.trim().toLowerCase();
-    return clients
-      .filter((c) => c.email && !selected.has(c.email.toLowerCase()))
+  // Friendly display name for a guest: representative label + company.
+  const guestName = (g: ProjectGuest) =>
+    g.company ? `${g.label ?? g.login} · ${g.company}` : g.label ?? g.login;
+
+  // Active project guests not already picked, filtered by the search — invite
+  // straight from the project's issued guests (matched on their login).
+  const guestMatches = useMemo(() => {
+    const n = guestQ.trim().toLowerCase();
+    return guests
       .filter(
-        (c) =>
+        (g) => g.status === "active" && !selected.has(g.login.toLowerCase()),
+      )
+      .filter(
+        (g) =>
           !n ||
-          c.name.toLowerCase().includes(n) ||
-          (c.company ?? "").toLowerCase().includes(n) ||
-          (c.email ?? "").toLowerCase().includes(n),
+          (g.label ?? "").toLowerCase().includes(n) ||
+          (g.company ?? "").toLowerCase().includes(n) ||
+          (g.real_email ?? "").toLowerCase().includes(n),
       )
       .slice(0, 30);
-  }, [clients, clientQ, selected]);
+  }, [guests, guestQ, selected]);
 
   const filtered = useMemo(() => {
     const norm = (s: string) =>
@@ -244,14 +261,10 @@ export const EditMeetingForm = ({
       n.delete(email);
       return n;
     });
-  const addClient = () => {
-    const e = clientEmail.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || selected.has(e)) {
-      return;
-    }
-    add({ email: e, name: e, kind: "guest" });
-    setClientEmail("");
-  };
+  // Add a project guest to the invite list BY THEIR LOGIN (the JWT identity
+  // `meeting_invitee`/`canSeeMeeting` match on), with a friendly display name.
+  const addGuest = (g: ProjectGuest) =>
+    add({ email: g.login.toLowerCase(), name: guestName(g), kind: "guest" });
 
   const save = async () => {
     if (!title.trim() || saving) {
@@ -540,15 +553,15 @@ export const EditMeetingForm = ({
                 s.kind === "internal"
                   ? dir.find((x) => x.email === s.email)
                   : undefined;
-              const cl =
+              const g =
                 s.kind === "guest"
-                  ? clients.find((x) => x.email?.toLowerCase() === s.email)
+                  ? guests.find((x) => x.login.toLowerCase() === s.email)
                   : undefined;
               return {
                 email: s.email,
-                name: u?.name ?? cl?.name ?? s.name,
+                name: u?.name ?? g?.label ?? s.name,
                 title: u?.title ?? null,
-                group: u?.division ?? cl?.company ?? null,
+                group: u?.division ?? g?.company ?? null,
                 kind: s.kind,
                 avatar: u?.avatar ?? null,
               };
@@ -588,61 +601,38 @@ export const EditMeetingForm = ({
             )}
           </ul>
 
+          {/* PROJECT guests — issued per project in the guest manager, invited
+              here BY LOGIN (their JWT identity). No free-typed email box: a
+              guest must be issued first, so invites always resolve to a real
+              project-scoped identity (strict per-department confidentiality). */}
           <label className="mcm-invite__label">
             <Briefcase size={13} style={{ verticalAlign: "-2px" }} />{" "}
-            {t("clients.pickFromList")}
+            {t("projGuest.pickFromList")}
           </label>
           <div className="mcm-invite__search">
             <Search size={14} />
             <input
-              value={clientQ}
-              onChange={(e) => setClientQ(e.target.value)}
-              placeholder={t("clients.pickSearch")}
+              value={guestQ}
+              onChange={(e) => setGuestQ(e.target.value)}
+              placeholder={t("projGuest.pickSearch")}
             />
           </div>
           <ul className="mcm-invite__list">
-            {clientMatches.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    add({
-                      email: c.email!.toLowerCase(),
-                      name: c.company ? `${c.name} · ${c.company}` : c.name,
-                      kind: "guest",
-                    })
-                  }
-                >
-                  <strong>{c.name}</strong>
+            {guestMatches.map((g) => (
+              <li key={g.id}>
+                <button type="button" onClick={() => addGuest(g)}>
+                  <strong>{g.label ?? g.login}</strong>
                   <span>
-                    {[c.company, c.email].filter(Boolean).join(" · ") ||
-                      c.email}
+                    {[g.company, g.real_email].filter(Boolean).join(" · ") ||
+                      g.login}
                   </span>
                 </button>
               </li>
             ))}
-            {clientMatches.length === 0 && (
-              <li className="mcm-invite__empty">{t("clients.pickEmpty")}</li>
+            {guestMatches.length === 0 && (
+              <li className="mcm-invite__empty">{t("projGuest.pickEmpty")}</li>
             )}
           </ul>
-
-          <label className="mcm-invite__label">{t("invite.client")}</label>
-          <div className="mcm-invite__client">
-            <input
-              type="email"
-              value={clientEmail}
-              onChange={(e) => setClientEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addClient()}
-              placeholder={t("invite.clientPlaceholder")}
-            />
-            <button
-              type="button"
-              className="mcm-btn mcm-btn--primary mcm-btn--sm"
-              onClick={addClient}
-            >
-              {t("invite.add")}
-            </button>
-          </div>
 
           {hasNewInternal && (
             <label className="mcm-invite__check">

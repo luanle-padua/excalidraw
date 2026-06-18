@@ -27,11 +27,14 @@ import {
   sttProviderAtom,
 } from "../../data/sttProviders";
 import {
+  SPOKEN_LANGUAGES,
   liveTranscriptsAtom,
   setSttEnabled,
+  setSttSpokenLanguage,
   setSttTranslateEnabled,
   sttEnabledAtom,
   sttLiveErrorAtom,
+  sttSpokenLanguageAtom,
   sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
@@ -96,6 +99,18 @@ const colorFor = (key: string): string => {
     h = (h * 31 + key.charCodeAt(i)) | 0;
   }
   return PALETTE[Math.abs(h) % PALETTE.length][0];
+};
+
+// Native display names for the "language I speak" options. These are the
+// languages themselves, so they're shown in their own script regardless of the
+// app UI language (an English-UI user picking Korean still sees "한국어").
+const SPOKEN_LANG_NAMES: Record<STTLang, string> = {
+  en: "English",
+  ko: "한국어",
+  vi: "Tiếng Việt",
+  ja: "日本語",
+  zh: "中文",
+  multi: "multi",
 };
 
 const formatClockTime = (ts: number): string => {
@@ -229,6 +244,11 @@ export const SpeechToTextPanel = () => {
   // Per-session STT provider for A/B testing. Default deepgram. Persisted per
   // device; AudioRoomController restarts the live mic session on change.
   const [sttProvider, setSttProviderState] = useAtom(sttProviderAtom);
+  // Language the LOCAL user speaks — drives what Deepgram transcribes their mic
+  // in, independent of the app UI language. Defaults to the UI preferred
+  // language until the user picks one; AudioRoomController restarts the live
+  // session on change.
+  const [spokenLang, setSpokenLangState] = useAtom(sttSpokenLanguageAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const log = useAtomValue(transcriptionLogAtom);
   const interims = useAtomValue(liveTranscriptsAtom);
@@ -833,6 +853,35 @@ export const SpeechToTextPanel = () => {
             <span className="mcm-stt__provider-price">
               {fmtPerMinute(providerMeta(sttProvider).usdPerMinute)}
             </span>
+          </label>
+        )}
+
+        {/* Language the LOCAL user speaks. Independent of the app UI language:
+            Deepgram transcribes the mic in THIS language. Changing it restarts
+            the live STT session (AudioRoomController deps on the atom). */}
+        {!viewOnly && (
+          <label
+            className="mcm-stt__provider"
+            title={t("stt.spokenLangTitle")}
+          >
+            <span className="mcm-stt__provider-label">
+              {t("stt.spokenLangLabel")}
+            </span>
+            <select
+              className="mcm-stt__provider-select"
+              value={spokenLang}
+              onChange={(e) => {
+                const next = e.target.value as STTLang;
+                setSpokenLangState(next);
+                setSttSpokenLanguage(next);
+              }}
+            >
+              {SPOKEN_LANGUAGES.map((lng) => (
+                <option key={lng} value={lng}>
+                  {SPOKEN_LANG_NAMES[lng]}
+                </option>
+              ))}
+            </select>
           </label>
         )}
 
