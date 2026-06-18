@@ -157,38 +157,42 @@ export const MeetingLobby = () => {
     void collabAPI.startCollaboration(room);
   }, [authReady, session, collabAPI, isCollaborating, startGate]);
 
-  // Still resolving the Supabase session. Render a full-screen branded SPLASH
-  // (not null) — this overlay sits on top of the always-mounted Excalidraw
-  // editor, so returning null briefly reveals the bare canvas + Excalidraw
-  // welcome screen, which reads as a "demo" flash before login/dashboard
-  // resolves (06-18). The splash covers it; it's neutral (just the wordmark),
-  // so it doesn't flash the login form at an already-authenticated user either.
-  if (!authReady) {
-    return (
-      <div
-        className="mcm-boot-splash"
-        aria-hidden="true"
+  // Full-screen branded SPLASH that sits on top of the always-mounted Excalidraw
+  // editor. Returning `null` from this overlay briefly reveals the bare canvas +
+  // Excalidraw welcome screen, which reads as a "demo/test app" flash before the
+  // login/dashboard resolves (06-18). Neutral (just the wordmark) so it doesn't
+  // flash the login form at an already-authenticated user either. Shown for BOTH
+  // boot gaps: (1) Supabase session still resolving (!authReady), AND (2) an
+  // authenticated user whose collabAPI hasn't initialized yet (Collab mounts a
+  // few commits after first paint → MeetingLobby would otherwise return null and
+  // expose the editor in between).
+  const bootSplash = (
+    <div
+      className="mcm-boot-splash"
+      aria-hidden="true"
+      // eslint-disable-next-line react/forbid-dom-props
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background:
+          "radial-gradient(120% 120% at 50% 30%, #1b2230 0%, #0b0e14 70%)",
+      }}
+    >
+      <img
+        src="/canvas-m.png"
+        alt=""
+        decoding="async"
         // eslint-disable-next-line react/forbid-dom-props
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 1000,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background:
-            "radial-gradient(120% 120% at 50% 30%, #1b2230 0%, #0b0e14 70%)",
-        }}
-      >
-        <img
-          src="/canvas-m.png"
-          alt=""
-          decoding="async"
-          // eslint-disable-next-line react/forbid-dom-props
-          style={{ width: 168, maxWidth: "40vw", opacity: 0.92 }}
-        />
-      </div>
-    );
+        style={{ width: 168, maxWidth: "40vw", opacity: 0.92 }}
+      />
+    </div>
+  );
+  if (!authReady) {
+    return bootSplash;
   }
 
   // LOGIN REQUIRED FOR EVERYONE — including invite-link joiners (the #room hash
@@ -222,8 +226,16 @@ export const MeetingLobby = () => {
   // from a link, gone solo, or before collab is ready. Live (NOT memoized) hash
   // check so leaving a meeting re-shows the home.
   const hasRoomInUrl = /#room=[a-zA-Z0-9_-]+,/.test(window.location.hash);
-  if (isCollaborating || hasRoomInUrl || startGate || dismissed || !collabAPI) {
+  // Intentional editor reveal (in a meeting / auto-joining / went solo): null so
+  // the canvas shows through.
+  if (isCollaborating || hasRoomInUrl || startGate || dismissed) {
     return null;
+  }
+  // collabAPI not initialized yet (Collab mounts a few commits after first paint).
+  // Show the splash — NOT null — so the bare editor doesn't flash before the
+  // dashboard can render (06-18 boot-flash, second gap).
+  if (!collabAPI) {
+    return bootSplash;
   }
 
   // External project-scoped guest: a stripped-down "guest lobby" — NEVER the

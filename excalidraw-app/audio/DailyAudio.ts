@@ -148,11 +148,20 @@ export class DailyAudio {
     }
 
     // 2) Token for the audio room — tag it with our socket.id (Daily user_id)
-    //    so peers can map us back to the collab identity.
+    //    so peers can map us back to the collab identity. WAIT for the socket.id
+    //    first: on a slow network the user can click "Join audio" before the DO's
+    //    init-room WS frame assigns it, and minting with an empty uid makes Daily
+    //    assign a RANDOM user_id → peers can't map our camera/audio to the collab
+    //    identity, so our video renders as an avatar on their side (06-18 race).
+    const socketId = await this.waitForSocketId();
+    if (!this.active) {
+      this.releaseMic();
+      return;
+    }
     const cfg = await this.getToken(
       this.roomId,
       this.userName,
-      this.getSocketId() ?? undefined,
+      socketId ?? undefined,
     );
     if (!this.active) {
       // stopped while awaiting
@@ -183,7 +192,9 @@ export class DailyAudio {
     });
     this.call = call;
     try {
-      call.setUserData({ socketId: this.getSocketId() ?? "" });
+      // Use the resolved socketId (same one baked into the token) so the
+      // userData fallback identity matches user_id, not an empty/stale value.
+      call.setUserData({ socketId: socketId ?? "" });
     } catch (err) {
       warn("setUserData failed", err);
     }
@@ -458,6 +469,21 @@ export class DailyAudio {
       }
     }
     this.events.onVideoRemoved?.(socketId);
+  }
+
+  /** Wait until the DO has minted our socket.id (delivered in the init-room WS
+   *  frame) so the Daily token can bake it as user_id. Polls getSocketId() up to
+   *  timeoutMs; if it never lands (e.g. WS still down) we proceed with null
+   *  rather than blocking the call forever — degraded (peers see an avatar) but
+   *  not stuck. Closes the slow-network join race (06-18). */
+  private async waitForSocketId(timeoutMs = 6000): Promise<string | null> {
+    const deadline = Date.now() + timeoutMs;
+    let id = this.getSocketId();
+    while (!id && this.active && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      id = this.getSocketId();
+    }
+    return id;
   }
 
   private socketIdOf(p: DailyParticipant | null | undefined): string | null {
