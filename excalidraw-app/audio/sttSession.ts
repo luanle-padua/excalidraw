@@ -108,6 +108,9 @@ export class STTSession {
   /** true when WE created the AudioContext (so stop() must close it); false when
    *  it was handed in (DailyAudio owns + closes it). */
   private ownsCtx = false;
+  /** Independent clones of the mic track that STT taps (iOS can't tap the live
+   *  Daily-owned track); stopped on teardown so the extra capture is released. */
+  private clonedTracks: MediaStreamTrack[] = [];
   /** true while we're holding the AI-in-use indicator up for this STT
    *  session — so begin/end stay balanced even on an error/double-stop. */
   private aiActive = false;
@@ -234,7 +237,21 @@ export class STTSession {
       }
     }
 
-    this.sourceNode = this.audioCtx.createMediaStreamSource(stream);
+    // Tap an INDEPENDENT clone of the mic track, not the live stream itself.
+    // On iOS/iPadOS Safari a track already being sent by Daily's PeerConnection
+    // delivers SILENCE to a second MediaStreamAudioSourceNode — so STT got no
+    // audio even with a running context (06-18). clone() gives STT its own tap
+    // off the same mic source; we stop the clones in stop().
+    const micTracks = stream.getAudioTracks();
+    if (micTracks.length > 0) {
+      this.clonedTracks = micTracks.map((tr) => tr.clone());
+      const sttStream = new MediaStream(this.clonedTracks);
+      this.sourceNode = this.audioCtx.createMediaStreamSource(sttStream);
+    } else {
+      // No audio track (shouldn't happen — STT only starts with a mic) — fall
+      // back to the raw stream rather than crashing.
+      this.sourceNode = this.audioCtx.createMediaStreamSource(stream);
+    }
     this.workletNode = new AudioWorkletNode(this.audioCtx, "stt-downsampler");
 
     this.workletNode.port.onmessage = (e: MessageEvent<ArrayBuffer>) => {
@@ -285,6 +302,15 @@ export class STTSession {
       }
       this.sourceNode = null;
     }
+    // Release the cloned mic track(s) STT was tapping.
+    for (const tr of this.clonedTracks) {
+      try {
+        tr.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.clonedTracks = [];
     if (this.workletNode) {
       try {
         this.workletNode.port.onmessage = null;

@@ -80,21 +80,36 @@ export const ClientPortal = ({ session }: { session: Session }) => {
     setBusy(true);
     try {
       const meeting = await getMeeting(m.id);
-      if (!meeting?.room_key) {
+      if (!meeting) {
         showAppToast(t("errors.openMeetingFailed"));
         return;
       }
       const finished = isFinishedStatus(meeting.status);
+      // The server WITHHOLDS room_key from an external guest until a host admits
+      // them (waiting-room). A null key on a LIVE meeting is NOT a failure — we
+      // must still enter startCollaboration so the guest is parked in the lobby
+      // to knock; WaitingRoom re-fetches the real key after admission (06-18
+      // deadlock fix). Only a missing key on a non-live meeting is fatal (review
+      // has no knock flow to recover it).
+      const roomKey = meeting.room_key ?? "";
+      if (!roomKey && finished) {
+        showAppToast(t("errors.openMeetingFailed"));
+        return;
+      }
       if (collabAPI.isCollaborating()) {
         collabAPI.stopCollaboration(false);
       }
-      window.history.pushState(
-        {},
-        "",
-        getCollaborationLink({ roomId: m.id, roomKey: meeting.room_key }),
-      );
+      // Only canonicalise the URL once we actually hold a key (an empty key in
+      // the link would be a broken deep-link). After admission WaitingRoom sets it.
+      if (roomKey) {
+        window.history.pushState(
+          {},
+          "",
+          getCollaborationLink({ roomId: m.id, roomKey }),
+        );
+      }
       await collabAPI.startCollaboration(
-        { roomId: m.id, roomKey: meeting.room_key },
+        { roomId: m.id, roomKey },
         { viewOnly: finished },
       );
     } finally {

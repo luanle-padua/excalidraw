@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useAtom, useAtomValue } from "../../app-jotai";
 import { collabAPIAtom, waitingRoomAtom } from "../../collab/Collab";
+import { getCollaborationLink } from "../../data";
 import { getMyKnock, knockToMeeting } from "../../data/invite";
 import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
@@ -61,8 +62,22 @@ export const WaitingRoom = () => {
           setWaiting(null);
           return;
         }
-        const { roomId, roomKey } = waiting;
+        // Use the room_key from THIS fresh getMeeting — now that we're admitted
+        // the server returns the real key (it was withheld/null while we waited,
+        // which is why a portal-join guest parked here with an empty key). Fall
+        // back to the parked key for the deep-link path that already had one.
+        const roomId = waiting.roomId;
+        const roomKey = m?.room_key || waiting.roomKey;
         setWaiting(null);
+        // Canonicalise the URL now that we hold the key (the portal-join path
+        // skipped this because it had no key yet) so a reload re-enters cleanly.
+        if (roomKey) {
+          window.history.pushState(
+            {},
+            "",
+            getCollaborationLink({ roomId, roomKey }),
+          );
+        }
         await collabAPI.startCollaboration({ roomId, roomKey });
       } else if (knock?.status === "denied") {
         setWaiting({ ...waiting, status: "denied" });
