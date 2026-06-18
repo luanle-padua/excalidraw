@@ -178,6 +178,11 @@ export const vi = {
     close: "Đóng",
     you: "Bạn",
     host: "Chủ trì",
+    // Grid ↔ Speaker sub-mode bên trong gallery
+    subGrid: "Lưới",
+    subSpeaker: "Diễn giả",
+    unpin: "Bỏ ghim",
+    pinHint: "Bấm để ghim làm tiêu điểm",
   },
   // ---------------- Video layout switcher --------------------------
   // Chọn bố cục video: strip gọn / dải phim đáy / dạng lưới toàn màn hình.
@@ -186,6 +191,11 @@ export const vi = {
     modeMinimal: "Gọn",
     modeFilmstrip: "Dải phim",
     modeGallery: "Dạng lưới",
+    // Floating presenter PiP (overlay nổi trên canvas)
+    floating: "Cửa sổ diễn giả nổi",
+    floatingRestore: "Mở lại cửa sổ diễn giả",
+    floatingMinimise: "Thu nhỏ",
+    floatingHide: "Ẩn",
   },
   // ---------------- Calendar ---------------------------------------
   cal: {

@@ -25,12 +25,22 @@ import type { Tile } from "./ParticipantsBar";
 
 import "./VideoFilmstrip.scss";
 
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+
 export const VideoFilmstrip = ({
   tiles,
   selfSocketId,
+  focusedSocketId,
+  onPick,
 }: {
   tiles: Tile[];
   selfSocketId: string;
+  /** The ONE shared focused person (pin > screenshare > active-speaker > host >
+   *  first), resolved in ParticipantsBar — ringed here so the filmstrip, the
+   *  gallery-speaker stage and the floating PiP all agree on the presenter. */
+  focusedSocketId?: string | null;
+  /** Click a tile to toggle the local pin (promote to focus). */
+  onPick?: (id: string) => void;
 }) => {
   const t = useT();
   // Contract with the Daily-perf lane: the socketId of the current active
@@ -54,13 +64,31 @@ export const VideoFilmstrip = ({
       <div className="mcm-filmstrip__rail">
         {tiles.map((tile) => {
           const isSpeaking = tile.id === activeSpeaker;
+          const isFocused = tile.id === focusedSocketId;
+          const clickable = !!onPick;
           return (
             <div
               key={tile.id}
               className={`mcm-filmstrip__tile${
                 isSpeaking ? " mcm-filmstrip__tile--speaking" : ""
+              }${isFocused ? " mcm-filmstrip__tile--focused" : ""}${
+                clickable ? " mcm-filmstrip__tile--clickable" : ""
               }`}
               title={tile.name}
+              data-socket-id={tile.id}
+              {...(clickable
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    onClick: () => onPick(tile.id),
+                    onKeyDown: (e: ReactKeyboardEvent) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onPick(tile.id);
+                      }
+                    },
+                  }
+                : {})}
             >
               {tile.videoStream ? (
                 <TileVideo

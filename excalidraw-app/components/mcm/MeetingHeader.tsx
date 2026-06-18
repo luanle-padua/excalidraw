@@ -44,6 +44,7 @@ import { useT } from "../../i18n/mcm";
 
 import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
+import { LayoutSwitcher } from "./LayoutSwitcher";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
 import { canManageMeeting, isEditableMeetingStatus } from "./meetingStatus";
@@ -490,6 +491,11 @@ export const MeetingHeader = ({
             <span className="mcm-header__btn-count">{log.length}</span>
           )}
         </button>
+        {/* Video-surface switcher (minimal / filmstrip / gallery + floating
+            presenter toggle). Moved here from the participant strip — layout
+            choice sits naturally next to the Present / Transcript view
+            controls. Drives videoLayoutAtom (keeping galleryOpenAtom in sync). */}
+        <LayoutSwitcher />
         {/* No "share room link" affordance at all (anh Luân 06-16: "không
             share bằng link nữa vì bảo mật"). Access is by explicit invite only
             — login + a meeting_invitee row — never by spreading a room URL. */}

@@ -35,25 +35,12 @@ body.mcm-has-filmstrip {
   }
 }
 
-// FILMSTRIP-MODE FOOTER: the people-bar collapses to JUST the layout switcher.
-// Reset its full 100px box (it would otherwise stay pinned at bottom:0 inside
-// the rail band and collide with the right-most tile) and float it as a small
-// auto-sized control in the same 16px lane the call-controls sit in — bottom
-// is `--mcm-bar-clearance` so it tracks the rail height automatically.
+// FILMSTRIP-MODE FOOTER: the rail IS the participant display, and the layout
+// switcher now lives in the header — so the people-bar has nothing left to show
+// and is hidden entirely (it would otherwise sit as an empty box pinned inside
+// the rail band).
 .mcm-people-bar--filmstrip {
-  z-index: 51;
-  left: auto;
-  right: 12px;
-  bottom: var(--mcm-bar-clearance);
-  height: auto;
-  width: auto;
-  padding: 0;
-  gap: 0;
-
-  .mcm-people-bar__chip,
-  .mcm-people-bar__list {
-    display: none;
-  }
+  display: none;
 }
 
 .mcm-filmstrip {
@@ -120,6 +107,23 @@ body.mcm-has-filmstrip {
     &--speaking {
       border-color: transparent;
       box-shadow: 0 0 0 2px #34d399, 0 0 16px rgba(52, 211, 153, 0.45);
+    }
+
+    // INDIGO RING on the resolved focus (pin / screenshare / active-speaker).
+    // The green speaker ring wins when both apply (declared after, same prop).
+    &--focused:not(&--speaking) {
+      border-color: transparent;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.9),
+        0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    &--clickable {
+      cursor: pointer;
+
+      &:focus-visible {
+        outline: 2px solid #6366f1;
+        outline-offset: 2px;
+      }
     }
   }
 

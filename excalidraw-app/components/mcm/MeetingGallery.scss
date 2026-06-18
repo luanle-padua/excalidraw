@@ -1,82 +1,68 @@
-// Toggle button that lives at the end of the participant strip.
-.mcm-people-bar__gallery-btn {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin-left: 6px;
-  border-radius: 12px;
-  border: 1px solid rgba(128, 128, 128, 0.25);
-  background: rgba(128, 128, 128, 0.12);
-  color: inherit;
-  cursor: pointer;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: rgba(128, 128, 128, 0.24);
-  }
-}
-
-// View switcher popover anchored above the layout button at the end of the
-// participant strip. Picks the video surface (minimal / filmstrip / gallery).
-.mcm-people-bar__layout {
+// Video-surface switcher popover — now lives in the HEADER actions cluster
+// (the trigger reuses .mcm-header__icon-btn). The menu drops DOWN from the
+// header (anchored to the trigger's top-right) and picks the video surface
+// (minimal / filmstrip / gallery) + the floating-presenter toggle.
+.mcm-layout-switcher {
   position: relative;
-  flex: 0 0 auto;
   display: inline-flex;
-}
 
-.mcm-people-bar__layout-menu {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  right: 0;
-  min-width: 188px;
-  padding: 6px;
-  border-radius: 14px;
-  background: rgba(20, 24, 32, 0.97);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  z-index: 61;
-}
+  &__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 196px;
+    padding: 6px;
+    border-radius: 14px;
+    background: rgba(20, 24, 32, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 61;
+  }
 
-.mcm-people-bar__layout-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: #e8eaf0;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s ease;
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #e8eaf0;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s ease;
 
-  &:hover {
+    &:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    &--active {
+      background: rgba(52, 211, 153, 0.14);
+    }
+  }
+
+  &__label {
+    flex: 1 1 auto;
+  }
+
+  &__check {
+    flex: 0 0 auto;
+    color: #34d399;
+  }
+
+  &__sep {
+    height: 1px;
+    margin: 4px 2px;
     background: rgba(255, 255, 255, 0.08);
   }
-
-  &--active {
-    background: rgba(52, 211, 153, 0.14);
-  }
-}
-
-.mcm-people-bar__layout-label {
-  flex: 1 1 auto;
-}
-
-.mcm-people-bar__layout-check {
-  flex: 0 0 auto;
-  color: #34d399;
 }
 
 // Full-screen participant gallery (grid of cameras). Dark, glassy, Glass-Desk
@@ -211,5 +197,124 @@
     background: rgba(239, 68, 68, 0.9);
     font-size: 10px;
     line-height: 1;
+  }
+
+  // ---- Grid ↔ Speaker sub-mode segmented control (in the bar) ----
+  &__submode {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  &__submode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 8px;
+    padding: 5px 11px;
+    background: transparent;
+    color: rgba(232, 234, 240, 0.7);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+
+    &:hover {
+      color: #e8eaf0;
+    }
+
+    &--active {
+      background: rgba(52, 211, 153, 0.18);
+      color: #fff;
+    }
+  }
+
+  // ---- Speaker sub-mode: big focus tile + bottom strip of the rest ----
+  &__speaker {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 22px 22px;
+  }
+
+  &__stage {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+
+    // Big focus tile fills the stage (overrides the 16/9 grid sizing).
+    .mcm-gallery__tile {
+      flex: 1 1 auto;
+      aspect-ratio: auto;
+      width: 100%;
+      height: 100%;
+    }
+  }
+
+  &__rail {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+
+    // Strip tiles are a fixed thumbnail size, like the filmstrip.
+    .mcm-gallery__tile {
+      flex: 0 0 auto;
+      width: 168px;
+      aspect-ratio: 16 / 9;
+    }
+  }
+
+  // Clickable tiles (pin affordance) get a hover lift + focus outline.
+  &__tile--clickable {
+    cursor: pointer;
+
+    &:hover {
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+    &:focus-visible {
+      outline: 2px solid #6366f1;
+      outline-offset: 2px;
+    }
+  }
+
+  // The resolved focus (auto or pinned) reads with a soft indigo ring; the
+  // active-speaker green ring still wins visually when both apply.
+  &__tile--focused {
+    border-color: transparent;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.9),
+      0 4px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  // Pin glyph / Unpin chip — top-right of a tile.
+  &__pin {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.92);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    z-index: 2;
+
+    &--auto {
+      padding: 4px;
+      background: rgba(0, 0, 0, 0.5);
+      color: rgba(255, 255, 255, 0.85);
+    }
   }
 }
