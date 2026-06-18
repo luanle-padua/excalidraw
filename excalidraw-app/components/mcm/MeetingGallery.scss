@@ -151,11 +151,13 @@
     }
   }
 
-  // TileVideo (reused from ParticipantsBar) fills the gallery tile.
+  // TileVideo (reused from ParticipantsBar) fills the RECTANGULAR gallery tile.
+  // Reset the strip avatar's circular border-radius (50% on a wide tile = oval).
   .mcm-person__video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 0;
   }
 
   &__avatar {

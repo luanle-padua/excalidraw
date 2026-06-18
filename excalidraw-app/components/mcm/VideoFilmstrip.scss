@@ -80,11 +80,14 @@ body.mcm-has-filmstrip {
     }
   }
 
-  // TileVideo (reused from ParticipantsBar) fills the filmstrip tile.
+  // TileVideo (reused from ParticipantsBar) fills the RECTANGULAR filmstrip tile.
+  // Reset the circular border-radius the strip avatar uses (border-radius:50%
+  // on a wide tile = the oval the camera was clipped to).
   .mcm-person__video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 0;
   }
 
   &__avatar {
