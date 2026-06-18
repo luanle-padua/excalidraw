@@ -157,10 +157,38 @@ export const MeetingLobby = () => {
     void collabAPI.startCollaboration(room);
   }, [authReady, session, collabAPI, isCollaborating, startGate]);
 
-  // Still resolving the Supabase session — render nothing for the brief check
-  // so we don't flash the login screen at an already-authenticated user.
+  // Still resolving the Supabase session. Render a full-screen branded SPLASH
+  // (not null) — this overlay sits on top of the always-mounted Excalidraw
+  // editor, so returning null briefly reveals the bare canvas + Excalidraw
+  // welcome screen, which reads as a "demo" flash before login/dashboard
+  // resolves (06-18). The splash covers it; it's neutral (just the wordmark),
+  // so it doesn't flash the login form at an already-authenticated user either.
   if (!authReady) {
-    return null;
+    return (
+      <div
+        className="mcm-boot-splash"
+        aria-hidden="true"
+        // eslint-disable-next-line react/forbid-dom-props
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background:
+            "radial-gradient(120% 120% at 50% 30%, #1b2230 0%, #0b0e14 70%)",
+        }}
+      >
+        <img
+          src="/canvas-m.png"
+          alt=""
+          decoding="async"
+          // eslint-disable-next-line react/forbid-dom-props
+          style={{ width: 168, maxWidth: "40vw", opacity: 0.92 }}
+        />
+      </div>
+    );
   }
 
   // LOGIN REQUIRED FOR EVERYONE — including invite-link joiners (the #room hash
