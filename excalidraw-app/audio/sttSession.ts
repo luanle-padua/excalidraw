@@ -103,6 +103,20 @@ export class STTSession {
   private audioCtx: AudioContext | null = null;
   private workletNode: AudioWorkletNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  /** Muted (gain=0) sink that gives the worklet a path to the destination so the
+   *  audio graph actually PULLS it. An AudioWorkletNode with no downstream route
+   *  to AudioDestinationNode is not part of the render-pull path on several
+   *  browsers (notably iOS/Safari + some Chromium): process() is never invoked,
+   *  no PCM is posted, and Deepgram gets silence → {type:"ready"} but zero
+   *  transcripts. Routing through a gain=0 node makes the graph render WITHOUT
+   *  echoing the mic to the speakers (06-19). Disconnected in stop(). */
+  private sinkNode: GainNode | null = null;
+  /** Diagnostics: count PCM chunks posted from the worklet so we can tell
+   *  "PCM not flowing" apart from "PCM flowing but Deepgram empty" from the
+   *  console. Throttled logging — a few lines only, never a spam loop. */
+  private pcmChunks = 0;
+  private lastPcmLogAt = 0;
+  private firstTranscriptLogged = false;
   private opts: STTSessionOptions;
   private closed = false;
   /** true when WE created the AudioContext (so stop() must close it); false when
@@ -162,6 +176,12 @@ export class STTSession {
         return;
       }
       if (msg.type === "ready") {
+        // Diagnostic: handshake reached Deepgram. If transcripts never follow,
+        // pair this with the "[stt] PCM flowing" line to localise the fault
+        // (no PCM line ⇒ mic→worklet broke; PCM but no transcript ⇒ upstream).
+        console.info(
+          `[stt] ready — Deepgram upstream open (sampleRate=${this.audioCtx?.sampleRate ?? "?"})`,
+        );
         // Deepgram is live — raise the AI-in-use indicator for the duration
         // of the transcription session (cleared in stop()).
         if (!this.aiActive && !this.closed) {
@@ -181,6 +201,14 @@ export class STTSession {
         const text = alt?.transcript?.trim();
         if (!text) {
           return;
+        }
+        if (!this.firstTranscriptLogged) {
+          // Diagnostic: proves the FULL path (mic→worklet→WS→Deepgram→back) is
+          // alive. Logged once; the live UI shows every segment thereafter.
+          this.firstTranscriptLogged = true;
+          console.info(
+            `[stt] first transcript received after ${this.pcmChunks} PCM chunks`,
+          );
         }
         if (result.is_final) {
           this.opts.onFinal?.(text, Date.now());
@@ -245,6 +273,22 @@ export class STTSession {
     const micTracks = stream.getAudioTracks();
     if (micTracks.length > 0) {
       this.clonedTracks = micTracks.map((tr) => tr.clone());
+      // Diagnostic: a clone that came back ended/muted would silently starve STT
+      // even with a healthy graph. We KEEP the clone path (it's the iOS fix — a
+      // live Daily-owned track delivers silence to a 2nd source node), but warn
+      // if the clone looks dead so the fault is visible in the console (06-19).
+      const dead = this.clonedTracks.filter(
+        (tr) => tr.readyState !== "live" || tr.muted,
+      );
+      if (this.clonedTracks.length === 0) {
+        console.warn("[stt] mic track clone produced no tracks");
+      } else if (dead.length > 0) {
+        console.warn(
+          `[stt] cloned mic track not live/unmuted (readyState=${this.clonedTracks
+            .map((tr) => tr.readyState)
+            .join(",")}, muted=${this.clonedTracks.map((tr) => tr.muted).join(",")})`,
+        );
+      }
       const sttStream = new MediaStream(this.clonedTracks);
       this.sourceNode = this.audioCtx.createMediaStreamSource(sttStream);
     } else {
@@ -259,14 +303,35 @@ export class STTSession {
       if (!buf || buf.byteLength === 0) {
         return;
       }
+      // Diagnostic: confirm PCM is actually flowing mic→worklet→here. Throttled
+      // to ~one line / 2s and only for the first few seconds, so it never spams
+      // the console; absence of these lines means the worklet isn't producing
+      // (the symptom this fix targets).
+      this.pcmChunks++;
+      const now = Date.now();
+      if (this.pcmChunks <= 12 && now - this.lastPcmLogAt >= 2000) {
+        this.lastPcmLogAt = now;
+        console.info(
+          `[stt] PCM flowing: ${this.pcmChunks} chunks, sampleRate=${this.audioCtx?.sampleRate ?? "?"}`,
+        );
+      }
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(buf);
       }
     };
 
+    // Route source → worklet → muted sink → destination. The worklet MUST have a
+    // path to AudioDestinationNode or the audio graph won't PULL it on several
+    // browsers (iOS/Safari + some Chromium): process() never runs, no PCM is
+    // posted, and Deepgram receives silence — connected but no transcript. The
+    // gain=0 sink makes the graph render this branch WITHOUT echoing the mic to
+    // the speakers (capture-only). This is the standard capture-worklet pattern
+    // and is the root-cause fix for "{type:'ready'} but no transcript" (06-19).
+    this.sinkNode = this.audioCtx.createGain();
+    this.sinkNode.gain.value = 0;
     this.sourceNode.connect(this.workletNode);
-    // No need to connect to destination — we only want to capture,
-    // not play back. Connecting to destination would echo the mic.
+    this.workletNode.connect(this.sinkNode);
+    this.sinkNode.connect(this.audioCtx.destination);
   }
 
   async stop(): Promise<void> {
@@ -319,6 +384,16 @@ export class STTSession {
         /* ignore */
       }
       this.workletNode = null;
+    }
+    // Disconnect the muted sink. On a SHARED context (DailyAudio's, reused across
+    // sessions) leaving it connected would leak a node into the call's graph.
+    if (this.sinkNode) {
+      try {
+        this.sinkNode.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this.sinkNode = null;
     }
     if (this.audioCtx) {
       // Only close a context WE created. A shared one belongs to DailyAudio
