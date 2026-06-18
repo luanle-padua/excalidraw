@@ -46,6 +46,12 @@ export type DailyTokenFetcher = (
 const SPEAKING_THRESHOLD = 22; // 0..255, matches AudioPeer
 const SPEAKING_RELEASE_MS = 250;
 
+// A tiny valid silent WAV. Played (unmuted) inside the Join click grants the
+// page audio "media engagement" so a no-mic listener's later peer <audio>
+// play() isn't blocked by the autoplay policy (06-18). Silent → inaudible.
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+
 // Simulcast receive layers for the CPU/bandwidth saver. Daily cameras publish
 // up to 3 spatial layers (0 = lowest res, 2 = highest); we default everyone to
 // the lowest and promote only the active speaker. "inherit" hands a tile back
@@ -117,6 +123,9 @@ export class DailyAudio {
   /** session_id → socket.id, for participant-left (which only gives session) */
   private sessionToSocket = new Map<string, string>();
   private analyserCtx: AudioContext | null = null;
+  /** Persistent silent element played inside the Join gesture to unlock audio
+   *  autoplay for a no-mic listener (06-18). */
+  private audioUnlockEl: HTMLAudioElement | null = null;
 
   constructor(opts: {
     roomId: string;
@@ -140,6 +149,13 @@ export class DailyAudio {
       return;
     }
     this.active = true;
+
+    // Unlock audio playback NOW, synchronously inside the Join click's user
+    // gesture (before any await consumes it) so a no-mic listener can later play
+    // peers' <audio>. A mic device is implicitly blessed by getUserMedia; the
+    // listener is not, so without this its peer audio stays autoplay-blocked
+    // (06-18). playPeerAudio's per-gesture retry is the backstop.
+    this.unlockAudioPlayback();
 
     // 1) Acquire mic (or fall back to listener-only on no-mic, like the mesh).
     try {
@@ -810,6 +826,32 @@ export class DailyAudio {
    *  this the remote track only reaches the speaking analyser (disconnected from
    *  the speakers) and the recorder mixer, so the meeting is RECORDED but nobody
    *  hears anyone live. */
+  /** Bless the page for audio playback within the Join gesture so a no-mic
+   *  listener can later play peer audio (the autoplay policy otherwise blocks
+   *  it — see playPeerAudio). Plays a silent WAV (grants <audio> engagement)
+   *  and resumes the AudioContext. Best-effort; the per-gesture retry in
+   *  playPeerAudio is the backstop if this is itself blocked. */
+  private unlockAudioPlayback() {
+    try {
+      if (!this.audioUnlockEl) {
+        const el = document.createElement("audio");
+        el.setAttribute("playsinline", "");
+        el.src = SILENT_WAV;
+        el.style.display = "none";
+        document.body.appendChild(el);
+        this.audioUnlockEl = el;
+      }
+      void this.audioUnlockEl.play().catch(() => undefined);
+    } catch {
+      // ignore — backstop retry covers it
+    }
+    try {
+      void this.analyserCtx?.resume();
+    } catch {
+      // ignore
+    }
+  }
+
   private playPeerAudio(peer: RemotePeer) {
     if (peer.audioEl) {
       return;
@@ -823,8 +865,12 @@ export class DailyAudio {
     peer.audioEl = el;
     const tryPlay = () => el.play();
     tryPlay().catch((err) => {
-      // Autoplay policy may block until a user gesture — retry once on the next
-      // click/keydown anywhere in the page.
+      // Autoplay policy blocks playback until the page has audio engagement —
+      // common on a NO-MIC listener (no getUserMedia grant blessed the page) and
+      // the remote track arrives after the Join click's activation is gone, so
+      // the listener would hear NOTHING (06-18). Retry on EVERY gesture (NOT
+      // once) and only stop once playback actually starts — so the user's next
+      // interaction with the meeting (draw, click, type) recovers the audio.
       warn("peer audio autoplay blocked; will resume on next gesture", err);
       const removeResumeListeners = () => {
         window.removeEventListener("pointerdown", resume);
@@ -834,11 +880,12 @@ export class DailyAudio {
         }
       };
       const resume = () => {
-        tryPlay().catch(() => undefined);
-        removeResumeListeners();
+        tryPlay()
+          .then(() => removeResumeListeners()) // succeeded → stop retrying
+          .catch(() => undefined); // still blocked → keep listening for the next
       };
-      window.addEventListener("pointerdown", resume, { once: true });
-      window.addEventListener("keydown", resume, { once: true });
+      window.addEventListener("pointerdown", resume);
+      window.addEventListener("keydown", resume);
       // Tracked so teardownPeer can drop these if the peer leaves first.
       peer.removeResumeListeners = removeResumeListeners;
     });
