@@ -71,6 +71,55 @@ export interface SttAdapter {
 /** Languages we explicitly support; `multi` lets the provider auto-detect. */
 export const SUPPORTED_LANGS = new Set(["en", "vi", "ko", "ja", "zh", "multi"]);
 
+/** Base64-encode raw PCM bytes (ArrayBuffer/typed array) for JSON-framed
+ *  providers. The proxy forwards the client's binary PCM frames verbatim; for
+ *  providers whose ingest is JSON-with-base64 (ElevenLabs, OpenAI) the adapter
+ *  wraps the upstream socket so each binary .send() is transcoded — see
+ *  wrapBinaryAsJson. */
+const pcmToBase64 = (data: ArrayBuffer | ArrayBufferView): string => {
+  const bytes =
+    data instanceof ArrayBuffer
+      ? new Uint8Array(data)
+      : new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  let binary = "";
+  const CHUNK = 0x8000; // avoid call-stack blowups on large frames
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+};
+
+/**
+ * Wrap an upstream provider socket whose audio ingest is JSON-with-base64
+ * (ElevenLabs `input_audio_chunk`, OpenAI `input_audio_buffer.append`) so the
+ * proxy can keep forwarding the client's RAW binary PCM frames unchanged.
+ * Intercepts `.send()`: binary payloads are transcoded to the provider's JSON
+ * audio message; string payloads (the proxy's KeepAlive/CloseStream control
+ * frames, which this provider doesn't understand) are dropped. Every other
+ * member is delegated to the real socket, so the proxy's addEventListener /
+ * readyState / close all behave normally.
+ */
+const wrapBinaryAsJson = (
+  ws: WebSocket,
+  toAudioJson: (base64: string) => string,
+): WebSocket => {
+  const send = ws.send.bind(ws);
+  return new Proxy(ws, {
+    get(target, prop, receiver) {
+      if (prop === "send") {
+        return (payload: string | ArrayBuffer | ArrayBufferView) => {
+          if (typeof payload === "string") {
+            return; // control frame this provider can't parse — drop it
+          }
+          send(toAudioJson(pcmToBase64(payload)));
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }) as WebSocket;
+};
+
 // ---- Deepgram (working default) -------------------------------------------
 
 const DEEPGRAM_DEFAULT_MODEL = "nova-3";
@@ -237,7 +286,9 @@ export class DeepgramAdapter implements SttAdapter {
   readonly meta: ProviderMetadata = {
     id: "deepgram",
     name: "Deepgram",
-    cost: { unit: "minute", usdPerUnit: 0.0043 },
+    // Nova-3 MONOLINGUAL streaming PAYG = $0.0048/audio-min. Verified
+    // 2026-06-18 against https://deepgram.com/pricing (old $0.0043 was stale).
+    cost: { unit: "minute", usdPerUnit: 0.0048 },
     requiredApiKey: "DEEPGRAM_API_KEY",
     defaultModel: DEEPGRAM_DEFAULT_MODEL,
   };
@@ -301,41 +352,209 @@ export class DeepgramAdapter implements SttAdapter {
 
 // ---- Skeleton adapters (not yet configured) --------------------------------
 
+const ELEVENLABS_DEFAULT_MODEL = "scribe_v2_realtime";
+
+// ElevenLabs realtime STT: ISO 639-1/639-3 language code, or omitted for
+// auto-detect. We map MCM's lang tokens; `multi` → omit (let Scribe detect).
+const ELEVENLABS_LANG_CODE: Record<string, string> = {
+  en: "en",
+  vi: "vi",
+  ko: "ko",
+  ja: "ja",
+  zh: "zh",
+};
+
 export class ElevenLabsAdapter implements SttAdapter {
   readonly meta: ProviderMetadata = {
     id: "elevenlabs",
     name: "ElevenLabs",
-    cost: { unit: "minute", usdPerUnit: 0 },
+    // Scribe v2 Realtime streaming = $0.0065/audio-min. Verified 2026-06-18
+    // against https://elevenlabs.io/realtime-speech-to-text + pricing.
+    cost: { unit: "minute", usdPerUnit: 0.0065 },
     requiredApiKey: "ELEVENLABS_API_KEY",
-    defaultModel: "scribe_v1",
+    defaultModel: ELEVENLABS_DEFAULT_MODEL,
   };
 
-  async open(): Promise<WebSocket> {
-    // Skeleton — wire up the ElevenLabs realtime STT socket here.
-    throw new Error("provider not configured");
+  async open(
+    env: SttProviderEnv,
+    lang: string,
+    model: string,
+  ): Promise<WebSocket> {
+    const apiKey = (env.ELEVENLABS_API_KEY ?? "").trim();
+    if (!apiKey) {
+      throw new Error("provider not configured");
+    }
+    // wss://api.elevenlabs.io/v1/speech-to-text/realtime — CF's fetch()-based
+    // WS upgrade needs an http(s) scheme (it upgrades an HTTP request), NOT
+    // ws(s); same constraint as Deepgram above.
+    const params = new URLSearchParams({
+      model_id: model || ELEVENLABS_DEFAULT_MODEL,
+      // Client streams 16-bit LE PCM @16kHz mono (AudioWorklet) — match it.
+      audio_format: "pcm_16000",
+      include_timestamps: "true",
+      commit_strategy: "vad",
+    });
+    const code = ELEVENLABS_LANG_CODE[lang];
+    if (code) {
+      params.set("language_code", code);
+    }
+    const url = `https://api.elevenlabs.io/v1/speech-to-text/realtime?${params.toString()}`;
+    const upstream = await fetch(url, {
+      headers: { Upgrade: "websocket", "xi-api-key": apiKey },
+    });
+    const ws = upstream.webSocket;
+    if (!ws) {
+      throw new Error("ElevenLabs did not accept the WebSocket upgrade");
+    }
+    ws.accept();
+    // ElevenLabs ingests audio as JSON `input_audio_chunk` w/ base64 PCM, not
+    // raw binary; wrap so the proxy's verbatim binary forwarding still works.
+    return wrapBinaryAsJson(
+      ws,
+      (audioBase64) =>
+        JSON.stringify({ message_type: "input_audio_chunk", audio_base_64: audioBase64 }),
+    );
   }
 
-  normalizeMessage(): NormalizedSttMessage | null {
-    return null;
+  normalizeMessage(raw: unknown): NormalizedSttMessage | null {
+    if (typeof raw !== "string") {
+      return null;
+    }
+    let json: {
+      message_type?: string;
+      text?: string;
+      words?: Array<{ start?: number; logprob?: number }>;
+    };
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    const isPartial = json.message_type === "partial_transcript";
+    const isFinal =
+      json.message_type === "committed_transcript" ||
+      json.message_type === "committed_transcript_with_timestamps";
+    if (!isPartial && !isFinal) {
+      return null; // session_started / errors / non-transcript frames
+    }
+    const text = (json.text ?? "").trim();
+    if (!text) {
+      return null;
+    }
+    // Word logprobs are the closest per-word confidence ElevenLabs exposes;
+    // we don't synthesise an aggregate (leave confidence undefined). `start` is
+    // seconds from stream open → ms; absent on plain partials → Date.now().
+    const firstStart = json.words?.[0]?.start;
+    return {
+      type: isFinal ? "final" : "interim",
+      text,
+      segmentTs:
+        typeof firstStart === "number" ? firstStart * 1000 : Date.now(),
+    };
   }
 }
+
+// OpenAI Realtime transcription model. PM called it "GPT-Realtime-Whisper";
+// verified 2026-06-18 (developers.openai.com/api/docs/guides/realtime-
+// transcription) the current id is `gpt-realtime-whisper` — the natively-
+// streaming transcription model (the older `gpt-4o-transcribe` skeleton default
+// is the non-streaming/legacy id). MCM streams PCM16 @16kHz.
+const OPENAI_DEFAULT_MODEL = "gpt-realtime-whisper";
+
+// MCM lang token → ISO 639-1 for OpenAI transcription; `multi` → omit (detect).
+const OPENAI_LANG_CODE: Record<string, string> = {
+  en: "en",
+  vi: "vi",
+  ko: "ko",
+  ja: "ja",
+  zh: "zh",
+};
 
 export class OpenAIRealtimeAdapter implements SttAdapter {
   readonly meta: ProviderMetadata = {
     id: "openai",
-    name: "OpenAI Realtime",
-    cost: { unit: "minute", usdPerUnit: 0 },
+    name: "OpenAI Realtime (Whisper)",
+    // OpenAI Realtime transcription (gpt-realtime-whisper) ~ $0.017/audio-min.
+    // Verified 2026-06-18 against OpenAI Realtime API transcription pricing.
+    cost: { unit: "minute", usdPerUnit: 0.017 },
     requiredApiKey: "OPENAI_API_KEY",
-    defaultModel: "gpt-4o-transcribe",
+    defaultModel: OPENAI_DEFAULT_MODEL,
   };
 
-  async open(): Promise<WebSocket> {
-    // Skeleton — wire up the OpenAI Realtime transcription socket here.
-    throw new Error("provider not configured");
+  async open(
+    env: SttProviderEnv,
+    lang: string,
+    model: string,
+  ): Promise<WebSocket> {
+    const apiKey = (env.OPENAI_API_KEY ?? "").trim();
+    if (!apiKey) {
+      throw new Error("provider not configured");
+    }
+    // Transcription-only session: ?intent=transcription. CF fetch() WS upgrade
+    // needs http(s), not wss:// (same as Deepgram/ElevenLabs above).
+    const url = "https://api.openai.com/v1/realtime?intent=transcription";
+    const upstream = await fetch(url, {
+      headers: {
+        Upgrade: "websocket",
+        Authorization: `Bearer ${apiKey}`,
+        // Realtime API is behind the beta header.
+        "OpenAI-Beta": "realtime=v1",
+      },
+    });
+    const ws = upstream.webSocket;
+    if (!ws) {
+      throw new Error("OpenAI did not accept the WebSocket upgrade");
+    }
+    ws.accept();
+    // Configure the transcription model + input audio format up-front. The
+    // client streams 16-bit LE PCM @16kHz mono; OpenAI input format = pcm16.
+    const code = OPENAI_LANG_CODE[lang];
+    ws.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          type: "transcription",
+          audio: {
+            input: {
+              format: { type: "audio/pcm", rate: 16000 },
+              transcription: {
+                model: model || OPENAI_DEFAULT_MODEL,
+                ...(code ? { language: code } : {}),
+              },
+            },
+          },
+        },
+      }),
+    );
+    // OpenAI ingests audio as JSON `input_audio_buffer.append` w/ base64 PCM,
+    // not raw binary; wrap so the proxy's verbatim binary forwarding works.
+    return wrapBinaryAsJson(
+      ws,
+      (audioBase64) =>
+        JSON.stringify({ type: "input_audio_buffer.append", audio: audioBase64 }),
+    );
   }
 
-  normalizeMessage(): NormalizedSttMessage | null {
-    return null;
+  normalizeMessage(raw: unknown): NormalizedSttMessage | null {
+    if (typeof raw !== "string") {
+      return null;
+    }
+    let json: { type?: string; delta?: string; transcript?: string };
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+    // Streaming deltas → interim; the committed event → final.
+    if (json.type === "conversation.item.input_audio_transcription.delta") {
+      const text = (json.delta ?? "").trim();
+      return text ? { type: "interim", text, segmentTs: Date.now() } : null;
+    }
+    if (json.type === "conversation.item.input_audio_transcription.completed") {
+      const text = (json.transcript ?? "").trim();
+      return text ? { type: "final", text, segmentTs: Date.now() } : null;
+    }
+    return null; // session.*, errors, buffer events — not transcripts
   }
 }
 
@@ -359,6 +578,22 @@ export const getActiveProvider = (env: SttProviderEnv): SttAdapter => {
     (env.STT_PROVIDER ?? "").trim().toLowerCase() || DEFAULT_STT_PROVIDER;
   const make = REGISTRY[id] ?? REGISTRY[DEFAULT_STT_PROVIDER];
   return make();
+};
+
+/**
+ * Resolve an adapter for a PER-SESSION override id (e.g. the `?provider=` the
+ * in-meeting A/B picker sends), falling back to the env default when the id is
+ * empty/unknown. Lets a single meeting test a non-default provider WITHOUT
+ * flipping the global STT_PROVIDER var. Unknown id → getActiveProvider(env), so
+ * a typo degrades to the configured default rather than breaking STT.
+ */
+export const getProviderByIdOrActive = (
+  env: SttProviderEnv,
+  overrideId: string | null | undefined,
+): SttAdapter => {
+  const id = (overrideId ?? "").trim().toLowerCase();
+  const make = id ? REGISTRY[id] : undefined;
+  return make ? make() : getActiveProvider(env);
 };
 
 /** Provider metadata list — for the admin console's provider picker. */

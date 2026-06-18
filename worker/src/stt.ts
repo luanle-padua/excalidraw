@@ -30,8 +30,8 @@
 
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-import { getActiveProvider, SUPPORTED_LANGS } from "./stt-provider";
-import { deepgramSttCostUsd, logUsageEvent } from "./usage";
+import { getProviderByIdOrActive, SUPPORTED_LANGS } from "./stt-provider";
+import { logUsageEvent } from "./usage";
 
 import type { SttProviderEnv } from "./stt-provider";
 
@@ -281,16 +281,27 @@ export const handleSttUpgrade = async (
   const server = pair[1];
   server.accept();
 
-  // Active provider (STT_PROVIDER var, default 'deepgram'). The adapter snapshots
-  // its config at open-time; we don't re-read env per message below.
-  const adapter = getActiveProvider(env);
-
   // ?lang=vi|en|ko|multi — falls back to multi if missing/invalid.
   const url = new URL(request.url);
   const langParam = url.searchParams.get("lang") ?? "multi";
   const lang = SUPPORTED_LANGS.has(langParam) ? langParam : "multi";
 
-  const model = env.DEEPGRAM_STT_MODEL || adapter.meta.defaultModel;
+  // Active provider. Default = STT_PROVIDER var ('deepgram'); a PER-SESSION
+  // `?provider=elevenlabs|openai|deepgram` override lets the in-meeting A/B
+  // picker test one provider WITHOUT flipping the global var. Unknown/empty id
+  // degrades to the env default (see getProviderByIdOrActive). The adapter
+  // snapshots its config at open-time; we don't re-read env per message below.
+  const adapter = getProviderByIdOrActive(
+    env,
+    url.searchParams.get("provider"),
+  );
+
+  // Model override only applies to Deepgram (its var); other providers fall to
+  // their own meta.defaultModel so a stray DEEPGRAM_STT_MODEL can't leak across.
+  const model =
+    adapter.meta.id === "deepgram"
+      ? env.DEEPGRAM_STT_MODEL || adapter.meta.defaultModel
+      : adapter.meta.defaultModel;
 
   let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   // Real-money guards (c)/(d): a hard MAX-session cap and an audio-idle cap so a
@@ -308,20 +319,24 @@ export const handleSttUpgrade = async (
     }
     closed = true;
     void reason;
-    // Meter the session — best-effort, never blocks teardown. Deepgram bills per
+    // Meter the session — best-effort, never blocks teardown. STT bills per
     // second of streamed audio; we approximate it as the open→close wall time of
     // the proxied socket (the client streams continuously while STT is on). One
-    // row per session, provider='deepgram', so the admin Cost tab stops reading 0.
+    // row per session, stamped with the ACTIVE adapter's id + per-minute rate
+    // (NOT a hardcoded Deepgram constant) so the admin Cost tab reflects
+    // whichever provider actually ran this A/B session.
     const seconds = (Date.now() - sessionStart) / 1000;
     if (env.DB && seconds >= 1) {
+      // meta.cost.unit is "minute" for all 3 providers; (seconds/60)*rate.
+      const costUsd = (seconds / 60) * adapter.meta.cost.usdPerUnit;
       const row = logUsageEvent(
         env.DB,
-        "deepgram",
+        adapter.meta.id,
         "stt",
         0,
         0,
         seconds,
-        deepgramSttCostUsd(seconds),
+        costUsd,
         meetingId,
         callerEmail,
       );

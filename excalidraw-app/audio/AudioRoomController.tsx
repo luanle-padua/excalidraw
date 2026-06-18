@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
 import { getDailyToken } from "../data/projects";
+import { sttProviderAtom } from "../data/sttProviders";
 import { sttEnabledAtom } from "../data/transcription";
 import { preferredLanguageAtom } from "../data/translation";
 
@@ -34,6 +35,7 @@ export const AudioRoomController = () => {
   const recorder = useAtomValue(recorderInstanceAtom);
   const audioState = useAtomValue(audioStateAtom);
   const sttEnabled = useAtomValue(sttEnabledAtom);
+  const sttProvider = useAtomValue(sttProviderAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const setAudioState = useSetAtom(audioStateAtom);
   const setAudioRoomInstance = useSetAtom(audioRoomInstanceAtom);
@@ -244,6 +246,7 @@ export const AudioRoomController = () => {
     const session = new STTSession({
       lang,
       meetingId: collabAPI?.portal.roomId ?? undefined,
+      provider: sttProvider,
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);
       },
@@ -267,6 +270,7 @@ export const AudioRoomController = () => {
     audioState.status,
     audioState.canTransmit,
     sttEnabled,
+    sttProvider,
     preferredLang,
     collabAPI,
   ]);

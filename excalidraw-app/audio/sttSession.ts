@@ -34,12 +34,21 @@ const STT_PROTOCOL_MARKER = "mcm.v1";
 
 export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
 
+/** Realtime STT backend id, mirrors the Worker REGISTRY keys in
+ *  worker/src/stt-provider.ts. Sent to /stt as ?provider=<id> so the PM can
+ *  A/B-test accuracy per session; the Worker falls back to its env default
+ *  (deepgram) for an unknown/absent value, so this is a safe live lever. */
+export type STTProvider = "deepgram" | "openai" | "elevenlabs";
+
 export type STTSessionOptions = {
   lang: STTLang;
   /** Meeting/room id — sent to /stt so the Worker can verify the opener is a
    *  member before opening the metered Deepgram stream (06-18 cross-review:
    *  without it the STT membership gate was a no-op). */
   meetingId?: string;
+  /** Per-session provider override for A/B testing. Omit to use the Worker's
+   *  STT_PROVIDER env default (deepgram). */
+  provider?: STTProvider;
   onInterim?: (text: string) => void;
   onFinal?: (text: string, segmentTs: number) => void;
   onReady?: () => void;
@@ -63,13 +72,22 @@ type DeepgramResult = {
 //   - Tunnel mode (VITE_DEV_TUNNEL=true) → current page origin (the Worker sits
 //     behind the same Cloudflare tunnel hostname, so relative routing works).
 //   - Direct dev → ws(s) form of VITE_APP_STORAGE_URL (see data/aiBackend.ts).
-const buildSTTUrl = (lang: STTLang, meetingId?: string): string => {
+const buildSTTUrl = (
+  lang: STTLang,
+  meetingId?: string,
+  provider?: STTProvider,
+): string => {
   const url = new URL(sttBackendWsUrl());
   url.pathname = "/stt";
   url.searchParams.set("lang", lang);
   // The Worker gates the Deepgram stream on meeting membership keyed by this id.
   if (meetingId) {
     url.searchParams.set("meetingId", meetingId);
+  }
+  // Per-session provider override for A/B testing. Absent → Worker uses its
+  // STT_PROVIDER env default.
+  if (provider) {
+    url.searchParams.set("provider", provider);
   }
   return url.toString();
 };
@@ -95,7 +113,11 @@ export class STTSession {
       return;
     }
 
-    const wsUrl = buildSTTUrl(this.opts.lang, this.opts.meetingId);
+    const wsUrl = buildSTTUrl(
+      this.opts.lang,
+      this.opts.meetingId,
+      this.opts.provider,
+    );
     // Pass the Supabase access token via the WS subprotocol so the Worker can
     // verify it before opening the metered Deepgram stream (auth, B-AI 06-17).
     // Mirrors the realtime DO handshake: `["mcm.v1", <jwt>]`. Without a token

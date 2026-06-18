@@ -20,6 +20,13 @@ import { useAtom, useAtomValue } from "../../app-jotai";
 import { STTSession } from "../../audio/sttSession";
 import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
 import {
+  STT_PROVIDERS,
+  fmtPerMinute,
+  providerMeta,
+  setSttProvider,
+  sttProviderAtom,
+} from "../../data/sttProviders";
+import {
   liveTranscriptsAtom,
   setSttEnabled,
   setSttTranslateEnabled,
@@ -34,7 +41,7 @@ import { useT } from "../../i18n/mcm";
 import { MCMAvatar } from "./Avatar";
 import { shortDisplayName } from "./animalEmoji";
 
-import type { STTLang } from "../../audio/sttSession";
+import type { STTLang, STTProvider } from "../../audio/sttSession";
 import type { TranscriptSegment } from "../../data/transcription";
 import type { SupportedLanguage } from "../../data/translation";
 
@@ -217,6 +224,9 @@ export const SpeechToTextPanel = () => {
   const [translateEnabled, setTranslateEnabledState] = useAtom(
     sttTranslateEnabledAtom,
   );
+  // Per-session STT provider for A/B testing. Default deepgram. Persisted per
+  // device; AudioRoomController restarts the live mic session on change.
+  const [sttProvider, setSttProviderState] = useAtom(sttProviderAtom);
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const log = useAtomValue(transcriptionLogAtom);
   const interims = useAtomValue(liveTranscriptsAtom);
@@ -583,6 +593,7 @@ export const SpeechToTextPanel = () => {
       const session = new STTSession({
         lang,
         meetingId: collabAPI?.portal.roomId ?? undefined,
+        provider: sttProvider,
         onReady: () => {
           // Server signalled Deepgram upstream is open. Now safe to
           // pump audio.
@@ -791,6 +802,36 @@ export const SpeechToTextPanel = () => {
           <Icon d="M4 5h11 M9 3v2 M11 5a8 8 0 01-7 8 M5 9c0 4 4 7 9 7 M14 21l5-11 5 11 M15.5 17.5h7" />
           {translateEnabled ? t("stt.translateOn") : t("stt.translateOff")}
         </button>
+
+        {/* Per-session STT provider selector (A/B accuracy test, 06-18).
+            Each option carries its per-minute price so the PM sees cost
+            while picking the most ACCURATE provider — default Deepgram.
+            ?provider=<id> is forwarded to /stt by the next session. */}
+        {!viewOnly && (
+          <label className="mcm-stt__provider" title={t("stt.providerTitle")}>
+            <span className="mcm-stt__provider-label">
+              {t("stt.providerLabel")}
+            </span>
+            <select
+              className="mcm-stt__provider-select"
+              value={sttProvider}
+              onChange={(e) => {
+                const next = e.target.value as STTProvider;
+                setSttProviderState(next);
+                setSttProvider(next);
+              }}
+            >
+              {STT_PROVIDERS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} · {fmtPerMinute(p.usdPerMinute)}
+                </option>
+              ))}
+            </select>
+            <span className="mcm-stt__provider-price">
+              {fmtPerMinute(providerMeta(sttProvider).usdPerMinute)}
+            </span>
+          </label>
+        )}
 
         <div className="mcm-stt__controls-spacer" />
 
