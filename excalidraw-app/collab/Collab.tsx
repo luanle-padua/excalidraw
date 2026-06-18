@@ -1175,7 +1175,18 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // AFTER "connect" — so refresh the id atom on init-room too. Harmless on
       // socket.io (id is already set; idempotent) and re-applies after every
       // reconnect (the DO re-sends init-room each accept). (plan §5)
-      this.portal.socket.on("init-room", setIdFromSocket);
+      this.portal.socket.on("init-room", () => {
+        setIdFromSocket();
+        // Announce our profile to the room on (re)connect so EXISTING peers
+        // learn our name immediately. Without this a newcomer only broadcasts
+        // on "first-in-room" (which it doesn't get when others are already
+        // present) or on the first mouse-move/idle — so we showed up as "Guest"
+        // on everyone else's tile until we moved the cursor (06-18). Existing
+        // members already re-announce to us via the "new-user" handler below;
+        // this closes the other direction. userProfileAtom is set by MeetingShell
+        // before the socket connects, so the snapshot carries our real name.
+        this.broadcastUserProfileSnapshot();
+      });
 
       this.portal.socket.once("connect_error", fallbackInitializationHandler);
     } catch (error: any) {
@@ -1827,11 +1838,20 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   setCollaborators(sockets: SocketId[]) {
     const collaborators: InstanceType<typeof Collab>["collaborators"] =
       new Map();
+    // Seed each collaborator's username from the last-known USER_PROFILE so a
+    // peer that's present but whose profile already arrived shows their real
+    // name, not a blank that renders as "Guest" (06-18). New socketIds with no
+    // cached profile still resolve once their USER_PROFILE / init-room
+    // announce lands.
+    const knownProfiles = appJotaiStore.get(peerProfilesAtom);
     for (const socketId of sockets) {
+      const prior = this.collaborators.get(socketId);
+      const username = prior?.username || knownProfiles.get(socketId)?.username;
       collaborators.set(
         socketId,
-        Object.assign({}, this.collaborators.get(socketId), {
+        Object.assign({}, prior, {
           isCurrentUser: socketId === this.portal.socket?.id,
+          ...(username ? { username } : {}),
         }),
       );
     }

@@ -8,13 +8,47 @@
 // (the rail is the participant display now — the avatar strip + count chip are
 // redundant). The switcher floats bottom-right ABOVE the rail so it stays
 // reachable to switch layouts back.
-body.mcm-has-filmstrip {
-  --mcm-bar-clearance: 156px;
+
+// Rail height — single number reused by the rail box AND the clearance bump
+// below so the two never drift. (Defined as a top-level token so a future
+// resize only touches one place.)
+$mcm-rail-h: 140px;
+
+// THE LOAD-BEARING FIX: bump `--mcm-rail-height` on the element that actually
+// OWNS `--mcm-bar-clearance` (`.mcm-shell__canvas-wrap`, MeetingShell.scss:408).
+// A `body.mcm-has-filmstrip { --mcm-bar-clearance: … }` rule would be shadowed
+// by the local re-declaration on canvas-wrap and never reach the descendant
+// call-controls/stt/playback. Setting the rail-height token here lets the
+// existing `max(bar-height, rail-height) + 16px` clearance formula lift every
+// bottom-floating widget to 16px above the rail with NO per-element edits.
+body.mcm-has-filmstrip .mcm-shell__canvas-wrap {
+  --mcm-rail-height: #{$mcm-rail-h};
 }
+
+// Toasts (due-soon notice / app toast) are fixed to the VIEWPORT at bottom:20px
+// and do NOT read --mcm-bar-clearance, so they'd sit inside the rail band. Lift
+// them above the rail while the filmstrip is up (06-18 review).
+body.mcm-has-filmstrip {
+  .mcm-due,
+  .mcm-toast {
+    bottom: calc(#{$mcm-rail-h} + 20px);
+  }
+}
+
+// FILMSTRIP-MODE FOOTER: the people-bar collapses to JUST the layout switcher.
+// Reset its full 100px box (it would otherwise stay pinned at bottom:0 inside
+// the rail band and collide with the right-most tile) and float it as a small
+// auto-sized control in the same 16px lane the call-controls sit in — bottom
+// is `--mcm-bar-clearance` so it tracks the rail height automatically.
 .mcm-people-bar--filmstrip {
   z-index: 51;
   left: auto;
   right: 12px;
+  bottom: var(--mcm-bar-clearance);
+  height: auto;
+  width: auto;
+  padding: 0;
+  gap: 0;
 
   .mcm-people-bar__chip,
   .mcm-people-bar__list {
@@ -27,13 +61,14 @@ body.mcm-has-filmstrip {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 140px;
+  height: $mcm-rail-h;
   z-index: 50;
   box-sizing: border-box;
   background: rgba(11, 14, 20, 0.97);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
 
   &__rail {
     height: 100%;
@@ -62,21 +97,29 @@ body.mcm-has-filmstrip {
   &__tile {
     position: relative;
     flex: 0 0 auto;
-    width: 188px;
-    height: 108px;
-    border-radius: 14px;
+    width: 176px;
+    height: 104px;
+    border-radius: 12px;
     overflow: hidden;
-    background: #11151c;
+    background: linear-gradient(160deg, #161b24, #0e1218);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.18s ease, border-color 0.18s ease,
+      transform 0.18s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
 
     // GREEN RING on the active speaker (id === activeSpeakerAtom).
+    // A soft glow + crisp inset ring reads as "live" without being garish.
     &--speaking {
-      box-shadow: 0 0 0 3px #34d399;
-      border-color: #34d399;
+      border-color: transparent;
+      box-shadow: 0 0 0 2px #34d399, 0 0 16px rgba(52, 211, 153, 0.45);
     }
   }
 
@@ -91,23 +134,27 @@ body.mcm-has-filmstrip {
   }
 
   &__avatar {
-    transform: scale(1.35);
+    transform: scale(1.3);
     transform-origin: center;
   }
 
   &__label {
     position: absolute;
-    left: 8px;
-    bottom: 8px;
+    left: 7px;
+    bottom: 7px;
     display: flex;
     align-items: center;
-    gap: 6px;
-    max-width: calc(100% - 16px);
-    padding: 3px 8px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.5);
+    gap: 5px;
+    max-width: calc(100% - 14px);
+    padding: 3px 9px 3px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     color: #fff;
     font-size: 12px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
   }
 
   &__name {
@@ -118,6 +165,14 @@ body.mcm-has-filmstrip {
 
   &__mic-off {
     flex: 0 0 auto;
-    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.9);
+    font-size: 9px;
+    line-height: 1;
   }
 }

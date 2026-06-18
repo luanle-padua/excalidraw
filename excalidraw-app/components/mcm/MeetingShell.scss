@@ -401,12 +401,19 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
   // Single source of truth for the bottom-floating UI layout.
   // `--mcm-bar-height` matches `.mcm-people-bar`'s height.
+  // `--mcm-rail-height` is 0 normally, and is bumped to the
+  // filmstrip rail height (by `body.mcm-has-filmstrip .mcm-shell__canvas-wrap`
+  // in VideoFilmstrip.scss) so every floating widget clears the rail.
   // `--mcm-bar-clearance` is the bottom offset every floating
   // widget (call-controls, stt-show pill, stt panel) anchors to —
-  // it sits 16px above the bar so avatars/labels never get
-  // clipped or grazed, no matter how many participants are in.
+  // it sits 16px above whichever is taller (the people-bar or the
+  // rail) so avatars/labels never get clipped or grazed, no matter
+  // how many participants are in or which video layout is active.
   --mcm-bar-height: 100px;
-  --mcm-bar-clearance: calc(var(--mcm-bar-height) + 16px);
+  --mcm-rail-height: 0px;
+  --mcm-bar-clearance: calc(
+    max(var(--mcm-bar-height), var(--mcm-rail-height)) + 16px
+  );
 }
 
 // Holds Excalidraw + all overlays. Takes the remaining WIDTH after
@@ -5219,6 +5226,14 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     stroke-width: 1.2;
     pointer-events: none;
   }
+}
+
+// FILMSTRIP MODE: the rail (portaled to <body>, z50) covers the bottom 140px
+// of the canvas, where the zoom/minimap widget normally docks at bottom:16px.
+// Lift it to sit just above the rail (rail-height + 16px) so it stays visible
+// and reachable — same lane the call-controls use.
+body.mcm-has-filmstrip .mcm-canvas-nav {
+  bottom: calc(var(--mcm-rail-height) + 16px);
 }
 
 @keyframes mcm-canvas-nav-popin {
