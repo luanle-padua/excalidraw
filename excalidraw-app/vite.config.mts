@@ -240,14 +240,14 @@ export default defineConfig(({ mode }) => {
       svgrPlugin(),
       ViteEjsPlugin(),
       VitePWA({
-        // "prompt", NOT "autoUpdate": autoUpdate makes the SW skipWaiting +
-        // clientsClaim and the pwa-register runtime calls window.location.reload()
-        // when a new SW activates — so a repeat visit after a deploy paints the
-        // old precached shell then RELOADS to the new one = the visible "loads
-        // twice" flash (06-18). With "prompt" the new SW waits and applies on the
-        // next cold open; no jarring auto-reload (registerSW() is called with no
-        // onNeedRefresh handler in index.tsx, so the wait is silent).
-        registerType: "prompt",
+        // autoUpdate: a new SW skipWaiting + reloads so a deploy APPLIES on the
+        // next visit automatically. Trade-off: a repeat visit after a deploy
+        // paints the old precached shell then reloads once to the new one (the
+        // "loads twice" the PM noticed). We accept that during active dev/test
+        // because "prompt" mode made deploys NOT show up until all tabs closed —
+        // worse for the test-deploy loop. TODO (pre-Aug): switch to "prompt" +
+        // an onNeedRefresh "Update available" toast for a no-surprise update.
+        registerType: "autoUpdate",
         devOptions: {
           /* set this flag to true to enable in Development mode */
           enabled: envVars.VITE_APP_ENABLE_PWA === "true",
