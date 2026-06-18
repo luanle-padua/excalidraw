@@ -919,6 +919,13 @@ const isMeetingManager = async (
 // Mirrors the Daily-token (:3736) and WS-upgrade (:6004) gates; without it an
 // invited-but-not-admitted guest sitting in the waiting room could read the
 // whole meeting via plain GETs (waiting-room read bypass, 06-18).
+//
+// MUST be paired with canSeeMeeting (which filters meeting_invitee.status
+// <>'revoked'): this helper keys off meeting_knock.status==='admitted' only, and
+// a REVOKE flips meeting_invitee, NOT meeting_knock — so a once-admitted, later-
+// revoked guest still reads admitted=true HERE. Today every caller (roomGate, the
+// meeting-metadata GET) runs canSeeMeeting first, which 403s the revoked guest
+// before this is consulted. Do NOT reuse this helper standalone without that gate.
 const isAdmittedForRoom = async (
   db: D1Database,
   email: string | undefined,

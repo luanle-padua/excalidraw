@@ -52,10 +52,13 @@ const ROOM_USER_CHANGE_DEBOUNCE_MS = 250;
  *  keepalive finally tears it down, which can take MINUTES. The client sends a
  *  lightweight `hb` control frame every ~40s; the DO refreshes lastSeen on it
  *  and an alarm() drops any socket whose lastSeen is older than GHOST_TIMEOUT_MS
- *  (~2 missed beats). REAPER_INTERVAL keeps the alarm coarse so an idle-but-alive
- *  room wakes the DO only ~once/minute, and the alarm stops re-arming once the
- *  room is empty (preserves hibernation / $0 idle). */
-const GHOST_TIMEOUT_MS = 100_000;
+ *  (~3 missed 40s beats of slack, so a backgrounded/throttled-but-alive tab or a
+ *  GC stall isn't false-reaped). The alarm stops re-arming once the room is
+ *  EMPTY → that room returns to $0 idle. NOTE: a room that still has an
+ *  alive-but-idle client is NOT $0 — each 40s `hb` is a real message that wakes
+ *  the DO briefly; the cost is small, bounded, and self-limiting (the moment the
+ *  last tab closes, the wakes stop). */
+const GHOST_TIMEOUT_MS = 130_000;
 const REAPER_INTERVAL_MS = 50_000;
 
 export type ControlFrame = { ev: string; args: unknown[] };
