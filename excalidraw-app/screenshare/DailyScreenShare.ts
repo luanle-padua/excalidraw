@@ -60,6 +60,10 @@ export class DailyScreenShare {
    *  (the "screenAudio" track). Daily does NOT auto-play screen audio in
    *  call-object mode, so we play it ourselves. */
   private screenAudioEl: HTMLAudioElement | null = null;
+  /** Track id of the remote screen-video currently attached to remoteStream —
+   *  lets reconcileRemoteScreenVideo() skip rebuilding the MediaStream (and
+   *  re-attaching the <video>) when nothing actually changed. */
+  private currentScreenTrackId: string | null = null;
 
   constructor(opts: {
     roomId: string;
@@ -153,6 +157,10 @@ export class DailyScreenShare {
           return false;
         }
         this.call = call;
+        // Pick up a share that started BEFORE we joined (Daily fires
+        // track-started only for tracks beginning after we subscribe), so a
+        // late joiner sees an in-progress screen share.
+        this.reconcileRemoteScreenVideo();
         this.recomputeStatus();
         this.emit();
         return true;
@@ -176,9 +184,61 @@ export class DailyScreenShare {
   private wire(call: DailyCall) {
     call.on("track-started", this.onTrackStarted);
     call.on("track-stopped", this.onTrackStopped);
+    // participant-updated is how Daily signals a screen-video mute/un-mute
+    // (e.g. the presenter minimising the shared window) — track-started does NOT
+    // re-fire on un-mute, so without this the viewer's video froze/blacked out
+    // and never recovered (06-18).
+    call.on("participant-updated", this.onParticipantUpdated);
     call.on("participant-left", this.onParticipantLeft);
     call.on("error", this.onFatalError);
   }
+
+  /** Reconcile the remote screen VIDEO against the live participant set. Daily
+   *  only fires track-started for tracks that BEGIN after we subscribe, and
+   *  signals a minimise/occlude (mute→un-mute) via participant-updated rather
+   *  than a fresh track-started. So scanning participants() here — on join,
+   *  participant-updated, track start/stop and leave — is what makes a LATE
+   *  JOINER pick up an in-progress share and a minimised window RECOVER when it
+   *  un-mutes. Audio is handled separately (track-started/stopped). */
+  private reconcileRemoteScreenVideo() {
+    const call = this.call;
+    if (!call) {
+      return;
+    }
+    let track: MediaStreamTrack | null = null;
+    let name = "Participant";
+    for (const p of Object.values(call.participants())) {
+      if (p.local) {
+        continue;
+      }
+      const sv = p.tracks.screenVideo;
+      const t = sv?.persistentTrack ?? sv?.track;
+      if (sv?.state === "playable" && t) {
+        track = t;
+        name = p.user_name || "Participant";
+        break;
+      }
+    }
+    if (track) {
+      if (this.currentScreenTrackId !== track.id) {
+        this.currentScreenTrackId = track.id;
+        this.remoteStream = new MediaStream([track]);
+        this.remoteSharerName = name;
+        this.recomputeStatus();
+        this.emit();
+      }
+    } else if (this.remoteStream || this.currentScreenTrackId) {
+      this.currentScreenTrackId = null;
+      this.remoteStream = null;
+      this.remoteSharerName = null;
+      this.recomputeStatus();
+      this.emit();
+    }
+  }
+
+  private onParticipantUpdated = () => {
+    this.reconcileRemoteScreenVideo();
+  };
 
   // ---- sharing -----------------------------------------------------------
 
@@ -278,10 +338,9 @@ export class DailyScreenShare {
       }
     } else {
       log(`remote screen from ${e.participant.user_name}`);
-      this.remoteStream = new MediaStream([e.track]);
-      this.remoteSharerName = e.participant.user_name || "Participant";
-      this.recomputeStatus();
-      this.emit();
+      // Resolve via the participant set so this stays consistent with the
+      // mute/un-mute (participant-updated) and late-join paths.
+      this.reconcileRemoteScreenVideo();
     }
   };
 
@@ -301,30 +360,16 @@ export class DailyScreenShare {
         this.emit();
         this.events.onLocalShareChange(false);
       }
-    } else if (this.remoteStream) {
-      this.remoteStream = null;
-      this.remoteSharerName = null;
-      this.recomputeStatus();
-      this.emit();
+    } else {
+      // Remote stop — reconcile (handles "another remote is still sharing" too).
+      this.reconcileRemoteScreenVideo();
     }
   };
 
   private onParticipantLeft = (_e: DailyEventObjectParticipantLeft) => {
-    // If the presenter left abruptly we may not get track-stopped; reconcile
-    // against the current participant set.
-    if (!this.call) {
-      return;
-    }
-    const participants = this.call.participants();
-    const someoneRemoteSharing = Object.values(participants).some(
-      (p) => !p.local && p.tracks.screenVideo.state === "playable",
-    );
-    if (!someoneRemoteSharing && this.remoteStream) {
-      this.remoteStream = null;
-      this.remoteSharerName = null;
-      this.recomputeStatus();
-      this.emit();
-    }
+    // The presenter may leave without a track-stopped; reconcile against the
+    // live participant set.
+    this.reconcileRemoteScreenVideo();
   };
 
   private playRemoteScreenAudio(track: MediaStreamTrack) {

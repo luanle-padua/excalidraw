@@ -267,9 +267,19 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     // Reviewing ≠ attending: a review open must not mint a participant row
     // (it pollutes "attended" history + the activity log). The worker also
     // 409s this for finished meetings — the skip avoids the doomed call.
-    if (roomId && session && !isStealthRoom(roomId) && !viewOnly) {
-      void logParticipation(roomId, session.name);
+    if (!(roomId && session && !isStealthRoom(roomId) && !viewOnly)) {
+      return undefined;
     }
+    void logParticipation(roomId, session.name);
+    // HEARTBEAT (06-18): re-post every 40s so meeting_participant.last_seen_at
+    // stays current. The admin Realtime monitor derives host_present + the
+    // connected count from a 90s last_seen_at window; without a heartbeat it
+    // froze after 90s (the collab WS heartbeat only refreshes the Durable
+    // Object, never D1). Cheap upsert; cleared on leave/unmount.
+    const id = window.setInterval(() => {
+      void logParticipation(roomId, session.name);
+    }, 40_000);
+    return () => window.clearInterval(id);
   }, [roomId, session, viewOnly]);
 
   // Logged-in users get their identity from the account (session). The
