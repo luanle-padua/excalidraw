@@ -802,11 +802,13 @@ export const ParticipantsBar = ({
   const iAmHost =
     !session?.isGuest &&
     ((!!hostSocketId && hostSocketId === selfSocketId) || viewerAuthority);
-  // WAITING ROOM (host side): poll who's knocking every 5s while I'm the host.
-  // Non-hosts/guests never poll (the worker 403s them); drives the panel
-  // section + the CountChip "N waiting" badge.
+  // WAITING ROOM (host side): poll who's knocking every 5s. Gate on the
+  // SERVER-confirmed authority (viewerAuthority), NOT the client iAmHost — the
+  // latter ORs in a joinedAt "acting host" election, but the worker's /knocks
+  // gate only accepts the organizer/host/cohost/authority (isMeetingManager), so
+  // an acting-host who isn't the organizer used to 403-loop every 5s (06-18).
   useEffect(() => {
-    if (!iAmHost || !roomId) {
+    if (!viewerAuthority || !roomId) {
       setWaitingKnocks([]);
       return undefined;
     }

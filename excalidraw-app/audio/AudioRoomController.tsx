@@ -109,7 +109,12 @@ export const AudioRoomController = () => {
       roomId,
       userName: collabAPI.getUsername() || "Guest",
       getSocketId: () => collabAPI.portal.socket?.id ?? null,
-      getToken: (rid, name) => getDailyToken(rid, name),
+      // Forward the 3rd arg (our DO socket.id) → ?uid → the Worker bakes it
+      // into Daily's user_id, so a remote peer's video/audio track maps back to
+      // the real socket.id (not a random Daily UUID). Dropping it was why a
+      // peer's CAMERA never rendered: the tile is keyed by socket.id but the
+      // track arrived keyed by Daily's UUID, so it never matched (06-18).
+      getToken: (rid, name, uid) => getDailyToken(rid, name, uid),
       events: {
         onState: ({ peers, muted, canTransmit }) => {
           setAudioState((prev) => ({
