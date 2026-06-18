@@ -46,6 +46,18 @@ const VOLATILE_BUFFER_THRESHOLD = 512 * 1024; // 512 KiB
  *  a single room-user-change broadcast (plan §3 disconnecting, R12). */
 const ROOM_USER_CHANGE_DEBOUNCE_MS = 250;
 
+/** Ghost reaper (06-18). A half-open TCP connection keeps the socket in
+ *  readyState OPEN — counting against the WS cap, showing a phantom participant,
+ *  and (worst) pinning host election on a dead client — until the OS/edge TCP
+ *  keepalive finally tears it down, which can take MINUTES. The client sends a
+ *  lightweight `hb` control frame every ~40s; the DO refreshes lastSeen on it
+ *  and an alarm() drops any socket whose lastSeen is older than GHOST_TIMEOUT_MS
+ *  (~2 missed beats). REAPER_INTERVAL keeps the alarm coarse so an idle-but-alive
+ *  room wakes the DO only ~once/minute, and the alarm stops re-arming once the
+ *  room is empty (preserves hibernation / $0 idle). */
+const GHOST_TIMEOUT_MS = 100_000;
+const REAPER_INTERVAL_MS = 50_000;
+
 export type ControlFrame = { ev: string; args: unknown[] };
 
 /** `bufferedAmount` exists on the runtime WebSocket but isn't in the Workers
@@ -108,6 +120,10 @@ export type WsAttachment = {
   role: string;
   /** When this connection was accepted (host-election dedup key, client-side). */
   joinedAt: number;
+  /** Last time a client frame (incl. the `hb` heartbeat) was seen on this
+   *  socket — the ghost reaper drops sockets that go quiet (06-18). Optional so
+   *  attachments serialized before the reaper landed still deserialize. */
+  lastSeen?: number;
 };
 
 type Env = {
@@ -176,6 +192,7 @@ export class RoomDO implements DurableObject {
       email,
       role,
       joinedAt: Date.now(),
+      lastSeen: Date.now(),
     };
 
     // Hibernatable accept. Tagging by socketId lets us target a single peer for
@@ -196,6 +213,13 @@ export class RoomDO implements DurableObject {
     // (Portal.tsx:46-51). We include the minted socketId so the client can set
     // its `.id` (replaces socket.io's server-assigned socket.id).
     server.send(packControl("init-room", [{ socketId }]));
+
+    // Arm the ghost reaper if it isn't already running (idempotent — one alarm
+    // per DO). It re-arms itself while sockets remain and stops when the room
+    // empties, so an idle room still hibernates.
+    if ((await this.ctx.storage.getAlarm()) === null) {
+      await this.ctx.storage.setAlarm(Date.now() + REAPER_INTERVAL_MS);
+    }
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -319,6 +343,12 @@ export class RoomDO implements DurableObject {
         break;
       case "user-follow":
         this.onUserFollow(self, frame.args[0]);
+        break;
+      case "hb":
+        // Liveness heartbeat (06-18 ghost reaper): refresh lastSeen so the
+        // alarm doesn't reap an alive-but-idle socket. A dead/half-open ghost
+        // stops sending these and gets dropped on the next reaper tick.
+        this.touchLastSeen(ws, self);
         break;
       default:
         // Unknown control event — ignore (forward-compat; old server ignored
@@ -511,5 +541,57 @@ export class RoomDO implements DurableObject {
       this.roomChangeTimer = null;
       this.broadcastControl("room-user-change", [this.roomUserList()]);
     }, ROOM_USER_CHANGE_DEBOUNCE_MS);
+  }
+
+  /** Refresh a socket's lastSeen in its hibernation attachment. Cheap (no D1 /
+   *  storage.put) — serializeAttachment rides with the socket. Only called on
+   *  the ~40s `hb` frame, not per cursor/scene frame, so it stays inexpensive. */
+  private touchLastSeen(ws: WebSocket, self: WsAttachment): void {
+    try {
+      ws.serializeAttachment({ ...self, lastSeen: Date.now() });
+    } catch {
+      // socket racing closed — ignore.
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Ghost reaper (06-18). webSocketClose only fires on real TCP teardown, which
+  // a half-open connection delays for minutes — leaving a ghost in the cap /
+  // presence / host election. This alarm drops sockets that stopped sending the
+  // ~40s `hb` heartbeat, then re-arms ONLY while sockets remain (an empty room
+  // lets the DO hibernate, preserving $0 idle).
+  // -------------------------------------------------------------------------
+  async alarm(): Promise<void> {
+    const now = Date.now();
+    let reaped = 0;
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = this.getAttachment(ws);
+      if (!a) {
+        continue;
+      }
+      if (typeof a.lastSeen !== "number") {
+        // Pre-reaper attachment — seed it so it isn't reaped on a stale read.
+        this.touchLastSeen(ws, a);
+        continue;
+      }
+      if (now - a.lastSeen > GHOST_TIMEOUT_MS) {
+        try {
+          ws.close(1001, "ghost-timeout");
+        } catch {
+          // already closing — ignore.
+        }
+        reaped += 1;
+      }
+    }
+    if (reaped > 0) {
+      // Reflect the drop immediately (webSocketClose also fires, but a forced
+      // server close can lag — broadcast a fresh presence list now so host
+      // election re-runs off the live set without the ghost).
+      this.broadcastControl("room-user-change", [this.roomUserList()]);
+    }
+    // Re-arm only while live sockets remain → empty room stops waking the DO.
+    if (this.openSockets().length > 0) {
+      await this.ctx.storage.setAlarm(now + REAPER_INTERVAL_MS);
+    }
   }
 }

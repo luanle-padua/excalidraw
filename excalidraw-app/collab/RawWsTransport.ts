@@ -68,6 +68,14 @@ const STABLE_OPEN_MS = 10_000;
  *  bounce, short enough that a dead tab can't drain the daily request quota. */
 const MAX_RECONNECT_ATTEMPTS = 60;
 
+/** App-level liveness heartbeat (06-18 ghost reaper). The server (RoomDO) drops
+ *  a socket that stops sending `hb` for GHOST_TIMEOUT_MS (~100s), so a half-open
+ *  tab no longer lingers in the WS cap / presence / host election. 40s gives the
+ *  server ~2 beats of slack while waking the idle DO only ~once/minute. This is
+ *  a DISTINCT control frame from the runtime ping/pong auto-response (which does
+ *  NOT wake the DO and so can't refresh server-side lastSeen). */
+const HEARTBEAT_MS = 40_000;
+
 /** Drop a volatile (cursor/idle) frame when the socket's outbound buffer is
  *  already this deep — matches socket.io `volatile` backpressure-drop so a
  *  60fps cursor flood can't grow the buffer unboundedly (plan §3, R16). */
@@ -111,6 +119,9 @@ export class RawWsTransport {
    *  connection and reset the backoff counter. Guards against an open→close
    *  flap pinning backoff at the floor (06-18 reconnect-storm fix). */
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Periodic `hb` heartbeat so the server can reap this socket if it dies
+   *  half-open (06-18 ghost reaper). Runs only while the socket is open. */
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   /** Set by close() so an in-flight reconnect doesn't resurrect a torn-down
    *  transport. */
   private closedByUser = false;
@@ -209,6 +220,7 @@ export class RawWsTransport {
       clearTimeout(this.stableTimer);
       this.stableTimer = null;
     }
+    this.stopHeartbeat();
     if (this.ws) {
       // Strip our handlers so the close doesn't kick off a reconnect.
       this.ws.onopen = null;
@@ -282,6 +294,8 @@ export class RawWsTransport {
         this.stableTimer = null;
         this.reconnectAttempts = 0;
       }, STABLE_OPEN_MS);
+      // Start the server-liveness heartbeat (ghost reaper). Cleared on close.
+      this.startHeartbeat();
       // socket.io fires "connect" on every (re)connect. Collab re-reads
       // socket.id and, via Portal's "init-room" handler, re-sends join-room —
       // so a reconnect resyncs WITHOUT Portal.close(): broadcastedElementVersions
@@ -309,6 +323,7 @@ export class RawWsTransport {
       this.connected = false;
       this.disconnected = true;
       this.id = undefined;
+      this.stopHeartbeat();
       // A close before the stable threshold means this open didn't "count" —
       // leave reconnectAttempts climbing so backoff keeps growing.
       if (this.stableTimer) {
@@ -327,6 +342,23 @@ export class RawWsTransport {
         this.scheduleReconnect();
       }
     };
+  }
+
+  /** Begin the periodic `hb` heartbeat (ghost reaper). Idempotent. */
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      // sendControl is a no-op unless the socket is OPEN, so a heartbeat can't
+      // resurrect a dead socket; the close handler stops the timer anyway.
+      this.sendControl("hb", []);
+    }, HEARTBEAT_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   private scheduleReconnect(): void {
