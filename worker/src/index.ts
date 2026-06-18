@@ -357,6 +357,38 @@ app.use("/translate", jwtGate);
 app.use("/translate-batch", jwtGate);
 app.use("/chatbot", jwtGate);
 app.use("/summarize", jwtGate);
+// AI room authz (06-18): /chatbot + /summarize take a meetingId plus a pile of
+// client-supplied context. jwtGate proves WHO you are; this proves you are a
+// MEMBER of the meeting you're asking about — otherwise any logged-in user could
+// drive the bot/summary against any meetingId (and stamp usage_events to it).
+// meetingId is optional (an ad-hoc/no-meeting call skips the check); when present
+// it runs the SAME canSeeMeeting authz as the data routes. Hono caches the parsed
+// body, so the handler still reads it normally after this peek.
+const aiRoomGate: MiddlewareHandler<{
+  Bindings: Bindings;
+  Variables: Variables;
+}> = async (c, next) => {
+  let meetingId: string | undefined;
+  try {
+    const b = (await c.req.json()) as { meetingId?: unknown; roomId?: unknown };
+    meetingId =
+      (typeof b?.meetingId === "string" && b.meetingId) ||
+      (typeof b?.roomId === "string" && b.roomId) ||
+      undefined;
+  } catch {
+    // no / non-JSON body — nothing to authorize against
+  }
+  meetingId = meetingId || c.req.query("meetingId") || undefined;
+  if (
+    meetingId &&
+    !(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), meetingId))
+  ) {
+    return c.json({ error: "not a member of this meeting" }, 403);
+  }
+  return next();
+};
+app.use("/chatbot", aiRoomGate);
+app.use("/summarize", aiRoomGate);
 app.route("/", aiRoutes);
 
 // ---- Admin gate ----------------------------------------------------------
@@ -881,6 +913,31 @@ const isMeetingManager = async (
 // ANY meeting (Daily-token gating alone left the canvas wide open). Internal
 // staff + admins pass (open dev flow); EXTERNAL guests are restricted to
 // meetings they were invited to. roomId is path segment 3 for all these paths.
+// External (guest) users only get DECRYPTED-room material — the room_key and
+// the scene/chat/transcript/library/file blobs — once their knock has been
+// ADMITTED. Internal staff + admins always pass (they auto-admit, never knock).
+// Mirrors the Daily-token (:3736) and WS-upgrade (:6004) gates; without it an
+// invited-but-not-admitted guest sitting in the waiting room could read the
+// whole meeting via plain GETs (waiting-room read bypass, 06-18).
+const isAdmittedForRoom = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+  roomId: string,
+): Promise<boolean> => {
+  if (isAdminish(role) || isInternalEmail(email)) {
+    return true;
+  }
+  if (!email) {
+    return false;
+  }
+  const knock = await db
+    .prepare(`SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`)
+    .bind(roomId, email.toLowerCase())
+    .first<{ status: string | null }>();
+  return knock?.status === "admitted";
+};
+
 const roomGate: MiddlewareHandler<{
   Bindings: Bindings;
   Variables: Variables;
@@ -891,6 +948,29 @@ const roomGate: MiddlewareHandler<{
     !(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))
   ) {
     return c.json({ error: "forbidden" }, 403);
+  }
+  // Blob routes (scenes/chats/library/files/transcripts) carry the actual
+  // meeting content. An external guest must be ADMITTED to read/write them —
+  // canSeeMeeting (invited) is NOT enough, or the waiting room leaks everything.
+  // The /v1/meetings/* routes are intentionally NOT gated here so the knock
+  // flow (POST/GET .../knock) keeps working while a guest waits; room_key is
+  // stripped from the meeting-metadata response separately (GET handler).
+  const seg = c.req.path.split("/")[2];
+  if (
+    roomId &&
+    (seg === "scenes" ||
+      seg === "chats" ||
+      seg === "library" ||
+      seg === "files" ||
+      seg === "transcripts") &&
+    !(await isAdmittedForRoom(
+      c.env.DB,
+      c.get("email"),
+      c.get("role"),
+      roomId,
+    ))
+  ) {
+    return c.json({ error: "not admitted to this meeting" }, 403);
   }
   // Review of a FINISHED meeting is internal-only (quyết định 06-11): guests
   // lose access once the meeting ends — the host shares a packaged recap
@@ -1875,6 +1955,22 @@ app.get("/v1/meetings/:roomId", async (c) => {
     .first<Record<string, unknown>>();
   if (!row) {
     return c.json({ error: "not found" }, 404);
+  }
+  // Never hand the decryption key (or the scene blob pointer) to an external
+  // guest who hasn't been admitted yet — the waiting room would otherwise be
+  // able to decrypt the whole meeting (waiting-room read bypass, 06-18). The
+  // guest still gets the metadata it needs to render the lobby; room_key lands
+  // only once admitted. Internal/admin/admitted callers keep the key.
+  if (
+    !(await isAdmittedForRoom(
+      c.env.DB,
+      c.get("email"),
+      c.get("role"),
+      row.id as string,
+    ))
+  ) {
+    row.room_key = null;
+    row.scene_r2_key = null;
   }
   // Does the VIEWER hold host-level authority over this meeting (admin, its
   // organizer/host, or the project leader / leading-division head)? The client
