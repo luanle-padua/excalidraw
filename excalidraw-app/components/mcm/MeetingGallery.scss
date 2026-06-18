@@ -1,0 +1,140 @@
+// Toggle button that lives at the end of the participant strip.
+.mcm-people-bar__gallery-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(128, 128, 128, 0.25);
+  background: rgba(128, 128, 128, 0.12);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: rgba(128, 128, 128, 0.24);
+  }
+}
+
+// Full-screen participant gallery (grid of cameras). Dark, glassy, Glass-Desk
+// consistent. Sits above the canvas but below modals/follow-mode.
+.mcm-gallery {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: rgba(11, 14, 20, 0.96);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px;
+    color: #e8eaf0;
+    flex: 0 0 auto;
+  }
+
+  &__title {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.2px;
+  }
+
+  &__close {
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #e8eaf0;
+    border-radius: 10px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+  }
+
+  &__grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: grid;
+    gap: 14px;
+    padding: 0 22px 22px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    align-content: center;
+    justify-items: stretch;
+  }
+
+  &__tile {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #11151c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+    &--speaking {
+      box-shadow: 0 0 0 3px #34d399;
+      border-color: #34d399;
+    }
+  }
+
+  // TileVideo (reused from ParticipantsBar) fills the gallery tile.
+  .mcm-person__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__avatar {
+    transform: scale(1.7);
+    transform-origin: center;
+  }
+
+  &__label {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    max-width: calc(100% - 24px);
+    padding: 4px 10px;
+    border-radius: 9px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 13px;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__host {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 600;
+    background: #6366f1;
+    border-radius: 6px;
+    padding: 1px 7px;
+  }
+
+  &__mic-off {
+    flex: 0 0 auto;
+    font-size: 12px;
+  }
+}

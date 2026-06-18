@@ -152,6 +152,13 @@ export const en: Widened<typeof vi> = {
     label: "AI",
     inUse: "AI is working…",
   },
+  gallery: {
+    title: "Meeting",
+    open: "Gallery view",
+    close: "Close",
+    you: "You",
+    host: "Host",
+  },
   cal: {
     title: "Calendar",
     // Sidebar tab label (ProjectBrowser) — distinct from `title`.

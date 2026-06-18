@@ -171,6 +171,14 @@ export const vi = {
     label: "AI",
     inUse: "AI đang xử lý…",
   },
+  // ---------------- Video gallery (grid view) ----------------------
+  gallery: {
+    title: "Phòng họp",
+    open: "Xem dạng lưới",
+    close: "Đóng",
+    you: "Bạn",
+    host: "Chủ trì",
+  },
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",

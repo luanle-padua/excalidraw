@@ -15,6 +15,11 @@ import { atom } from "../app-jotai";
  *  camera is actually publishing; absent ⇒ that tile falls back to the avatar. */
 export const videoTilesAtom = atom<Map<string, MediaStream>>(new Map());
 
+/** Whether the full-screen participant GALLERY view (grid of everyone's camera,
+ *  like Zoom/Meet) is open. Toggled from the participant strip; the gallery
+ *  reuses the same per-person tiles ParticipantsBar already builds. */
+export const galleryOpenAtom = atom<boolean>(false);
+
 export type CameraStatus = "off" | "on" | "starting" | "error";
 
 export type CameraState = {

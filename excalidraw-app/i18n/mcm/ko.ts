@@ -159,6 +159,13 @@ export const ko: Widened<typeof vi> = {
     label: "AI",
     inUse: "AI 처리 중…",
   },
+  gallery: {
+    title: "회의",
+    open: "갤러리 보기",
+    close: "닫기",
+    you: "나",
+    host: "호스트",
+  },
   cal: {
     title: "일정",
     // Sidebar tab label (ProjectBrowser) — distinct from `title`.

@@ -20,7 +20,7 @@ import type {
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
-import { videoTilesAtom } from "../../audio/videoState";
+import { galleryOpenAtom, videoTilesAtom } from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
@@ -48,6 +48,7 @@ import {
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
+import { MeetingGallery } from "./MeetingGallery";
 import { shortDisplayName } from "./animalEmoji";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
 
@@ -134,7 +135,7 @@ const MicOnIcon = () => (
   </svg>
 );
 
-type Tile = {
+export type Tile = {
   id: string;
   name: string;
   avatar: string;
@@ -192,7 +193,7 @@ type Tile = {
 // fails to attach we render nothing here and the avatar shows through — never
 // a black tile. Muted/autoPlay/playsInline keeps it as a silent thumbnail
 // (audio plays via Daily separately).
-const TileVideo = ({
+export const TileVideo = ({
   stream,
   mirror,
 }: {
@@ -732,6 +733,8 @@ export const ParticipantsBar = ({
   // Live camera streams keyed by socket.id (same call object as audio). A tile
   // whose socket.id is present here renders a <video>; otherwise the avatar.
   const videoTiles = useAtomValue(videoTilesAtom);
+  const galleryOpen = useAtomValue(galleryOpenAtom);
+  const setGalleryOpen = useSetAtom(galleryOpenAtom);
   const raisedHands = useAtomValue(raisedHandsAtom);
   const screenSharePresence = useAtomValue(screenShareStateAtom);
   const liveReactions = useAtomValue(meetingReactionsAtom);
@@ -1145,7 +1148,39 @@ export const ParticipantsBar = ({
             );
           })}
         </div>
+        {/* Expand the strip into a full-screen gallery (grid of everyone's
+            camera, like Zoom/Meet). */}
+        <button
+          type="button"
+          className="mcm-people-bar__gallery-btn"
+          title={t("gallery.open")}
+          aria-label={t("gallery.open")}
+          onClick={() => setGalleryOpen(true)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          </svg>
+        </button>
       </footer>
+      {galleryOpen && (
+        <MeetingGallery
+          tiles={tiles}
+          selfSocketId={selfSocketId}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
       {panelOpen && (
         <ParticipantsPanel
           tiles={tiles}
