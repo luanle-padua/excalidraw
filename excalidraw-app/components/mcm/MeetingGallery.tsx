@@ -9,6 +9,9 @@
 
 import { useT } from "../../i18n/mcm";
 
+import { useAtomValue } from "../../app-jotai";
+import { activeSpeakerAtom } from "../../audio/videoPerf";
+
 import { MCMAvatar } from "./Avatar";
 import { TileVideo } from "./ParticipantsBar";
 
@@ -26,6 +29,9 @@ export const MeetingGallery = ({
   onClose: () => void;
 }) => {
   const t = useT();
+  // Ring on the Daily active-speaker (same signal the filmstrip uses) so both
+  // surfaces agree on who's talking — including self.
+  const activeSpeaker = useAtomValue(activeSpeakerAtom);
   return (
     <div className="mcm-gallery" role="dialog" aria-modal="true">
       <div className="mcm-gallery__bar">
@@ -46,7 +52,7 @@ export const MeetingGallery = ({
           <div
             key={tile.id}
             className={`mcm-gallery__tile${
-              tile.speaking ? " mcm-gallery__tile--speaking" : ""
+              tile.id === activeSpeaker ? " mcm-gallery__tile--speaking" : ""
             }`}
           >
             {tile.videoStream ? (

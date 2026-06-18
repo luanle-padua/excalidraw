@@ -31,6 +31,7 @@ import type {
   DailyEventObjectParticipant,
   DailyEventObjectParticipantLeft,
   DailyEventObjectFatalError,
+  DailyEventObjectActiveSpeakerChange,
   DailyParticipant,
 } from "@daily-co/daily-js";
 
@@ -44,6 +45,13 @@ export type DailyTokenFetcher = (
 
 const SPEAKING_THRESHOLD = 22; // 0..255, matches AudioPeer
 const SPEAKING_RELEASE_MS = 250;
+
+// Simulcast receive layers for the CPU/bandwidth saver. Daily cameras publish
+// up to 3 spatial layers (0 = lowest res, 2 = highest); we default everyone to
+// the lowest and promote only the active speaker. "inherit" hands a tile back
+// to Daily's own adaptive picker (used when demoting the previous speaker).
+const RECEIVE_LAYER_BASE = 0;
+const RECEIVE_LAYER_ACTIVE = 2;
 
 const log = (...a: unknown[]) => console.info("[audio]", ...a);
 const warn = (...a: unknown[]) => console.warn("[audio]", ...a);
@@ -94,6 +102,15 @@ export class DailyAudio {
   /** socket.ids that currently have a published remote video track, so we can
    *  clean up on stop()/leave without re-deriving from Daily state. */
   private videoSockets = new Set<string>();
+
+  /** session_id of the participant Daily currently reports as active speaker —
+   *  kept so the receive-layer optimisation can DEMOTE the previous speaker
+   *  back to base before promoting the new one. */
+  private activeSpeakerSession: string | null = null;
+  /** whether this call is on an SFU (simulcast layers exist). null = unknown /
+   *  not yet probed; false = P2P (updateReceiveSettings is a no-op / unsafe, so
+   *  we skip the optimisation entirely to never risk breaking video). */
+  private isSfu: boolean | null = null;
 
   /** keyed by socket.id, like the mesh */
   private peers = new Map<string, RemotePeer>();
@@ -246,6 +263,12 @@ export class DailyAudio {
     this.videoSessionToSocket.clear();
     this.releaseLocalVideo();
     this.cameraOn = false;
+    // Clear the speaker ring and reset per-call optimisation state.
+    if (this.activeSpeakerSession !== null) {
+      this.events.onActiveSpeaker?.(null);
+    }
+    this.activeSpeakerSession = null;
+    this.isSfu = null;
     for (const peer of this.peers.values()) {
       this.teardownPeer(peer);
     }
@@ -419,7 +442,111 @@ export class DailyAudio {
     call.on("track-stopped", this.onVideoStopped);
     call.on("participant-updated", this.onParticipantUpdated);
     call.on("participant-left", this.onParticipantLeft);
+    call.on("active-speaker-change", this.onActiveSpeakerChange);
     call.on("error", this.onFatalError);
+  }
+
+  // ---- active speaker (SFU) → speaker ring + receive-layer promotion -------
+
+  private onActiveSpeakerChange = (e: DailyEventObjectActiveSpeakerChange) => {
+    // Daily's activeSpeaker.peerId is a session_id; resolve it to OUR socket.id.
+    const sessionId = e.activeSpeaker?.peerId || null;
+    const prevSession = this.activeSpeakerSession;
+    this.activeSpeakerSession = sessionId;
+
+    const socketId = sessionId
+      ? this.socketIdForSession(sessionId)
+      : null;
+    // Surface to the UI even if we can't resolve a socketId yet (null clears the
+    // ring) — the layout lane just won't ring an unknown tile.
+    this.events.onActiveSpeaker?.(socketId);
+
+    // Optimisation: promote the active speaker's video to a high simulcast
+    // layer, demote the previous one back to base. No-op-safe (see below).
+    this.applyReceiveLayers(sessionId, prevSession);
+  };
+
+  /** Map a Daily session_id to our socket.id. Tries the live participant's
+   *  baked identity first (user_id / userData), then the audio + video
+   *  session→socket maps we already maintain. */
+  private socketIdForSession(sessionId: string): string | null {
+    const call = this.call;
+    if (call) {
+      const participants = call.participants();
+      for (const key of Object.keys(participants)) {
+        const p = participants[key];
+        if (p && p.session_id === sessionId) {
+          const id = this.socketIdOf(p);
+          if (id) {
+            return id;
+          }
+          break;
+        }
+      }
+    }
+    return (
+      this.sessionToSocket.get(sessionId) ??
+      this.videoSessionToSocket.get(sessionId) ??
+      null
+    );
+  }
+
+  /** Receive-layer optimisation (the main CPU/bandwidth saver). Defaults every
+   *  remote camera to the LOWEST simulcast layer via the "*" wildcard base and
+   *  promotes ONLY the active speaker to a higher layer, demoting the previous
+   *  one back to inherit. SFU-only: on a P2P room (small calls) there are no
+   *  simulcast layers and updateReceiveSettings is meaningless, so we probe the
+   *  topology once and skip entirely if it is not an SFU. Wrapped so ANY failure
+   *  leaves video untouched — this must never regress the working camera path.
+   *
+   *  We only act when remote camera videos are actually present (videoSockets);
+   *  with no remote video there is nothing to down-tier. */
+  private async applyReceiveLayers(
+    activeSession: string | null,
+    prevSession: string | null,
+  ) {
+    const call = this.call;
+    if (!call || !this.active || this.videoSockets.size === 0) {
+      return;
+    }
+    try {
+      // Probe topology once. Daily may briefly report 'none' before the SFU is
+      // up; leave isSfu unknown in that case and retry on the next change.
+      if (this.isSfu === null) {
+        const { topology } = await call.getNetworkTopology();
+        if (topology === "none") {
+          return; // not settled yet — don't cache, try again next time
+        }
+        this.isSfu = topology === "sfu";
+      }
+      if (this.isSfu !== true) {
+        return; // P2P (or unknown): no simulcast layers, nothing safe to do
+      }
+      if (this.call !== call || !this.active) {
+        return; // call was torn down while awaiting topology
+      }
+
+      const updates: Record<
+        string,
+        { video: { layer: number | "inherit" } }
+      > = {
+        // Everyone defaults to the lowest layer; the active speaker overrides.
+        "*": { video: { layer: RECEIVE_LAYER_BASE } },
+      };
+      if (prevSession && prevSession !== activeSession) {
+        updates[prevSession] = { video: { layer: "inherit" } };
+      }
+      if (activeSession) {
+        updates[activeSession] = { video: { layer: RECEIVE_LAYER_ACTIVE } };
+      }
+      await call.updateReceiveSettings(updates);
+    } catch (err) {
+      // Any failure (P2P, transient, API shape) is non-fatal: video keeps
+      // flowing at Daily's default adaptive quality. Disable further attempts
+      // for this call so we don't spam on every speaker change.
+      this.isSfu = false;
+      warn("updateReceiveSettings skipped (non-fatal)", err);
+    }
   }
 
   // ---- remote camera video tracks → ParticipantsBar tiles ----------------

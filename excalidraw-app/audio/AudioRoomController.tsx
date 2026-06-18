@@ -25,6 +25,7 @@ import {
   recordingStateAtom,
 } from "./audioState";
 import { STTSession } from "./sttSession";
+import { activeSpeakerAtom } from "./videoPerf";
 import { cameraStateAtom, videoTilesAtom } from "./videoState";
 
 import type { STTLang } from "./sttSession";
@@ -43,6 +44,7 @@ export const AudioRoomController = () => {
   const setRecorderInstance = useSetAtom(recorderInstanceAtom);
   const setVideoTiles = useSetAtom(videoTilesAtom);
   const setCameraState = useSetAtom(cameraStateAtom);
+  const setActiveSpeaker = useSetAtom(activeSpeakerAtom);
   /** Live STT session bound to the user's own mic. Spun up when the
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
@@ -91,6 +93,7 @@ export const AudioRoomController = () => {
         });
         setVideoTiles(new Map());
         setCameraState({ status: "off", errorMessage: null });
+        setActiveSpeaker(null);
       }
       return;
     }
@@ -165,6 +168,12 @@ export const AudioRoomController = () => {
             return next;
           });
         },
+        // Active speaker (Daily SFU) → activeSpeakerAtom, read by the layout
+        // lane to ring that person's tile. Already mapped to our socket.id in
+        // DailyAudio (null clears the ring).
+        onActiveSpeaker: (socketId) => {
+          setActiveSpeaker(socketId);
+        },
         onError: (err) => {
           // Classify into a CODE; MeetingCallControls translates it at
           // render time (state must stay language-neutral). getUserMedia
@@ -203,6 +212,7 @@ export const AudioRoomController = () => {
     setRecordingState,
     setVideoTiles,
     setCameraState,
+    setActiveSpeaker,
   ]);
 
   // -----------------------------------------------------------------

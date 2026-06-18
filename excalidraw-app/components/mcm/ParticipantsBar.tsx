@@ -7,7 +7,17 @@
 // populated.
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
-import { Mic, MicOff, UserCheck, UserX, X } from "lucide-react";
+import {
+  Check,
+  LayoutGrid,
+  Mic,
+  MicOff,
+  Minus,
+  PanelBottom,
+  UserCheck,
+  UserX,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { createPortal } from "react-dom";
@@ -20,6 +30,7 @@ import type {
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
+import { videoLayoutAtom, type VideoLayout } from "../../audio/videoLayout";
 import { galleryOpenAtom, videoTilesAtom } from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
@@ -49,8 +60,11 @@ import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
 import { MeetingGallery } from "./MeetingGallery";
+import { VideoFilmstrip } from "./VideoFilmstrip";
 import { shortDisplayName } from "./animalEmoji";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
+
+import type { McmKey } from "../../i18n/mcm";
 
 import type { HTMLAttributes } from "react";
 
@@ -715,6 +729,103 @@ const ParticipantsPanel = ({
   );
 };
 
+// View switcher — a small popover that picks the video SURFACE (minimal strip /
+// bottom filmstrip / full-screen gallery), driving videoLayoutAtom. Replaces the
+// old single gallery button so all three layouts are reachable from one control.
+const LAYOUT_MODES: {
+  mode: VideoLayout;
+  icon: typeof LayoutGrid;
+  labelKey: McmKey;
+}[] = [
+  { mode: "minimal", icon: Minus, labelKey: "videoLayout.modeMinimal" },
+  {
+    mode: "filmstrip",
+    icon: PanelBottom,
+    labelKey: "videoLayout.modeFilmstrip",
+  },
+  { mode: "gallery", icon: LayoutGrid, labelKey: "videoLayout.modeGallery" },
+];
+
+const LayoutSwitcher = ({
+  layout,
+  onPick,
+}: {
+  layout: VideoLayout;
+  onPick: (mode: VideoLayout) => void;
+}) => {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  // Close on outside-click / Esc — standard popover dismissal.
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const ActiveIcon =
+    LAYOUT_MODES.find((m) => m.mode === layout)?.icon ?? LayoutGrid;
+
+  return (
+    <div className="mcm-people-bar__layout" ref={wrapRef}>
+      <button
+        type="button"
+        className="mcm-people-bar__gallery-btn"
+        title={t("videoLayout.switcherLabel")}
+        aria-label={t("videoLayout.switcherLabel")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <ActiveIcon size={18} strokeWidth={1.8} />
+      </button>
+      {open && (
+        <div className="mcm-people-bar__layout-menu" role="menu">
+          {LAYOUT_MODES.map(({ mode, icon: Icon, labelKey }) => (
+            <button
+              key={mode}
+              type="button"
+              role="menuitemradio"
+              aria-checked={layout === mode}
+              className={`mcm-people-bar__layout-item${
+                layout === mode ? " mcm-people-bar__layout-item--active" : ""
+              }`}
+              onClick={() => {
+                onPick(mode);
+                setOpen(false);
+              }}
+            >
+              <Icon size={15} strokeWidth={1.8} />
+              <span className="mcm-people-bar__layout-label">
+                {t(labelKey)}
+              </span>
+              {layout === mode && (
+                <Check size={14} className="mcm-people-bar__layout-check" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 type ParticipantsBarProps = {
   /** Open the local user's profile editor — wired from MeetingShell
    *  so a click on your own avatar tile pops the same modal that the
@@ -733,6 +844,12 @@ export const ParticipantsBar = ({
   // Live camera streams keyed by socket.id (same call object as audio). A tile
   // whose socket.id is present here renders a <video>; otherwise the avatar.
   const videoTiles = useAtomValue(videoTilesAtom);
+  // Which video SURFACE to render (minimal strip / bottom filmstrip / full
+  // gallery). Persisted per-user. We keep galleryOpenAtom in sync so any other
+  // caller that toggles it (or reads it) still works — "gallery" mode IS the
+  // gallery being open.
+  const videoLayout = useAtomValue(videoLayoutAtom);
+  const setVideoLayout = useSetAtom(videoLayoutAtom);
   const galleryOpen = useAtomValue(galleryOpenAtom);
   const setGalleryOpen = useSetAtom(galleryOpenAtom);
   const raisedHands = useAtomValue(raisedHandsAtom);
@@ -1122,9 +1239,22 @@ export const ParticipantsBar = ({
     }
   };
 
+  // Drive the persisted layout AND keep the legacy galleryOpenAtom consistent
+  // (true only in gallery mode) so both signals agree no matter which one a
+  // consumer reads.
+  const handlePickLayout = (mode: VideoLayout) => {
+    setVideoLayout(mode);
+    setGalleryOpen(mode === "gallery");
+  };
+
   return (
     <>
-      <footer className="mcm-people-bar" aria-label={t("participants.label")}>
+      <footer
+        className={`mcm-people-bar${
+          videoLayout === "filmstrip" ? " mcm-people-bar--filmstrip" : ""
+        }`}
+        aria-label={t("participants.label")}
+      >
         <CountChip
           inRoom={tiles.length}
           invited={invitedTotal}
@@ -1148,37 +1278,26 @@ export const ParticipantsBar = ({
             );
           })}
         </div>
-        {/* Expand the strip into a full-screen gallery (grid of everyone's
-            camera, like Zoom/Meet). */}
-        <button
-          type="button"
-          className="mcm-people-bar__gallery-btn"
-          title={t("gallery.open")}
-          aria-label={t("gallery.open")}
-          onClick={() => setGalleryOpen(true)}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="3" y="14" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-          </svg>
-        </button>
+        {/* Pick the video SURFACE: minimal strip / bottom filmstrip /
+            full-screen gallery. */}
+        <LayoutSwitcher layout={videoLayout} onPick={handlePickLayout} />
       </footer>
-      {galleryOpen && (
+      {/* Render the chosen surface. "minimal" keeps just the strip above. The
+          gallery also honours the legacy galleryOpenAtom so any other caller
+          that toggles it still opens the grid. */}
+      {videoLayout === "filmstrip" && (
+        <VideoFilmstrip tiles={tiles} selfSocketId={selfSocketId} />
+      )}
+      {(videoLayout === "gallery" || galleryOpen) && (
         <MeetingGallery
           tiles={tiles}
           selfSocketId={selfSocketId}
-          onClose={() => setGalleryOpen(false)}
+          onClose={() => {
+            setGalleryOpen(false);
+            if (videoLayout === "gallery") {
+              handlePickLayout("minimal");
+            }
+          }}
         />
       )}
       {panelOpen && (

@@ -1,0 +1,120 @@
+// FILMSTRIP video surface — a docked horizontal rail of camera tiles.
+//
+// Fixed to the bottom edge, full width, opaque dark (Glass-Desk consistent) so
+// the canvas above it stays clean and usable — the canvas is pushed up, not
+// covered. The rail scrolls horizontally when there are more tiles than fit.
+// While the filmstrip rail is mounted: raise the floating bottom call controls
+// above the 140px rail, and reduce the people-bar to just the layout switcher
+// (the rail is the participant display now — the avatar strip + count chip are
+// redundant). The switcher floats bottom-right ABOVE the rail so it stays
+// reachable to switch layouts back.
+body.mcm-has-filmstrip {
+  --mcm-bar-clearance: 156px;
+}
+.mcm-people-bar--filmstrip {
+  z-index: 51;
+  left: auto;
+  right: 12px;
+
+  .mcm-people-bar__chip,
+  .mcm-people-bar__list {
+    display: none;
+  }
+}
+
+.mcm-filmstrip {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 140px;
+  z-index: 50;
+  box-sizing: border-box;
+  background: rgba(11, 14, 20, 0.97);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+  &__rail {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 18px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    // Thin, unobtrusive scrollbar on the dark rail.
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+
+    &::-webkit-scrollbar {
+      height: 7px;
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+  }
+
+  &__tile {
+    position: relative;
+    flex: 0 0 auto;
+    width: 188px;
+    height: 108px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #11151c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+    // GREEN RING on the active speaker (id === activeSpeakerAtom).
+    &--speaking {
+      box-shadow: 0 0 0 3px #34d399;
+      border-color: #34d399;
+    }
+  }
+
+  // TileVideo (reused from ParticipantsBar) fills the filmstrip tile.
+  .mcm-person__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &__avatar {
+    transform: scale(1.35);
+    transform-origin: center;
+  }
+
+  &__label {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 16px);
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-size: 12px;
+  }
+
+  &__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__mic-off {
+    flex: 0 0 auto;
+    font-size: 11px;
+  }
+}

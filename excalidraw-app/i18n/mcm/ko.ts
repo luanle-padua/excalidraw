@@ -166,6 +166,12 @@ export const ko: Widened<typeof vi> = {
     you: "나",
     host: "호스트",
   },
+  videoLayout: {
+    switcherLabel: "영상 레이아웃",
+    modeMinimal: "간단히",
+    modeFilmstrip: "필름스트립",
+    modeGallery: "갤러리",
+  },
   cal: {
     title: "일정",
     // Sidebar tab label (ProjectBrowser) — distinct from `title`.

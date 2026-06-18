@@ -19,6 +19,66 @@
   }
 }
 
+// View switcher popover anchored above the layout button at the end of the
+// participant strip. Picks the video surface (minimal / filmstrip / gallery).
+.mcm-people-bar__layout {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+.mcm-people-bar__layout-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  min-width: 188px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(20, 24, 32, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 61;
+}
+
+.mcm-people-bar__layout-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #e8eaf0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  &--active {
+    background: rgba(52, 211, 153, 0.14);
+  }
+}
+
+.mcm-people-bar__layout-label {
+  flex: 1 1 auto;
+}
+
+.mcm-people-bar__layout-check {
+  flex: 0 0 auto;
+  color: #34d399;
+}
+
 // Full-screen participant gallery (grid of cameras). Dark, glassy, Glass-Desk
 // consistent. Sits above the canvas but below modals/follow-mode.
 .mcm-gallery {

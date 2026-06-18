@@ -159,6 +159,12 @@ export const en: Widened<typeof vi> = {
     you: "You",
     host: "Host",
   },
+  videoLayout: {
+    switcherLabel: "Video layout",
+    modeMinimal: "Minimal",
+    modeFilmstrip: "Filmstrip",
+    modeGallery: "Gallery",
+  },
   cal: {
     title: "Calendar",
     // Sidebar tab label (ProjectBrowser) — distinct from `title`.

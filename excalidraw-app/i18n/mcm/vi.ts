@@ -179,6 +179,14 @@ export const vi = {
     you: "Bạn",
     host: "Chủ trì",
   },
+  // ---------------- Video layout switcher --------------------------
+  // Chọn bố cục video: strip gọn / dải phim đáy / dạng lưới toàn màn hình.
+  videoLayout: {
+    switcherLabel: "Bố cục video",
+    modeMinimal: "Gọn",
+    modeFilmstrip: "Dải phim",
+    modeGallery: "Dạng lưới",
+  },
   // ---------------- Calendar ---------------------------------------
   cal: {
     title: "Lịch họp",

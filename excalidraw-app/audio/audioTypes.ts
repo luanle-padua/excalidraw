@@ -31,4 +31,8 @@ export type AudioRoomEvents = {
   /** a participant's camera stopped (toggle off / left) — drop their
    *  <video> tile and fall back to the avatar. */
   onVideoRemoved?: (socketId: string) => void;
+  /** the active speaker changed (Daily SFU "active-speaker-change"), mapped
+   *  back to OUR socket.id; null when nobody is speaking. The controller
+   *  mirrors this into activeSpeakerAtom for the layout lane's speaker ring. */
+  onActiveSpeaker?: (socketId: string | null) => void;
 };
