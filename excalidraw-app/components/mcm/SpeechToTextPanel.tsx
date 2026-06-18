@@ -31,6 +31,7 @@ import {
   setSttEnabled,
   setSttTranslateEnabled,
   sttEnabledAtom,
+  sttLiveErrorAtom,
   sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
@@ -220,6 +221,7 @@ export const SpeechToTextPanel = () => {
   // want it covering the canvas on first load. User opens it via the
   // floating "Live transcript" pill.
   const [open, setOpen] = useState(false);
+  const sttLiveError = useAtomValue(sttLiveErrorAtom);
   const [sttEnabled, setSttEnabledState] = useAtom(sttEnabledAtom);
   const [translateEnabled, setTranslateEnabledState] = useAtom(
     sttTranslateEnabledAtom,
@@ -881,10 +883,12 @@ export const SpeechToTextPanel = () => {
       </div>
 
       {/* Footer now exists only to surface errors — normal status
-          (LIVE/TEST/PAUSED) moved to the status pill in the header. */}
-      {testError && (
+          (LIVE/TEST/PAUSED) moved to the status pill in the header. The TEST
+          path's error takes precedence; otherwise a LIVE session error (capture
+          / handshake) is shown so a silent failure on iPad / no-mic is visible. */}
+      {(testError || sttLiveError) && (
         <div className="mcm-stt__footer">
-          <span className="mcm-stt__err">{testError}</span>
+          <span className="mcm-stt__err">{testError ?? sttLiveError}</span>
         </div>
       )}
 

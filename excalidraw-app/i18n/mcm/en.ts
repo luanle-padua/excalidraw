@@ -206,6 +206,8 @@ export const en: Widened<typeof vi> = {
     previewNotInRoom: "Not in a room — preview",
     layout: "Layout",
     present: "Present",
+    presentUnsupported:
+      "Screen sharing isn't supported on this device or browser (e.g. iPad / iPhone). Present from a computer instead.",
     settings: "Settings",
     more: "More",
     projects: "Projects",

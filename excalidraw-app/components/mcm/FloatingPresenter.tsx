@@ -83,8 +83,18 @@ export const FloatingPresenter = ({
   // signal.)
   const didDragRef = useRef(false);
 
+  // The floating PiP is for WATCHING someone else (the presenter / speaker)
+  // while you work on the canvas — showing your OWN face is pointless and reads
+  // as a bug. So: use the focused person only when they're remote; otherwise
+  // fall back to the first remote tile; render nothing when you're alone.
+  // (focusedSocketId can resolve to self when nobody is sharing/speaking — it
+  // bottoms out at tiles[0], which is often "me".)
   const focusTile =
-    tiles.find((tile) => tile.id === focusedSocketId) ?? tiles[0] ?? null;
+    (focusedSocketId && focusedSocketId !== selfSocketId
+      ? tiles.find((tile) => tile.id === focusedSocketId)
+      : null) ??
+    tiles.find((tile) => tile.id !== selfSocketId) ??
+    null;
 
   // End-drag listeners are attached to the window so a fast drag that leaves
   // the card still tracks; cleaned up when the drag ends.

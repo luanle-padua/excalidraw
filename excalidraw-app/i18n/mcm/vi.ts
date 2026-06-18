@@ -233,6 +233,8 @@ export const vi = {
     previewNotInRoom: "Chưa vào phòng — preview",
     layout: "Bố cục",
     present: "Trình bày",
+    presentUnsupported:
+      "Thiết bị / trình duyệt này không hỗ trợ chia sẻ màn hình (vd: iPad / iPhone). Hãy trình bày từ máy tính.",
     settings: "Cài đặt",
     more: "Thêm",
     projects: "Dự án",

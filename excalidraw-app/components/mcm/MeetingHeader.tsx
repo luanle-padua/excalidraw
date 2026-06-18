@@ -63,6 +63,7 @@ export const MeetingHeader = ({
   onPresent,
   isPresenting,
   presentDisabled,
+  presentTitle,
 }: {
   /** Fallback head-count when there's no live collab room (preview /
    *  storybook). Real call counts come from the collab atom + Excalidraw
@@ -85,6 +86,9 @@ export const MeetingHeader = ({
   isPresenting?: boolean;
   /** true in read-only review OR while another participant is presenting. */
   presentDisabled?: boolean;
+  /** Overrides the Present button tooltip — used to explain WHY it's disabled
+   *  (e.g. screen share unsupported on this device). */
+  presentTitle?: string;
 }) => {
   const t = useT();
   // Real elapsed time of the current meeting session, counted from when we
@@ -504,7 +508,7 @@ export const MeetingHeader = ({
           className={`mcm-header__icon-btn${
             isPresenting ? " mcm-header__icon-btn--active" : ""
           }`}
-          title={t("header.present")}
+          title={presentTitle ?? t("header.present")}
           aria-label={t("header.present")}
           onClick={onPresent}
           disabled={presentDisabled && !isPresenting}

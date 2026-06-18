@@ -213,6 +213,8 @@ export const ko: Widened<typeof vi> = {
     previewNotInRoom: "방 입장 전 — 미리보기",
     layout: "레이아웃",
     present: "발표",
+    presentUnsupported:
+      "이 기기 / 브라우저에서는 화면 공유를 지원하지 않습니다 (예: iPad / iPhone). 컴퓨터에서 발표하세요.",
     settings: "설정",
     more: "더보기",
     projects: "프로젝트",

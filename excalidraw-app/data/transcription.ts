@@ -70,6 +70,12 @@ export const setSttEnabled = (enabled: boolean): void => {
   }
 };
 
+/** Last LIVE STT session error (capture/handshake), surfaced in the panel so a
+ *  silent failure — e.g. a WS 401/403 from the Worker gate or a blocked
+ *  AudioContext on iPad Safari — is visible instead of dying in console.warn.
+ *  null = no current error; cleared when a session (re)starts or tears down. */
+export const sttLiveErrorAtom = atom<string | null>(null);
+
 /** Per-viewer toggle: translate each finalised transcript segment to
  *  the viewer's preferred language. Mirrors the chat translation
  *  feature. Off → only the original is rendered. */

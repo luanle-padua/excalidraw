@@ -872,20 +872,31 @@ export class DailyAudio {
       // once) and only stop once playback actually starts — so the user's next
       // interaction with the meeting (draw, click, type) recovers the audio.
       warn("peer audio autoplay blocked; will resume on next gesture", err);
+      // CAPTURE phase (the `true` 3rd arg) is essential: the Excalidraw canvas
+      // calls stopPropagation() on its pointer handlers, so a BUBBLE-phase
+      // window listener never sees a click/draw ON the canvas — which is exactly
+      // where a meeting user clicks. Capture fires at window BEFORE the event
+      // reaches the canvas target, so the gesture always reaches us (06-18: this
+      // was why clicking/drawing didn't recover a no-mic listener's audio).
       const removeResumeListeners = () => {
-        window.removeEventListener("pointerdown", resume);
-        window.removeEventListener("keydown", resume);
+        window.removeEventListener("pointerdown", resume, true);
+        window.removeEventListener("keydown", resume, true);
+        window.removeEventListener("touchstart", resume, true);
         if (peer.removeResumeListeners === removeResumeListeners) {
           peer.removeResumeListeners = null;
         }
       };
       const resume = () => {
+        // Also nudge the shared analyser AudioContext back to running — iOS/
+        // Safari can suspend it, and a suspended context blocks the element too.
+        void this.analyserCtx?.resume().catch(() => undefined);
         tryPlay()
           .then(() => removeResumeListeners()) // succeeded → stop retrying
           .catch(() => undefined); // still blocked → keep listening for the next
       };
-      window.addEventListener("pointerdown", resume);
-      window.addEventListener("keydown", resume);
+      window.addEventListener("pointerdown", resume, true);
+      window.addEventListener("keydown", resume, true);
+      window.addEventListener("touchstart", resume, true);
       // Tracked so teardownPeer can drop these if the peer leaves first.
       peer.removeResumeListeners = removeResumeListeners;
     });

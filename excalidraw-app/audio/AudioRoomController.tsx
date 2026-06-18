@@ -14,7 +14,7 @@ import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
 import { getDailyToken } from "../data/projects";
 import { sttProviderAtom } from "../data/sttProviders";
-import { sttEnabledAtom } from "../data/transcription";
+import { sttEnabledAtom, sttLiveErrorAtom } from "../data/transcription";
 import { preferredLanguageAtom } from "../data/translation";
 
 import { DailyAudio } from "./DailyAudio";
@@ -45,6 +45,7 @@ export const AudioRoomController = () => {
   const setVideoTiles = useSetAtom(videoTilesAtom);
   const setCameraState = useSetAtom(cameraStateAtom);
   const setActiveSpeaker = useSetAtom(activeSpeakerAtom);
+  const setSttLiveError = useSetAtom(sttLiveErrorAtom);
   /** Live STT session bound to the user's own mic. Spun up when the
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
@@ -237,6 +238,7 @@ export const AudioRoomController = () => {
       sttRef.current = null;
       await session.stop();
       collabAPI?.clearLocalInterimTranscript();
+      setSttLiveError(null);
     };
 
     if (!shouldRunSTT) {
@@ -258,23 +260,32 @@ export const AudioRoomController = () => {
     }
 
     const lang: STTLang = (preferredLang ?? "multi") as STTLang;
+    // A fresh session is starting — clear any stale error from a prior attempt.
+    setSttLiveError(null);
     const session = new STTSession({
       lang,
       meetingId: collabAPI?.portal.roomId ?? undefined,
       provider: sttProvider,
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);
+        // First successful interim proves capture→Deepgram is flowing — drop
+        // any earlier error pill (e.g. a transient handshake retry that recovered).
+        setSttLiveError(null);
       },
       onFinal: (text, ts) => {
         collabAPI?.publishSTTSegment({ text, lang, ts });
       },
       onError: (msg) => {
+        // Surface live STT failures in the panel instead of swallowing them in
+        // console — a no-mic / iPad / auth failure was previously invisible.
         console.warn("[stt] session error:", msg);
+        setSttLiveError(msg);
       },
     });
     sttRef.current = session;
     void session.start(stream).catch((err) => {
       console.warn("[stt] failed to start session:", err);
+      setSttLiveError((err as Error)?.message ?? "STT failed to start");
       sttRef.current = null;
     });
 

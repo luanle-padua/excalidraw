@@ -192,6 +192,18 @@ export class STTSession {
     // AudioContext defaults to 48000 in modern browsers. The worklet
     // downsamples to 16000 at runtime so we don't need to force a rate.
     this.audioCtx = new AudioContext();
+    // iOS/iPadOS Safari starts a fresh AudioContext SUSPENDED — without an
+    // explicit resume the worklet never pulls samples, so no PCM reaches
+    // Deepgram and the transcript stays silently empty. start() runs inside the
+    // "Join audio" user gesture, so resume() is allowed here. Best-effort: if
+    // it's blocked the worklet simply stays idle (no worse than before).
+    if (this.audioCtx.state === "suspended") {
+      try {
+        await this.audioCtx.resume();
+      } catch {
+        // ignore — capture may stay idle on a browser that blocks resume
+      }
+    }
     try {
       await this.audioCtx.audioWorklet.addModule(sttWorkletUrl);
     } catch (err) {

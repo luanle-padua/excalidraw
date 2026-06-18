@@ -82,6 +82,9 @@ export const STORAGE_KEYS = {
   LOCAL_STORAGE_COLLAB: "excalidraw-collab",
   LOCAL_STORAGE_THEME: "excalidraw-theme",
   LOCAL_STORAGE_DEBUG: "excalidraw-debug",
+  // Set the first time we auto-open the chat sidebar for a live meeting, so
+  // the one-shot default never overrides a user who later closes it.
+  LOCAL_STORAGE_CHAT_DEFAULT_OPENED: "mcm-chat-default-opened",
   VERSION_DATA_STATE: "version-dataState",
   VERSION_FILES: "version-files",
 

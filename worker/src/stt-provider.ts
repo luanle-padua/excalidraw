@@ -308,7 +308,22 @@ export class DeepgramAdapter implements SttAdapter {
     });
     const ws = upstream.webSocket;
     if (!ws) {
-      throw new Error("Deepgram did not accept the WebSocket upgrade");
+      // A null webSocket means Deepgram replied with a non-101 (401 bad key,
+      // 400 bad param/lang/model, 402 out of credit…). The body carries the
+      // reason — surface it instead of a generic message so the failure is
+      // diagnosable from the client's STT error pill (e.g. which param Deepgram
+      // rejected, or whether it's an auth problem). Body read is best-effort.
+      let detail = "";
+      try {
+        detail = (await upstream.text()).slice(0, 300);
+      } catch {
+        // ignore — status alone is still useful
+      }
+      throw new Error(
+        `Deepgram refused the WebSocket upgrade (HTTP ${upstream.status}` +
+          `, lang=${lang}, model=${model || DEEPGRAM_DEFAULT_MODEL})` +
+          (detail ? `: ${detail}` : ""),
+      );
     }
     ws.accept();
     return ws;

@@ -128,6 +128,14 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   // Present button state. We're presenting when our own Daily screen track is
   // live; the button locks (disabled) while a *different* participant presents.
   const iAmPresenting = screenShareMedia.localActive;
+  // Screen sharing needs getDisplayMedia, which iOS/iPadOS Safari does NOT
+  // implement at all (and some locked-down browsers omit). Detecting the API's
+  // ABSENCE is more robust than UA-sniffing iPad (iPadOS spoofs a desktop UA).
+  // When unavailable, the Present button is disabled with an explanatory tip
+  // instead of silently failing inside Daily's startScreenShare().
+  const canScreenShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.mediaDevices?.getDisplayMedia === "function";
   const someoneElseSharing = Array.from(screenSharePresence.keys()).some(
     (id) => id !== mySocketId,
   );
@@ -154,7 +162,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     }
     if (iAmPresenting) {
       mgr.stopSharing();
-    } else {
+    } else if (canScreenShare) {
       void mgr.startSharing();
     }
   };
@@ -353,7 +361,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         onOpenFolder={isHost ? () => setFolderOpen(true) : undefined}
         onPresent={handlePresent}
         isPresenting={iAmPresenting}
-        presentDisabled={viewOnly || someoneElseSharing}
+        presentDisabled={viewOnly || someoneElseSharing || !canScreenShare}
+        presentTitle={
+          !canScreenShare ? t("header.presentUnsupported") : undefined
+        }
       />
       <div className="mcm-shell__canvas-wrap">
         {/* Canvas area takes the remaining height once FrameViewPane
