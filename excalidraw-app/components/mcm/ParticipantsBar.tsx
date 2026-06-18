@@ -853,7 +853,12 @@ export const ParticipantsBar = ({
       alive = false;
       window.clearInterval(id);
     };
-  }, [iAmHost, roomId]);
+    // Depend on viewerAuthority (the actual gate), NOT iAmHost: viewerAuthority
+    // resolves ASYNC after a getMeeting() round-trip, while iAmHost is often
+    // already true via the socket host-election. Keying on iAmHost meant that
+    // when authority flipped true the effect didn't re-run, so the knock poll
+    // never started and the host never saw anyone waiting (06-18).
+  }, [viewerAuthority, roomId]);
 
   useEffect(() => {
     if (!excalidrawAPI) {
