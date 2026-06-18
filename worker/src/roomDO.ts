@@ -174,6 +174,31 @@ export class RoomDO implements DurableObject {
       });
     }
 
+    // Internal RPC: hard-wipe this room's persistent storage on a meeting
+    // hard-delete cascade (audit leak fix). The Worker calls this AFTER it has
+    // removed the registry row, so canSeeMeeting already denies new joins; here
+    // we just drop the DO's own key/value (roomEverInitialized + the reaper
+    // alarm) so a deleted meeting leaves nothing behind. Best-effort: any live
+    // sockets are closed before the storage clears, and deleteAll() also
+    // cancels the pending alarm.
+    if (url.pathname.endsWith("/__destroy")) {
+      try {
+        for (const ws of this.ctx.getWebSockets()) {
+          try {
+            ws.close(1001, "meeting deleted");
+          } catch {
+            /* ignore individual socket close failures */
+          }
+        }
+        await this.ctx.storage.deleteAll();
+      } catch {
+        /* best-effort wipe */
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     // The client WebSocket upgrade. The Worker has ALREADY verified auth; the
     // accepted identity rides in headers we re-trust here.
     if (request.headers.get("Upgrade") !== "websocket") {

@@ -47,6 +47,11 @@ export type SttBindings = SttProviderEnv & {
   SUPABASE_URL?: string;
   // D1 — best-effort STT cost metering into usage_events (provider='deepgram').
   DB?: D1Database;
+  // Cost kill-switch (audit). Plain var defaulting to "on"; flip to "off" via
+  // `wrangler secret put STT_ENABLED off` to stop Deepgram spend cold with no
+  // redeploy — the upgrade is rejected 503 before any provider socket opens.
+  // Unset / anything-but-"off" leaves STT ON.
+  STT_ENABLED?: string;
 };
 
 // Protocol marker the client always sends first on the WS handshake, mirroring
@@ -64,7 +69,7 @@ let sttJwks: ReturnType<typeof createRemoteJWKSet> | undefined;
 const sttAuthOk = async (
   request: Request,
   env: SttBindings,
-): Promise<{ ok: boolean; email?: string }> => {
+): Promise<{ ok: boolean; email?: string; role?: string }> => {
   if (!env.SUPABASE_URL) {
     return { ok: false };
   }
@@ -94,7 +99,10 @@ const sttAuthOk = async (
       typeof payload.email === "string"
         ? payload.email.toLowerCase()
         : undefined;
-    return { ok: true, email };
+    const appMeta = payload.app_metadata as { role?: unknown } | undefined;
+    const role =
+      typeof appMeta?.role === "string" ? appMeta.role : undefined;
+    return { ok: true, email, role };
   } catch {
     return { ok: false };
   }
@@ -103,6 +111,97 @@ const sttAuthOk = async (
 // Deepgram closes idle WS after ~10s; ping at 8s to keep alive when the user is
 // silent (between sentences).
 const KEEPALIVE_INTERVAL_MS = 8000;
+
+// STT real-money guards (audit). Each /stt upgrade opens a Deepgram stream that
+// bills per audio-second, so a leaked/forgotten socket leaks $.
+//   - OPEN_LIMIT: max opens per user per window — caps a reconnect/spam storm.
+//   - MAX_SESSION_MS: hard cap on one session — a forgotten tab can't stream
+//     Deepgram forever (auto-close at 90 min).
+//   - AUDIO_IDLE_MS: close if no audio frame arrives for ~60s — a tab that
+//     stopped sending PCM (muted, backgrounded) stops billing.
+const STT_OPEN_LIMIT = 3;
+const STT_OPEN_WINDOW_MS = 60_000;
+const STT_MAX_SESSION_MS = 90 * 60_000;
+const STT_AUDIO_IDLE_MS = 60_000;
+
+// Per-user open rate-limit. PER-ISOLATE (in-memory Map): it resets on isolate
+// rotation and isn't shared across colos, so it's a soft cost cap, not a hard
+// quota — good enough to blunt a single tab's reconnect storm. Keyed by JWT
+// email; value is the list of open timestamps inside the current window.
+const sttOpenLog = new Map<string, number[]>();
+const sttOpenRateLimited = (email: string | undefined): boolean => {
+  const key = email ?? "anon";
+  const nowMs = Date.now();
+  const recent = (sttOpenLog.get(key) ?? []).filter(
+    (t) => nowMs - t < STT_OPEN_WINDOW_MS,
+  );
+  if (recent.length >= STT_OPEN_LIMIT) {
+    sttOpenLog.set(key, recent);
+    return true;
+  }
+  recent.push(nowMs);
+  sttOpenLog.set(key, recent);
+  return false;
+};
+
+// Membership gate — mirrors canSeeMeeting() in index.ts (kept local to avoid a
+// circular import: index.ts imports handleSttUpgrade from this file). Returns
+// true when the caller may open a metered stream for `roomId`: admins always;
+// an ad-hoc room with no registry row is ungated; otherwise the same
+// owner/invitee/member/authority arms, with confidential = invitee-only.
+const sttCanSeeMeeting = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+  roomId: string,
+): Promise<boolean> => {
+  if (role === "admin" || role === "owner") {
+    return true;
+  }
+  if (!email) {
+    return false;
+  }
+  const e = email.toLowerCase();
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT 1 FROM meeting WHERE id = ?1) AS registered,
+         (SELECT confidentiality FROM meeting WHERE id = ?1) AS conf,
+         (SELECT 1 FROM meeting
+            WHERE id = ?1
+              AND (lower(organizer_email) = ?2 OR lower(host_email) = ?2))
+           AS owner,
+         (SELECT 1 FROM meeting_invitee
+            WHERE meeting_id = ?1 AND email = ?2 AND status <> 'revoked')
+           AS invited,
+         (SELECT 1 FROM project_member pm
+            JOIN meeting m ON m.project_id = pm.project_id
+            WHERE m.id = ?1 AND pm.email = ?2
+              AND pm.role IN ('owner','manager')) AS member,
+         (SELECT 1 FROM meeting m
+            JOIN project p ON p.id = m.project_id
+            LEFT JOIN division d ON d.id = p.lead_division_id
+            WHERE m.id = ?1
+              AND (lower(p.leader_email) = ?2 OR lower(d.head_email) = ?2))
+           AS authority`,
+    )
+    .bind(roomId, e)
+    .first<{
+      registered: number | null;
+      conf: string | null;
+      owner: number | null;
+      invited: number | null;
+      member: number | null;
+      authority: number | null;
+    }>();
+  if (!row?.registered) {
+    return true;
+  }
+  if ((row.conf ?? "").toLowerCase() === "confidential") {
+    return !!(row.owner || row.invited);
+  }
+  return !!(row.owner || row.invited || row.member || row.authority);
+};
 
 /**
  * Handle a `/stt` WebSocket upgrade on the Worker. Accepts the client socket,
@@ -126,6 +225,13 @@ export const handleSttUpgrade = async (
     return new Response("expected websocket upgrade", { status: 426 });
   }
 
+  // Kill-switch (audit): STT_ENABLED==="off" → reject the upgrade 503 BEFORE any
+  // auth/provider work, so `wrangler secret put STT_ENABLED off` stops Deepgram
+  // spend cold with no redeploy. Unset / anything-but-"off" leaves STT ON.
+  if (env.STT_ENABLED === "off") {
+    return new Response("stt temporarily disabled", { status: 503 });
+  }
+
   // Auth gate (B-AI, 06-17): /stt opens a metered provider stream with the
   // server-side key, so it MUST require a valid Supabase user token. The client
   // (audio/sttSession.ts) sends it via the WS subprotocol exactly like the DO
@@ -146,6 +252,30 @@ export const handleSttUpgrade = async (
     new URL(request.url).searchParams.get("meetingId") ?? undefined;
   const sessionStart = Date.now();
 
+  // Real-money guard (a): membership gate BEFORE accept() — only a member of the
+  // meeting may open a Deepgram stream against it. Mirrors the realtime upgrade's
+  // canSeeMeeting (a leaked roomId/JWT otherwise lets any logged-in user burn the
+  // Deepgram key). FAIL CLOSED (06-18 cross-review): the earlier `if (meetingId
+  // && …)` form was a no-op because the client never sent meetingId, and was
+  // bypassable by simply omitting the param. STT is always meeting-bound, and an
+  // open Deepgram stream is metered $, so REQUIRE a meetingId the caller can see.
+  if (!meetingId) {
+    return new Response("meetingId required", { status: 400 });
+  }
+  if (
+    env.DB &&
+    !(await sttCanSeeMeeting(env.DB, callerEmail, auth.role, meetingId))
+  ) {
+    return new Response("not a member of this meeting", { status: 403 });
+  }
+
+  // Real-money guard (b): per-user open rate-limit (max STT_OPEN_LIMIT opens per
+  // STT_OPEN_WINDOW_MS). PER-ISOLATE soft cap — see sttOpenRateLimited. Blunts a
+  // reconnect/spam-open storm from a single tab. 429 → the client's onerror path.
+  if (sttOpenRateLimited(callerEmail)) {
+    return new Response("too many STT sessions, slow down", { status: 429 });
+  }
+
   const pair = new WebSocketPair();
   const client = pair[0];
   const server = pair[1];
@@ -163,6 +293,12 @@ export const handleSttUpgrade = async (
   const model = env.DEEPGRAM_STT_MODEL || adapter.meta.defaultModel;
 
   let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  // Real-money guards (c)/(d): a hard MAX-session cap and an audio-idle cap so a
+  // forgotten/muted tab can't stream Deepgram indefinitely. maxSessionTimer
+  // fires once at STT_MAX_SESSION_MS; idleTimer is reset on every inbound audio
+  // frame and fires if no frame arrives for STT_AUDIO_IDLE_MS.
+  let maxSessionTimer: ReturnType<typeof setTimeout> | null = null;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
   let providerWs: WebSocket | null = null;
   let closed = false;
 
@@ -199,6 +335,14 @@ export const handleSttUpgrade = async (
       clearInterval(keepaliveTimer);
       keepaliveTimer = null;
     }
+    if (maxSessionTimer) {
+      clearTimeout(maxSessionTimer);
+      maxSessionTimer = null;
+    }
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = null;
+    }
     if (providerWs && providerWs.readyState === WebSocket.OPEN) {
       try {
         providerWs.send(JSON.stringify({ type: "CloseStream" }));
@@ -219,6 +363,28 @@ export const handleSttUpgrade = async (
       /* ignore */
     }
   };
+
+  // Real-money guard (c): hard MAX-session auto-close. A forgotten tab left
+  // "listening" would otherwise stream Deepgram for hours; cap it at
+  // STT_MAX_SESSION_MS. cleanup() meters + tears down both sockets.
+  maxSessionTimer = setTimeout(
+    () => cleanup("max-session"),
+    STT_MAX_SESSION_MS,
+  );
+
+  // Real-money guard (d): audio-idle auto-close. Reset on every inbound PCM
+  // frame; if no audio arrives for STT_AUDIO_IDLE_MS the client is muted/gone,
+  // so stop billing. Armed now and re-armed in the client→provider handler.
+  const armIdleTimer = () => {
+    if (closed) {
+      return;
+    }
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+    }
+    idleTimer = setTimeout(() => cleanup("audio-idle"), STT_AUDIO_IDLE_MS);
+  };
+  armIdleTimer();
 
   // Connect to the provider OUTSIDE the request lifetime — the upgrade response
   // (101 + client socket) must return immediately. We open the upstream socket
@@ -312,6 +478,12 @@ export const handleSttUpgrade = async (
   // message (e.g. {"type":"CloseStream"}) — forward so the provider can flush the
   // final transcript before tear-down. Drop until the provider is OPEN.
   server.addEventListener("message", (event) => {
+    // Real-money guard (d): a binary frame IS audio — pet the idle watchdog so a
+    // continuously-streaming session never self-closes, while a muted/gone tab
+    // (no audio for STT_AUDIO_IDLE_MS) does.
+    if (typeof event.data !== "string") {
+      armIdleTimer();
+    }
     if (!providerWs || providerWs.readyState !== WebSocket.OPEN) {
       return;
     }

@@ -17,10 +17,14 @@ export const GEMINI_FLASH_INPUT_USD_PER_1M = 0.075;
 export const GEMINI_FLASH_OUTPUT_USD_PER_1M = 0.3;
 
 /**
- * Deepgram realtime STT (Nova) list pricing: $0.0043 per audio MINUTE.
- * (https://deepgram.com/pricing.)
+ * Deepgram realtime STT list pricing, per audio MINUTE. Verified 2026-06-18
+ * against https://deepgram.com/pricing: Nova-3 MONOLINGUAL streaming = $0.0048
+ * (PAYG). The old $0.0043 was a stale/lower rate (likely an old Nova batch tier)
+ * and UNDER-counted the admin Cost tab. Note: lang=multi (Nova-3 Multilingual
+ * streaming) is $0.0058 AND does not even cover VI/KO, so MCM pins one language
+ * per stream and bills at the monolingual rate.
  */
-export const DEEPGRAM_STT_USD_PER_MINUTE = 0.0043;
+export const DEEPGRAM_STT_USD_PER_MINUTE = 0.0048;
 
 /**
  * Estimated USD cost of one Gemini Flash generateContent call from its token

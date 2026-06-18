@@ -18,7 +18,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": { "enabled": true },
+  // head_sampling_rate 0.25: keep observability on but sample 1-in-4 invocation
+  // logs (audit). At ~200k events/day a 1:1 rate burns the included quota fast;
+  // 0.25 keeps a representative trend while cutting log volume ~75%. Errors/
+  // exceptions are still always captured regardless of head sampling.
+  "observability": { "enabled": true, "head_sampling_rate": 0.25 },
 
   // Non-secret config. `RESEND_FROM` is the verified sender for outbound
   // email via Resend (see docs/specs/email-resend.md). TEST phase uses
@@ -39,7 +43,16 @@
     //   wrangler secret put ELEVENLABS_API_KEY
     //   wrangler secret put OPENAI_API_KEY
     "STT_PROVIDER": "deepgram",
-    "STT_PROVIDER_CONFIG": "{}"
+    "STT_PROVIDER_CONFIG": "{}",
+    // Cost kill-switches (audit). Default "on"; flip to "off" INSTANTLY via
+    //   wrangler secret put AI_ENABLED off    (no redeploy)
+    // to stop the matching upstream spend cold. AI_ENABLED gates the four Gemini
+    // routes (/chatbot,/summarize,/translate,/translate-batch); STT_ENABLED gates
+    // the Deepgram /stt proxy; DAILY_ENABLED gates Daily token minting. A secret
+    // of the same name overrides this var, so the kill is a single CLI call.
+    "AI_ENABLED": "on",
+    "STT_ENABLED": "on",
+    "DAILY_ENABLED": "on"
   },
 
   // Durable Objects — realtime relay (one DO instance per meeting room).

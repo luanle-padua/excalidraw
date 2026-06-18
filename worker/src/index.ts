@@ -114,6 +114,16 @@ type Bindings = {
   OPENAI_API_KEY?: string;
   STT_PROVIDER?: string;
   STT_PROVIDER_CONFIG?: string;
+  // Cost kill-switches (audit). Plain vars defaulting to "on" in wrangler.jsonc;
+  // flip to "off" instantly via `wrangler secret put <NAME>` (no deploy) to stop
+  // the matching upstream spend cold: AI_ENABLED gates the four Gemini routes
+  // (/chatbot,/summarize,/translate,/translate-batch), STT_ENABLED gates the
+  // Deepgram /stt proxy, DAILY_ENABLED gates Daily token minting. Any value other
+  // than the literal "off" (incl. unset) means ON, so a missing var never kills
+  // a feature by accident.
+  AI_ENABLED?: string;
+  STT_ENABLED?: string;
+  DAILY_ENABLED?: string;
 };
 
 // CORS origin check (B6, 06-17). The real risk is a random website riding a
@@ -353,6 +363,25 @@ app.use("/v1/*", async (c, next) => {
 // The gate runs on each AI path BEFORE app.route("/", aiRoutes) below, so the
 // client must send `Authorization: Bearer <jwt>` (via fetchWithAuth) on these.
 // Routes added: POST /translate, /translate-batch, /chatbot, /summarize.
+//
+// Kill-switch (audit): AI_ENABLED==="off" → 503 on every AI route, BEFORE the
+// JWT gate / Gemini call, so a runaway-cost incident is stopped cold with a
+// single `wrangler secret put AI_ENABLED off` (no redeploy). Lives here (NOT in
+// ai.ts) so ai.ts stays untouched. Any value other than the literal "off"
+// (including unset) leaves AI ON, so a missing var never kills the feature.
+const aiKillSwitch: MiddlewareHandler<{
+  Bindings: Bindings;
+  Variables: Variables;
+}> = async (c, next) => {
+  if (c.env.AI_ENABLED === "off") {
+    return c.json({ error: "AI temporarily disabled" }, 503);
+  }
+  return next();
+};
+app.use("/translate", aiKillSwitch);
+app.use("/translate-batch", aiKillSwitch);
+app.use("/chatbot", aiKillSwitch);
+app.use("/summarize", aiKillSwitch);
 app.use("/translate", jwtGate);
 app.use("/translate-batch", jwtGate);
 app.use("/chatbot", jwtGate);
@@ -1537,6 +1566,13 @@ app.delete("/v1/projects/:id", async (c) => {
     await deleteMeetingCascade(c.env, m.id, email);
   }
   await c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`)
+    .bind(id)
+    .run();
+  // Project-scoped notes (scope='project', ref=projectId) would otherwise be
+  // orphaned when the project row goes — clean them up (audit leak fix).
+  await c.env.DB.prepare(
+    `DELETE FROM note WHERE scope = 'project' AND ref = ?1`,
+  )
     .bind(id)
     .run();
   await c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id).run();
@@ -3493,10 +3529,15 @@ app.get("/v1/me/meetings", async (c) => {
                 m.organizer_email, m.duration_min, m.color, m.icon`;
   const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
   if (isAdmin) {
+    // Bound the admin fan-out (audit): this endpoint is polled, and an admin
+    // branch with no LIMIT SELECTs the ENTIRE meeting table every poll. Cap to
+    // the 500 most-recently-created meetings (the dashboard only renders recent
+    // ones; the admin Meetings console has its own paged query for the full set).
     const { results } = await c.env.DB.prepare(
       `SELECT ${cols}
        FROM meeting m LEFT JOIN project p ON p.id = m.project_id
-       ${order}`,
+       ORDER BY m.created_at DESC
+       LIMIT 500`,
     ).all();
     return c.json({ meetings: results });
   }
@@ -3799,7 +3840,48 @@ const DAILY_API = "https://api.daily.co/v1";
 const DAILY_ROOM_EXP_HOURS = 6;
 const DAILY_ROOM_MAX_PARTICIPANTS = 50;
 
+// Admin-tunable overrides for the two cost knobs above (audit). Read from
+// system_settings keys "daily_room_max_participants" / "daily_room_exp_hours"
+// at room-create time; the constants above are the defaults when a setting is
+// unset/blank/garbage. Both are clamped to a sane band so a fat-fingered admin
+// value can't mint an unbounded room. Coordination contract: both lanes agree on
+// these exact keys. Best-effort — a settings read failure falls back to defaults.
+const readDailyCaps = async (
+  db: D1Database,
+): Promise<{ maxParticipants: number; expHours: number }> => {
+  let maxParticipants = DAILY_ROOM_MAX_PARTICIPANTS;
+  let expHours = DAILY_ROOM_EXP_HOURS;
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT key, value FROM system_settings
+           WHERE key IN ('daily_room_max_participants', 'daily_room_exp_hours')`,
+      )
+      .all<{ key: string; value: string }>();
+    for (const row of results ?? []) {
+      const n = parseInt((row.value ?? "").trim(), 10);
+      if (!Number.isFinite(n)) {
+        continue;
+      }
+      if (row.key === "daily_room_max_participants") {
+        maxParticipants = Math.min(200, Math.max(2, n));
+      } else if (row.key === "daily_room_exp_hours") {
+        expHours = Math.min(24, Math.max(1, n));
+      }
+    }
+  } catch {
+    // settings table missing / transient D1 error — keep the constant defaults
+  }
+  return { maxParticipants, expHours };
+};
+
 app.get("/v1/daily/token", async (c) => {
+  // Kill-switch (audit): DAILY_ENABLED==="off" → 503, BEFORE any Daily REST
+  // call, so `wrangler secret put DAILY_ENABLED off` stops media-minute spend
+  // cold with no redeploy. Unset / anything-but-"off" leaves Daily ON.
+  if (c.env.DAILY_ENABLED === "off") {
+    return c.json({ error: "daily temporarily disabled" }, 503);
+  }
   const apiKey = cleanSecret(c.env.DAILY_API_KEY);
   if (!apiKey) {
     return c.json({ error: "daily not configured" }, 503);
@@ -3866,6 +3948,13 @@ app.get("/v1/daily/token", async (c) => {
   if (getRoom.ok) {
     roomUrl = ((await getRoom.json()) as { url?: string }).url ?? null;
   } else if (getRoom.status === 404) {
+    // Cost caps (audit): admin-tunable via system_settings, defaulting to the
+    // DAILY_ROOM_* constants. expSeconds drives both `exp` (room auto-expiry)
+    // and `eject_after_elapsed` (force-leave participants after that elapsed
+    // time) so an abandoned room TRULY stops billing, not just stops accepting
+    // joins. `eject_at_room_exp` ejects everyone exactly at `exp`.
+    const { maxParticipants, expHours } = await readDailyCaps(c.env.DB);
+    const expSeconds = expHours * 60 * 60;
     const createRoom = await fetch(`${DAILY_API}/rooms`, {
       method: "POST",
       headers,
@@ -3876,17 +3965,16 @@ app.get("/v1/daily/token", async (c) => {
           enable_screenshare: true,
           start_video_off: true,
           start_audio_off: true,
-          // B5 cost-limits (docs/specs/daily-usage-admin.md §4): the two
-          // VERIFIED room cost-control props. `exp` auto-expires the room so an
-          // abandoned room stops accruing billable participant-minutes — bound
-          // it to DAILY_ROOM_EXP_HOURS from now (a meeting longer than that
-          // re-creates the room on next token mint). `max_participants` caps
-          // peak simultaneous participants → caps peak participant-minutes.
-          // (`eject_at_room_exp` / `eject_after_elapsed` are Daily props too but
-          // their EXACT names are unverified per the spec — TODO confirm against
-          // the rooms config reference before relying on them.)
-          exp: Math.floor(now() / 1000) + DAILY_ROOM_EXP_HOURS * 60 * 60,
-          max_participants: DAILY_ROOM_MAX_PARTICIPANTS,
+          // B5 cost-limits (docs/specs/daily-usage-admin.md §4). `exp`
+          // auto-expires the room so an abandoned room stops accruing billable
+          // participant-minutes; `max_participants` caps peak simultaneous
+          // participants → caps peak participant-minutes. `eject_at_room_exp` +
+          // `eject_after_elapsed` force-disconnect participants so a forgotten
+          // tab truly stops billing instead of streaming to `exp`.
+          exp: Math.floor(now() / 1000) + expSeconds,
+          max_participants: maxParticipants,
+          eject_at_room_exp: true,
+          eject_after_elapsed: expSeconds,
         },
       }),
     });
@@ -4017,6 +4105,42 @@ const logAudit = async (
       .run();
   } catch {
     // audit failure must not break the action
+  }
+};
+
+// Soft-delete every R2 object under `prefix` to a `trash/<ts>/...` copy, then
+// delete the original (audit leak cleanup). Mirrors the per-blob soft-delete in
+// deleteMeetingCascade (revoke≠delete house rule: recoverable, lifecycle-expire
+// the trash/ prefix). Best-effort + paginated — a single blob failure never
+// aborts the rest, and it never throws (callers fire-and-await it).
+const trashR2Prefix = async (env: Bindings, prefix: string): Promise<void> => {
+  const trashAt = now();
+  let cursor: string | undefined;
+  try {
+    do {
+      const listed = await env.BUCKET.list({ prefix, cursor });
+      for (const obj of listed.objects) {
+        try {
+          const blob = await env.BUCKET.get(obj.key);
+          if (blob) {
+            await env.BUCKET.put(`trash/${trashAt}/${obj.key}`, blob.body, {
+              httpMetadata: blob.httpMetadata,
+              customMetadata: {
+                ...(obj.customMetadata ?? {}),
+                trashedFrom: obj.key,
+                trashedAt: String(trashAt),
+              },
+            });
+          }
+          await env.BUCKET.delete(obj.key);
+        } catch {
+          /* best-effort per object */
+        }
+      }
+      cursor = listed.truncated ? listed.cursor : undefined;
+    } while (cursor);
+  } catch {
+    /* best-effort — leak cleanup must never break the delete it follows */
   }
 };
 
@@ -4194,19 +4318,48 @@ app.delete("/v1/admin/users/:id", async (c) => {
   if (!cr) {
     return c.json({ error: "admin not configured" }, 503);
   }
-  const res = await supaAdmin(
-    cr.url,
-    cr.key,
-    "DELETE",
-    `/admin/users/${c.req.param("id")}`,
-  );
+  const id = c.req.param("id");
+  // Resolve the user's email BEFORE the Supabase delete (afterwards the record
+  // is gone). We need it to also clean up the user's personal file shelf — the
+  // user_file D1 index + the userfiles/<email>/* R2 blobs — which would
+  // otherwise be orphaned, leaking bytes forever (audit). Best-effort lookup;
+  // if it fails we still proceed with the auth delete (don't block it).
+  let userEmail: string | undefined;
+  try {
+    const lookup = await supaAdmin(cr.url, cr.key, "GET", `/admin/users/${id}`);
+    if (lookup.ok) {
+      const u = (await lookup.json()) as { email?: string };
+      userEmail =
+        typeof u.email === "string" ? u.email.toLowerCase() : undefined;
+    }
+  } catch {
+    // lookup failed — fall through; we just skip the file cleanup below
+  }
+  const res = await supaAdmin(cr.url, cr.key, "DELETE", `/admin/users/${id}`);
   if (!res.ok && res.status !== 200 && res.status !== 204) {
     return c.json(
       { error: "delete user failed", detail: await res.text() },
       502,
     );
   }
-  await logAudit(c.env.DB, c.get("email"), "user.delete", c.req.param("id"));
+  // Cascade the user's personal files (audit leak fix). D1 index row(s) hard
+  // delete; R2 blobs SOFT-delete to trash/ (revoke≠delete house rule — keep
+  // recoverable history, lifecycle-expire the trash/ prefix). Best-effort.
+  if (userEmail) {
+    try {
+      await c.env.DB.prepare(
+        `DELETE FROM user_file WHERE lower(owner_email) = ?1`,
+      )
+        .bind(userEmail)
+        .run();
+    } catch {
+      /* best-effort */
+    }
+    await trashR2Prefix(c.env, `userfiles/${userEmail}/`);
+  }
+  await logAudit(c.env.DB, c.get("email"), "user.delete", id, {
+    email: userEmail,
+  });
   return c.json({ ok: true });
 });
 
@@ -4366,6 +4519,13 @@ app.delete("/v1/admin/projects/:id", async (c) => {
     await deleteMeetingCascade(c.env, m.id, c.get("email"));
   }
   await c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`)
+    .bind(id)
+    .run();
+  // Project-scoped notes (scope='project', ref=projectId) — avoid orphans
+  // (audit leak fix), same as the leadership delete route.
+  await c.env.DB.prepare(
+    `DELETE FROM note WHERE scope = 'project' AND ref = ?1`,
+  )
     .bind(id)
     .run();
   await c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id).run();
@@ -4684,6 +4844,10 @@ const deleteMeetingCascade = async (
     `chats/${roomId}`,
     `library/${roomId}`,
     `transcripts/${roomId}`,
+    // Recording media (audit). No-op until recording ships (Phase 5), but
+    // included now so a deleted meeting never leaves recording blobs behind
+    // when it does. Same soft-delete to trash/ as every other prefix.
+    `recordings/${roomId}`,
   ]) {
     let cursor: string | undefined;
     do {
@@ -4722,6 +4886,18 @@ const deleteMeetingCascade = async (
     .bind(roomId)
     .run();
   await env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId).run();
+  // Wipe the room's Durable Object storage (audit leak fix). The realtime DO
+  // persists per-room key/value (roomEverInitialized + the reaper alarm); a hard
+  // meeting delete should leave nothing behind. Best-effort RPC to the DO's
+  // __destroy path (calls ctx.storage.deleteAll()); a failure never blocks the
+  // cascade. Any still-connected socket was already kicked once the registry row
+  // was removed (canSeeMeeting denies the next reconnect).
+  try {
+    const stub = env.ROOM.get(env.ROOM.idFromName(roomId));
+    await stub.fetch("https://room.internal/__destroy", { method: "POST" });
+  } catch {
+    /* best-effort — DO wipe must not block the D1/R2 cascade */
+  }
   // Cost cleanup: drop both Daily rooms (screen-share <id> + audio <id>-audio).
   await deleteDailyRoom(env, roomId);
   await deleteDailyRoom(env, `${roomId}-audio`);
@@ -6039,6 +6215,37 @@ export const verifyRealtimeJwt = async (
   }
 };
 
+// realtime.reject audit dedup (audit). A reconnect storm (a flapping client, a
+// kicked guest's tab retrying) would otherwise write one audit_log row PER
+// rejected upgrade — hundreds/min for one bad client. Coalesce to at most ~1
+// row/min per (room,email,reason) via a PER-ISOLATE Map (resets on isolate
+// rotation; good enough to blunt a storm, the metric stays representative).
+const realtimeRejectLog = new Map<string, number>();
+const REALTIME_REJECT_DEDUP_MS = 60_000;
+const shouldLogRealtimeReject = (
+  roomId: string,
+  email: string | undefined,
+  reason: string,
+): boolean => {
+  const key = `${roomId} ${email ?? ""} ${reason}`;
+  const nowMs = Date.now();
+  const last = realtimeRejectLog.get(key);
+  if (last !== undefined && nowMs - last < REALTIME_REJECT_DEDUP_MS) {
+    return false;
+  }
+  realtimeRejectLog.set(key, nowMs);
+  // Opportunistic prune so the Map can't grow unbounded across a long-lived
+  // isolate: drop entries older than the dedup window when we touch it.
+  if (realtimeRejectLog.size > 1000) {
+    for (const [k, t] of realtimeRejectLog) {
+      if (nowMs - t >= REALTIME_REJECT_DEDUP_MS) {
+        realtimeRejectLog.delete(k);
+      }
+    }
+  }
+  return true;
+};
+
 /**
  * Handle the realtime WS upgrade. Returns a Response (101 on success, 401/403
  * on auth failure, 4xx on bad request). NEVER returns 101 unless every gate
@@ -6063,12 +6270,11 @@ export const handleRealtimeUpgrade = async (
   const { token, subprotocol } = realtimeToken(request);
   const identity = await verifyRealtimeJwt(token, env);
   if (!identity) {
-    // Best-effort reject audit (powers the admin Realtime "rejections_24h"
-    // metric). No verified email here, so attribute to null. NEVER block the
-    // 401 on the audit write.
-    void logAudit(env.DB, undefined, "realtime.reject", roomId, {
-      reason: "denied",
-    });
+    // No verified email on a pre-auth 401 — skip the audit write entirely
+    // (audit). Anonymous/invalid-token attempts (scanners, expired tabs) would
+    // otherwise flood audit_log with unattributable null-actor rows. The
+    // attributable rejections below (denied/finished/revoked/room_full) still
+    // power the admin Realtime "rejections_24h" metric.
     return new Response("unauthorized", { status: 401 });
   }
 
@@ -6083,9 +6289,11 @@ export const handleRealtimeUpgrade = async (
     roomId,
   );
   if (!canSee) {
-    void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
-      reason: "denied",
-    });
+    if (shouldLogRealtimeReject(roomId, identity.email, "denied")) {
+      void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+        reason: "denied",
+      });
+    }
     return new Response("forbidden", { status: 403 });
   }
 
@@ -6095,9 +6303,11 @@ export const handleRealtimeUpgrade = async (
   //     and reject the upgrade with 409 (NEVER 101) — same status the REST
   //     write routes return on a locked room.
   if (await isFinishedLocked(env.DB, roomId)) {
-    void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
-      reason: "finished",
-    });
+    if (shouldLogRealtimeReject(roomId, identity.email, "finished")) {
+      void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+        reason: "finished",
+      });
+    }
     return new Response("meeting is finished (read-only)", { status: 409 });
   }
 
@@ -6114,9 +6324,12 @@ export const handleRealtimeUpgrade = async (
       // A previously-admitted guest whose knock was flipped to 'revoked' =
       // a kick; anything else (never knocked / still pending) = denied. The
       // admin Realtime page splits these two in its 24h rejection breakdown.
-      void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
-        reason: knock?.status === "revoked" ? "revoked" : "denied",
-      });
+      const reason = knock?.status === "revoked" ? "revoked" : "denied";
+      if (shouldLogRealtimeReject(roomId, identity.email, reason)) {
+        void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+          reason,
+        });
+      }
       return new Response("not admitted to this meeting", { status: 403 });
     }
   }
@@ -6133,9 +6346,11 @@ export const handleRealtimeUpgrade = async (
     if (countRes.ok) {
       const { count } = (await countRes.json()) as { count: number };
       if (typeof count === "number" && count >= cap) {
-        void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
-          reason: "room_full",
-        });
+        if (shouldLogRealtimeReject(roomId, identity.email, "room_full")) {
+          void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+            reason: "room_full",
+          });
+        }
         return new Response("room is full", { status: 403 });
       }
     }
