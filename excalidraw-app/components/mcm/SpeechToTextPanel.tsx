@@ -822,8 +822,9 @@ export const SpeechToTextPanel = () => {
               }}
             >
               {STT_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={p.id} value={p.id} disabled={p.comingSoon}>
                   {p.name} · {fmtPerMinute(p.usdPerMinute)}
+                  {p.comingSoon ? ` — ${t("stt.providerSoon")}` : ""}
                 </option>
               ))}
             </select>

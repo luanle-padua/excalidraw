@@ -1111,6 +1111,7 @@ export const ko: Widened<typeof vi> = {
     showButton: "실시간 회의록",
     providerTitle: "정확도 테스트를 위한 음성 인식 모델 선택",
     providerLabel: "STT 모델",
+    providerSoon: "곧 추가 예정",
     sttOn: "STT: 켜짐",
     sttOff: "STT: 꺼짐",
     sttToggleOnTitle: "음성 인식 끄기",

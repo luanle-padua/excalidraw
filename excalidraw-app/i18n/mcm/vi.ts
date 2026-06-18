@@ -1141,6 +1141,7 @@ export const vi = {
     showButton: "Live transcript",
     providerTitle: "Chọn model nhận dạng giọng nói để thử độ chính xác",
     providerLabel: "Model STT",
+    providerSoon: "sắp có",
     sttOn: "STT: bật",
     sttOff: "STT: tắt",
     sttToggleOnTitle: "Tắt nhận dạng giọng nói",

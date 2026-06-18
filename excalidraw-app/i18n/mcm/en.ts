@@ -1101,6 +1101,7 @@ export const en: Widened<typeof vi> = {
     showButton: "Live transcript",
     providerTitle: "Pick the speech-to-text model to test accuracy",
     providerLabel: "STT model",
+    providerSoon: "to be added soon",
     sttOn: "STT: on",
     sttOff: "STT: off",
     sttToggleOnTitle: "Turn off speech recognition",

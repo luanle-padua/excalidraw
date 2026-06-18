@@ -26,6 +26,10 @@ export type STTProviderMeta = {
   usdPerMinute: number;
   /** Worker env var that must hold this provider's API key. */
   requiredKey: string;
+  /** Not wired for live use yet (no API key / adapter unverified). Shown in the
+   *  picker as "to be added soon" + disabled — Deepgram is the only live one
+   *  until the PM enables the others (06-18). */
+  comingSoon?: boolean;
 };
 
 // Mirrors worker ProviderMetadata. Prices are the PM's exact A/B figures
@@ -46,6 +50,7 @@ export const STT_PROVIDERS: readonly STTProviderMeta[] = [
     model: "gpt-realtime-whisper",
     usdPerMinute: 0.017,
     requiredKey: "OPENAI_API_KEY",
+    comingSoon: true,
   },
   {
     id: "elevenlabs",
@@ -53,6 +58,7 @@ export const STT_PROVIDERS: readonly STTProviderMeta[] = [
     model: "scribe_v2_realtime",
     usdPerMinute: 0.0065,
     requiredKey: "ELEVENLABS_API_KEY",
+    comingSoon: true,
   },
 ] as const;
 
@@ -73,7 +79,9 @@ const readProvider = (): STTProvider => {
   }
   try {
     const v = window.localStorage.getItem(STT_PROVIDER_LS_KEY);
-    if (v && STT_PROVIDERS.some((p) => p.id === v)) {
+    // Only restore a provider that is actually live (not "coming soon"), so a
+    // stale pick of a not-yet-enabled provider can't break STT after a reload.
+    if (v && STT_PROVIDERS.some((p) => p.id === v && !p.comingSoon)) {
       return v as STTProvider;
     }
   } catch {
