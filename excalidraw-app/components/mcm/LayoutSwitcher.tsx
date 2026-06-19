@@ -102,7 +102,10 @@ export const LayoutSwitcher = () => {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <ActiveIcon size={18} strokeWidth={1.8} />
+        {/* strokeWidth omitted → lucide default 2.0, matching every other 18px
+            action icon in the header row (mic/cam/present/CC/invite/exit) so
+            the whole cluster reads as one icon family. */}
+        <ActiveIcon size={18} />
       </button>
       {open && (
         <div className="mcm-layout-switcher__menu" role="menu">

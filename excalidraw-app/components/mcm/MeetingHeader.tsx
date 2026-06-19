@@ -7,8 +7,8 @@ import {
   FolderOpen,
   LogOut,
   Mic,
-  PhoneOff,
-  Presentation,
+  Power,
+  ScreenShare,
   Settings,
   UserPlus,
   Users,
@@ -531,7 +531,11 @@ export const MeetingHeader = ({
             onClick={onPresent}
             disabled={presentDisabled && !isPresenting}
           >
-            <Presentation size={18} />
+            {/* ScreenShare (monitor + arrow), not Presentation (a slide-deck
+                board): this button shares the live SCREEN, so the monitor glyph
+                reads truer than a flip-chart and won't be mistaken for a
+                whiteboard/slides tool. */}
+            <ScreenShare size={18} />
           </button>
         </div>
 
@@ -629,8 +633,13 @@ export const MeetingHeader = ({
 
         {/* --- EXIT: leave meeting · end-for-all (host). Visually loud
             (red end-meeting) so the destructive action is unmistakable and
-            isolated at the far edge. --- */}
+            isolated at the far edge. Three exit verbs use three distinct
+            glyphs so they never blur together: leave CALL = PhoneOff (hang up,
+            in MeetingCallControls), leave MEETING = LogOut (I walk out), end
+            FOR ALL = Power (kill the whole room). --- */}
         <div className="mcm-header__group" role="group">
+          {/* Leave meeting — I exit the room; everyone else stays. LogOut's
+              arrow-out-of-box says "I'm leaving", not "shut it down". */}
           <button
             type="button"
             className="mcm-header__icon-btn mcm-tip"
@@ -641,6 +650,9 @@ export const MeetingHeader = ({
             <LogOut size={18} />
           </button>
           {canEndMeeting && !viewOnly && (
+            // End for all — host-only, destructive. Power icon (not a phone)
+            // signals "power off the meeting for EVERYONE", clearly different
+            // from the call hang-up and the personal leave. Painted red.
             <button
               type="button"
               className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
@@ -648,7 +660,7 @@ export const MeetingHeader = ({
               data-mcm-tip={t("header.endMeeting")}
               aria-label={t("header.endMeeting")}
             >
-              <PhoneOff size={18} />
+              <Power size={18} />
             </button>
           )}
         </div>
