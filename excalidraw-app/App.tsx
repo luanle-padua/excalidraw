@@ -84,8 +84,8 @@ import {
   STORAGE_KEYS,
   SYNC_BROWSER_TABS_TIMEOUT,
 } from "./app_constants";
+import { sessionAtom } from "./data/session";
 import Collab, {
-  BOT_SOCKET_ID,
   collabAPIAtom,
   isCollaboratingAtom,
   isOfflineAtom,
@@ -891,23 +891,41 @@ const ExcalidrawWrapper = () => {
             collabAPI?.onPointerUpdate?.(payload);
             emitScenePointer(payload.pointer.x, payload.pointer.y);
           }}
-          getTextEditAuthor={(existingAuthorId) => {
-            // MCM: editing a text element transfers authorship to the
-            // editor. Mirror applyTextAuthorship's identity source
-            // (portal.socket.id + username). Never steal the bot's text,
-            // and skip while not joined (no socket) so a reload can't
-            // hijack authorship.
-            if (existingAuthorId === BOT_SOCKET_ID) {
-              return null;
+          canEditTextElement={(element) => {
+            // MCM (PM rule, overrides the old edit-transfers-authorship
+            // logic): you may NOT edit the content of someone else's text —
+            // only copy it. The editor (double-click / Enter) is blocked for
+            // any text whose author isn't you; the copy path (onDuplicate)
+            // restamps the copy as yours so it becomes editable again.
+            //
+            // Allow editing when:
+            //  - not a text element (gate only applies to text), OR
+            //  - the text has no author yet (legacy / not-yet-stamped), OR
+            //  - the text is MINE.
+            // Block (return false) when the author is someone else — the bot
+            // counts as "someone else", so its text is copy-only too.
+            const author = (element.customData as any)?.mcmAuthor as
+              | { id?: string; name?: string; email?: string }
+              | undefined;
+            if (!author) {
+              // No owner stamped → editable (legacy text or pre-stamp).
+              return true;
             }
+            // Not joined (no session/socket): don't hard-lock the canvas while
+            // offline — allow editing so a solo/offline user isn't stuck.
+            const myEmail = appJotaiStore.get(sessionAtom)?.email;
             const socketId = collabAPI?.portal.socket?.id;
-            if (!socketId) {
-              return null;
+            if (!myEmail && !socketId) {
+              return true;
             }
-            return {
-              id: socketId,
-              name: collabAPI?.getUsername() || "Guest",
-            };
+            // STABLE match first: email is durable across reloads/sessions.
+            if (author.email && myEmail) {
+              return author.email === myEmail;
+            }
+            // Fallback for legacy authors stamped before email existed:
+            // compare the (per-session) socketId. Bot ids never match a real
+            // socketId, so bot text stays copy-only here too.
+            return !!socketId && author.id === socketId;
           }}
           onDuplicate={(nextElements, prevElements) => {
             // MCM: copy / paste / duplicate / alt-drag of a text element
@@ -931,6 +949,10 @@ const ExcalidrawWrapper = () => {
             const me = {
               id: socketId,
               name: collabAPI?.getUsername() || "Guest",
+              // STABLE identity (mirrors applyTextAuthorship): stamp the login
+              // email so the copy is recognised as MINE — and stays editable —
+              // across reloads, not just within this socket session.
+              email: appJotaiStore.get(sessionAtom)?.email,
             };
             // Only the freshly inserted duplicates are absent from
             // prevElements — restamp those, leave everything else as-is.

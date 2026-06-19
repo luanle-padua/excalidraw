@@ -548,6 +548,7 @@
   },
   "toast": {
     "addedToLibrary": "Added to library",
+    "cantEditOthersText": "You can't edit someone else's text — only copy it.",
     "copyStyles": "Copied styles.",
     "copyToClipboard": "Copied to clipboard.",
     "copyToClipboardAsPng": "Copied {{exportSelection}} to clipboard as PNG\n({{exportColorScheme}})",

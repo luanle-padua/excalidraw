@@ -525,6 +525,7 @@
   },
   "toast": {
     "addedToLibrary": "라이브러리에 추가되었습니다",
+    "cantEditOthersText": "다른 사람의 텍스트는 편집할 수 없습니다 — 복사만 가능합니다.",
     "copyStyles": "스타일 복사.",
     "copyToClipboard": "클립보드로 복사.",
     "copyToClipboardAsPng": "{{exportSelection}}를 클립보드에 PNG로 복사했습니다\n({{exportColorScheme}})",

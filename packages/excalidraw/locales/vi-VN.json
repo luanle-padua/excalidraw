@@ -525,6 +525,7 @@
   },
   "toast": {
     "addedToLibrary": "Đã thêm vào Thư viện",
+    "cantEditOthersText": "Bạn không thể sửa text của người khác — chỉ có thể sao chép.",
     "copyStyles": "Đã sao chép định dạng.",
     "copyToClipboard": "Đã sao chép vào bộ nhớ tạm.",
     "copyToClipboardAsPng": "Đã sao chép {{exportSelection}} sang bộ nhớ tạm dưới định dạng PNG\n({{exportColorScheme}})",

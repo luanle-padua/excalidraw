@@ -2095,7 +2095,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     if (!socketId) {
       return false;
     }
-    const me = { id: socketId, name: this.state.username || "Guest" };
+    // STABLE identity: socketId changes every session, so after a reload
+    // we could no longer recognise our OWN text. Stamp the login email
+    // (from the session) alongside it — email is the durable key used by
+    // the edit gate (canEditTextElement) to decide "is this mine?".
+    const email = appJotaiStore.get(sessionAtom)?.email;
+    const me = {
+      id: socketId,
+      name: this.state.username || "Guest",
+      email,
+    };
     let changed = false;
     const next = elements.map((el) => {
       if (

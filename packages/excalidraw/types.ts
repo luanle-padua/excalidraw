@@ -630,15 +630,13 @@ export interface ExcalidrawProps {
     prevElements: readonly ExcalidrawElement[],
   ) => ExcalidrawElement[] | void;
   /**
-   * MCM: invoked when a text element's content is actually edited, to
-   * re-stamp authorship onto the editing user. `existingAuthorId` is the
-   * current `customData.mcmAuthor.id` (if any) so the host app can decide
-   * not to steal authorship (e.g. return null for bot-authored text).
-   * Return null to leave authorship untouched.
+   * MCM: edit gate. Called before opening the text editor on an EXISTING
+   * text element (double-click / Enter). Return false to BLOCK editing —
+   * used to enforce "you may only copy, not edit, another person's text"
+   * (the bot counts as another person). When omitted, editing is always
+   * allowed. Returning true (or omitting the prop) leaves behaviour intact.
    */
-  getTextEditAuthor?: (
-    existingAuthorId?: string,
-  ) => { id: string; name: string } | null;
+  canEditTextElement?: (element: ExcalidrawElement) => boolean;
   renderTopLeftUI?: (
     isMobile: boolean,
     appState: UIAppState,

@@ -5744,32 +5744,15 @@ class App extends React.Component<AppProps, AppState> {
         // Not sure why we include deleted elements as well hence using deleted elements map
         ...this.scene.getElementsIncludingDeleted().map((_element) => {
           if (_element.id === element.id && isTextElement(_element)) {
-            // MCM: re-stamp authorship onto the editing user when the text
-            // content actually changed. Opening + closing the editor without
-            // changing the text must NOT restamp (existingAuthor preserved).
-            // The host app returns null to skip (e.g. bot-authored text), so
-            // create-stamp / reload authorship is never stolen.
-            const contentChanged =
-              nextOriginalText !== _element.originalText;
-            let nextCustomData = _element.customData;
-            if (contentChanged && this.props.getTextEditAuthor) {
-              const existingAuthor = (_element.customData as any)?.mcmAuthor as
-                | { id: string; name: string }
-                | undefined;
-              const author = this.props.getTextEditAuthor(existingAuthor?.id);
-              if (author) {
-                nextCustomData = {
-                  ...((_element.customData as any) || {}),
-                  mcmAuthor: author,
-                };
-              }
-            }
+            // MCM: authorship is NO LONGER transferred on edit. The edit gate
+            // in startTextEditing blocks editing another person's text up
+            // front, so anything that reaches here is the user's OWN text (or
+            // legacy un-owned text) and the existing mcmAuthor must be left
+            // untouched. Copy/duplicate (onDuplicate) is what reassigns
+            // authorship now.
             return newElementWith(_element, {
               originalText: nextOriginalText,
               isDeleted: isDeleted ?? _element.isDeleted,
-              ...(nextCustomData !== _element.customData
-                ? { customData: nextCustomData }
-                : {}),
               // returns (wrapped) text and new dimensions
               ...refreshTextDimensions(
                 _element,
@@ -6263,6 +6246,24 @@ class App extends React.Component<AppProps, AppState> {
     const existingTextElement =
       this.getSelectedTextElement(container) ||
       this.getTextElementAtPosition(sceneX, sceneY);
+
+    // MCM edit gate: when about to edit an EXISTING text element, ask the
+    // host app whether it's allowed. The PM rule is "you may copy but not
+    // edit another person's (or the bot's) text" — the host returns false
+    // for text it doesn't own. Bail out before opening the editor and show a
+    // light hint. New text (no existingTextElement) is never gated.
+    if (
+      existingTextElement &&
+      this.props.canEditTextElement &&
+      !this.props.canEditTextElement(existingTextElement)
+    ) {
+      this.setToast({
+        message: t("toast.cantEditOthersText"),
+        closable: false,
+        duration: 2500,
+      });
+      return;
+    }
 
     const fontFamily =
       existingTextElement?.fontFamily || this.state.currentItemFontFamily;
