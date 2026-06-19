@@ -280,6 +280,16 @@ export const handleSttUpgrade = async (
   const client = pair[0];
   const server = pair[1];
   server.accept();
+  // Deliver incoming binary frames as ArrayBuffer, NOT Blob. The client streams
+  // PCM as binary; without this the Workers runtime hands us a Blob, and every
+  // forward path mis-handles it: Deepgram's `providerWs.send(blob)` coerces it to
+  // the literal string "[object Blob]" (→ a TEXT frame Deepgram rejects with
+  // {type:"Error", variant:"SchemaError"}), and the ElevenLabs/OpenAI wrappers'
+  // pcmToBase64() throws on a Blob (no `.buffer`) and silently drops the frame.
+  // Net effect for EVERY provider: no audio ever reaches the STT engine, so no
+  // transcript ever comes back. Forcing arraybuffer fixes all providers at once
+  // (root cause of "STT silent everywhere", 06-19).
+  server.binaryType = "arraybuffer";
 
   // ?lang=vi|en|ko|multi — falls back to multi if missing/invalid.
   const url = new URL(request.url);
