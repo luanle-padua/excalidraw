@@ -909,6 +909,52 @@ const ExcalidrawWrapper = () => {
               name: collabAPI?.getUsername() || "Guest",
             };
           }}
+          onDuplicate={(nextElements, prevElements) => {
+            // MCM: copy / paste / duplicate / alt-drag of a text element
+            // transfers authorship of the COPY to the current user — even
+            // when copying another person's (or the bot's) text, the new
+            // copy belongs to whoever copied it. The original element stays
+            // in `prevElements` and is never touched, so the source author
+            // is preserved on the original.
+            //
+            // Re-stamping here (the single host chokepoint all duplicate
+            // paths funnel through) also bumps each duplicate's version via
+            // newElementWith, so the author travels to peers on the very
+            // next syncElements broadcast — and pre-stamping it means
+            // Collab.applyTextAuthorship sees an author already present and
+            // won't try to claim it. Skip when not joined (no socket) so an
+            // offline duplicate doesn't write a bogus author.
+            const socketId = collabAPI?.portal.socket?.id;
+            if (!socketId) {
+              return;
+            }
+            const me = {
+              id: socketId,
+              name: collabAPI?.getUsername() || "Guest",
+            };
+            // Only the freshly inserted duplicates are absent from
+            // prevElements — restamp those, leave everything else as-is.
+            const prevIds = new Set(prevElements.map((el) => el.id));
+            let changed = false;
+            const remapped = nextElements.map((el) => {
+              if (
+                el.type === "text" &&
+                !el.isDeleted &&
+                !prevIds.has(el.id)
+              ) {
+                changed = true;
+                return newElementWith(el, {
+                  customData: {
+                    ...((el.customData as Record<string, unknown>) || {}),
+                    mcmAuthor: me,
+                  },
+                });
+              }
+              return el;
+            });
+            // Returning undefined leaves the scene untouched (no text copy).
+            return changed ? remapped : undefined;
+          }}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,

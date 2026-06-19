@@ -92,6 +92,10 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onPointerUp,
     onScrollChange,
     onDuplicate,
+    // MCM: must be destructured + forwarded to <App> below, otherwise the
+    // editor's re-author-on-edit branch (App.handleTextWysiwyg) never sees
+    // the prop and edit-restamp silently no-ops.
+    getTextEditAuthor,
     children,
     validateEmbeddable,
     renderEmbeddable,
@@ -203,6 +207,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onPointerUp={onPointerUp}
           onScrollChange={onScrollChange}
           onDuplicate={onDuplicate}
+          getTextEditAuthor={getTextEditAuthor}
           validateEmbeddable={validateEmbeddable}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
