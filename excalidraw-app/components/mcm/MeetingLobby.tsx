@@ -29,7 +29,6 @@ import { isFinishedStatus, normalizeMeetingStatus } from "./meetingStatus";
 import { NotificationBell } from "./NotificationBell";
 import { ProjectBrowser } from "./ProjectBrowser";
 import { UserMenu } from "./UserMenu";
-import { UserProfileModal } from "./UserProfileModal";
 import { UserSettings } from "./UserSettings";
 import { WallpaperPicker } from "./WallpaperPicker";
 
@@ -62,11 +61,9 @@ export const MeetingLobby = () => {
   const wallpaper = useAtomValue(wallpaperAtom);
 
   const [dismissed, setDismissed] = useState(false);
-  // "Hồ sơ & avatar" from the user chip — the modal is shared with the
-  // in-meeting shell but gets its own open state here so the dashboard
-  // can edit the profile without entering a meeting.
-  const [profileOpen, setProfileOpen] = useState(false);
   // Full tabbed account settings (reached from the user chip → "Settings").
+  // Its Profile tab is the single profile/avatar editor, so the old separate
+  // "Profile & avatar" modal/state was removed — no more duplication.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resume, setResume] = useState<{
@@ -340,7 +337,6 @@ export const MeetingLobby = () => {
                 (read-only info, profile editor, sign out). */}
             <UserMenu
               session={session}
-              onOpenProfile={() => setProfileOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
             />
           </div>
@@ -382,13 +378,9 @@ export const MeetingLobby = () => {
         )}
       </div>
 
-      {/* Profile editor reached from the user chip. The login name
-          pre-fills the username on first open (no saved profile yet). */}
-      <UserProfileModal
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        defaultUsername={session.name}
-      />
+      {/* Account settings reached from the user chip. Its Profile tab is the
+          profile/avatar editor; the login name pre-fills the username on first
+          open (no saved profile yet). */}
       <UserSettings
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

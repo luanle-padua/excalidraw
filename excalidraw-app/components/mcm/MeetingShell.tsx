@@ -64,7 +64,6 @@ import { StickerPicker } from "./StickerPicker";
 import { ParticipantsBar } from "./ParticipantsBar";
 import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
-import { UserProfileModal } from "./UserProfileModal";
 import { UserSettings } from "./UserSettings";
 import { WaitingForStart } from "./WaitingForStart";
 import { WaitingRoom } from "./WaitingRoom";
@@ -96,9 +95,10 @@ const extractRoomId = (link: string | null | undefined): string | null => {
  */
 export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const [logOpen, setLogOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
-  // The header ⚙ opens the full tabbed Settings; the participants-bar self
-  // avatar still opens the lightweight profile editor (quick name/avatar edit).
+  // Single Settings surface for everything user-account: the header ⚙, the
+  // participants-bar self avatar, and the "set up your profile" nudge all open
+  // it. Profile + avatar live on its Profile tab (the default), so the old
+  // standalone profile modal was merged away — no more duplicate editor.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -360,7 +360,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       return;
     }
     if (isCollaborating && !userProfile) {
-      setProfileOpen(true);
+      // No saved profile yet — nudge the user into Settings (its Profile tab
+      // is the default) so they pick a name/avatar before peers see them.
+      setSettingsOpen(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollaborating, session, userProfile, collabAPI]);
@@ -415,7 +417,8 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           {captionSurface === "overlay" && (
             <LiveCaptionDock variant="overlay" />
           )}
-          <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
+          {/* Self-avatar click → Settings (Profile tab) — the single editor. */}
+          <ParticipantsBar onOpenProfile={() => setSettingsOpen(true)} />
           <CanvasNavWidget />
           {/* Translating canvas text WRITES translated child elements — a
               review canvas takes no writes. */}
@@ -428,11 +431,6 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       <TranscriptionController />
       <ScreenShareController />
       {logOpen && <MeetingLogModal onClose={() => setLogOpen(false)} />}
-      <UserProfileModal
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        defaultUsername={collabAPI?.getUsername() || undefined}
-      />
       <UserSettings
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

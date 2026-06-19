@@ -13,11 +13,17 @@ const getDarkThemeMediaQuery = (): MediaQueryList | undefined =>
 // Theme lifted into an atom so non-App components (the MCM lobby + header
 // language/theme switcher) can flip it. The existing layout effect still
 // persists it to localStorage and derives `editorTheme`.
+// PM: mặc định theme là tối. For a BRAND-NEW user (no saved pref yet) we
+// default to dark; once the user has chosen a theme it lives in localStorage
+// and that saved value wins, so we never override an explicit light pick.
+// This atom is the single source of truth — the layout effect below persists
+// it and derives `editorTheme`, which drives BOTH the Excalidraw canvas theme
+// and the MCM chrome, so canvas + app shell stay in sync on this dark default.
 export const appThemeAtom = atom<Theme | "system">(
   (localStorage.getItem(STORAGE_KEYS.LOCAL_STORAGE_THEME) as
     | Theme
     | "system"
-    | null) || THEME.LIGHT,
+    | null) || THEME.DARK,
 );
 
 export const useHandleAppTheme = () => {

@@ -1,7 +1,8 @@
-// Modal that lets the local participant set their display name,
-// company, and avatar before / during the meeting. Auto-opens on
-// first load (no saved profile) and reachable from the meeting
-// header for later edits.
+// ProfileEditor — the shared surface that lets the local participant set their
+// display name, company, and avatar. It is embedded by the `UserSettings`
+// "Profile" tab, which is now the SINGLE place profile + avatar are edited
+// (the old standalone "Profile & avatar" modal was merged into Settings to kill
+// the duplication — every opener now lands on Settings → Profile instead).
 //
 // Avatars come from two sources:
 //   1. Built-in gallery in `public/decorations/avatars/NN.png` —
@@ -14,10 +15,8 @@
 // via Collab's atom subscription) every peer's `peerProfilesAtom`
 // receive the new values.
 //
-// The form body lives in a standalone `ProfileEditor` component so the new
-// tabbed `UserSettings` modal can embed the SAME editor (name + company +
-// avatar gallery/upload + save) under its "Profile" tab without duplicating
-// the resize/save/sync logic. This modal is now a thin glass wrapper around it.
+// NOTE: the file name is kept as `UserProfileModal.tsx` only because many call
+// sites import `ProfileEditor` from here; there is no longer a modal in it.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -324,80 +323,3 @@ export const ProfileEditor = ({
     </>
   );
 };
-
-type Props = {
-  open: boolean;
-  onClose: () => void;
-  /** Pre-fill the username field on first-open. */
-  defaultUsername?: string;
-};
-
-export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
-  const t = useT();
-  // A monotonically increasing key bumped on each open — handed to ProfileEditor
-  // so it re-seeds from the stored profile every time the modal reopens.
-  const [openCount, setOpenCount] = useState(0);
-
-  useEffect(() => {
-    if (open) {
-      setOpenCount((n) => n + 1);
-    }
-  }, [open]);
-
-  // Esc to dismiss without saving.
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div
-      className="mcm-profile-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("profile.title")}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="mcm-profile-modal__card" role="document">
-        <header className="mcm-profile-modal__header">
-          <h2 className="mcm-profile-modal__title">{t("profile.title")}</h2>
-          <button
-            type="button"
-            className="mcm-profile-modal__close"
-            onClick={onClose}
-            aria-label={t("profile.close")}
-            title={t("profile.close")}
-          >
-            ×
-          </button>
-        </header>
-
-        <ProfileEditor
-          defaultUsername={defaultUsername}
-          resetKey={openCount}
-          showCancel
-          onCancel={onClose}
-          onSaved={onClose}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default UserProfileModal;

@@ -3,8 +3,8 @@
 // (the meeting-header ⚙ and the dashboard account menu both open it).
 //
 // Six tabs:
-//   1. Profile      — name + company + avatar (the SHARED ProfileEditor from
-//                     UserProfileModal; identical gallery/upload/save path).
+//   1. Profile      — name + company + avatar (the SHARED ProfileEditor; this
+//                     is now the ONLY surface for editing profile + avatar).
 //   2. Account/Org  — email · 직급/title · division · role, READ-ONLY from the
 //                     org system of record via `GET /v1/me` (no directory fan-out).
 //   3. Security     — change password (verify-old-first) + Sign out. HIDDEN for
@@ -143,26 +143,38 @@ const SPOKEN_LABELS: Record<string, string> = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Pre-fill the profile name on first open (mirrors UserProfileModal). */
+  /** Pre-fill the profile name on first open. */
   defaultUsername?: string;
+  /** Which tab to land on each time the modal opens. Defaults to "profile".
+   *  Openers that used to launch the standalone profile modal (the
+   *  participants-bar self-avatar, the "set up your profile" nudge) pass
+   *  "profile" so they jump straight to the avatar/name editor — Settings is
+   *  now the SINGLE surface for editing profile + avatar. */
+  initialTab?: Tab;
 };
 
-export const UserSettings = ({ open, onClose, defaultUsername }: Props) => {
+export const UserSettings = ({
+  open,
+  onClose,
+  defaultUsername,
+  initialTab = "profile",
+}: Props) => {
   const t = useT();
   const session = useAtomValue(sessionAtom);
-  const [tab, setTab] = useState<Tab>("profile");
+  const [tab, setTab] = useState<Tab>(initialTab);
   // Bumped each open so the embedded ProfileEditor re-seeds from the stored
-  // profile (same contract as UserProfileModal).
+  // profile (so a reopen never carries stale edits).
   const [openCount, setOpenCount] = useState(0);
 
   useEffect(() => {
     if (open) {
       setOpenCount((n) => n + 1);
-      setTab("profile");
+      // Land on the tab the opener asked for (avatar click → "profile").
+      setTab(initialTab);
     }
-  }, [open]);
+  }, [open, initialTab]);
 
-  // Esc closes the whole modal (matches UserProfileModal).
+  // Esc closes the whole modal.
   useEffect(() => {
     if (!open) {
       return undefined;

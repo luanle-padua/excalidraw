@@ -31,13 +31,30 @@ const STORAGE_URL =
 /** Library avatars live in `public/decorations/avatars/NN.png`. We
  *  reference them by their bare filename (e.g. `"42.png"`) so the
  *  stored profile + broadcast payload stay small — peers resolve the
- *  filename against the same public URL. Files 01–105 are the curated
- *  set; the three free-form Gemini/UUID names in the same folder are
- *  intentionally excluded so the gallery stays predictable. */
-export const AVATAR_LIBRARY: readonly string[] = Array.from(
-  { length: 105 },
-  (_, i) => `${String(i + 1).padStart(2, "0")}.png`,
-);
+ *  filename against the same public URL. Files 01–105 exist on disk.
+ *
+ *  This array is ONLY the PICKABLE gallery shown in the profile picker.
+ *  PM feedback: 105 choices is overwhelming ("avatar nhiều quá") — a
+ *  short, diverse curated set is plenty for users to pick from. We do
+ *  NOT delete the image files: `resolveAvatarUrl` still maps any
+ *  `lib:NN.png` value to its `/decorations/avatars/NN.png` path, so
+ *  profiles that already picked one of the now-hidden ids (e.g.
+ *  `lib:50.png`) keep rendering. The deterministic default-face hash in
+ *  `resolveAvatarUrlWithDefault` also stays correct — it just maps onto
+ *  this smaller curated set. Keep ids two-digit, zero-padded to match
+ *  the on-disk filenames. */
+export const AVATAR_LIBRARY: readonly string[] = [
+  "03.png",
+  "12.png",
+  "21.png",
+  "34.png",
+  "47.png",
+  "58.png",
+  "66.png",
+  "79.png",
+  "88.png",
+  "97.png",
+];
 
 /** THE single avatar resolver. Every avatar surface in the app — participant
  *  bar, transcript, caption, chat, rosters, AND the on-canvas collaborator

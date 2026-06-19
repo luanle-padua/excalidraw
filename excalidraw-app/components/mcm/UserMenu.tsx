@@ -2,11 +2,11 @@
 //
 // Shows WHO is signed in at a glance (avatar + name, single-line) and
 // opens a small dropdown with a read-only identity block (name, email,
-// org line) plus two actions: "Profile & avatar" (the shared
-// UserProfileModal — open state is owned by MeetingLobby so the modal
-// renders above the whole lobby) and "Sign out". Language/theme settings
-// keep living in LangThemeSwitcher next door, so this menu stays strictly
-// about identity.
+// org line) plus two actions: "Settings" (the tabbed UserSettings modal —
+// its Profile tab is now the SINGLE place to edit name + avatar, so the old
+// separate "Profile & avatar" item was merged away to kill the duplication)
+// and "Sign out". Language/theme settings keep living in LangThemeSwitcher
+// next door, so this menu stays strictly about identity.
 //
 // Identity sources, layered:
 //   - sessionAtom (via the `session` prop) — the verified login: name,
@@ -18,7 +18,7 @@
 //     our own row for title/division. The chip simply shows less when
 //     the directory is unavailable (guests, offline).
 
-import { ChevronDown, LogOut, Settings, UserRoundPen } from "lucide-react";
+import { ChevronDown, LogOut, Settings } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
@@ -34,13 +34,13 @@ import type { Session } from "../../data/session";
 
 type Props = {
   session: Session;
-  /** Open the shared UserProfileModal (state lives in MeetingLobby). */
-  onOpenProfile: () => void;
-  /** Open the full tabbed UserSettings modal (state lives in MeetingLobby). */
+  /** Open the full tabbed UserSettings modal (state lives in MeetingLobby).
+   *  Its Profile tab is the single profile/avatar editor — there is no longer
+   *  a separate "Profile & avatar" entry. */
   onOpenSettings: () => void;
 };
 
-export const UserMenu = ({ session, onOpenProfile, onOpenSettings }: Props) => {
+export const UserMenu = ({ session, onOpenSettings }: Props) => {
   const t = useT();
   const profile = useAtomValue(userProfileAtom);
 
@@ -144,18 +144,8 @@ export const UserMenu = ({ session, onOpenProfile, onOpenSettings }: Props) => {
             </div>
           </div>
           <div className="mcm-user__menu-sep" role="separator" />
-          <button
-            type="button"
-            role="menuitem"
-            className="mcm-user__menu-item"
-            onClick={() => {
-              setOpen(false);
-              onOpenProfile();
-            }}
-          >
-            <UserRoundPen size={15} aria-hidden />
-            {t("user.profile")}
-          </button>
+          {/* Single "Settings" entry — its Profile tab covers name + avatar,
+              so the old separate "Profile & avatar" item was removed. */}
           <button
             type="button"
             role="menuitem"
