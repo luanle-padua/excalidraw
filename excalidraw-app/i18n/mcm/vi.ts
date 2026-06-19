@@ -984,7 +984,7 @@ export const vi = {
 
   // ---------------- Audio call controls ----------------------------
   callControls: {
-    joinCall: "Bật mic & vào call",
+    joinCall: "Vào họp",
     leaveCall: "Rời call",
     mute: "Tắt mic",
     unmute: "Bật mic",

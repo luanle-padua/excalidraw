@@ -944,7 +944,7 @@ export const ko: Widened<typeof vi> = {
   },
 
   callControls: {
-    joinCall: "마이크 켜고 통화 참여",
+    joinCall: "참여",
     leaveCall: "통화 나가기",
     mute: "음소거",
     unmute: "음소거 해제",

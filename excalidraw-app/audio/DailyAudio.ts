@@ -190,33 +190,18 @@ export class DailyAudio {
 
     // Unlock audio playback NOW, synchronously inside the Join click's user
     // gesture (before any await consumes it) so a no-mic listener can later play
-    // peers' <audio>. A mic device is implicitly blessed by getUserMedia; the
-    // listener is not, so without this its peer audio stays autoplay-blocked
-    // (06-18). playPeerAudio's per-gesture retry is the backstop.
+    // peers' <audio>. The user now ALWAYS joins listener-only (no getUserMedia
+    // here), so the page is never blessed by a mic grant at join time — this
+    // unlock is what lets them HEAR peers immediately. playPeerAudio's
+    // per-gesture retry is the backstop.
     this.unlockAudioPlayback();
 
-    // 1) Acquire mic (or fall back to listener-only on no-mic, like the mesh).
-    try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-      log(`got mic (tracks=${this.localStream.getAudioTracks().length})`);
-    } catch (err) {
-      const name = (err as Error)?.name;
-      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-        log("no mic — joining as listener");
-        this.localStream = null;
-      } else {
-        this.active = false;
-        this.events.onError?.(err as Error);
-        throw err;
-      }
-    }
+    // 1) Join LISTENER-ONLY: do NOT acquire the mic at join (no getUserMedia →
+    //    no permission popup). The user goes straight into the room hearing
+    //    everyone; the mic is acquired lazily on the first unmute or when STT
+    //    starts (see ensureMic). Mic + camera both start OFF. localStream stays
+    //    null until ensureMic() grants it.
+    this.muted = true;
 
     // 2) Token for the audio room — tag it with our socket.id (Daily user_id)
     //    so peers can map us back to the collab identity. WAIT for the socket.id
@@ -249,13 +234,14 @@ export class DailyAudio {
       throw err;
     }
 
-    // 3) Join Daily with our mic as the audio source. Camera is DEFAULT OFF
-    //    (videoSource:false at join) — the user opts in later via
-    //    toggleCamera(), which calls setLocalVideo(true) / startCamera() on the
-    //    same call object. Identity is tagged so peers map us to collab.
-    const micTrack = this.localStream?.getAudioTracks()[0] ?? null;
+    // 3) Join Daily LISTENER-ONLY: audioSource:false (no mic published, no
+    //    getUserMedia) but subscribeToTracksAutomatically:true so we still HEAR
+    //    everyone. Camera is also DEFAULT OFF (videoSource:false) — the user
+    //    opts into mic via toggleMute→ensureMic and into camera via
+    //    toggleCamera, both on this same call object. Identity is tagged so
+    //    peers map us to collab.
     const call = Daily.createCallObject({
-      audioSource: micTrack ?? false,
+      audioSource: false,
       videoSource: false,
       subscribeToTracksAutomatically: true,
       // audio + screen share are two separate call objects on the same page
@@ -297,16 +283,82 @@ export class DailyAudio {
       this.releaseMic();
       return;
     }
-    // PUBLISH the mic. The Daily room is created with `start_audio_off: true`
-    // (worker room-create), so passing audioSource at join does NOT auto-publish
-    // — without an explicit setLocalAudio the track never reaches the SFU and
-    // NOBODY hears this participant (06-18: this was why an iPad speaker was
-    // silent on every peer; desktop only "recovered" by toggling mute). Publish
-    // unless the user pre-muted before join finished.
-    if (micTrack) {
-      call.setLocalAudio(!this.muted);
-    }
+    // No mic to publish — we joined listener-only. The mic is acquired and
+    // published later by ensureMic() (first unmute / STT start). emitState
+    // reports canTransmit:false (no localStream) so the UI shows the muted /
+    // listen state until the user turns the mic on.
     this.emitState();
+  }
+
+  /**
+   * Acquire and PUBLISH the local mic, on demand. Idempotent: if a mic track
+   * already exists this is a no-op. This is where the browser permission popup
+   * actually fires — deliberately deferred from join() to the first moment the
+   * user CHOOSES to speak (unmute) or enables STT, so a no-mic listener is never
+   * prompted and the prompt always lands on an explicit user gesture.
+   *
+   * On success the mic is published unmuted (setLocalAudio(true)) and `muted`
+   * flips false. On no device we stay a silent listener (localStream null). A
+   * real permission denial is re-thrown so the caller can surface it.
+   */
+  async ensureMic(): Promise<boolean> {
+    if (this.localStream) {
+      // Already have a mic track — nothing to acquire.
+      return true;
+    }
+    if (!this.call || !this.active) {
+      // Not in a call yet — can't publish. Caller should join first.
+      return false;
+    }
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      log(`acquired mic (tracks=${this.localStream.getAudioTracks().length})`);
+    } catch (err) {
+      const name = (err as Error)?.name;
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        // No physical mic — stay a listener. Not an error: the user simply
+        // can't transmit.
+        log("no mic device — staying listener-only");
+        this.localStream = null;
+        this.emitState();
+        return false;
+      }
+      // Permission denied / mic busy — re-throw so the caller (toggleMute / STT)
+      // can route it to the right UI; we remain a listener in the meantime.
+      this.localStream = null;
+      this.emitState();
+      throw err;
+    }
+    // Guard against the call being torn down while awaiting the permission
+    // prompt — don't publish into a dead call.
+    if (!this.active || !this.call) {
+      this.releaseMic();
+      return false;
+    }
+    // Hand the freshly-acquired track to Daily and publish it. The Daily room is
+    // created with `start_audio_off: true`, so setInputDevicesAsync alone does
+    // NOT publish — the explicit setLocalAudio(true) is what reaches the SFU so
+    // peers actually hear us (06-18).
+    const micTrack = this.localStream.getAudioTracks()[0] ?? null;
+    try {
+      await this.call.setInputDevicesAsync({ audioSource: micTrack ?? false });
+      this.call.setLocalAudio(true);
+    } catch (err) {
+      warn("ensureMic: publish failed", err);
+      this.releaseMic();
+      this.emitState();
+      throw err;
+    }
+    this.muted = false;
+    this.emitState();
+    return true;
   }
 
   stop(): void {
@@ -363,9 +415,18 @@ export class DailyAudio {
 
   toggleMute(): boolean {
     if (!this.localStream) {
-      this.muted = true; // listener mode — stays "muted"
-      this.emitState();
-      return true;
+      // No mic yet (we joined listener-only). A toggle here is the user asking
+      // to UNMUTE for the first time → acquire + publish the mic now. This is
+      // the deferred permission popup, fired on the user's explicit click.
+      // ensureMic emits the new state (muted:false on success); if it can't get
+      // a mic (no device / denied) we stay muted. Fire-and-forget: toggleMute's
+      // sync return shape is preserved for callers, and the real state lands via
+      // emitState/onState once the async grant resolves.
+      void this.ensureMic().catch((err) => {
+        warn("toggleMute: mic acquire failed", err);
+        this.events.onError?.(err as Error);
+      });
+      return this.muted; // still muted until the grant lands
     }
     this.muted = !this.muted;
     for (const t of this.localStream.getAudioTracks()) {

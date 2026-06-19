@@ -940,7 +940,7 @@ export const en: Widened<typeof vi> = {
   },
 
   callControls: {
-    joinCall: "Turn on mic & join",
+    joinCall: "Join",
     leaveCall: "Leave call",
     mute: "Mute",
     unmute: "Unmute",

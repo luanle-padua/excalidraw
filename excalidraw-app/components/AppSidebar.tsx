@@ -9,7 +9,6 @@ import { messageCircleIcon } from "@excalidraw/excalidraw/components/icons";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 
 import { useAtomValue } from "../app-jotai";
-import { STORAGE_KEYS } from "../app_constants";
 import { isCollaboratingAtom, meetingViewOnlyAtom } from "../collab/Collab";
 import { useT } from "../i18n/mcm";
 
@@ -51,10 +50,13 @@ export const AppSidebar = () => {
   const isCollaborating = useAtomValue(isCollaboratingAtom);
   const didAutoOpenChat = useRef(false);
 
-  // Default the chat sidebar to OPEN the first time a user lands in a live
-  // meeting, so it's immediately discoverable. One-shot, guarded by a
-  // localStorage flag: a returning user who has since closed the chat (their
-  // openSidebar choice is persisted in excalidraw-state) is never overridden.
+  // Default the chat sidebar to OPEN every time a user lands in a live meeting,
+  // so it's immediately discoverable (PM: "panel chat mặc định hiện ra"). The
+  // ref-guard keeps it a ONE-SHOT per room session — the user can still close
+  // it and it won't pop back open within the session. We deliberately DROPPED
+  // the old localStorage flag (LOCAL_STORAGE_CHAT_DEFAULT_OPENED) so it's no
+  // longer a once-ever default; the key is left in app_constants for back-compat
+  // but is no longer read or written here.
   const didDefaultOpenChat = useRef(false);
   useEffect(() => {
     if (viewOnly || !isCollaborating || !excalidrawAPI) {
@@ -64,11 +66,6 @@ export const AppSidebar = () => {
       return;
     }
     didDefaultOpenChat.current = true;
-    if (localStorage.getItem(STORAGE_KEYS.LOCAL_STORAGE_CHAT_DEFAULT_OPENED)) {
-      // Already shown once before — respect whatever the user last chose.
-      return;
-    }
-    localStorage.setItem(STORAGE_KEYS.LOCAL_STORAGE_CHAT_DEFAULT_OPENED, "1");
     const timer = setTimeout(() => {
       excalidrawAPI.updateScene({
         appState: {

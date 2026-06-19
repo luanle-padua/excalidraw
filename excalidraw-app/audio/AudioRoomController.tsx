@@ -4,9 +4,10 @@
 // participants bar) can read state and dispatch commands via the atoms.
 //
 // The audio call follows the collab room: when activeRoomLink becomes
-// non-null we provision an AudioRoom (no mic prompt yet — that only
-// happens when the user actually clicks "Join audio"). When the room
-// link clears, we tear everything down.
+// non-null we provision an AudioRoom. Join is now listener-only — no mic
+// prompt at join; the mic is acquired lazily on the first unmute or when STT
+// is enabled (see ensureMic). When the room link clears, we tear everything
+// down.
 
 import { useEffect, useRef } from "react";
 
@@ -237,6 +238,27 @@ export const AudioRoomController = () => {
   // toggle, we tear it down.
   // -----------------------------------------------------------------
   useEffect(() => {
+    // We now join listener-only, so the mic isn't acquired until the user
+    // unmutes — but turning STT ON must also bring the mic up (STT transcribes
+    // the LOCAL mic via getLocalStream). When STT is enabled and the call is
+    // live but we have no mic yet, acquire it; ensureMic publishes + flips
+    // canTransmit true via onState, which re-runs this effect and falls through
+    // to actually start the session. Idempotent, so it's safe to call on every
+    // run while we're still mic-less.
+    if (
+      audioState.status === "live" &&
+      sttEnabled &&
+      !audioState.canTransmit &&
+      collabAPI
+    ) {
+      void roomRef.current?.ensureMic().catch((err) => {
+        // No mic / denied — STT simply can't capture. Surface it in the panel
+        // rather than silently doing nothing.
+        console.warn("[stt] ensureMic failed:", err);
+        setSttLiveError((err as Error)?.message ?? "Microphone unavailable");
+      });
+    }
+
     const shouldRunSTT =
       audioState.status === "live" &&
       audioState.canTransmit &&

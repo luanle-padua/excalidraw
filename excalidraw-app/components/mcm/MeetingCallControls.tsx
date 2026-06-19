@@ -1,13 +1,15 @@
 // Floating control bar for the WebRTC audio call. Shows different
 // states based on the AudioRoom lifecycle:
 //
-//   • idle      → "Join audio" pill (mic prompt happens here)
+//   • idle      → "Join" pill (NO mic prompt — joins listener-only)
 //   • connecting → spinner
 //   • live      → mute toggle + leave call button
 //   • error     → message + retry
 //
-// Mic permission requires a user gesture, so we always defer
-// AudioRoom.start() to the explicit click — never auto-call it.
+// Joining is now mic-free: start() enters the room listening only, and the mic
+// is acquired lazily on the first unmute (or when STT turns on). The browser's
+// mic permission prompt still requires a user gesture, but it now fires on that
+// later toggle — which is itself a click — not on Join.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -83,6 +85,14 @@ const CameraOffIcon = () => (
 
 const PhoneOffIcon = () => (
   <Icon d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91 M23 1L1 23" />
+);
+
+// Neutral "enter the room" icon for the idle Join button. The old MicOnIcon
+// implied a mic prompt up front; we now join listener-only and acquire the mic
+// later (on unmute / STT), so a door-with-arrow reads "go in" without promising
+// the mic turns on.
+const EnterIcon = () => (
+  <Icon d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4 M10 17l5-5-5-5 M15 12H3" />
 );
 
 const SmileyIcon = () => (
@@ -454,7 +464,9 @@ export const MeetingCallControls = () => {
         onClick={join}
         aria-label={t("callControls.joinCall")}
       >
-        <MicOnIcon />
+        {/* Neutral door icon, not a mic: joining no longer prompts for the mic
+            (we go in listener-only and acquire it on the first unmute / STT). */}
+        <EnterIcon />
         <span>{t("callControls.joinCall")}</span>
       </button>
     </div>
