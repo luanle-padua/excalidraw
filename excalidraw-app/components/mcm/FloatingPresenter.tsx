@@ -26,10 +26,8 @@ import {
   type FloatingCorner,
 } from "../../audio/videoFocus";
 import { activeSpeakerAtom } from "../../audio/videoPerf";
+import { captionSurfaceAtom } from "../../data/captionState";
 import { useT } from "../../i18n/mcm";
-
-import { screenShareMediaAtom } from "../../screenshare/screenShareState";
-import { screenShareStateAtom } from "../../collab/Collab";
 
 import { MCMAvatar } from "./Avatar";
 import { LiveCaptionDock } from "./LiveCaptionDock";
@@ -69,13 +67,12 @@ export const FloatingPresenter = ({
   const corner = useAtomValue(floatingPresenterCornerAtom);
   const setCorner = useSetAtom(floatingPresenterCornerAtom);
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
-  // Captions belong to a PRESENT/SHARE context only. The PiP itself can show for
-  // plain camera-watching, so gate the embedded dock on an actual share being
-  // live (we're sharing, or someone in the room is).
-  const screenShareMedia = useAtomValue(screenShareMediaAtom);
-  const screenSharePresence = useAtomValue(screenShareStateAtom);
-  const shareActive =
-    screenShareMedia.localActive || screenSharePresence.size > 0;
+  // Captions belong to a PRESENT/SHARE context only, and the PiP can also show
+  // for plain camera-watching. WHERE the dock mounts is decided centrally by
+  // captionSurfaceAtom (data/captionState.ts) — it returns "presenter" only when
+  // WE are sharing with this PiP up, so the dock here can never double with the
+  // viewer pane's. The prior local share-active gate is gone.
+  const captionSurface = useAtomValue(captionSurfaceAtom);
   const [minimised, setMinimised] = useState(false);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -289,8 +286,11 @@ export const FloatingPresenter = ({
           </div>
         )}
         {/* Captions for the presenter watching their own PiP while sharing —
-            pinned to the bottom of the card body (which is position:relative). */}
-        {shareActive && <LiveCaptionDock variant="embedded" />}
+            pinned to the bottom of the card body (which is position:relative).
+            Mounted ONLY when the central router routes to "presenter". */}
+        {captionSurface === "presenter" && (
+          <LiveCaptionDock variant="embedded" />
+        )}
       </div>
     </div>
   );

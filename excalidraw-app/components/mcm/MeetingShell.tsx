@@ -37,7 +37,7 @@ import {
   screenShareMediaAtom,
 } from "../../screenshare/screenShareState";
 
-import { floatingPresenterAtom } from "../../audio/videoFocus";
+import { captionSurfaceAtom } from "../../data/captionState";
 
 import { AiActivityIndicator } from "./AiActivityIndicator";
 import { AppToast } from "./AppToast";
@@ -114,16 +114,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const screenSharePresence = useAtomValue(screenShareStateAtom);
   const screenShareMedia = useAtomValue(screenShareMediaAtom);
   const screenShareInstance = useAtomValue(screenShareInstanceAtom);
-  // Caption overlay fallback: the LOCAL presenter has no viewer pane (they watch
-  // their own screen), and may have the floating PiP closed. In that one case the
-  // captions have no surface to embed into, so we float a slim overlay band at
-  // the bottom of the canvas while a share is live. A remote VIEWER always has
-  // ScreenSharePane (which carries the embedded dock), so it never needs this.
-  const floatingPresenterOn = useAtomValue(floatingPresenterAtom);
-  const shareActive =
-    screenShareMedia.localActive || screenSharePresence.size > 0;
-  const captionNeedsOverlay =
-    shareActive && !screenShareMedia.remoteStream && !floatingPresenterOn;
+  // Caption surface is decided centrally by captionSurfaceAtom (data/captionState.ts) —
+  // the single source of truth for WHERE the dock mounts. This canvas-bottom overlay
+  // is the LOCAL presenter's fallback (they watch their own screen, so they have no
+  // viewer pane, and the floating PiP may be closed). It renders only when the central
+  // selector hands ownership to "overlay"; the prior local share/PiP heuristic is gone
+  // so this can never double-mount with the pane / presenter docks.
+  const captionSurface = useAtomValue(captionSurfaceAtom);
 
   // The project browser (switch project / reopen / pull) is a host-only
   // affordance for now — the host owns the project folder. A project-scoped
@@ -405,7 +402,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <SpeechToTextPanel />
           <MeetingCallControls />
           <ScreenSharePane />
-          {captionNeedsOverlay && <LiveCaptionDock variant="overlay" />}
+          {captionSurface === "overlay" && (
+            <LiveCaptionDock variant="overlay" />
+          )}
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
           {/* Translating canvas text WRITES translated child elements — a

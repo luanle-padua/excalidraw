@@ -77,6 +77,17 @@
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 
+  // LIVE CAPTION DOCK placement (case 2: captions in gallery). The dock mounts
+  // with variant="embedded", which is `position:absolute; left/right/bottom:0`
+  // and pins to its nearest positioned ancestor. We give it that ancestor here
+  // and lift it above the tiles. `.mcm-gallery` is already `position:fixed`, so
+  // in GRID mode the embedded dock pins to the gallery's own bottom edge,
+  // full-width — see the grid padding rule below that keeps the last tile row
+  // clear of it. In SPEAKER mode it rides the big-tile stage (see __stage).
+  > .mcm-caption--embedded {
+    z-index: 3; // above tiles (tile box-shadow / focus ring sit at z 1–2)
+  }
+
   &__bar {
     display: flex;
     align-items: center;
@@ -113,7 +124,13 @@
     overflow: auto;
     display: grid;
     gap: 14px;
-    padding: 0 22px 22px;
+    // Bottom padding reserves a band for the caption dock pinned to the gallery
+    // bottom, so the last tile row never hides behind it. The dock is slim when
+    // active and collapses to a small puck when silent, so this fixed clearance
+    // is generous without wasting space. scroll-padding keeps the last row fully
+    // visible when the grid scrolls.
+    padding: 0 22px 92px;
+    scroll-padding-bottom: 92px;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
     align-content: center;
     justify-items: stretch;
@@ -248,6 +265,10 @@
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
+    // Relative so the embedded caption dock pins to the BOTTOM OF THE STAGE
+    // (the big tile), riding the focused speaker's frame and sitting above the
+    // thumbnail rail rather than the gallery's outer edge.
+    position: relative;
 
     // Big focus tile fills the stage (overrides the 16/9 grid sizing).
     .mcm-gallery__tile {
@@ -255,6 +276,13 @@
       aspect-ratio: auto;
       width: 100%;
       height: 100%;
+    }
+
+    // Caption dock rides the bottom of the big tile (movie-subtitle style). Above
+    // the tile's pin chip / focus ring (z 1–2); the dock strip is translucent so
+    // the frame stays visible behind it.
+    > .mcm-caption--embedded {
+      z-index: 3;
     }
   }
 

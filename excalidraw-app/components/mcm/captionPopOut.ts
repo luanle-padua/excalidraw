@@ -28,12 +28,12 @@ import {
 } from "../../data/captionState";
 import {
   liveTranscriptsAtom,
+  sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
 import {
   getCachedTranslation,
   preferredLanguageAtom,
-  translationEnabledAtom,
 } from "../../data/translation";
 import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { collabAPIAtom } from "../../collab/Collab";
@@ -80,7 +80,11 @@ const buildLines = (): Built[] => {
   const active = appJotaiStore.get(activeSpeakerAtom);
   const lineCount = appJotaiStore.get(captionLineCountAtom);
   const preferred = appJotaiStore.get(preferredLanguageAtom);
-  const translateOn = appJotaiStore.get(translationEnabledAtom);
+  // Mirror the in-app dock: caption translation follows the STT panel toggle
+  // (`sttTranslateEnabledAtom`), NOT useTranslate's chat toggle, so the pop-out
+  // shows the SAME language state as the in-app strip (case 4: ngôn ngữ phải
+  // đúng user, regardless of which surface owns the caption).
+  const translateOn = appJotaiStore.get(sttTranslateEnabledAtom);
 
   const lastFinal = log.length > 0 ? log[log.length - 1] : null;
   const newestInterim = interims.reduce<typeof interims[number] | null>(
@@ -102,7 +106,9 @@ const buildLines = (): Built[] => {
     .filter((s) => s.socketId === speakerId)
     .slice(-finalSlots)) {
     // Same-language or translation-off → original; else cache hit → translated;
-    // else original (no blanking).
+    // else original (no blanking). `seg.lang === "multi"` (mixed/unknown) is
+    // NOT treated as same-language, so it still resolves via the cache the
+    // in-app dock warmed (which sent assumedSource=undefined for "multi").
     const sameLang = !translateOn || seg.lang === preferred;
     const text = sameLang
       ? seg.text
@@ -208,7 +214,7 @@ export const mountPopOutCaption = (doc: Document): (() => void) => {
     appJotaiStore.sub(captionLineCountAtom, render),
     appJotaiStore.sub(captionFontScaleAtom, render),
     appJotaiStore.sub(preferredLanguageAtom, render),
-    appJotaiStore.sub(translationEnabledAtom, render),
+    appJotaiStore.sub(sttTranslateEnabledAtom, render),
   ];
   render();
 

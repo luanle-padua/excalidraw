@@ -42,6 +42,7 @@ import {
 import { collabAPIAtom } from "../../collab/Collab";
 import {
   liveTranscriptsAtom,
+  sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { useTranslate } from "../../data/translation";
@@ -116,20 +117,40 @@ const useSpeakerName = (socketId: string, fallbackName: string): string => {
 // (no "translate Korean → Korean" round-trip).
 const FinalCaptionLine = ({ seg }: { seg: TranscriptSegment }) => {
   const t = useT();
+  // The caption MUST follow the SAME translate toggle the STT panel uses
+  // (`sttTranslateEnabledAtom`), not useTranslate's internal chat toggle
+  // (`translationEnabledAtom`). Otherwise the dock could translate while the
+  // panel doesn't (or vice-versa) — anh Luân case 4: "dù ở dạng nào ngôn ngữ
+  // phải đúng user". When OFF we render the ORIGINAL spoken text verbatim.
+  const translateOn = useAtomValue(sttTranslateEnabledAtom);
+  // `seg.lang === "multi"` means Deepgram detected mixed/unknown language — we
+  // can't trust it as the source, so pass `undefined` and let the backend
+  // auto-detect (passing a wrong assumedSource would mis-translate). A concrete
+  // lang lets useTranslate short-circuit "ko → ko" round-trips.
+  const assumedSource =
+    seg.lang && seg.lang !== "multi"
+      ? (seg.lang as SupportedLanguage)
+      : undefined;
   const { translated, isSameLanguage, loading } = useTranslate(seg.text, {
-    assumedSource: seg.lang as SupportedLanguage | undefined,
+    assumedSource,
   });
   const name = useSpeakerName(seg.socketId, seg.username);
-  // While a (different-language) translation is still in flight, show the
+  // Translate OFF → original, no hook output used. Translate ON → translated,
+  // but while a (different-language) translation is still in flight show the
   // original rather than an empty line — captions must never blank out.
-  const text = loading && !isSameLanguage ? seg.text : translated;
+  const showTranslation = translateOn && !isSameLanguage;
+  const text = !translateOn
+    ? seg.text
+    : loading && !isSameLanguage
+    ? seg.text
+    : translated;
   return (
     <CaptionLineRow
       socketId={seg.socketId}
       name={name}
       text={text}
       interim={false}
-      translating={loading && !isSameLanguage}
+      translating={showTranslation && loading}
       translatingLabel={t("caption.translating")}
     />
   );

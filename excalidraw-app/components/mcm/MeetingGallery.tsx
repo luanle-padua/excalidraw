@@ -20,8 +20,10 @@ import { useT } from "../../i18n/mcm";
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { gallerySubModeAtom } from "../../audio/videoFocus";
 import { activeSpeakerAtom } from "../../audio/videoPerf";
+import { captionSurfaceAtom } from "../../data/captionState";
 
 import { MCMAvatar } from "./Avatar";
+import { LiveCaptionDock } from "./LiveCaptionDock";
 import { TileVideo } from "./ParticipantsBar";
 
 import type { Tile } from "./ParticipantsBar";
@@ -147,6 +149,12 @@ export const MeetingGallery = ({
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
   const subMode = useAtomValue(gallerySubModeAtom);
   const setSubMode = useSetAtom(gallerySubModeAtom);
+  // The caption surface router (data/captionState.ts) returns "gallery" while
+  // this full-screen modal is open, so the dock mounts HERE and nowhere else —
+  // this is the single guard that keeps the live-transcription strip from
+  // double-mounting on the pane/canvas behind the gallery.
+  const captionSurface = useAtomValue(captionSurfaceAtom);
+  const captionsOnGallery = captionSurface === "gallery";
 
   const focusTile =
     tiles.find((tile) => tile.id === focusedSocketId) ?? tiles[0] ?? null;
@@ -196,19 +204,26 @@ export const MeetingGallery = ({
       </div>
 
       {subMode === "grid" || !focusTile ? (
-        <div className="mcm-gallery__grid">
-          {tiles.map((tile) => (
-            <GalleryTile
-              key={tile.id}
-              tile={tile}
-              selfSocketId={selfSocketId}
-              activeSpeaker={activeSpeaker}
-              focused={tile.id === focusedSocketId}
-              pinned={tile.id === pinnedSocketId}
-              onPick={onPick}
-            />
-          ))}
-        </div>
+        // GRID: the dock is a sibling of the scrolling grid, pinned to the bottom
+        // of `.mcm-gallery` (the relative anchor) so it stays put while the grid
+        // scrolls. `.mcm-gallery__grid` carries extra bottom padding (SCSS) so the
+        // last tile row clears the dock instead of hiding behind it.
+        <>
+          <div className="mcm-gallery__grid">
+            {tiles.map((tile) => (
+              <GalleryTile
+                key={tile.id}
+                tile={tile}
+                selfSocketId={selfSocketId}
+                activeSpeaker={activeSpeaker}
+                focused={tile.id === focusedSocketId}
+                pinned={tile.id === pinnedSocketId}
+                onPick={onPick}
+              />
+            ))}
+          </div>
+          {captionsOnGallery && <LiveCaptionDock variant="embedded" />}
+        </>
       ) : (
         <div className="mcm-gallery__speaker">
           <div className="mcm-gallery__stage">
@@ -221,6 +236,10 @@ export const MeetingGallery = ({
               pinned={focusTile.id === pinnedSocketId}
               onPick={onPick}
             />
+            {/* SPEAKER: the dock pins to the bottom of the big-tile stage (above
+                the rail), so captions ride the focused speaker's frame and never
+                cover the thumbnail rail below. */}
+            {captionsOnGallery && <LiveCaptionDock variant="embedded" />}
           </div>
           {others.length > 0 && (
             <div

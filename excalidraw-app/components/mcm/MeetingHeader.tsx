@@ -1,5 +1,6 @@
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import {
+  Captions,
   ChevronDown,
   FileText,
   FolderOpen,
@@ -15,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Collaborator, SocketId } from "@excalidraw/excalidraw/types";
 
-import { useAtomValue, useSetAtom } from "../../app-jotai";
+import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioStateAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
@@ -25,6 +26,10 @@ import {
   participantsPanelOpenAtom,
 } from "../../collab/Collab";
 import { showAppToast } from "../../data/appToast";
+import {
+  captionDockEnabledAtom,
+  setCaptionDockEnabled,
+} from "../../data/captionState";
 import { listInvitees } from "../../data/invite";
 import { clearLastMeeting } from "../../data/lastMeeting";
 import { aiBackendUrl } from "../../data/aiBackend";
@@ -256,6 +261,20 @@ export const MeetingHeader = ({
   const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const setViewOnly = useSetAtom(meetingViewOnlyAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
+
+  // CC toggle on the HEADER (not just the Caption Dock). The dock only mounts on
+  // surfaces that own the viewport (share pane / presenter / overlay); in the
+  // "panel-only" / "none" views there's NO dock and therefore no CC puck to flip.
+  // Putting the toggle here lets a viewer turn captions on/off in EVERY view.
+  // Writes the persisted flag too (setCaptionDockEnabled) so the choice survives
+  // reloads — same write the dock's own CC button does. This is the CAPTION DOCK
+  // toggle, distinct from STT source (sttEnabledAtom) and the STT panel control.
+  const [captionEnabled, setCaptionEnabled] = useAtom(captionDockEnabledAtom);
+  const toggleCaption = useCallback(() => {
+    const next = !captionEnabled;
+    setCaptionEnabled(next);
+    setCaptionDockEnabled(next);
+  }, [captionEnabled, setCaptionEnabled]);
 
   // End-for-all is gated by DESIGNATED role, not the socket election (quyết
   // định 06-11): host / co-host / organizer only. The acting-host rule still
@@ -514,6 +533,22 @@ export const MeetingHeader = ({
           disabled={presentDisabled && !isPresenting}
         >
           <Presentation size={18} />
+        </button>
+        {/* CC toggle — turns the Live Caption Dock on/off from ANY view. The
+            dock's own CC puck is absent on panel-only / no-share surfaces, so
+            this is the only place to reach the toggle there. Active state mirrors
+            the Present button's `--active` convention for a consistent look. */}
+        <button
+          type="button"
+          className={`mcm-header__icon-btn${
+            captionEnabled ? " mcm-header__icon-btn--active" : ""
+          }`}
+          title={captionEnabled ? t("header.captionOn") : t("header.captionOff")}
+          aria-label={t("header.captionToggle")}
+          aria-pressed={captionEnabled}
+          onClick={toggleCaption}
+        >
+          <Captions size={18} />
         </button>
         <LangThemeSwitcher />
         <button
