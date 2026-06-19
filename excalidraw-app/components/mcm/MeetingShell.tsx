@@ -51,7 +51,6 @@ import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
 import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
 import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
-import { MeetingCallControls } from "./MeetingCallControls";
 import { MeetingDueNotice } from "./MeetingDueNotice";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
@@ -412,7 +411,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <CADViewTriggers />
           <IFC3DViewTriggers />
           <SpeechToTextPanel />
-          <MeetingCallControls />
+          {/* Call controls (mic/cam/raise-hand/reactions/recording/leave-call)
+              moved into the meeting HEADER — see MeetingHeader's MEDIA group.
+              The old floating bottom-center pill was removed (it overlapped the
+              lower CAD / DXF anchors). */}
           <ScreenSharePane />
           {captionSurface === "overlay" && (
             <LiveCaptionDock variant="overlay" />

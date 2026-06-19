@@ -436,80 +436,75 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 // =========================================================================
 // HEADER
 // =========================================================================
+// Glass-Desk meeting header. Same "paper-on-desk" material vocabulary as the
+// dashboard chrome (.mcm-lobby__top): solid surface, single bottom hairline,
+// floating icon buttons with the lobby hover-wash, hairline group separators.
+// Layout: LEFT identity block (logo + title + timer + people) · elastic spacer
+// · RIGHT action groups (Media · Interaction · Meeting · Chrome · Exit), every
+// control an icon with an `.mcm-tip` hover tooltip.
 .mcm-header {
   flex-shrink: 0;
-  height: 60px;
-  padding: 0 20px;
+  min-height: 56px;
+  padding: 0 14px;
   background: var(--mcm-surface);
   border-bottom: 1px solid var(--mcm-hairline);
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   z-index: 10;
 
-  &__brand {
+  // LEFT identity cluster: logo · divider · title · timer · people.
+  &__identity {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+    flex-shrink: 1;
+  }
+
+  // Real Canvas M wordmark — same asset + dark-mode invert recipe as the lobby
+  // (.mcm-lobby__logo-img), scaled to sit comfortably in the header band.
+  &__logo-img {
+    height: 22px;
+    width: auto;
+    object-fit: contain;
     flex-shrink: 0;
-
-    &-mark {
-      width: 30px;
-      height: 30px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, #6e6ae3, #4f46d6);
-      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
-        0 1px 2px rgba(79, 70, 214, 0.25);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      font-weight: 700;
-      font-size: 15px;
-      letter-spacing: -0.02em;
-    }
-
-    &-name {
-      display: flex;
-      flex-direction: column;
-      line-height: 1.15;
-
-      strong {
-        font-weight: 600;
-        font-size: 13px;
-        letter-spacing: 0.04em;
-      }
-
-      span {
-        font-size: 10px;
-        color: var(--mcm-text-faint);
-        letter-spacing: 0.05em;
-      }
+    -webkit-user-select: none;
+    user-select: none;
+    // Black wordmark art — invert to near-white on the dark (Olive-Royal) glass.
+    .mcm-shell:has(.excalidraw.theme--dark) & {
+      filter: invert(1) brightness(1.9);
     }
   }
 
   &__divider {
     width: 1px;
-    height: 22px;
+    height: 20px;
     background: var(--mcm-hairline);
     margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  // Elastic gap between identity and the action rail.
+  &__spacer {
+    flex: 1 1 auto;
+    min-width: 8px;
   }
 
   &__title {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 15px;
+    gap: 6px;
+    font-size: 14px;
     font-weight: 600;
-    flex: 1;
     min-width: 0;
     cursor: pointer;
     color: var(--mcm-text);
     background: transparent;
     border: 0;
-    padding: 6px 12px;
-    border-radius: 8px;
-    transition: background-color 200ms ease;
+    padding: 5px 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
+    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
     font-family: inherit;
     letter-spacing: -0.01em;
 
@@ -522,35 +517,44 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     svg {
       color: var(--mcm-text-faint);
       flex-shrink: 0;
-      transition: color 200ms ease;
+      transition: color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
     }
 
-    &:hover {
-      background: var(--mcm-surface-2);
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--mcm-text) 6%, transparent);
 
       svg {
         color: var(--mcm-accent);
       }
     }
+
+    &:disabled {
+      cursor: default;
+    }
   }
 
+  // Timer / people read-outs — quiet sunken capsules (sibling of the lobby's
+  // segmented track look), tabular numerals so the clock doesn't jitter.
   &__stat {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 13px;
-    color: var(--mcm-text);
-    background: var(--mcm-surface-2);
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--mcm-text-soft);
+    background: var(--mcm-surface-0, var(--mcm-surface-2));
+    flex-shrink: 0;
 
-    &-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--mcm-success);
-      animation: mcm-pulse 2s ease-in-out infinite;
+    svg {
+      color: var(--mcm-text-faint);
     }
+  }
+
+  &__stat-num {
+    font-variant-numeric: tabular-nums;
+    color: var(--mcm-text);
   }
 
   // Participant stat as a button → opens the participants panel.
@@ -558,56 +562,129 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border: 0;
     font: inherit;
     cursor: pointer;
-    transition: background-color 120ms;
+    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
     &:hover:not(:disabled) {
-      background: var(--mcm-surface-3, rgba(0, 0, 0, 0.1));
+      background: color-mix(in srgb, var(--mcm-text) 9%, transparent);
     }
     &:disabled {
       cursor: default;
+      opacity: 0.7;
     }
   }
 
+  // RIGHT action rail — groups of icon buttons separated by hairlines.
   &__actions {
     display: flex;
     align-items: center;
     gap: 4px;
+    flex-shrink: 0;
   }
 
+  // One logical cluster of related controls (tight intra-group rhythm).
+  &__group {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  // Hairline divider BETWEEN groups — same recipe as the lobby's top-sep so the
+  // whole product speaks one language.
+  &__group-sep {
+    flex: none;
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--mcm-hairline);
+  }
+
+  // The single button vocabulary for the entire header: a 34px floating icon
+  // with the dashboard hover-wash. State modifiers tint it (no separate pill
+  // button class anymore — every header action is an icon + tooltip).
   &__icon-btn {
+    position: relative; // anchors the .mcm-tip tooltip + count badge
     width: 34px;
     height: 34px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 10px);
     border: 0;
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 200ms ease, color 200ms ease;
+    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      transform 100ms var(--mcm-ease, ease);
+
+    &:active:not(:disabled) {
+      transform: scale(0.94);
+    }
 
     &:hover {
-      background: var(--mcm-surface-2);
+      background: color-mix(in srgb, var(--mcm-text) 8%, transparent);
       color: var(--mcm-text);
     }
 
-    // Active = this user is currently presenting (screen share live).
+    // Active / pressed (presenting, captions on, camera on, popover open).
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 16%,
-        transparent
-      );
-      color: var(--mcm-accent, #6965db);
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
 
       &:hover {
-        background: color-mix(
-          in srgb,
-          var(--mcm-accent, #6965db) 24%,
-          transparent
-        );
-        color: var(--mcm-accent, #6965db);
+        background: color-mix(in srgb, var(--mcm-accent) 22%, transparent);
+        color: var(--mcm-accent);
+      }
+    }
+
+    // Accent FILL — the one positive CTA in the rail (Invite). Mirrors the
+    // lobby primary button so "the main action" reads the same everywhere.
+    &--accent {
+      background: var(--mcm-accent);
+      color: #fff;
+      box-shadow: var(--mcm-highlight, inset 0 0.5px 0 rgba(255, 255, 255, 0.3)),
+        0 1px 2px rgba(0, 0, 0, 0.12);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-accent) 88%, black);
+        color: #fff;
+      }
+    }
+
+    // Join the call — positive, but distinct from Invite (uses success green so
+    // "enter the call" never reads as the accent-coloured presenting state).
+    &--join {
+      background: var(--mcm-success);
+      color: #fff;
+      box-shadow: var(--mcm-highlight, inset 0 0.5px 0 rgba(255, 255, 255, 0.3)),
+        0 1px 2px rgba(0, 0, 0, 0.12);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-success) 86%, black);
+        color: #fff;
+      }
+    }
+
+    // Raised-hand resting tint (warm), distinct from the accent toggles.
+    &--warn {
+      background: var(--mcm-warning-soft);
+      color: var(--mcm-warning);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-warning) 20%, transparent);
+        color: var(--mcm-warning);
+      }
+    }
+
+    // Destructive / muted: muted mic, leave-call, end-meeting. Resting state is
+    // a quiet red wash; full-fill only on hover so the rail isn't a wall of red.
+    &--danger {
+      background: var(--mcm-danger-soft);
+      color: var(--mcm-danger, #dc2626);
+
+      &:hover {
+        background: var(--mcm-danger, #dc2626);
+        color: #fff;
       }
     }
 
@@ -621,57 +698,90 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       }
     }
   }
+}
 
-  &__btn {
-    height: 34px;
-    border-radius: 9px;
-    padding: 0 14px;
-    font: inherit;
+// =========================================================================
+// HEADER HOVER TOOLTIP — small Glass-Desk caption shown under any icon
+// button carrying `data-mcm-tip`. Pure CSS (no JS / portal): the bubble is
+// the ::after of the `.mcm-tip` button, revealed on hover / keyboard focus.
+// We DROP the native `title` on these buttons (keeping aria-label) so the OS
+// tooltip doesn't double up. Below the header (it opens downward) and clipped
+// to nothing until hover so it never steals pointer events.
+// =========================================================================
+.mcm-tip {
+  &::after {
+    content: attr(data-mcm-tip);
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-2px);
+    z-index: 50;
+    pointer-events: none;
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 5px 9px;
+    border-radius: var(--mcm-radius-xs, 6px);
+    background: var(--mcm-text);
+    color: var(--mcm-surface);
+    font-size: 11.5px;
     font-weight: 600;
-    font-size: 13px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
     letter-spacing: -0.005em;
-    transition: background-color 200ms ease, color 200ms ease,
-      box-shadow 200ms ease, transform 100ms ease;
+    line-height: 1.2;
+    box-shadow: var(--mcm-shadow-2, 0 2px 6px rgba(0, 0, 0, 0.18),
+        0 10px 24px rgba(0, 0, 0, 0.22));
+    opacity: 0;
+    transition: opacity var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      transform var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+  }
 
-    &:active {
-      transform: scale(0.97);
+  &:hover::after,
+  &:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  // Don't tease a tooltip on a disabled control the user can't action.
+  &:disabled::after {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: opacity var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+      transform: translateX(-50%);
     }
-
-    &--primary {
-      background: var(--mcm-success);
-      border: 0;
-      color: #fff;
-      box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.3),
-        0 1px 2px rgba(22, 163, 74, 0.25);
-
-      &:hover {
-        background: #15803d;
-      }
+    &:hover::after,
+    &:focus-visible::after {
+      transform: translateX(-50%);
     }
+  }
+}
 
-    &--ghost {
-      background: transparent;
-      border: 0;
-      color: var(--mcm-text);
+// =========================================================================
+// HEADER-HOSTED RECORDING CONTROL — the RecordingButton (RecordingControls.tsx)
+// still tags its idle button with `.mcm-call-controls__btn` (a relic of the old
+// floating pill). Now that it renders inside the header's MEDIA group, re-shape
+// that legacy class to the header's 34px icon-button so it sits flush with the
+// mic / camera / present icons instead of the old wide pill. The recording PILL
+// (active state) keeps its own compact styling and is unaffected.
+// =========================================================================
+.mcm-header .mcm-call-controls__btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--mcm-radius-sm, 10px);
+  background: transparent;
+  color: var(--mcm-text-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
-      &:hover {
-        background: var(--mcm-surface-2);
-      }
-    }
-
-    &--danger {
-      background: var(--mcm-danger, #dc2626);
-      border: 0;
-      color: #fff;
-
-      &:hover {
-        background: #b91c1c;
-      }
-    }
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--mcm-text) 8%, transparent);
   }
 }
 
@@ -712,154 +822,40 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 }
 
 // =========================================================================
-// CALL CONTROLS (floating pill above the participants bar)
+// CALL CONTROLS — residual shared styles
 // =========================================================================
-.mcm-call-controls {
-  position: absolute;
-  bottom: var(--mcm-bar-clearance);
-  left: 50%;
-  transform: translateX(-50%);
+// The call controls no longer render as a floating bottom-center pill; they
+// live in the meeting header (MeetingHeader's MEDIA group) as `.mcm-header__
+// icon-btn`s. Only two reusable pieces survive here: the base `__btn` (still
+// emitted by RecordingButton and re-shaped to a header icon by the
+// `.mcm-header .mcm-call-controls__btn` rule above) and the loading `__spinner`
+// (camera-starting / connecting). The old floating wrapper + per-state button
+// fills were removed with the pill.
+.mcm-call-controls__btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px;
-  background: var(--mcm-surface);
-  border: 1px solid var(--mcm-hairline);
-  border-radius: 999px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
-  z-index: 5;
-  color: var(--mcm-text);
-  font-size: 13px;
-  font-weight: 500;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background 120ms;
 
-  // Compact icon-only layout for the live-call state. Buttons drop
-  // their text spans and shrink to a 32px touch target — keeps the
-  // bar narrow so it doesn't overlap the lower canvas content.
-  // Non-live states (join, error, connecting) still use the wide
-  // labelled buttons because they're transitory and benefit from
-  // explicit text.
-  &--compact {
-    .mcm-call-controls__btn {
-      gap: 0;
-      padding: 6px;
-      width: 32px;
-      height: 32px;
-      justify-content: center;
-    }
-
-    .mcm-call-controls__btn--leave,
-    .mcm-call-controls__btn--mic,
-    .mcm-call-controls__btn--cam,
-    .mcm-call-controls__btn--bg,
-    .mcm-call-controls__btn--muted {
-      width: 36px;
-      height: 32px;
-    }
+  &:disabled {
+    cursor: default;
+    opacity: 0.7;
   }
+}
 
-  &--error {
-    background: color-mix(in srgb, #f43f5e 14%, var(--mcm-surface));
-    border-color: color-mix(in srgb, #f43f5e 50%, var(--mcm-hairline));
-  }
-
-  &__err {
-    padding: 0 12px;
-    font-size: 12px;
-    line-height: 1.3;
-    max-width: 260px;
-  }
-
-  &__count {
-    padding: 0 8px;
-    font-size: 12px;
-    color: color-mix(in srgb, var(--mcm-text) 70%, transparent);
-  }
-
-  &__btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 999px;
-    border: none;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-    transition: background 120ms;
-
-    &:hover:not(:disabled) {
-      background: color-mix(in srgb, var(--mcm-text) 8%, transparent);
-    }
-
-    &:disabled {
-      cursor: default;
-      opacity: 0.7;
-    }
-
-    &--join {
-      background: #16a34a;
-      color: #fff;
-      padding: 10px 18px;
-      font-weight: 600;
-
-      &:hover {
-        background: #15803d;
-      }
-    }
-
-    &--mic {
-      background: color-mix(in srgb, var(--mcm-text) 8%, transparent);
-    }
-
-    // Camera toggle — neutral when OFF (matches the mic resting state),
-    // accent-filled when the local camera is publishing so its on/off state
-    // is unmistakable. Disabled (no device) inherits the shared 0.7 opacity.
-    &--cam {
-      background: color-mix(in srgb, var(--mcm-text) 8%, transparent);
-    }
-
-    &--cam-on {
-      background: var(--mcm-accent);
-      color: #fff;
-
-      &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--mcm-accent) 86%, black);
-      }
-    }
-
-    &--muted {
-      background: #f43f5e;
-      color: #fff;
-
-      &:hover {
-        background: #e11d48;
-      }
-    }
-
-    &--leave {
-      background: #ef4444;
-      color: #fff;
-
-      &:hover {
-        background: #dc2626;
-      }
-    }
-
-    &--retry {
-      background: var(--mcm-accent);
-      color: #fff;
-    }
-  }
-
-  &__spinner {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--mcm-text) 30%, transparent);
-    border-top-color: var(--mcm-accent);
-    animation: mcm-call-spin 0.7s linear infinite;
-  }
+.mcm-call-controls__spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--mcm-text) 30%, transparent);
+  border-top-color: var(--mcm-accent);
+  animation: mcm-call-spin 0.7s linear infinite;
 }
 
 @keyframes mcm-call-spin {
@@ -930,26 +926,19 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 }
 
 // =========================================================================
-// RAISE HAND + REACTIONS — buttons + popover in the call controls
+// RAISE HAND + REACTIONS — emoji + popover (now inside the header MEDIA group)
 // =========================================================================
-.mcm-call-controls__btn--raise {
-  // sticky toggle, gets the accent tint when the user's hand is up
-  &.mcm-call-controls__btn--raised {
-    background: color-mix(in srgb, var(--mcm-warning) 18%, var(--mcm-surface));
-    color: #b45309;
-    box-shadow: inset 0 0 0 1px
-        color-mix(in srgb, var(--mcm-warning) 45%, transparent),
-      0 0 0 0 transparent;
-
-    .mcm-call-controls__raise-emoji {
-      animation: mcm-raise-wave 1.4s ease-in-out infinite;
-    }
-  }
+// The raise-hand button is a `.mcm-header__icon-btn--warn` (warm tint while the
+// hand is up); the ✋ glyph waves while raised. Trigger the wave from that
+// raised modifier so the cue survives the move into the header.
+.mcm-header__icon-btn--warn .mcm-call-controls__raise-emoji {
+  animation: mcm-raise-wave 1.4s ease-in-out infinite;
 }
 
 .mcm-call-controls__raise-emoji {
   display: inline-block;
-  font-size: 16px;
+  font-size: 17px;
+  line-height: 1;
   transform-origin: 50% 80%;
 }
 
@@ -972,20 +961,17 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 }
 
-// Wrapper so the popover anchors above the Reactions button.
+// Wrapper so the reactions popover anchors to the Reactions button.
 .mcm-call-controls__reactions {
   position: relative;
   display: inline-flex;
 }
 
-.mcm-call-controls__btn--react.mcm-call-controls__btn--react-open {
-  background: color-mix(in srgb, var(--mcm-accent) 14%, var(--mcm-surface));
-  color: var(--mcm-accent);
-}
-
 .mcm-call-controls__react-popover {
   position: absolute;
-  bottom: calc(100% + 8px);
+  // Opens DOWNWARD now that the reactions button lives in the header (top of
+  // the screen). The enter animation below matches this top-anchored origin.
+  top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   display: grid;
@@ -1026,9 +1012,11 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 }
 
 @keyframes mcm-react-pop {
+  // Drops DOWN from the header button (negative Y origin) — matches the popover
+  // now opening below its trigger.
   from {
     opacity: 0;
-    transform: translateX(-50%) scale(0.85) translateY(4px);
+    transform: translateX(-50%) scale(0.85) translateY(-4px);
   }
   to {
     opacity: 1;
@@ -7272,9 +7260,53 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   max-width: 240px;
 }
 .mcm-header__meeting-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   max-width: 340px;
+}
+
+// ---------------- Header responsiveness ------------------------------
+// The action rail is the priority (live controls must never disappear), so the
+// LEFT identity block yields first: on tighter widths the meeting title clamps,
+// then the timer / people read-outs and the lowest-priority CHROME group
+// (lang/theme) drop out. Below that the rail is allowed to scroll horizontally
+// rather than wrap to a second row — a meeting header must stay one band tall.
+@media (max-width: 1200px) {
+  .mcm-header__meeting-name {
+    max-width: 200px;
+  }
+  .mcm-header__project {
+    max-width: 200px;
+  }
+}
+@media (max-width: 1000px) {
+  // Hide app-level preferences (lang/theme) + the redundant project line —
+  // both reachable elsewhere (Settings, the meeting title menu).
+  .mcm-header__actions .mcm-langtheme {
+    display: none;
+  }
+  .mcm-header__project {
+    display: none;
+  }
+}
+@media (max-width: 820px) {
+  // Drop the timer + people capsules; the people count is also on the
+  // participants bar, and the elapsed clock is non-essential on a phone.
+  .mcm-header__stat {
+    display: none;
+  }
+  .mcm-header {
+    gap: 4px;
+    padding: 0 8px;
+  }
+  // Last resort: let the rail scroll horizontally instead of wrapping.
+  .mcm-header__actions {
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 
 // ---------------- Language + theme switcher --------------------------

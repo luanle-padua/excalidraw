@@ -2,6 +2,7 @@ import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import {
   Captions,
   ChevronDown,
+  Clock3,
   FileText,
   FolderOpen,
   LogOut,
@@ -50,6 +51,7 @@ import { useT } from "../../i18n/mcm";
 import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LayoutSwitcher } from "./LayoutSwitcher";
+import { MeetingCallControls } from "./MeetingCallControls";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
 import { canManageMeeting, isEditableMeetingStatus } from "./meetingStatus";
@@ -427,173 +429,229 @@ export const MeetingHeader = ({
 
   return (
     <header className="mcm-header">
-      <div className="mcm-header__brand">
-        <div className="mcm-header__brand-mark">M</div>
-        <div className="mcm-header__brand-name">
-          <strong>Canvas M</strong>
-          <span>(MCM)</span>
-        </div>
-      </div>
+      {/* ===== LEFT: identity — real Canvas M logo + meeting title +
+          objective timer + people count. This block answers "WHERE am I"
+          and never scrolls into the action groups. ===== */}
+      <div className="mcm-header__identity">
+        {/* Real brand wordmark (same asset as login + lobby), not the old CSS
+            "M" placeholder. Scaled to the header height; inverted to near-white
+            on the dark Olive-Royal theme by .mcm-header__logo-img in SCSS. */}
+        <img
+          src="/canvas-m.png"
+          alt="Canvas M"
+          decoding="async"
+          className="mcm-header__logo-img"
+        />
 
-      <div className="mcm-header__divider" />
+        <div className="mcm-header__divider" />
 
-      {/* Editing is an ORGANIZER affordance (and never in read-only review) —
-          everyone else just sees the title as static text. */}
-      <button
-        type="button"
-        className="mcm-header__title"
-        onClick={() => canEditMeeting && !viewOnly && setEditing(true)}
-        disabled={!canEditMeeting || viewOnly}
-        aria-label={t("header.meetingMenu")}
-        title={
-          canEditMeeting && !viewOnly ? t("header.editMeetingTitle") : undefined
-        }
-      >
-        <span className="mcm-header__title-stack">
-          {meetingInfo?.projectName && (
-            <span className="mcm-header__project">
-              {meetingInfo.projectName}
+        {/* Editing is an ORGANIZER affordance (and never in read-only review) —
+            everyone else just sees the title as static text. */}
+        <button
+          type="button"
+          className="mcm-header__title"
+          onClick={() => canEditMeeting && !viewOnly && setEditing(true)}
+          disabled={!canEditMeeting || viewOnly}
+          aria-label={t("header.meetingMenu")}
+          title={
+            canEditMeeting && !viewOnly
+              ? t("header.editMeetingTitle")
+              : undefined
+          }
+        >
+          <span className="mcm-header__title-stack">
+            {meetingInfo?.projectName && (
+              <span className="mcm-header__project">
+                {meetingInfo.projectName}
+              </span>
+            )}
+            <span className="mcm-header__meeting-name">
+              {meetingInfo?.title || t("header.untitledMeeting")}
             </span>
-          )}
-          <span className="mcm-header__meeting-name">
-            {meetingInfo?.title || t("header.untitledMeeting")}
           </span>
-        </span>
-        {canEditMeeting && !viewOnly && <ChevronDown size={18} />}
-      </button>
+          {canEditMeeting && !viewOnly && <ChevronDown size={16} />}
+        </button>
 
-      <div className="mcm-header__stat" title="Recording">
-        <span className="mcm-header__stat-dot" />
-        <span>{fmt(elapsed)}</span>
-      </div>
+        {/* Objective meeting clock — shared start, so late joiners see the same
+            elapsed time. (Recording state lives in its own button in the
+            "Meeting" group; this is purely the running timer.) */}
+        <div className="mcm-header__stat" title={t("header.elapsedTitle")}>
+          <Clock3 size={14} strokeWidth={2} />
+          <span className="mcm-header__stat-num">{fmt(elapsed)}</span>
+        </div>
 
-      <button
-        type="button"
-        className="mcm-header__stat mcm-header__stat--btn"
-        onClick={() => activeRoomLink && setPanelOpen(true)}
-        disabled={!activeRoomLink}
-        title={
-          activeRoomLink
-            ? t("participants.panelTitle")
-            : t("header.previewNotInRoom")
-        }
-      >
-        <Users size={18} />
-        <span>
-          {t("header.participantCount", { count: realCount })}
+        <button
+          type="button"
+          className="mcm-header__stat mcm-header__stat--btn"
+          onClick={() => activeRoomLink && setPanelOpen(true)}
+          disabled={!activeRoomLink}
+          title={
+            activeRoomLink
+              ? t("participants.panelTitle")
+              : t("header.previewNotInRoom")
+          }
+        >
+          <Users size={14} strokeWidth={2} />
+          <span className="mcm-header__stat-num">
+            {t("header.participantCount", { count: realCount })}
+          </span>
           {inCallCount > 0 && (
             <span className="mcm-header__stat-sub">
-              {" · "}
-              <Mic size={12} /> {inCallCount}
+              <Mic size={11} strokeWidth={2.25} /> {inCallCount}
             </span>
           )}
-        </span>
-      </button>
+        </button>
+      </div>
 
+      {/* Elastic gap — pushes the action groups to the right and lets the left
+          identity block keep its natural width. */}
+      <div className="mcm-header__spacer" />
+
+      {/* ===== RIGHT: action groups, every control an icon + hover tooltip,
+          separated by hairlines so related tools read as one cluster.
+          MEDIA · INTERACTION · MEETING · ROOM-CHROME · EXIT ===== */}
       <div className="mcm-header__actions">
-        {onOpenFolder && (
+        {/* --- MEDIA: mic · camera (call lifecycle) · present · — the
+            "what I broadcast" group. MeetingCallControls renders the
+            mic/cam/leave-call buttons as `mcm-header__icon-btn`s; we frame
+            them with Present so all sharing controls sit together. --- */}
+        <div className="mcm-header__group" role="group">
+          <MeetingCallControls />
+          {/* No "share room link" affordance at all (anh Luân 06-16: "không
+              share bằng link nữa vì bảo mật"). Access is by explicit invite
+              only — login + a meeting_invitee row — never a room URL. */}
           <button
             type="button"
-            className="mcm-header__btn mcm-header__btn--ghost"
-            onClick={onOpenFolder}
-            title={t("header.projects")}
+            className={`mcm-header__icon-btn mcm-tip${
+              isPresenting ? " mcm-header__icon-btn--active" : ""
+            }`}
+            data-mcm-tip={presentTitle ?? t("header.present")}
+            aria-label={t("header.present")}
+            aria-pressed={isPresenting}
+            onClick={onPresent}
+            disabled={presentDisabled && !isPresenting}
           >
-            <FolderOpen size={18} />
-            {t("header.projects")}
+            <Presentation size={18} />
           </button>
-        )}
-        <button
-          type="button"
-          className="mcm-header__btn mcm-header__btn--ghost"
-          onClick={onOpenLog}
-          title={t("header.transcript")}
-        >
-          <FileText size={18} />
-          {t("header.transcript")}
-          {log.length > 0 && (
-            <span className="mcm-header__btn-count">{log.length}</span>
+        </div>
+
+        <div className="mcm-header__group-sep" aria-hidden="true" />
+
+        {/* --- INTERACTION: captions / transcript — the "follow along"
+            group. Raise-hand & reactions live in MEDIA's call cluster (they
+            only exist mid-call); here sit the always-available read affordances. --- */}
+        <div className="mcm-header__group" role="group">
+          {/* CC toggle — turns the Live Caption Dock on/off from ANY view. The
+              dock's own CC puck is absent on panel-only / no-share surfaces, so
+              this is the only place to reach the toggle there. */}
+          <button
+            type="button"
+            className={`mcm-header__icon-btn mcm-tip${
+              captionEnabled ? " mcm-header__icon-btn--active" : ""
+            }`}
+            data-mcm-tip={
+              captionEnabled ? t("header.captionOn") : t("header.captionOff")
+            }
+            aria-label={t("header.captionToggle")}
+            aria-pressed={captionEnabled}
+            onClick={toggleCaption}
+          >
+            <Captions size={18} />
+          </button>
+          <button
+            type="button"
+            className="mcm-header__icon-btn mcm-tip"
+            onClick={onOpenLog}
+            data-mcm-tip={t("header.transcript")}
+            aria-label={t("header.transcript")}
+          >
+            <FileText size={18} />
+            {log.length > 0 && (
+              <span className="mcm-header__btn-count">{log.length}</span>
+            )}
+          </button>
+        </div>
+
+        <div className="mcm-header__group-sep" aria-hidden="true" />
+
+        {/* --- MEETING: layout · invite · projects(host) — the
+            "manage the meeting" group. --- */}
+        <div className="mcm-header__group" role="group">
+          {/* Video-surface switcher (minimal / filmstrip / gallery + floating
+              presenter toggle). Drives videoLayoutAtom. */}
+          <LayoutSwitcher />
+          {/* Inviting is MEETING-MANAGEMENT (anh Luân 06-15: "mời đúng chuẩn
+              role") — only organizer / host / co-host / project authority
+              (canEditMeeting), never a plain participant or guest, and not into
+              a finished meeting (canEditMeeting already excludes those). */}
+          {canEditMeeting && !viewOnly && (
+            <button
+              type="button"
+              className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--accent"
+              onClick={() => setInviteOpen(true)}
+              data-mcm-tip={t("header.invite")}
+              aria-label={t("header.invite")}
+            >
+              <UserPlus size={18} />
+            </button>
           )}
-        </button>
-        {/* Video-surface switcher (minimal / filmstrip / gallery + floating
-            presenter toggle). Moved here from the participant strip — layout
-            choice sits naturally next to the Present / Transcript view
-            controls. Drives videoLayoutAtom (keeping galleryOpenAtom in sync). */}
-        <LayoutSwitcher />
-        {/* No "share room link" affordance at all (anh Luân 06-16: "không
-            share bằng link nữa vì bảo mật"). Access is by explicit invite only
-            — login + a meeting_invitee row — never by spreading a room URL. */}
-        <button
-          type="button"
-          className={`mcm-header__icon-btn${
-            isPresenting ? " mcm-header__icon-btn--active" : ""
-          }`}
-          title={presentTitle ?? t("header.present")}
-          aria-label={t("header.present")}
-          onClick={onPresent}
-          disabled={presentDisabled && !isPresenting}
-        >
-          <Presentation size={18} />
-        </button>
-        {/* CC toggle — turns the Live Caption Dock on/off from ANY view. The
-            dock's own CC puck is absent on panel-only / no-share surfaces, so
-            this is the only place to reach the toggle there. Active state mirrors
-            the Present button's `--active` convention for a consistent look. */}
-        <button
-          type="button"
-          className={`mcm-header__icon-btn${
-            captionEnabled ? " mcm-header__icon-btn--active" : ""
-          }`}
-          title={captionEnabled ? t("header.captionOn") : t("header.captionOff")}
-          aria-label={t("header.captionToggle")}
-          aria-pressed={captionEnabled}
-          onClick={toggleCaption}
-        >
-          <Captions size={18} />
-        </button>
-        <LangThemeSwitcher />
-        <button
-          type="button"
-          className="mcm-header__icon-btn"
-          title={t("profile.openSettings")}
-          onClick={onOpenProfile}
-          aria-label={t("profile.openSettings")}
-        >
-          <Settings size={18} />
-        </button>
-        {/* Inviting is MEETING-MANAGEMENT (anh Luân 06-15: "mời đúng chuẩn
-            role") — only the organizer / host / co-host / project authority
-            (canEditMeeting), never a plain participant or guest, and not into a
-            finished meeting (canEditMeeting already excludes those). */}
-        {canEditMeeting && !viewOnly && (
+          {onOpenFolder && (
+            <button
+              type="button"
+              className="mcm-header__icon-btn mcm-tip"
+              onClick={onOpenFolder}
+              data-mcm-tip={t("header.projects")}
+              aria-label={t("header.projects")}
+            >
+              <FolderOpen size={18} />
+            </button>
+          )}
+        </div>
+
+        <div className="mcm-header__group-sep" aria-hidden="true" />
+
+        {/* --- CHROME: language/theme · settings — app-level preferences,
+            quietest group, furthest from the live controls. --- */}
+        <div className="mcm-header__group" role="group">
+          <LangThemeSwitcher />
           <button
             type="button"
-            className="mcm-header__btn mcm-header__btn--primary"
-            onClick={() => setInviteOpen(true)}
-            title={t("header.invite")}
+            className="mcm-header__icon-btn mcm-tip"
+            data-mcm-tip={t("profile.openSettings")}
+            onClick={onOpenProfile}
+            aria-label={t("profile.openSettings")}
           >
-            <UserPlus size={18} />
-            {t("header.invite")}
+            <Settings size={18} />
           </button>
-        )}
-        {canEndMeeting && !viewOnly && (
+        </div>
+
+        <div className="mcm-header__group-sep" aria-hidden="true" />
+
+        {/* --- EXIT: leave meeting · end-for-all (host). Visually loud
+            (red end-meeting) so the destructive action is unmistakable and
+            isolated at the far edge. --- */}
+        <div className="mcm-header__group" role="group">
           <button
             type="button"
-            className="mcm-header__btn mcm-header__btn--danger"
-            onClick={() => void handleEndMeeting()}
-            title={t("header.endMeeting")}
+            className="mcm-header__icon-btn mcm-tip"
+            onClick={onLeave}
+            data-mcm-tip={t("header.leave")}
+            aria-label={t("header.leave")}
           >
-            <PhoneOff size={18} />
-            {t("header.endMeeting")}
+            <LogOut size={18} />
           </button>
-        )}
-        <button
-          type="button"
-          className="mcm-header__btn mcm-header__btn--ghost"
-          onClick={onLeave}
-        >
-          <LogOut size={18} />
-          {t("header.leave")}
-        </button>
+          {canEndMeeting && !viewOnly && (
+            <button
+              type="button"
+              className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
+              onClick={() => void handleEndMeeting()}
+              data-mcm-tip={t("header.endMeeting")}
+              aria-label={t("header.endMeeting")}
+            >
+              <PhoneOff size={18} />
+            </button>
+          )}
+        </div>
       </div>
 
       {editing && roomId && (

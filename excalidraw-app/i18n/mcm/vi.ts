@@ -234,6 +234,7 @@ export const vi = {
     participantsInCall: "{count} người trong phòng",
     participantsInCallWith: "{count} người trong phòng · {inCall} đang call",
     previewNotInRoom: "Chưa vào phòng — preview",
+    elapsedTitle: "Thời gian họp đã trôi qua",
     layout: "Bố cục",
     present: "Trình bày",
     presentUnsupported:

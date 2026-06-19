@@ -1,15 +1,23 @@
-// Floating control bar for the WebRTC audio call. Shows different
-// states based on the AudioRoom lifecycle:
+// IN-HEADER call controls for the WebRTC audio/video call. These used to live
+// in a floating pill anchored bottom-center of the canvas (it overlapped the
+// lower CAD / DXF anchors and felt "vướng"); the whole cluster has moved up
+// into the meeting header so the canvas stays clear. The component is now a
+// set of header icon buttons (class `mcm-header__icon-btn` + `mcm-tip` for the
+// styled hover tooltip), NOT a self-positioned pill — the header owns layout
+// and grouping. ALL wiring (mic/cam toggle, raise-hand, reactions, recording,
+// join/leave + the audioState lifecycle) is unchanged; only the render target
+// moved.
 //
-//   • idle      → "Join" pill (NO mic prompt — joins listener-only)
-//   • connecting → spinner
-//   • live      → mute toggle + leave call button
-//   • error     → message + retry
+// Call lifecycle still drives what shows:
+//   • idle       → "Join" icon button (NO mic prompt — joins listener-only)
+//   • connecting → spinner icon (disabled)
+//   • live       → mic / camera / raise-hand / reactions / recording / leave
+//   • error      → a single error icon button (tooltip carries the message);
+//                  click = retry
 //
-// Joining is now mic-free: start() enters the room listening only, and the mic
-// is acquired lazily on the first unmute (or when STT turns on). The browser's
-// mic permission prompt still requires a user gesture, but it now fires on that
-// later toggle — which is itself a click — not on Join.
+// Joining is mic-free: start() enters listening-only and the mic is acquired
+// lazily on the first unmute (or when STT turns on), so the browser permission
+// prompt fires on that later click — itself a user gesture.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -280,78 +288,75 @@ export const MeetingCallControls = () => {
 
   const { status, muted, canTransmit, errorKind, errorMessage } = audioState;
 
+  // LIVE — the full media + interaction cluster, icon-only with styled
+  // tooltips. Rendered as a React fragment so the HEADER controls the
+  // grouping/spacing (no self-positioned wrapper anymore).
   if (status === "live") {
-    // Compact layout — icons only, tooltips carry the labels. The
-    // previous bar with full text labels (Mute / Raise hand /
-    // Reactions / 2 in room / Leave call) was the widest UI element
-    // on the canvas and overlapped the lower CAD / DXF anchors.
-    // Switching to icons reclaims that screen space; the
-    // participants strip already shows the people count, so we drop
-    // the redundant "X in room" counter here.
     const micTitle = !canTransmit
       ? t("callControls.listenOnlyTitle")
       : muted
       ? t("callControls.unmute")
       : t("callControls.mute");
+    const camOn = cameraState.status === "on";
+    const camStarting = cameraState.status === "starting";
+    const camTitle = !hasCamera
+      ? t("callControls.noCameraTitle")
+      : cameraState.status === "error"
+      ? t("callControls.cameraError")
+      : camOn
+      ? t("callControls.cameraOff")
+      : t("callControls.cameraOn");
+
     return (
-      <div className="mcm-call-controls mcm-call-controls--live mcm-call-controls--compact">
+      <>
+        {/* MEDIA: mic + camera. The `--cta` modifier paints the live "you can
+            speak/show" state in accent; `--danger` paints the muted state red,
+            mirroring every other conferencing app. */}
         <button
           type="button"
-          className={`mcm-call-controls__btn mcm-call-controls__btn--mic${
-            muted ? " mcm-call-controls__btn--muted" : ""
-          }${!canTransmit ? " mcm-call-controls__btn--mic-listen" : ""}`}
+          className={`mcm-header__icon-btn mcm-tip${
+            muted || !canTransmit ? " mcm-header__icon-btn--danger" : ""
+          }`}
           onClick={canTransmit ? toggleMute : undefined}
           disabled={!canTransmit}
           aria-label={micTitle}
-          title={micTitle}
+          data-mcm-tip={micTitle}
         >
           {muted || !canTransmit ? <MicOffIcon /> : <MicOnIcon />}
         </button>
 
-        {(() => {
-          const camOn = cameraState.status === "on";
-          const camStarting = cameraState.status === "starting";
-          const camTitle = !hasCamera
-            ? t("callControls.noCameraTitle")
-            : cameraState.status === "error"
-            ? t("callControls.cameraError")
-            : camOn
-            ? t("callControls.cameraOff")
-            : t("callControls.cameraOn");
-          return (
-            <button
-              type="button"
-              className={`mcm-call-controls__btn mcm-call-controls__btn--cam${
-                camOn ? " mcm-call-controls__btn--cam-on" : ""
-              }`}
-              onClick={hasCamera && !camStarting ? toggleCamera : undefined}
-              disabled={!hasCamera || camStarting}
-              aria-pressed={camOn}
-              aria-label={camTitle}
-              title={camTitle}
-            >
-              {camStarting ? (
-                <span className="mcm-call-controls__spinner" />
-              ) : camOn ? (
-                <CameraOnIcon />
-              ) : (
-                <CameraOffIcon />
-              )}
-            </button>
-          );
-        })()}
-
-        {/* Virtual-background control moved to User Settings → Preferences
-            (keeps the call bar compact). The persisted choice still auto-applies
-            when the camera turns on — see audio/videoBg.ts. */}
-
         <button
           type="button"
-          className={`mcm-call-controls__btn mcm-call-controls__btn--raise${
-            myHandRaised ? " mcm-call-controls__btn--raised" : ""
+          className={`mcm-header__icon-btn mcm-tip${
+            camOn ? " mcm-header__icon-btn--active" : ""
+          }`}
+          onClick={hasCamera && !camStarting ? toggleCamera : undefined}
+          disabled={!hasCamera || camStarting}
+          aria-pressed={camOn}
+          aria-label={camTitle}
+          data-mcm-tip={camTitle}
+        >
+          {camStarting ? (
+            <span className="mcm-call-controls__spinner" />
+          ) : camOn ? (
+            <CameraOnIcon />
+          ) : (
+            <CameraOffIcon />
+          )}
+        </button>
+
+        {/* Virtual-background control moved to User Settings → Preferences
+            (keeps the cluster compact). The persisted choice still auto-applies
+            when the camera turns on — see audio/videoBg.ts. */}
+
+        {/* INTERACTION: raise-hand + reactions. */}
+        <button
+          type="button"
+          className={`mcm-header__icon-btn mcm-tip${
+            myHandRaised ? " mcm-header__icon-btn--warn" : ""
           }`}
           onClick={toggleRaiseHand}
-          title={
+          data-mcm-tip={
             myHandRaised
               ? t("callControls.lowerHand")
               : t("callControls.raiseHand")
@@ -368,12 +373,14 @@ export const MeetingCallControls = () => {
         <div className="mcm-call-controls__reactions" ref={reactionsPopoverRef}>
           <button
             type="button"
-            className={`mcm-call-controls__btn mcm-call-controls__btn--react${
-              reactionsOpen ? " mcm-call-controls__btn--react-open" : ""
+            className={`mcm-header__icon-btn mcm-tip${
+              reactionsOpen ? " mcm-header__icon-btn--active" : ""
             }`}
             onClick={() => setReactionsOpen((v) => !v)}
-            title={t("callControls.reactions")}
+            data-mcm-tip={t("callControls.reactions")}
             aria-label={t("callControls.reactions")}
+            aria-haspopup="menu"
+            aria-expanded={reactionsOpen}
           >
             <SmileyIcon />
           </button>
@@ -398,78 +405,77 @@ export const MeetingCallControls = () => {
           )}
         </div>
 
-        {/* Recording — host gets an active record/stop icon; non-host
-              sees the same icon disabled with a tooltip naming the
-              host. Lives in the call bar so the feature is exactly
-              where users look for call-related controls. */}
+        {/* Recording — host gets an active record/stop control; non-host sees
+            it disabled with a tooltip naming the host. */}
         <RecordingButton />
 
+        {/* LEAVE CALL — leaves only the audio/video call (stays in the
+            meeting / on the canvas). Distinct from header "Leave meeting". */}
         <button
           type="button"
-          className="mcm-call-controls__btn mcm-call-controls__btn--leave"
+          className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
           onClick={leave}
           aria-label={t("callControls.leaveCall")}
-          title={t("callControls.leaveCall")}
+          data-mcm-tip={t("callControls.leaveCall")}
         >
           <PhoneOffIcon />
         </button>
-      </div>
+      </>
     );
   }
 
+  // CONNECTING — a single disabled spinner button (tooltip explains).
   if (status === "connecting") {
     return (
-      <div className="mcm-call-controls">
-        <button type="button" className="mcm-call-controls__btn" disabled>
-          <span className="mcm-call-controls__spinner" />
-          <span>{t("callControls.requestingMic")}</span>
-        </button>
-      </div>
-    );
-  }
-
-  if (status === "error") {
-    // errorKind → localized message; the raw error detail (dev-facing,
-    // often an English browser/Daily string) only rides the tooltip.
-    return (
-      <div className="mcm-call-controls mcm-call-controls--error">
-        <span
-          className="mcm-call-controls__err"
-          title={errorMessage ?? undefined}
-        >
-          {errorKind === "mic-denied"
-            ? t("callControls.micDenied")
-            : errorKind === "mic-busy"
-            ? t("callControls.micBusy")
-            : errorKind === "call"
-            ? t("callControls.callFailed")
-            : t("callControls.cannotStartMic")}
-        </span>
-        <button
-          type="button"
-          className="mcm-call-controls__btn mcm-call-controls__btn--retry"
-          onClick={join}
-        >
-          {t("callControls.retry")}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mcm-call-controls">
       <button
         type="button"
-        className="mcm-call-controls__btn mcm-call-controls__btn--join"
-        onClick={join}
-        aria-label={t("callControls.joinCall")}
+        className="mcm-header__icon-btn mcm-tip"
+        disabled
+        aria-label={t("callControls.requestingMic")}
+        data-mcm-tip={t("callControls.requestingMic")}
       >
-        {/* Neutral door icon, not a mic: joining no longer prompts for the mic
-            (we go in listener-only and acquire it on the first unmute / STT). */}
-        <EnterIcon />
-        <span>{t("callControls.joinCall")}</span>
+        <span className="mcm-call-controls__spinner" />
       </button>
-    </div>
+    );
+  }
+
+  // ERROR — one icon button; the localized headline rides the tooltip, the raw
+  // (dev-facing) detail rides the native title. Click = retry.
+  if (status === "error") {
+    const headline =
+      errorKind === "mic-denied"
+        ? t("callControls.micDenied")
+        : errorKind === "mic-busy"
+        ? t("callControls.micBusy")
+        : errorKind === "call"
+        ? t("callControls.callFailed")
+        : t("callControls.cannotStartMic");
+    return (
+      <button
+        type="button"
+        className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
+        onClick={join}
+        aria-label={`${headline} — ${t("callControls.retry")}`}
+        data-mcm-tip={`${headline} · ${t("callControls.retry")}`}
+        title={errorMessage ?? undefined}
+      >
+        <MicOffIcon />
+      </button>
+    );
+  }
+
+  // IDLE — the "Join call" entry point. Neutral door icon, not a mic: joining
+  // no longer prompts for the mic (listener-only; mic acquired on first unmute).
+  return (
+    <button
+      type="button"
+      className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--join"
+      onClick={join}
+      aria-label={t("callControls.joinCall")}
+      data-mcm-tip={t("callControls.joinCall")}
+    >
+      <EnterIcon />
+    </button>
   );
 };
 
