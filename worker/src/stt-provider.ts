@@ -241,15 +241,27 @@ const DEEPGRAM_KEYTERMS = [
 // before declaring an utterance final. Korean/Japanese are SOV (verb at the end
 // + a brief pre-verb pause), so a short window chops the verb; SVO (en/vi)
 // finalises faster. `utterance_end_ms` is a separate Deepgram flush signal.
+//
+// Latency tuning (06-19, PM "speed up text delivery"): we LOWER the windows for
+// the SVO + Chinese languages so a final is emitted sooner after the speaker
+// stops, WITHOUT touching ko/ja (still 1000/1500 — they genuinely need the
+// pre-verb pause headroom, dropping them risks cutting the verb mid-sentence).
+//   - en/vi: endpointing 300→250 (still above the 200ms Deepgram-recommended
+//     floor, so normal intra-sentence pauses don't prematurely finalise), and
+//     utterance_end_ms 1000→1000 kept (it must stay ≥ endpointing and 1s is
+//     already a snappy hard-flush; going lower risks splitting one sentence
+//     across two finals on a natural mid-thought breath).
+//   - zh: 500/1200 → 400/1000, a modest trim for the same reason.
+// Note Deepgram requires utterance_end_ms ≥ 1000, so we never go under it.
 const DEEPGRAM_ENDPOINTING_BY_LANG: Record<
   string,
   { endpointing: number; utteranceEnd: number }
 > = {
   ko: { endpointing: 1000, utteranceEnd: 1500 },
   ja: { endpointing: 1000, utteranceEnd: 1500 },
-  en: { endpointing: 300, utteranceEnd: 1000 },
-  vi: { endpointing: 300, utteranceEnd: 1000 },
-  zh: { endpointing: 500, utteranceEnd: 1200 },
+  en: { endpointing: 250, utteranceEnd: 1000 },
+  vi: { endpointing: 250, utteranceEnd: 1000 },
+  zh: { endpointing: 400, utteranceEnd: 1000 },
   multi: { endpointing: 800, utteranceEnd: 1500 },
 };
 
@@ -272,6 +284,13 @@ const buildDeepgramUrl = (lang: string, model: string): string => {
     endpointing: String(tuning.endpointing),
     utterance_end_ms: String(tuning.utteranceEnd),
     vad_events: "true",
+    // NOISE: we deliberately add NO Deepgram-side denoise param here. Nova-3 is
+    // already noise-robust, and the candidate flags either don't exist for it or
+    // risk the same generic HTTP 400 that `numerals` caused (06-18). The real
+    // noise wins live UPSTREAM of Deepgram and are already applied: the mic
+    // constraints (noiseSuppression/echoCancellation/autoGainControl in
+    // DailyAudio) and the anti-alias box-filter in sttWorklet.js. vad_events
+    // (above) lets Deepgram gate on voice activity, which also helps in noise.
   });
   // Nova-3 keyterm prompting uses the SINGULAR param `keyterm` (one per term).
   // CRITICAL (06-18): the keyterms are KOREAN BIM vocab; sending them with a
