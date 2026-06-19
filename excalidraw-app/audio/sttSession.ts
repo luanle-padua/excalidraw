@@ -207,8 +207,21 @@ export class STTSession {
           `[stt] rx #${this.rxMsgCount} type=${msg?.type}` +
             (msg?.type === "Results"
               ? ` is_final=${msg?.is_final} text="${(alt0?.transcript ?? "").slice(0, 40)}"`
-              : ""),
+              : // For non-Results frames (notably Deepgram's `{type:"Error"}`,
+                // capital E — which our `=== "error"` check below never matched,
+                // so the failure was swallowed) dump the raw payload so the
+                // console shows Deepgram's actual complaint (description/code).
+                ` raw=${JSON.stringify(msg).slice(0, 300)}`),
         );
+      }
+      // Deepgram signals stream problems with `{type:"Error"}` (capital E);
+      // surface it through the same error path as our own lowercase "error"
+      // frames so it stops being silently dropped.
+      if (msg.type === "Error") {
+        this.opts.onError?.(
+          msg.description || msg.message || "Deepgram stream error",
+        );
+        return;
       }
       if (msg.type === "ready") {
         // Diagnostic: handshake reached Deepgram. If transcripts never follow,
