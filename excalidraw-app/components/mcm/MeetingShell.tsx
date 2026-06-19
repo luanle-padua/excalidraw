@@ -65,6 +65,7 @@ import { ParticipantsBar } from "./ParticipantsBar";
 import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
 import { UserProfileModal } from "./UserProfileModal";
+import { UserSettings } from "./UserSettings";
 import { WaitingForStart } from "./WaitingForStart";
 import { WaitingRoom } from "./WaitingRoom";
 import { MOCK_PARTICIPANTS } from "./meetingMock";
@@ -96,6 +97,9 @@ const extractRoomId = (link: string | null | undefined): string | null => {
 export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const [logOpen, setLogOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  // The header ⚙ opens the full tabbed Settings; the participants-bar self
+  // avatar still opens the lightweight profile editor (quick name/avatar edit).
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
   const userProfile = useAtomValue(userProfileAtom);
@@ -372,7 +376,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         // the header say "8" while the bar showed 4 (the "8 vs 4" mismatch).
         participantCount={Math.min(MOCK_PARTICIPANTS.length, 4)}
         onOpenLog={() => setLogOpen(true)}
-        onOpenProfile={() => setProfileOpen(true)}
+        onOpenProfile={() => setSettingsOpen(true)}
         onLeave={handleLeave}
         onOpenFolder={isHost ? () => setFolderOpen(true) : undefined}
         onPresent={handlePresent}
@@ -427,6 +431,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       <UserProfileModal
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
+        defaultUsername={collabAPI?.getUsername() || undefined}
+      />
+      <UserSettings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
       <MeetingLobby />

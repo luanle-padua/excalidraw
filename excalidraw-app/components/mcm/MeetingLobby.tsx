@@ -30,6 +30,7 @@ import { NotificationBell } from "./NotificationBell";
 import { ProjectBrowser } from "./ProjectBrowser";
 import { UserMenu } from "./UserMenu";
 import { UserProfileModal } from "./UserProfileModal";
+import { UserSettings } from "./UserSettings";
 import { WallpaperPicker } from "./WallpaperPicker";
 
 import "./Wallpaper.scss";
@@ -65,6 +66,8 @@ export const MeetingLobby = () => {
   // in-meeting shell but gets its own open state here so the dashboard
   // can edit the profile without entering a meeting.
   const [profileOpen, setProfileOpen] = useState(false);
+  // Full tabbed account settings (reached from the user chip → "Settings").
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resume, setResume] = useState<{
     room: LastMeeting;
@@ -338,6 +341,7 @@ export const MeetingLobby = () => {
             <UserMenu
               session={session}
               onOpenProfile={() => setProfileOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           </div>
         </header>
@@ -383,6 +387,11 @@ export const MeetingLobby = () => {
       <UserProfileModal
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
+        defaultUsername={session.name}
+      />
+      <UserSettings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
         defaultUsername={session.name}
       />
     </div>

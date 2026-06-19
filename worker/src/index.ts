@@ -32,7 +32,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import { createRemoteJWKSet, jwtVerify } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
 import { aiRoutes } from "./ai";
 import { guestInviteEmail, sendEmail } from "./email";
@@ -455,6 +455,28 @@ const libraryKey = (roomId: string) => `library/${roomId}/current`;
 const transcriptKey = (roomId: string) => `transcripts/${roomId}/current`;
 const userFileKey = (email: string, fileId: string) =>
   `userfiles/${email}/${fileId}`;
+
+// Avatar R2 key — STABLE per identity so a re-upload overwrites the old image
+// (no orphan blobs, no cache-busting churn on the canvas) and the reference URL
+// stays constant across uploads. We key on a hash of the lowercased email, NOT
+// the raw email: the email can contain characters that are awkward in a URL
+// path segment (and we don't want to leak the address in a shareable avatar
+// URL). The hash is computed via avatarHash() below; the served key is
+// `avatars/<hash>.png`.
+const avatarKey = (hash: string) => `avatars/${hash}.png`;
+
+// Deterministic short hash of the (lowercased) email for the avatar key/URL.
+// SHA-256 → first 32 hex chars (128 bits — collision-free for our user count)
+// so the same user always maps to the same avatar key, while the raw email is
+// never exposed in the public-ish avatar URL.
+const avatarHash = async (email: string): Promise<string> => {
+  const bytes = new TextEncoder().encode(email.trim().toLowerCase());
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 32);
+};
 
 // Internal domains come from system_settings.internal_domains (comma-separated,
 // admin-editable — P0.2: the setting is now REAL, no more hardcode). Cached
@@ -3645,6 +3667,197 @@ app.get("/v1/me/meetings", async (c) => {
     .bind(e)
     .all();
   return c.json({ meetings: results });
+});
+
+// ---- Self profile + avatar (User Settings, Avatar SSOT) ------------------
+// `/v1/me` is the LIGHT "who am I" endpoint: it returns ONLY the caller's own
+// profile + org row, read straight from the verified JWT — so the client never
+// fan-outs the full `/v1/directory` (admin-gated, paginates the whole user
+// table) just to render its own settings panel / avatar. Org fields (title,
+// division, company, avatar, name) live in Supabase `user_metadata` (seeded
+// from user.csv for internal staff); role/isAdmin come from `app_metadata`.
+// Guests have no org metadata, so those fields come back empty/undefined.
+//
+// The /v1/* JWT gate already VERIFIED this exact bearer (offline, against the
+// JWKS) before this handler runs, so we only need to DECODE the same token to
+// read its claims — re-verifying would be a redundant second JWKS round-trip.
+// decodeJwt does no signature check, which is safe ONLY because the gate
+// guarantees the token is valid by the time we get here.
+app.get("/v1/me", (c) => {
+  const authz = c.req.header("Authorization");
+  // The gate guarantees a "Bearer <jwt>" header reached us; guard anyway so a
+  // future caller path that skips the gate can't crash on a missing token.
+  const token = authz?.startsWith("Bearer ") ? authz.slice(7) : "";
+  let userMeta: {
+    name?: unknown;
+    title?: unknown;
+    division?: unknown;
+    company?: unknown;
+    avatar?: unknown;
+  } = {};
+  try {
+    const payload = decodeJwt(token);
+    const m = payload.user_metadata;
+    if (m && typeof m === "object") {
+      userMeta = m as typeof userMeta;
+    }
+  } catch {
+    // Malformed token shouldn't reach a gated route, but never 500 here — fall
+    // back to email-only identity (gate already attached email/role).
+  }
+  const email = (c.get("email") ?? "").toLowerCase();
+  const role = c.get("role");
+  const isAdmin = isAdminish(role);
+  const isGuest = !isInternalEmail(email) && !isAdmin;
+  const str = (v: unknown): string | undefined =>
+    typeof v === "string" && v.trim() ? v : undefined;
+  // Org fields are meaningful ONLY for internal staff (seeded from user.csv);
+  // for a guest we deliberately return them empty so the client doesn't render
+  // a stale/borrowed title or division.
+  const org = !isGuest;
+  return c.json({
+    email,
+    name: str(userMeta.name) ?? email,
+    title: org ? str(userMeta.title) : undefined,
+    division: org ? str(userMeta.division) : undefined,
+    company: org ? str(userMeta.company) : undefined,
+    // Avatar rides along for EVERY user (guests can set one too). It is either
+    // a built-in gallery ref ("lib:NN.png", resolved client-side) or an R2
+    // reference produced by PUT /v1/me/avatar (see that route). The client must
+    // handle BOTH forms — see the note on the PUT handler.
+    avatar: str(userMeta.avatar),
+    role: str(role),
+    isAdmin,
+    isGuest,
+  });
+});
+
+// Avatar upload (Avatar SSOT). Accepts the raw image bytes (Content-Type
+// image/*) OR a `data:image/...;base64,` data-URL body, stores them in R2 at a
+// STABLE per-identity key, mirrors the resulting reference into Supabase
+// `user_metadata.avatar` (so the avatar roams with the account-of-record and is
+// picked up by /v1/me, /v1/directory, and the realtime presence layer), and
+// returns `{ avatar: "<reference>" }`.
+//
+// REFERENCE FORMAT (what the client/canvas stores + reloads): an app-relative
+// URL `"/v1/me/avatar/<hash>.png"` served by the GET route below. We return a
+// relative path (not an absolute origin) on purpose — the same Worker serves
+// dev/preview/prod under different hosts, and the client already resolves
+// storage URLs against its configured STORAGE_URL base. The `<hash>` is the
+// avatarHash(email), so the reference is deterministic and overwriting on
+// re-upload keeps the SAME URL (the canvas image element never goes stale).
+const MAX_AVATAR_BYTES = 512 * 1024; // 512KB — a profile thumbnail, not a file.
+app.put("/v1/me/avatar", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const ct = (c.req.header("content-type") ?? "").toLowerCase();
+  let bytes: ArrayBuffer;
+  let contentType: string;
+  if (ct.startsWith("image/")) {
+    bytes = await c.req.arrayBuffer();
+    contentType = ct.split(";")[0].trim();
+  } else {
+    // data-URL fallback: `data:image/png;base64,AAAA...`. Some clients can only
+    // POST a string (e.g. a cropped <canvas>.toDataURL()), so accept that too.
+    const text = await c.req.text();
+    const m = /^data:(image\/[a-z0-9.+-]+);base64,(.*)$/is.exec(text.trim());
+    if (!m) {
+      return c.json(
+        { error: "expected an image/* body or a data:image/...;base64 URL" },
+        415,
+      );
+    }
+    contentType = m[1].toLowerCase();
+    try {
+      const bin = atob(m[2]);
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) {
+        buf[i] = bin.charCodeAt(i);
+      }
+      bytes = buf.buffer;
+    } catch {
+      return c.json({ error: "invalid base64 image" }, 400);
+    }
+  }
+  if (!bytes.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (bytes.byteLength > MAX_AVATAR_BYTES) {
+    return c.json({ error: "avatar too large (max 512KB)" }, 413);
+  }
+  const hash = await avatarHash(email);
+  const key = avatarKey(hash);
+  // Stable key ⇒ a re-upload OVERWRITES the prior avatar (no orphan blobs). We
+  // keep the source content-type so the GET route serves the right mime.
+  await c.env.BUCKET.put(key, bytes, {
+    httpMetadata: { contentType },
+  });
+  // The reference the client/canvas persists. Stable across re-uploads.
+  const reference = `/v1/me/avatar/${hash}.png`;
+  // Mirror into Supabase user_metadata so the avatar is the SINGLE SOURCE OF
+  // TRUTH on the account: /v1/me + /v1/directory + presence all read it from
+  // there. Best-effort — the R2 write already succeeded, so a metadata blip
+  // shouldn't fail the upload; the client still gets the reference back and the
+  // image is already serveable. We MERGE (Supabase replaces user_metadata with
+  // the patch's keys, preserving untouched keys), so only `avatar` changes.
+  const cr = adminCreds(c);
+  if (cr) {
+    try {
+      const res = await supaAdmin(
+        cr.url,
+        cr.key,
+        "PUT",
+        `/admin/users/${c.get("userId")}`,
+        { user_metadata: { avatar: reference } },
+      );
+      if (!res.ok) {
+        // Surface in logs via audit meta, but don't fail the upload.
+        await logAudit(c.env.DB, email, "me.avatar.metadata_failed", email, {
+          status: res.status,
+        });
+      }
+    } catch {
+      // network/transient — the avatar is stored + returned regardless.
+    }
+  }
+  await logAudit(c.env.DB, email, "me.avatar.update", email, {
+    bytes: bytes.byteLength,
+    contentType,
+  });
+  return c.json({ avatar: reference });
+});
+
+// Serve an avatar image from R2. JWT-gated like the rest of /v1, but otherwise
+// readable by any logged-in user (avatars are shown across the app — in the
+// roster, on the canvas, in the directory). The `:key` is the avatarHash with a
+// `.png` suffix, matching the reference returned by PUT above; we strip the
+// suffix to recover the R2 key. We do NOT trust an arbitrary path — only the
+// `avatars/<key>.png` object is reachable, so one user can't probe another
+// prefix. Cached for a day with revalidation; since the key is stable, a fresh
+// upload overwrites the bytes and the etag changes, so stale caches refresh.
+app.get("/v1/me/avatar/:key", async (c) => {
+  const raw = c.req.param("key");
+  // Accept "<hash>" or "<hash>.png"; reject anything with path separators or
+  // non-hex chars so the lookup is confined to the avatars/ prefix.
+  const hash = raw.replace(/\.png$/i, "");
+  if (!/^[a-f0-9]{1,64}$/i.test(hash)) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(avatarKey(hash));
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type":
+        obj.httpMetadata?.contentType ?? "application/octet-stream",
+      etag: obj.httpEtag,
+      // Stable URL + content-addressed-ish: cache a day, revalidate via etag.
+      "cache-control": "private, max-age=86400, must-revalidate",
+    },
+  });
 });
 
 // ---- Calendar: per-user notes --------------------------------------------

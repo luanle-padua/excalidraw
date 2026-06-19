@@ -13,6 +13,11 @@
 // On Save, both the local user's `userProfileAtom` and (indirectly,
 // via Collab's atom subscription) every peer's `peerProfilesAtom`
 // receive the new values.
+//
+// The form body lives in a standalone `ProfileEditor` component so the new
+// tabbed `UserSettings` modal can embed the SAME editor (name + company +
+// avatar gallery/upload + save) under its "Profile" tab without duplicating
+// the resize/save/sync logic. This modal is now a thin glass wrapper around it.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -70,16 +75,37 @@ const resizeImageToDataUrl = async (
   return canvas.toDataURL("image/png");
 };
 
-type Props = {
-  open: boolean;
-  onClose: () => void;
+type ProfileEditorProps = {
   /** Pre-fill the username field on first-open. Useful when Excalidraw
    *  already has a system-assigned name (e.g. "Friendly Otter") that
    *  the user might want to keep before they pick something custom. */
   defaultUsername?: string;
+  /** Bump this number to force the editor to re-seed from the latest stored
+   *  profile (the parent does this every time its modal opens, so a
+   *  cancel + reopen never carries stale edits). */
+  resetKey?: number;
+  /** Render a Cancel button alongside Save. The standalone modal wants one;
+   *  the Settings tab (which has its own close affordance in the header)
+   *  hides it. */
+  showCancel?: boolean;
+  /** Called when the user cancels (modal: dismiss without saving). */
+  onCancel?: () => void;
+  /** Called AFTER a successful save (modal: close). */
+  onSaved?: () => void;
 };
 
-export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
+/** The shared profile-editing surface — name + company + avatar gallery /
+ *  upload + Save. Owns its own draft state + the save/sync side effects so
+ *  both the standalone `UserProfileModal` and the `UserSettings` "Profile"
+ *  tab embed it identically. It renders ONLY the form body (no overlay /
+ *  card chrome) so each host supplies its own framing. */
+export const ProfileEditor = ({
+  defaultUsername,
+  resetKey,
+  showCancel,
+  onCancel,
+  onSaved,
+}: ProfileEditorProps) => {
   const t = useT();
   const profile = useAtomValue(userProfileAtom);
   const session = useAtomValue(sessionAtom);
@@ -92,35 +118,18 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset the form to the latest stored profile every time the modal
-  // opens so a cancel + reopen doesn't carry stale edits.
+  // Re-seed the form from the latest stored profile whenever the host signals
+  // a (re)open via `resetKey` so a cancel + reopen doesn't carry stale edits.
   useEffect(() => {
-    if (!open) {
-      return;
-    }
     setName(profile?.username ?? defaultUsername ?? "");
     setCompany(profile?.company ?? "");
     setAvatar(profile?.avatar);
     setUploadError(null);
-  }, [open, profile, defaultUsername]);
-
-  // Esc to dismiss without saving.
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
+    // `profile`/`defaultUsername` are intentionally excluded — re-seeding is
+    // gated on the explicit resetKey signal so live atom updates don't clobber
+    // an in-progress edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   const trimmedName = name.trim();
   const canSave = trimmedName.length > 0;
@@ -152,7 +161,7 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
     } else if (excalidrawAPI) {
       excalidrawAPI.updateScene({ appState: { name: trimmedName } });
     }
-    onClose();
+    onSaved?.();
   };
 
   const handleUploadClick = () => fileInputRef.current?.click();
@@ -176,6 +185,182 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
       setUploadError(t("profile.uploadFailed"));
     }
   };
+
+  return (
+    <>
+      <div className="mcm-profile-modal__body">
+        <div className="mcm-profile-modal__preview">
+          <MCMAvatar
+            className="mcm-profile-modal__preview-avatar"
+            avatar={avatar}
+            name={trimmedName || session?.name}
+            email={session?.email}
+          />
+          <div className="mcm-profile-modal__preview-meta">
+            <div className="mcm-profile-modal__preview-name">
+              {trimmedName || t("profile.namePlaceholder")}
+            </div>
+            {company.trim() && (
+              <div className="mcm-profile-modal__preview-company">
+                {company.trim()}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <label className="mcm-profile-modal__field">
+          <span className="mcm-profile-modal__label">
+            {t("profile.nameLabel")}
+          </span>
+          <input
+            type="text"
+            className="mcm-profile-modal__input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("profile.namePlaceholder")}
+            maxLength={48}
+            autoFocus
+          />
+        </label>
+
+        <label className="mcm-profile-modal__field">
+          <span className="mcm-profile-modal__label">
+            {t("profile.companyLabel")}
+          </span>
+          <input
+            type="text"
+            className="mcm-profile-modal__input"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            placeholder={t("profile.companyPlaceholder")}
+            maxLength={48}
+          />
+        </label>
+
+        <div className="mcm-profile-modal__avatar-section">
+          <div className="mcm-profile-modal__avatar-header">
+            <span className="mcm-profile-modal__label">
+              {t("profile.avatarLabel")}
+            </span>
+            <div className="mcm-profile-modal__avatar-actions">
+              <button
+                type="button"
+                className="mcm-profile-modal__avatar-action"
+                onClick={handleUploadClick}
+              >
+                ⬆ {t("profile.uploadAvatar")}
+              </button>
+              {avatar && (
+                <button
+                  type="button"
+                  className="mcm-profile-modal__avatar-action mcm-profile-modal__avatar-action--ghost"
+                  onClick={() => setAvatar(undefined)}
+                >
+                  {t("profile.clearAvatar")}
+                </button>
+              )}
+            </div>
+          </div>
+          {uploadError && (
+            <div className="mcm-profile-modal__error">{uploadError}</div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="mcm-profile-modal__file-input"
+            onChange={handleUploadChange}
+            aria-label={t("profile.uploadAvatar")}
+          />
+          <div className="mcm-profile-modal__gallery">
+            {AVATAR_LIBRARY.map((file) => {
+              const key = `lib:${file}`;
+              const isSelected = avatar === key;
+              return (
+                <button
+                  key={file}
+                  type="button"
+                  className={`mcm-profile-modal__avatar-tile${
+                    isSelected
+                      ? " mcm-profile-modal__avatar-tile--selected"
+                      : ""
+                  }`}
+                  onClick={() => setAvatar(key)}
+                  aria-label={t("profile.pickAvatar", { name: file })}
+                  aria-pressed={isSelected ? "true" : "false"}
+                >
+                  <img
+                    src={`/decorations/avatars/${file}`}
+                    alt=""
+                    loading="lazy"
+                    draggable={false}
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <footer className="mcm-profile-modal__footer">
+        {showCancel && (
+          <button
+            type="button"
+            className="mcm-profile-modal__btn mcm-profile-modal__btn--ghost"
+            onClick={onCancel}
+          >
+            {t("profile.cancel")}
+          </button>
+        )}
+        <button
+          type="button"
+          className="mcm-profile-modal__btn mcm-profile-modal__btn--primary"
+          onClick={handleSave}
+          disabled={!canSave}
+        >
+          {t("profile.save")}
+        </button>
+      </footer>
+    </>
+  );
+};
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  /** Pre-fill the username field on first-open. */
+  defaultUsername?: string;
+};
+
+export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
+  const t = useT();
+  // A monotonically increasing key bumped on each open — handed to ProfileEditor
+  // so it re-seeds from the stored profile every time the modal reopens.
+  const [openCount, setOpenCount] = useState(0);
+
+  useEffect(() => {
+    if (open) {
+      setOpenCount((n) => n + 1);
+    }
+  }, [open]);
+
+  // Esc to dismiss without saving.
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
 
   return (
     <div
@@ -203,137 +388,13 @@ export const UserProfileModal = ({ open, onClose, defaultUsername }: Props) => {
           </button>
         </header>
 
-        <div className="mcm-profile-modal__body">
-          <div className="mcm-profile-modal__preview">
-            <MCMAvatar
-              className="mcm-profile-modal__preview-avatar"
-              avatar={avatar}
-              name={trimmedName || session?.name}
-              email={session?.email}
-            />
-            <div className="mcm-profile-modal__preview-meta">
-              <div className="mcm-profile-modal__preview-name">
-                {trimmedName || t("profile.namePlaceholder")}
-              </div>
-              {company.trim() && (
-                <div className="mcm-profile-modal__preview-company">
-                  {company.trim()}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <label className="mcm-profile-modal__field">
-            <span className="mcm-profile-modal__label">
-              {t("profile.nameLabel")}
-            </span>
-            <input
-              type="text"
-              className="mcm-profile-modal__input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("profile.namePlaceholder")}
-              maxLength={48}
-              autoFocus
-            />
-          </label>
-
-          <label className="mcm-profile-modal__field">
-            <span className="mcm-profile-modal__label">
-              {t("profile.companyLabel")}
-            </span>
-            <input
-              type="text"
-              className="mcm-profile-modal__input"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder={t("profile.companyPlaceholder")}
-              maxLength={48}
-            />
-          </label>
-
-          <div className="mcm-profile-modal__avatar-section">
-            <div className="mcm-profile-modal__avatar-header">
-              <span className="mcm-profile-modal__label">
-                {t("profile.avatarLabel")}
-              </span>
-              <div className="mcm-profile-modal__avatar-actions">
-                <button
-                  type="button"
-                  className="mcm-profile-modal__avatar-action"
-                  onClick={handleUploadClick}
-                >
-                  ⬆ {t("profile.uploadAvatar")}
-                </button>
-                {avatar && (
-                  <button
-                    type="button"
-                    className="mcm-profile-modal__avatar-action mcm-profile-modal__avatar-action--ghost"
-                    onClick={() => setAvatar(undefined)}
-                  >
-                    {t("profile.clearAvatar")}
-                  </button>
-                )}
-              </div>
-            </div>
-            {uploadError && (
-              <div className="mcm-profile-modal__error">{uploadError}</div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="mcm-profile-modal__file-input"
-              onChange={handleUploadChange}
-              aria-label={t("profile.uploadAvatar")}
-            />
-            <div className="mcm-profile-modal__gallery">
-              {AVATAR_LIBRARY.map((file) => {
-                const key = `lib:${file}`;
-                const isSelected = avatar === key;
-                return (
-                  <button
-                    key={file}
-                    type="button"
-                    className={`mcm-profile-modal__avatar-tile${
-                      isSelected
-                        ? " mcm-profile-modal__avatar-tile--selected"
-                        : ""
-                    }`}
-                    onClick={() => setAvatar(key)}
-                    aria-label={t("profile.pickAvatar", { name: file })}
-                    aria-pressed={isSelected ? "true" : "false"}
-                  >
-                    <img
-                      src={`/decorations/avatars/${file}`}
-                      alt=""
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <footer className="mcm-profile-modal__footer">
-          <button
-            type="button"
-            className="mcm-profile-modal__btn mcm-profile-modal__btn--ghost"
-            onClick={onClose}
-          >
-            {t("profile.cancel")}
-          </button>
-          <button
-            type="button"
-            className="mcm-profile-modal__btn mcm-profile-modal__btn--primary"
-            onClick={handleSave}
-            disabled={!canSave}
-          >
-            {t("profile.save")}
-          </button>
-        </footer>
+        <ProfileEditor
+          defaultUsername={defaultUsername}
+          resetKey={openCount}
+          showCancel
+          onCancel={onClose}
+          onSaved={onClose}
+        />
       </div>
     </div>
   );

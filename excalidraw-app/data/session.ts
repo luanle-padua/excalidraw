@@ -131,11 +131,14 @@ export const deriveSession = (user: User): Session => {
     (typeof md.name === "string" && md.name) ||
     (typeof md.display_name === "string" && md.display_name) ||
     nameFromEmail(email);
-  // Only accept "lib:NN.png" library refs from the account — anything else
-  // (junk, an accidentally-synced data URL) is ignored so a corrupt
-  // user_metadata value can never break every avatar surface at once.
+  // Accept the two CANONICAL avatar forms from the account so an uploaded
+  // avatar roams across devices: a built-in gallery ref ("lib:NN.png") or an
+  // R2 upload reference ("/v1/me/avatar/<hash>.png", set by PUT /v1/me/avatar).
+  // Anything else (junk, or an accidentally-synced heavy data: URL) is ignored
+  // so a corrupt user_metadata value can never break every avatar surface.
   const avatar =
-    typeof md.avatar === "string" && md.avatar.startsWith("lib:")
+    typeof md.avatar === "string" &&
+    (md.avatar.startsWith("lib:") || md.avatar.startsWith("/v1/me/avatar/"))
       ? md.avatar
       : undefined;
   // Carry the verified role + project scope from app_metadata (the Worker sets

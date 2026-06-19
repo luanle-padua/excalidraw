@@ -18,7 +18,7 @@
 //     our own row for title/division. The chip simply shows less when
 //     the directory is unavailable (guests, offline).
 
-import { ChevronDown, LogOut, UserRoundPen } from "lucide-react";
+import { ChevronDown, LogOut, Settings, UserRoundPen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
@@ -36,9 +36,11 @@ type Props = {
   session: Session;
   /** Open the shared UserProfileModal (state lives in MeetingLobby). */
   onOpenProfile: () => void;
+  /** Open the full tabbed UserSettings modal (state lives in MeetingLobby). */
+  onOpenSettings: () => void;
 };
 
-export const UserMenu = ({ session, onOpenProfile }: Props) => {
+export const UserMenu = ({ session, onOpenProfile, onOpenSettings }: Props) => {
   const t = useT();
   const profile = useAtomValue(userProfileAtom);
 
@@ -153,6 +155,18 @@ export const UserMenu = ({ session, onOpenProfile }: Props) => {
           >
             <UserRoundPen size={15} aria-hidden />
             {t("user.profile")}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="mcm-user__menu-item"
+            onClick={() => {
+              setOpen(false);
+              onOpenSettings();
+            }}
+          >
+            <Settings size={15} aria-hidden />
+            {t("user.settings")}
           </button>
           <button
             type="button"

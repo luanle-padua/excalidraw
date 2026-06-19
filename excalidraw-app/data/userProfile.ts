@@ -11,10 +11,22 @@
 
 import { atom, appJotaiStore } from "../app-jotai";
 
+import { fetchWithAuth } from "./fetchWithAuth";
 import { isInternalEmail } from "./session";
 import { supabase } from "./supabaseClient";
 
 const STORAGE_KEY = "mcm:userProfile:v1";
+
+/** Base URL of the mcm-storage Worker that serves uploaded avatars
+ *  (`GET /v1/me/avatar/:key`) and accepts uploads (`PUT /v1/me/avatar`).
+ *  Mirrors the resolution used in admin.ts / session.ts: empty string in
+ *  dev-tunnel mode (same-origin) and the configured Worker origin otherwise.
+ *  Kept module-local so the avatar resolver can build absolute serve URLs
+ *  without every call site re-deriving the base. */
+const STORAGE_URL =
+  import.meta.env.VITE_DEV_TUNNEL === "true"
+    ? ""
+    : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
 
 /** Library avatars live in `public/decorations/avatars/NN.png`. We
  *  reference them by their bare filename (e.g. `"42.png"`) so the
@@ -27,10 +39,28 @@ export const AVATAR_LIBRARY: readonly string[] = Array.from(
   (_, i) => `${String(i + 1).padStart(2, "0")}.png`,
 );
 
-/** Resolve a stored avatar value into a URL that an <img> can load.
- *  - "lib:NN.png" → /decorations/avatars/NN.png (built-in gallery)
- *  - "data:image/…" → the data URL itself (user-uploaded)
- *  - null / unrecognised → null (caller falls back to default). */
+/** THE single avatar resolver. Every avatar surface in the app — participant
+ *  bar, transcript, caption, chat, rosters, AND the on-canvas collaborator
+ *  cursor/icon (via `resolveAvatarUrlWithDefault` in Collab.tsx) — turns a
+ *  stored avatar VALUE into a loadable `<img>` src through here, so there is
+ *  exactly one place that knows the avatar value-format. The value of record
+ *  is the account's Supabase `user_metadata.avatar`; the same value travels
+ *  the USER_PROFILE WS payload so peers resolve identically.
+ *
+ *  Recognised value forms (kept deliberately small so they fit user_metadata
+ *  and the WS payload — we NEVER store/broadcast a heavy data-URL once an
+ *  upload has roamed to R2):
+ *    - "lib:NN.png"        → /decorations/avatars/NN.png (built-in gallery)
+ *    - "data:image/…"      → the data URL itself. Transient only: a freshly
+ *                            uploaded picture before `syncAvatarToAccount` has
+ *                            swapped it for the R2 reference. Resolving it lets
+ *                            the local preview show instantly.
+ *    - "http(s)://…"       → an absolute serve URL (the Worker may return one
+ *                            from PUT /v1/me/avatar) → used as-is.
+ *    - any other non-empty → an R2 reference/key → served by the Worker at
+ *                            `{STORAGE_URL}/v1/me/avatar/<key>` so the uploaded
+ *                            avatar roams across devices.
+ *    - null / empty        → null (caller falls back to the default face). */
 export const resolveAvatarUrl = (
   avatar: string | null | undefined,
 ): string | null => {
@@ -43,7 +73,19 @@ export const resolveAvatarUrl = (
   if (avatar.startsWith("lib:")) {
     return `/decorations/avatars/${avatar.slice(4)}`;
   }
-  return null;
+  // Absolute URL (e.g. a fully-qualified R2 serve URL) — load directly.
+  if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
+    return avatar;
+  }
+  // Otherwise it's an R2 reference/key the Worker serves. Strip any leading
+  // slash so the join with the base never doubles up, and avoid re-prefixing
+  // a value that already carries the route (defensive — keeps callers honest
+  // whether they pass "abc123" or "/v1/me/avatar/abc123").
+  const key = avatar.replace(/^\/+/, "");
+  if (key.startsWith("v1/me/avatar/")) {
+    return `${STORAGE_URL}/${key}`;
+  }
+  return `${STORAGE_URL}/v1/me/avatar/${key}`;
 };
 
 /** Like `resolveAvatarUrl` but ALWAYS returns a usable URL. When the
@@ -428,6 +470,21 @@ export const saveUserProfile = (profile: UserProfile): UserProfile => {
   return profile;
 };
 
+/** Replace the data-URL avatar currently sitting in the LOCAL profile (atom +
+ *  localStorage) with the lightweight R2 reference once the upload roams. The
+ *  modal saves the data-URL synchronously for an instant preview; this swap
+ *  happens after the async upload so the value we BROADCAST over WS and persist
+ *  is the small reference, never the ~100KB data-URL. Guarded on identity so a
+ *  stale upload (user changed avatar again mid-flight) doesn't clobber a newer
+ *  pick. */
+const replaceLocalAvatar = (from: string, to: string): void => {
+  const current = appJotaiStore.get(userProfileAtom);
+  if (!current || current.avatar !== from) {
+    return; // profile changed under us — leave the newer value alone
+  }
+  saveUserProfile({ ...current, avatar: to });
+};
+
 /** Push the chosen avatar to the ACCOUNT — Supabase `user_metadata.avatar` —
  *  so it follows the LOGIN across browsers/devices. localStorage stays the
  *  offline cache, but the account is the system of record: without this,
@@ -435,21 +492,24 @@ export const saveUserProfile = (profile: UserProfile): UserProfile => {
  *  the previous user left in the shared `mcm:userProfile:v1` key (the
  *  "everyone has the same avatar" bug; docs/specs/user-data-model.md).
  *
- *  user_metadata must stay SMALL, so only `"lib:NN.png"` refs are synced:
+ *  user_metadata must stay SMALL, so we never store a data-URL there:
  *  - `"lib:NN.png"`  → stored as-is (a few bytes);
- *  - `"data:image…"` → SKIPPED — an uploaded avatar can be ~100KB, which has
- *    no business inside a JWT-adjacent metadata blob. It stays local-only.
- *    TODO(production): upload to R2 under `avatars/<user_id>` via the Worker
- *    and store that URL in user_metadata instead (docs/specs/user-data-model.md).
+ *  - `"data:image…"` → UPLOADED to R2 via the Worker (`PUT /v1/me/avatar`).
+ *    The Worker writes the bytes, sets `user_metadata.avatar` to the returned
+ *    R2 reference, and we swap the local profile's data-URL for that reference
+ *    so the uploaded avatar ROAMS to every device (and the WS broadcast carries
+ *    the light reference, not the heavy bytes). Worker contract:
+ *      `PUT /v1/me/avatar` (raw image bytes) → `{ avatar: "<r2-reference>" }`.
  *  - `undefined`     → clears the account avatar (user pressed "clear").
  *
  *  No-op when auth isn't configured or nobody is signed in (anonymous
- *  link-join keeps its purely-local profile). Fire-and-forget: a failure
- *  only means the avatar doesn't roam — the local save already happened. */
+ *  link-join keeps its purely-local profile). Fire-and-forget at the call
+ *  site: a failure only means the avatar doesn't roam — the local save (data
+ *  URL) already happened, so the user still sees their pick on this device. */
 export const syncAvatarToAccount = async (
   avatar: string | undefined,
 ): Promise<void> => {
-  if (!supabase || avatar?.startsWith("data:")) {
+  if (!supabase) {
     return;
   }
   try {
@@ -458,6 +518,47 @@ export const syncAvatarToAccount = async (
     if (!user) {
       return;
     }
+
+    // Uploaded picture → ship the bytes to R2 and store the returned reference
+    // (NOT the data-URL) at the account, so it roams without bloating the JWT.
+    if (avatar?.startsWith("data:")) {
+      const blob = dataUrlToBlob(avatar);
+      if (!blob) {
+        return; // unparseable data-URL — keep it local-only rather than 400
+      }
+      const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/avatar`, {
+        method: "PUT",
+        headers: { "Content-Type": blob.type || "application/octet-stream" },
+        body: blob,
+      });
+      if (!res.ok) {
+        // Upload failed — leave the local data-URL in place (still shows here).
+        console.warn(
+          "[userProfile] avatar upload failed",
+          res.status,
+          res.statusText,
+        );
+        return;
+      }
+      const body = (await res.json().catch(() => null)) as {
+        avatar?: unknown;
+      } | null;
+      const reference =
+        body && typeof body.avatar === "string" ? body.avatar : null;
+      if (!reference) {
+        console.warn("[userProfile] avatar upload returned no reference");
+        return;
+      }
+      // The Worker already set user_metadata.avatar = reference, but mirror it
+      // through updateUser too so the local Supabase session cache refreshes
+      // (and we stay correct even if the Worker stops setting it server-side).
+      await supabase.auth.updateUser({ data: { avatar: reference } });
+      // Swap the local + broadcast value from the data-URL to the reference.
+      replaceLocalAvatar(avatar, reference);
+      return;
+    }
+
+    // Library pick / clear → store the tiny ref (or null) directly.
     const current = (user.user_metadata as Record<string, unknown> | undefined)
       ?.avatar;
     const next = avatar ?? null;
@@ -467,6 +568,33 @@ export const syncAvatarToAccount = async (
     await supabase.auth.updateUser({ data: { avatar: next } });
   } catch (err) {
     console.warn("[userProfile] failed to sync avatar to account", err);
+  }
+};
+
+/** Parse a `data:[mime][;base64],<payload>` URL into a Blob for upload. We send
+ *  raw bytes (not the data-URL string) so the Worker can stream them straight
+ *  to R2. Returns null for anything that isn't a well-formed data-URL. */
+const dataUrlToBlob = (dataUrl: string): Blob | null => {
+  const comma = dataUrl.indexOf(",");
+  if (!dataUrl.startsWith("data:") || comma < 0) {
+    return null;
+  }
+  const header = dataUrl.slice(5, comma); // between "data:" and ","
+  const payload = dataUrl.slice(comma + 1);
+  const isBase64 = /;base64$/i.test(header);
+  const mime = header.replace(/;base64$/i, "") || "application/octet-stream";
+  try {
+    if (isBase64) {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new Blob([bytes], { type: mime });
+    }
+    return new Blob([decodeURIComponent(payload)], { type: mime });
+  } catch {
+    return null;
   }
 };
 
