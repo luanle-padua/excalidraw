@@ -5744,9 +5744,32 @@ class App extends React.Component<AppProps, AppState> {
         // Not sure why we include deleted elements as well hence using deleted elements map
         ...this.scene.getElementsIncludingDeleted().map((_element) => {
           if (_element.id === element.id && isTextElement(_element)) {
+            // MCM: re-stamp authorship onto the editing user when the text
+            // content actually changed. Opening + closing the editor without
+            // changing the text must NOT restamp (existingAuthor preserved).
+            // The host app returns null to skip (e.g. bot-authored text), so
+            // create-stamp / reload authorship is never stolen.
+            const contentChanged =
+              nextOriginalText !== _element.originalText;
+            let nextCustomData = _element.customData;
+            if (contentChanged && this.props.getTextEditAuthor) {
+              const existingAuthor = (_element.customData as any)?.mcmAuthor as
+                | { id: string; name: string }
+                | undefined;
+              const author = this.props.getTextEditAuthor(existingAuthor?.id);
+              if (author) {
+                nextCustomData = {
+                  ...((_element.customData as any) || {}),
+                  mcmAuthor: author,
+                };
+              }
+            }
             return newElementWith(_element, {
               originalText: nextOriginalText,
               isDeleted: isDeleted ?? _element.isDeleted,
+              ...(nextCustomData !== _element.customData
+                ? { customData: nextCustomData }
+                : {}),
               // returns (wrapped) text and new dimensions
               ...refreshTextDimensions(
                 _element,

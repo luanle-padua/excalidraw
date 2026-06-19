@@ -27,7 +27,8 @@
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
 import { Languages, RefreshCw } from "lucide-react";
-import { newElementWith, newTextElement } from "@excalidraw/element";
+import { newElementWith, newTextElement, wrapText } from "@excalidraw/element";
+import { BOUND_TEXT_PADDING, getFontString } from "@excalidraw/common";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
@@ -386,15 +387,38 @@ export const TextTranslateOverlay = () => {
     };
     const all = excalidrawAPI.getSceneElementsIncludingDeleted();
     let next: ExcalidrawElement[];
+
+    // The child is a PLAIN text element (no container), so newTextElement
+    // auto-resizes its width to the natural single-line measurement. The
+    // translated string has no `\n`, so without intervention the box grows
+    // "dài thòng" (one giant line) and no longer matches the source — which,
+    // for the framed bot answer, is bound text that wraps to its container.
+    // Fix: hard-wrap `translated` to the SOURCE's text width BEFORE measuring,
+    // mirroring how Excalidraw lays out container-bound text. The font here
+    // must match the child's own font (0.85 scale, min 12) so the measured
+    // line breaks line up with the rendered glyphs.
+    const childFontSize = Math.max(12, Math.round(parent.fontSize * 0.85));
+    // Width to wrap to: when the source is bound text, the visible answer
+    // wraps inside `container.width` minus the bound-text padding on each
+    // side; otherwise wrap to the source text element's own width.
+    const wrapWidth = container
+      ? Math.max(0, container.width - BOUND_TEXT_PADDING * 2)
+      : parent.width;
+    const wrappedTranslated = wrapText(
+      translated,
+      getFontString({ fontSize: childFontSize, fontFamily: parent.fontFamily }),
+      wrapWidth,
+    );
+
     if (existing) {
       // Rewriting the text changes the element's intrinsic width /
       // height; we reuse newTextElement to recompute the metrics
       // (Excalidraw doesn't auto-measure on an updateScene patch).
       const replacement = newTextElement({
-        text: translated,
-        originalText: translated,
+        text: wrappedTranslated,
+        originalText: wrappedTranslated,
         fontFamily: parent.fontFamily,
-        fontSize: Math.max(12, Math.round(parent.fontSize * 0.85)),
+        fontSize: childFontSize,
         textAlign: parent.textAlign,
         verticalAlign: parent.verticalAlign,
         x: existing.x,
@@ -414,10 +438,10 @@ export const TextTranslateOverlay = () => {
       next = all.map((el) => (el.id === existing.id ? updated : el));
     } else {
       const child = newTextElement({
-        text: translated,
-        originalText: translated,
+        text: wrappedTranslated,
+        originalText: wrappedTranslated,
         fontFamily: parent.fontFamily,
-        fontSize: Math.max(12, Math.round(parent.fontSize * 0.85)),
+        fontSize: childFontSize,
         textAlign: parent.textAlign,
         verticalAlign: parent.verticalAlign,
         x: anchorX,

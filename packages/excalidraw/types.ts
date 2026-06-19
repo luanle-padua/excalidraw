@@ -629,6 +629,16 @@ export interface ExcalidrawProps {
     /** excludes the duplicated elements */
     prevElements: readonly ExcalidrawElement[],
   ) => ExcalidrawElement[] | void;
+  /**
+   * MCM: invoked when a text element's content is actually edited, to
+   * re-stamp authorship onto the editing user. `existingAuthorId` is the
+   * current `customData.mcmAuthor.id` (if any) so the host app can decide
+   * not to steal authorship (e.g. return null for bot-authored text).
+   * Return null to leave authorship untouched.
+   */
+  getTextEditAuthor?: (
+    existingAuthorId?: string,
+  ) => { id: string; name: string } | null;
   renderTopLeftUI?: (
     isMobile: boolean,
     appState: UIAppState,

@@ -85,6 +85,7 @@ import {
   SYNC_BROWSER_TABS_TIMEOUT,
 } from "./app_constants";
 import Collab, {
+  BOT_SOCKET_ID,
   collabAPIAtom,
   isCollaboratingAtom,
   isOfflineAtom,
@@ -889,6 +890,24 @@ const ExcalidrawWrapper = () => {
           onPointerUpdate={(payload) => {
             collabAPI?.onPointerUpdate?.(payload);
             emitScenePointer(payload.pointer.x, payload.pointer.y);
+          }}
+          getTextEditAuthor={(existingAuthorId) => {
+            // MCM: editing a text element transfers authorship to the
+            // editor. Mirror applyTextAuthorship's identity source
+            // (portal.socket.id + username). Never steal the bot's text,
+            // and skip while not joined (no socket) so a reload can't
+            // hijack authorship.
+            if (existingAuthorId === BOT_SOCKET_ID) {
+              return null;
+            }
+            const socketId = collabAPI?.portal.socket?.id;
+            if (!socketId) {
+              return null;
+            }
+            return {
+              id: socketId,
+              name: collabAPI?.getUsername() || "Guest",
+            };
           }}
           UIOptions={{
             canvasActions: {
