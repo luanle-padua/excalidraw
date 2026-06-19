@@ -12,6 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../app-jotai";
+import { LiveCaptionDock } from "../components/mcm/LiveCaptionDock";
+import { mountPopOutCaption } from "../components/mcm/captionPopOut";
 import { useT } from "../i18n/mcm";
 
 import { isPopOutSupported, popOut } from "./popOut";
@@ -26,6 +28,10 @@ export const ScreenSharePane = () => {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const closeRef = useRef<(() => void) | null>(null);
+  // Teardown for the plain-DOM caption strip we mount into the pop-out window
+  // (see captionPopOut.ts). Kept separate from closeRef so we can unmount the
+  // caption subscriptions independently of closing the PiP window.
+  const popOutCaptionCleanupRef = useRef<(() => void) | null>(null);
   const [minimized, setMinimized] = useState(false);
   const [poppedOut, setPoppedOut] = useState(false);
 
@@ -43,6 +49,8 @@ export const ScreenSharePane = () => {
     if (!stream && closeRef.current) {
       closeRef.current();
       closeRef.current = null;
+      popOutCaptionCleanupRef.current?.();
+      popOutCaptionCleanupRef.current = null;
       setPoppedOut(false);
     }
   }, [stream]);
@@ -52,6 +60,8 @@ export const ScreenSharePane = () => {
     return () => {
       closeRef.current?.();
       closeRef.current = null;
+      popOutCaptionCleanupRef.current?.();
+      popOutCaptionCleanupRef.current = null;
     };
   }, []);
 
@@ -73,11 +83,24 @@ export const ScreenSharePane = () => {
     const close = await popOut(v, {
       onReturn: () => {
         closeRef.current = null;
+        // Tear down the caption strip's atom subscriptions when the user
+        // closes the pop-out window (or it's closed for them).
+        popOutCaptionCleanupRef.current?.();
+        popOutCaptionCleanupRef.current = null;
         setPoppedOut(false);
       },
     });
     if (close) {
       closeRef.current = close;
+      // The video node now lives in the PiP document (popOut appended it AFTER
+      // copyStyles ran), so its ownerDocument is the pop-out window — mount the
+      // caption strip into the SAME document so captions follow the share onto
+      // the second monitor. Plain DOM (not a React portal) to avoid moving a
+      // reconciled node across documents (popOut.ts's warning).
+      const pipDoc = v.ownerDocument;
+      if (pipDoc && pipDoc !== document) {
+        popOutCaptionCleanupRef.current = mountPopOutCaption(pipDoc);
+      }
       setPoppedOut(true);
     }
   };
@@ -111,7 +134,9 @@ export const ScreenSharePane = () => {
             type="button"
             className="mcm-ss-pane__btn"
             onClick={() => setMinimized((m) => !m)}
-            title={minimized ? t("screenShare.expand") : t("screenShare.minimize")}
+            title={
+              minimized ? t("screenShare.expand") : t("screenShare.minimize")
+            }
             aria-label={
               minimized ? t("screenShare.expand") : t("screenShare.minimize")
             }
@@ -134,6 +159,11 @@ export const ScreenSharePane = () => {
             playsInline
             muted
           />
+          {/* Live captions pinned to the bottom of the viewer pane. While the
+              share is popped out, the strip lives in the PiP window instead
+              (mountPopOutCaption), so suppress the in-pane copy to avoid two
+              docks competing. */}
+          {!poppedOut && <LiveCaptionDock variant="embedded" />}
         </div>
       )}
     </div>

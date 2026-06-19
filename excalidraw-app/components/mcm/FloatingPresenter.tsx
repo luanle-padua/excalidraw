@@ -28,7 +28,11 @@ import {
 import { activeSpeakerAtom } from "../../audio/videoPerf";
 import { useT } from "../../i18n/mcm";
 
+import { screenShareMediaAtom } from "../../screenshare/screenShareState";
+import { screenShareStateAtom } from "../../collab/Collab";
+
 import { MCMAvatar } from "./Avatar";
+import { LiveCaptionDock } from "./LiveCaptionDock";
 import { TileVideo } from "./ParticipantsBar";
 
 import "./FloatingPresenter.scss";
@@ -65,6 +69,13 @@ export const FloatingPresenter = ({
   const corner = useAtomValue(floatingPresenterCornerAtom);
   const setCorner = useSetAtom(floatingPresenterCornerAtom);
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
+  // Captions belong to a PRESENT/SHARE context only. The PiP itself can show for
+  // plain camera-watching, so gate the embedded dock on an actual share being
+  // live (we're sharing, or someone in the room is).
+  const screenShareMedia = useAtomValue(screenShareMediaAtom);
+  const screenSharePresence = useAtomValue(screenShareStateAtom);
+  const shareActive =
+    screenShareMedia.localActive || screenSharePresence.size > 0;
   const [minimised, setMinimised] = useState(false);
 
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -277,6 +288,9 @@ export const FloatingPresenter = ({
             />
           </div>
         )}
+        {/* Captions for the presenter watching their own PiP while sharing —
+            pinned to the bottom of the card body (which is position:relative). */}
+        {shareActive && <LiveCaptionDock variant="embedded" />}
       </div>
     </div>
   );

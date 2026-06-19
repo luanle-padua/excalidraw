@@ -1163,6 +1163,22 @@ export const en: Widened<typeof vi> = {
     sttGenericError: "STT error",
   },
 
+  // ---------------- Live caption dock ------------------------------
+  caption: {
+    label: "Live captions",
+    translating: "Translating…",
+    toggleOnTitle: "Turn off captions (CC)",
+    toggleOffTitle: "Turn on captions (CC)",
+    linesTitle: "Number of caption lines shown",
+    linesN: "{count} lines",
+    fontSizeTitle: "Caption font size",
+    fontSize: {
+      s: "Small text",
+      m: "Medium text",
+      l: "Large text",
+    },
+  },
+
   log: {
     title: "Meeting log",
     titleWithId: "Meeting {id}",

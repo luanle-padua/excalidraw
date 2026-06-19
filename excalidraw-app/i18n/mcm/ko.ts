@@ -1173,6 +1173,22 @@ export const ko: Widened<typeof vi> = {
     sttGenericError: "STT 오류",
   },
 
+  // ---------------- Live caption dock ------------------------------
+  caption: {
+    label: "실시간 자막",
+    translating: "번역 중…",
+    toggleOnTitle: "자막 끄기 (CC)",
+    toggleOffTitle: "자막 켜기 (CC)",
+    linesTitle: "표시할 자막 줄 수",
+    linesN: "{count}줄",
+    fontSizeTitle: "자막 글자 크기",
+    fontSize: {
+      s: "작은 글자",
+      m: "보통 글자",
+      l: "큰 글자",
+    },
+  },
+
   log: {
     title: "회의록",
     titleWithId: "회의 {id}",

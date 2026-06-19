@@ -1,0 +1,263 @@
+// LIVE CAPTION DOCK — Glass-Desk subtitle strip.
+//
+// A thin frosted band pinned to the BOTTOM of its surface (viewer pane,
+// presenter PiP, canvas overlay, or pop-out window). Deliberately slim + slightly
+// translucent so it never reads as "covering" the content beneath. Caption text
+// carries a soft dark scrim + text-shadow so it stays readable over BOTH bright
+// and dark frames (movie-subtitle style).
+//
+// `--mcm-caption-scale` (set inline from captionFontScaleAtom: S/M/L) multiplies
+// the base font size so one variable resizes the whole strip — including the
+// pop-out window, whose stylesheet is a clone of this one.
+
+.mcm-caption {
+  // Base size the S/M/L scale multiplies. 14px feels like a caption, not a
+  // paragraph; L (×1.25) reaches ~17.5px for a room display.
+  --mcm-caption-scale: 1;
+  --mcm-caption-base: 14px;
+
+  pointer-events: none; // let canvas/video interactions pass through the band…
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+
+  // The interactive bits (CC + control buttons) re-enable pointer events.
+  .mcm-caption__controls,
+  button {
+    pointer-events: auto;
+  }
+
+  // ----- placement per variant -----
+  &--embedded {
+    // Pinned to the bottom of a position:relative parent (pane / PiP body).
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 8px 10px;
+  }
+
+  &--overlay {
+    // Fixed band over the canvas — sits just above the people bar / call pill.
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(var(--mcm-bar-clearance, 116px) + 8px);
+    width: min(880px, 80%);
+    padding: 0;
+  }
+
+  &--popout {
+    // Inside the Document-PiP window — full-width band at the very bottom.
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 14px;
+  }
+
+  // ----- show / hide transition (silence auto-collapse) -----
+  &__strip {
+    background: rgba(20, 24, 32, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 8px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  &--idle &__strip {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  &--active &__strip {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  // ----- one caption line -----
+  &__line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    line-height: 1.4;
+    // Movie-subtitle legibility on bright frames: dark text shadow halo.
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.7);
+    // Older lines slide up + fade slightly so the newest reads as "live".
+    animation: mcm-caption-rise 220ms ease;
+
+    &--interim {
+      // Interim hypotheses (not yet final, not yet translated): dimmer + italic
+      // so they read as "being said right now, still settling".
+      font-style: italic;
+      opacity: 0.78;
+    }
+  }
+
+  &__spk {
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: calc(var(--mcm-caption-base) * var(--mcm-caption-scale) * 0.82);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  &__live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+    animation: mcm-caption-pulse 1.4s ease-out infinite;
+  }
+
+  &__text {
+    flex: 1;
+    min-width: 0;
+    color: #fff;
+    font-size: calc(var(--mcm-caption-base) * var(--mcm-caption-scale));
+    font-weight: 500;
+    word-break: break-word;
+  }
+
+  // ----- controls (CC + line count + font size) -----
+  &__controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  &--off {
+    // CC off → only the tiny CC puck. Keep it bottom-right + out of the way.
+    position: absolute;
+    right: 10px;
+    bottom: 8px;
+    pointer-events: none;
+  }
+  &--overlay.mcm-caption--off {
+    bottom: calc(var(--mcm-bar-clearance, 116px) + 8px);
+  }
+
+  &__cc {
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 7px;
+    background: rgba(20, 24, 32, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: color 120ms ease, background-color 120ms ease,
+      border-color 120ms ease;
+
+    &:hover {
+      color: #fff;
+      background: rgba(20, 24, 32, 0.78);
+    }
+
+    &--on {
+      color: #fff;
+      border-color: rgba(52, 211, 153, 0.55);
+      box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.25) inset;
+    }
+  }
+
+  &__ctl-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    padding: 2px;
+    border-radius: 8px;
+    background: rgba(20, 24, 32, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  &__ctl {
+    min-width: 22px;
+    height: 20px;
+    padding: 0 5px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    &--on {
+      color: #0b0f14;
+      background: #34d399;
+    }
+
+    // Font-size buttons: the glyph itself previews the size (small / med / big A).
+    &--font-s {
+      font-size: 9px;
+    }
+    &--font-m {
+      font-size: 11px;
+    }
+    &--font-l {
+      font-size: 14px;
+    }
+  }
+}
+
+@keyframes mcm-caption-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mcm-caption-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+// Respect reduced-motion: drop the rise/pulse animations + transitions, keep the
+// instant show/hide so captions remain functional without movement.
+@media (prefers-reduced-motion: reduce) {
+  .mcm-caption__strip {
+    transition: none;
+  }
+  .mcm-caption__line {
+    animation: none;
+  }
+  .mcm-caption__live-dot {
+    animation: none;
+  }
+}

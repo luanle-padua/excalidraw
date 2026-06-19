@@ -37,6 +37,8 @@ import {
   screenShareMediaAtom,
 } from "../../screenshare/screenShareState";
 
+import { floatingPresenterAtom } from "../../audio/videoFocus";
+
 import { AiActivityIndicator } from "./AiActivityIndicator";
 import { AppToast } from "./AppToast";
 import { AuthorBadgeOverlay } from "./AuthorBadgeOverlay";
@@ -56,6 +58,7 @@ import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
+import { LiveCaptionDock } from "./LiveCaptionDock";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
 import { ParticipantsBar } from "./ParticipantsBar";
@@ -111,6 +114,16 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const screenSharePresence = useAtomValue(screenShareStateAtom);
   const screenShareMedia = useAtomValue(screenShareMediaAtom);
   const screenShareInstance = useAtomValue(screenShareInstanceAtom);
+  // Caption overlay fallback: the LOCAL presenter has no viewer pane (they watch
+  // their own screen), and may have the floating PiP closed. In that one case the
+  // captions have no surface to embed into, so we float a slim overlay band at
+  // the bottom of the canvas while a share is live. A remote VIEWER always has
+  // ScreenSharePane (which carries the embedded dock), so it never needs this.
+  const floatingPresenterOn = useAtomValue(floatingPresenterAtom);
+  const shareActive =
+    screenShareMedia.localActive || screenSharePresence.size > 0;
+  const captionNeedsOverlay =
+    shareActive && !screenShareMedia.remoteStream && !floatingPresenterOn;
 
   // The project browser (switch project / reopen / pull) is a host-only
   // affordance for now — the host owns the project folder. A project-scoped
@@ -392,6 +405,7 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <SpeechToTextPanel />
           <MeetingCallControls />
           <ScreenSharePane />
+          {captionNeedsOverlay && <LiveCaptionDock variant="overlay" />}
           <ParticipantsBar onOpenProfile={() => setProfileOpen(true)} />
           <CanvasNavWidget />
           {/* Translating canvas text WRITES translated child elements — a

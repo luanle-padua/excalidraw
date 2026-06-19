@@ -1208,6 +1208,23 @@ export const vi = {
     sttGenericError: "Lỗi STT",
   },
 
+  // ---------------- Live caption dock ------------------------------
+  // Dải phụ đề trực tiếp khi present / chia sẻ màn hình.
+  caption: {
+    label: "Phụ đề trực tiếp",
+    translating: "Đang dịch…",
+    toggleOnTitle: "Tắt phụ đề (CC)",
+    toggleOffTitle: "Bật phụ đề (CC)",
+    linesTitle: "Số dòng phụ đề hiển thị",
+    linesN: "{count} dòng",
+    fontSizeTitle: "Cỡ chữ phụ đề",
+    fontSize: {
+      s: "Cỡ chữ nhỏ",
+      m: "Cỡ chữ vừa",
+      l: "Cỡ chữ lớn",
+    },
+  },
+
   // ---------------- Meeting log + summary modal --------------------
   log: {
     title: "Biên bản cuộc họp",
