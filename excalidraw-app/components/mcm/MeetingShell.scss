@@ -2096,15 +2096,32 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     // Tighter chrome throughout: less header/control padding so the slim
     // card doesn't waste its few vertical pixels on whitespace.
     .mcm-stt__header {
-      padding: 9px 12px 7px;
+      padding: 9px 10px 7px;
+      gap: 7px;
     }
-    .mcm-stt__controls {
-      padding: 0 12px 9px;
-      gap: 5px;
-    }
+    // Compact = TEXT only (PM): the controls row isn't rendered at all in
+    // compact (guarded in JSX), so nothing to style here. The header keeps
+    // just title + a slim status indicator + Full/× — the load-bearing
+    // chrome — and the lines list does the rest.
     .mcm-stt__lines {
       padding: 10px 14px 12px;
       gap: 9px; // tighter rhythm between the few visible lines
+    }
+
+    // Shrink the recording indicator to a quiet pill so it still reads as
+    // "we're capturing" without competing with the transcript for the few
+    // pixels the slim card has. The dot/level-meter cues are kept.
+    .mcm-stt__status {
+      height: 19px;
+      padding: 0 7px;
+      font-size: 9.5px;
+      letter-spacing: 0.06em;
+      gap: 5px;
+    }
+    // The title can give up room first when space is tight — the slim card
+    // leads with the transcript, not the label.
+    .mcm-stt__title {
+      font-size: 13px;
     }
     // The resize handle would let the user undo the auto-height; keep it
     // available but it's still functional via JS. (No change needed.)
@@ -2263,7 +2280,10 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     align-items: center;
     gap: 6px;
     padding: 0 14px 12px;
-    border-bottom: 1px solid var(--mcm-hairline);
+    // Soft hairline below the controls cluster — mirrors ChatPanel's
+    // header divider (--chat-hairline-soft) so the two panels share the
+    // same quiet section break rather than a hard rule.
+    border-bottom: 1px solid var(--mcm-hairline-2);
     flex-shrink: 0;
     flex-wrap: wrap;
   }
@@ -2300,6 +2320,73 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     }
   }
 
+  // Labelled config cluster (STT model picker, "language I speak"). A
+  // glass pill that groups a small caption + a borderless select so the
+  // controls row reads as one calm family with the toggle pills beside
+  // it — instead of raw OS-chrome dropdowns. Full mode only (compact
+  // hides the whole controls row).
+  &__provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--mcm-surface-2);
+    border-radius: 8px;
+    padding: 3px 8px 3px 10px;
+    min-width: 0;
+  }
+
+  &__provider-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+  }
+
+  // Borderless select that sits on the pill's tinted surface. The custom
+  // chevron mirrors the &__select glyph so both dropdown styles match.
+  &__provider-select {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    padding: 2px 16px 2px 4px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    cursor: pointer;
+    max-width: 130px;
+    text-overflow: ellipsis;
+    background-image: linear-gradient(
+        45deg,
+        transparent 50%,
+        var(--mcm-text-soft) 50%
+      ),
+      linear-gradient(135deg, var(--mcm-text-soft) 50%, transparent 50%);
+    background-position: calc(100% - 6px) 50%, calc(100% - 2px) 50%;
+    background-size: 4px 4px, 4px 4px;
+    background-repeat: no-repeat;
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--mcm-ring, 0 0 0 3px var(--mcm-accent-soft));
+      border-radius: 6px;
+    }
+  }
+
+  // Per-minute price tag trailing the model picker — muted so the cost
+  // reads as metadata, not a control. Tabular figures keep "$0.0048"
+  // from jittering as the value changes.
+  &__provider-price {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--mcm-text-faint);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   // Close button — × icon, sits at the far right of the header row.
   &__hide {
     width: 26px;
@@ -2315,12 +2402,19 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     font: inherit;
     font-size: 22px;
     line-height: 1;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease,
+      transform 120ms ease;
     flex-shrink: 0;
 
     &:hover {
       background: var(--mcm-surface-2);
       color: var(--mcm-text);
+    }
+
+    // Tactile press — same scale-down cue the ChatPanel icon buttons use,
+    // so clicks feel consistent across the meeting chrome.
+    &:active {
+      transform: scale(0.92);
     }
   }
 
@@ -2344,11 +2438,16 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     flex-shrink: 0;
-    transition: background-color 160ms ease, color 160ms ease;
+    transition: background-color 160ms ease, color 160ms ease,
+      transform 120ms ease;
 
     &:hover {
       background: var(--mcm-hairline-2);
       color: var(--mcm-text);
+    }
+
+    &:active {
+      transform: scale(0.94);
     }
 
     // While compact, tint the pill with the accent so the user can tell

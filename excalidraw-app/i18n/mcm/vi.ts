@@ -1221,6 +1221,7 @@ export const vi = {
   caption: {
     label: "Phụ đề trực tiếp",
     translating: "Đang dịch…",
+    hideTitle: "Tạm ẩn phụ đề",
     toggleOnTitle: "Tắt phụ đề (CC)",
     toggleOffTitle: "Bật phụ đề (CC)",
     linesTitle: "Số dòng phụ đề hiển thị",

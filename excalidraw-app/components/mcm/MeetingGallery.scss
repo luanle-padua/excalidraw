@@ -87,6 +87,17 @@
   > .mcm-caption--embedded {
     z-index: 3; // above tiles (tile box-shadow / focus ring sit at z 1–2)
   }
+  // Movie-subtitle framing: centre the strip and cap its width instead of
+  // stretching edge-to-edge across a wide gallery (a full-bleed band reads as a
+  // toolbar, not a caption). Mirrors the overlay variant's centred sizing so the
+  // dock looks identical whichever surface it mounts on. Excludes the CC-OFF
+  // puck (`--off`), which must stay tucked in the bottom-right corner.
+  > .mcm-caption--embedded:not(.mcm-caption--off) {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(820px, calc(100% - 44px));
+  }
 
   &__bar {
     display: flex;
@@ -283,6 +294,15 @@
     // the frame stays visible behind it.
     > .mcm-caption--embedded {
       z-index: 3;
+    }
+    // Centre + cap width on the big tile too (excluding the corner CC-OFF puck),
+    // so the focused-speaker frame shows a tidy movie-subtitle band rather than
+    // a full-width strip.
+    > .mcm-caption--embedded:not(.mcm-caption--off) {
+      left: 50%;
+      right: auto;
+      transform: translateX(-50%);
+      width: min(760px, calc(100% - 40px));
     }
   }
 

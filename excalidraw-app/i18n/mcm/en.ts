@@ -1174,6 +1174,7 @@ export const en: Widened<typeof vi> = {
   caption: {
     label: "Live captions",
     translating: "Translating…",
+    hideTitle: "Hide captions for now",
     toggleOnTitle: "Turn off captions (CC)",
     toggleOffTitle: "Turn on captions (CC)",
     linesTitle: "Number of caption lines shown",

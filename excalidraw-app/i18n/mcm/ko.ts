@@ -1184,6 +1184,7 @@ export const ko: Widened<typeof vi> = {
   caption: {
     label: "실시간 자막",
     translating: "번역 중…",
+    hideTitle: "자막 잠시 숨기기",
     toggleOnTitle: "자막 끄기 (CC)",
     toggleOffTitle: "자막 켜기 (CC)",
     linesTitle: "표시할 자막 줄 수",

@@ -907,7 +907,14 @@ export const SpeechToTextPanel = () => {
 
       {/* Row 2 — controls. Wraps to 2 lines on very narrow widths.
           In review the transcript is a HISTORY view: no live-STT toggle, no
-          test-file ingest — those produce new segments in an immutable log. */}
+          test-file ingest — those produce new segments in an immutable log.
+
+          Compact mode hides this whole configuration row (PM requirement:
+          "compact = TEXT only"). The model dropdown, cost, spoken-language
+          picker, provider and test-file affordances are deliberately dropped
+          so the slim card shows nothing but the transcript + a minimal header.
+          Everything here is still reachable by switching back to Full. */}
+      {!compact && (
       <div className="mcm-stt__controls">
         {!viewOnly && (
           <button
@@ -1036,6 +1043,7 @@ export const SpeechToTextPanel = () => {
           onChange={handleFilePick}
         />
       </div>
+      )}
 
       <div
         className="mcm-stt__lines"

@@ -310,7 +310,13 @@ export const LiveCaptionDock = ({
       role="region"
       aria-label={t("caption.label")}
     >
-      <CaptionControls />
+      {/* While the strip is up, expose a quick-hide (×) that just collapses the
+          current strip (without disabling captions) — it reappears on the next
+          utterance. Hidden when there's nothing showing, so it never adds a
+          dangling control to the empty/idle state. */}
+      <CaptionControls
+        onHide={showStrip ? () => setCollapsed(true) : undefined}
+      />
       {showStrip && (
         <div className="mcm-caption__strip" aria-live="polite">
           {lines.map((line) =>
@@ -334,7 +340,15 @@ export const LiveCaptionDock = ({
 // the dock — the pane/presenter header also exposes a CC button (see mounts), but
 // having the controls on the dock itself means the overlay variant (no pane
 // header) is still fully configurable.
-const CaptionControls = ({ compact }: { compact?: boolean }) => {
+const CaptionControls = ({
+  compact,
+  onHide,
+}: {
+  compact?: boolean;
+  /** When provided, render a quick-hide (×) that collapses the live strip
+   *  without disabling captions. Absent → no hide button (idle/compact). */
+  onHide?: () => void;
+}) => {
   const t = useT();
   const [enabled, setEnabled] = useAtom(captionDockEnabledAtom);
   const [lineCount, setLineCount] = useAtom(captionLineCountAtom);
@@ -416,6 +430,25 @@ const CaptionControls = ({ compact }: { compact?: boolean }) => {
             ))}
           </span>
         </>
+      )}
+
+      {/* Quick-hide: collapse the strip now (captions stay ON, reappear on the
+          next line). Only shown while a strip is up — the dock passes onHide
+          then. Glyph "×" instead of an icon import to keep the dock dependency-
+          free; aria-label carries the meaning for AT. */}
+      {enabled && !compact && onHide && (
+        <button
+          type="button"
+          className="mcm-caption__hide"
+          onClick={onHide}
+          // Dedicated "Hide captions for now" string — distinct from the CC
+          // toggle (which disables the feature); this just collapses the current
+          // strip until the next utterance.
+          title={t("caption.hideTitle")}
+          aria-label={t("caption.hideTitle")}
+        >
+          ×
+        </button>
       )}
     </div>
   );
