@@ -2078,6 +2078,38 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   font-size: 13px;
   letter-spacing: -0.005em;
 
+  // ----- COMPACT density -------------------------------------------
+  // Slim variant: a narrower card whose height hugs its content (only
+  // ~3 lines render) so it barely covers the canvas. Specificity is
+  // 0,2,0 (.mcm-stt.mcm-stt--compact) so it beats the base width/height
+  // above. The user can still drag/resize — those inline styles, when
+  // present, override these defaults just like in full mode.
+  &--compact {
+    width: 340px;
+    height: auto;
+    min-height: 0;
+    // Cap so a burst of long lines can't let it grow without bound; the
+    // lines list scrolls internally past this (auto-scroll keeps newest
+    // pinned). Sits well under the full-mode default height.
+    max-height: 260px;
+
+    // Tighter chrome throughout: less header/control padding so the slim
+    // card doesn't waste its few vertical pixels on whitespace.
+    .mcm-stt__header {
+      padding: 9px 12px 7px;
+    }
+    .mcm-stt__controls {
+      padding: 0 12px 9px;
+      gap: 5px;
+    }
+    .mcm-stt__lines {
+      padding: 10px 14px 12px;
+      gap: 9px; // tighter rhythm between the few visible lines
+    }
+    // The resize handle would let the user undo the auto-height; keep it
+    // available but it's still functional via JS. (No change needed.)
+  }
+
   // Header row 1 — title + status + close. Always single-line.
   // Also serves as the drag handle for the whole panel: the pointer
   // handlers live on this element so the user can grab anywhere on
@@ -2292,6 +2324,45 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     }
   }
 
+  // Full ↔ Compact density toggle in the header. A slim glass pill that
+  // shows the OTHER mode's label (the action it performs), echoing the
+  // controls-row toggle styling but quieter so it doesn't compete with
+  // the status pill beside it.
+  &__style-toggle {
+    height: 22px;
+    padding: 0 9px;
+    display: inline-flex;
+    align-items: center;
+    background: var(--mcm-surface-2);
+    border: 0;
+    border-radius: 999px;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    transition: background-color 160ms ease, color 160ms ease;
+
+    &:hover {
+      background: var(--mcm-hairline-2);
+      color: var(--mcm-text);
+    }
+
+    // While compact, tint the pill with the accent so the user can tell
+    // at a glance the panel is in its slim state.
+    &--compact {
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-accent) 22%, transparent);
+      }
+    }
+  }
+
   // Toggle pill with leading icon — neutral by default, success-tinted
   // when ON. Used for STT + Dịch.
   &__toggle {
@@ -2456,6 +2527,32 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       .mcm-stt__line-orig {
         font-style: italic;
         font-weight: 400;
+      }
+    }
+
+    // Compact row: avatar + lang chip are already dropped in JSX; here we
+    // pull the head/body type down a notch and tighten the head→body gap
+    // so each line takes the minimum vertical space while staying legible.
+    &--compact {
+      line-height: 1.4;
+
+      .mcm-stt__line-head {
+        gap: 6px;
+        margin-bottom: 1px;
+        font-size: 10.5px;
+      }
+      .mcm-stt__line-spk {
+        font-size: 11.5px;
+      }
+      .mcm-stt__line-at {
+        font-size: 10px;
+      }
+      .mcm-stt__line-orig {
+        font-size: 12.5px;
+      }
+      .mcm-stt__line-trans {
+        font-size: 11.5px;
+        margin-top: 2px;
       }
     }
 

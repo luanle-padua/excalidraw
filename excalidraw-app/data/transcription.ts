@@ -51,6 +51,7 @@ export type InterimEntry = {
 const STT_ENABLED_LS_KEY = "mcm:sttEnabled";
 const STT_TRANSLATE_LS_KEY = "mcm:sttTranslateEnabled";
 const STT_SPOKEN_LANG_LS_KEY = "mcm:sttSpokenLang";
+const STT_PANEL_STYLE_LS_KEY = "mcm:sttPanelStyle";
 const TRANSCRIPT_LOG_LS_PREFIX = "mcm:transcript:";
 const SUMMARY_LS_PREFIX = "mcm:summary:";
 
@@ -96,6 +97,38 @@ export const sttLiveErrorAtom = atom<string | null>(null);
  *  frame). The panel renders it as a pulsing "Live" dot vs an amber "No audio"
  *  warning. Resets to false on teardown so a stale true never lingers. */
 export const sttCapturingAtom = atom<boolean>(false);
+
+/** How the on-canvas transcript panel renders:
+ *   • "full"    — the complete, scrollable history with avatars, every
+ *                 control, and resize handle (the original layout).
+ *   • "compact" — a slim card showing only the ~3 newest finalised
+ *                 segments (+ any live interim), trimmed chrome, so it
+ *                 sips canvas space. Same translation + speaker colour.
+ *  Persisted per device like the other STT prefs. Default "full" so
+ *  existing users see no behaviour change until they opt in. */
+export type STTPanelStyle = "full" | "compact";
+
+const readPanelStyle = (): STTPanelStyle => {
+  if (typeof window === "undefined") {
+    return "full";
+  }
+  try {
+    const v = window.localStorage.getItem(STT_PANEL_STYLE_LS_KEY);
+    return v === "compact" ? "compact" : "full";
+  } catch {
+    return "full";
+  }
+};
+
+export const sttPanelStyleAtom = atom<STTPanelStyle>(readPanelStyle());
+
+export const setSttPanelStyle = (style: STTPanelStyle): void => {
+  try {
+    window.localStorage.setItem(STT_PANEL_STYLE_LS_KEY, style);
+  } catch {
+    // ignore — best-effort
+  }
+};
 
 /** Per-viewer toggle: translate each finalised transcript segment to
  *  the viewer's preferred language. Mirrors the chat translation

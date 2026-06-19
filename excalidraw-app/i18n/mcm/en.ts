@@ -1136,6 +1136,10 @@ export const en: Widened<typeof vi> = {
     translateOff: "Translate: off",
     translateToggleOnTitle: "Stop translating transcript",
     translateToggleOffTitle: "Translate transcript to preferred language",
+    styleFull: "Full",
+    styleCompact: "Compact",
+    styleToggleToCompactTitle: "Switch to compact mode (only the 3 newest lines)",
+    styleToggleToFullTitle: "Switch to full mode (the whole transcript)",
     testFile: "Test file",
     testRunning: "Testing…",
     testFileTitle:

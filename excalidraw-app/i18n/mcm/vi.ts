@@ -1181,6 +1181,11 @@ export const vi = {
     translateOff: "Dịch: tắt",
     translateToggleOnTitle: "Tắt dịch transcript",
     translateToggleOffTitle: "Bật dịch transcript sang ngôn ngữ ưu tiên",
+    // Kiểu hiển thị panel: Full (đầy đủ, cuộn) ↔ Compact (3 dòng mới nhất, gọn).
+    styleFull: "Đầy đủ",
+    styleCompact: "Gọn",
+    styleToggleToCompactTitle: "Chuyển sang chế độ gọn (chỉ 3 dòng mới nhất)",
+    styleToggleToFullTitle: "Chuyển sang chế độ đầy đủ (toàn bộ biên bản)",
     testFile: "Test file",
     testRunning: "Đang test…",
     testFileTitle:

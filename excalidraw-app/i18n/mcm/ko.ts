@@ -1146,6 +1146,10 @@ export const ko: Widened<typeof vi> = {
     translateOff: "번역: 꺼짐",
     translateToggleOnTitle: "회의록 번역 끄기",
     translateToggleOffTitle: "회의록을 선호 언어로 번역",
+    styleFull: "전체",
+    styleCompact: "간결",
+    styleToggleToCompactTitle: "간결 모드로 전환 (최신 3줄만 표시)",
+    styleToggleToFullTitle: "전체 모드로 전환 (회의록 전체 표시)",
     testFile: "파일 테스트",
     testRunning: "테스트 중…",
     testFileTitle:

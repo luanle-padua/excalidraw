@@ -30,11 +30,13 @@ import {
   SPOKEN_LANGUAGES,
   liveTranscriptsAtom,
   setSttEnabled,
+  setSttPanelStyle,
   setSttSpokenLanguage,
   setSttTranslateEnabled,
   sttCapturingAtom,
   sttEnabledAtom,
   sttLiveErrorAtom,
+  sttPanelStyleAtom,
   sttSpokenLanguageAtom,
   sttTranslateEnabledAtom,
   transcriptionLogAtom,
@@ -132,9 +134,14 @@ const formatClockTime = (ts: number): string => {
 const SegmentRow = ({
   seg,
   translateEnabled,
+  compact = false,
 }: {
   seg: TranscriptSegment;
   translateEnabled: boolean;
+  /** Compact mode drops the avatar + language chip and tightens spacing
+   *  so the row sips vertical space; the speaker colour + translation are
+   *  kept (they're the load-bearing "who said what, in my language" cues). */
+  compact?: boolean;
 }) => {
   const t = useT();
   // `assumedSource` lets useTranslate short-circuit when Deepgram's
@@ -159,15 +166,17 @@ const SegmentRow = ({
   const speakerName = speakerProfile?.username || seg.username;
   const shortName = shortDisplayName(speakerName);
   return (
-    <div className="mcm-stt__line">
+    <div className={`mcm-stt__line${compact ? " mcm-stt__line--compact" : ""}`}>
       <div className="mcm-stt__line-head">
-        <MCMAvatar
-          className="mcm-stt__line-avatar"
-          avatar={speakerProfile?.avatar}
-          name={speakerName}
-          email={speakerProfile?.email}
-          identityKey={speakerProfile?.email ?? seg.socketId}
-        />
+        {!compact && (
+          <MCMAvatar
+            className="mcm-stt__line-avatar"
+            avatar={speakerProfile?.avatar}
+            name={speakerName}
+            email={speakerProfile?.email}
+            identityKey={speakerProfile?.email ?? seg.socketId}
+          />
+        )}
         <span
           className="mcm-stt__line-spk"
           // per-speaker colour from the same palette as avatars
@@ -177,7 +186,9 @@ const SegmentRow = ({
           {shortName}
         </span>
         <span className="mcm-stt__line-at">{formatClockTime(seg.ts)}</span>
-        {seg.lang && <span className="mcm-stt__line-lang">{seg.lang}</span>}
+        {!compact && seg.lang && (
+          <span className="mcm-stt__line-lang">{seg.lang}</span>
+        )}
       </div>
       <div className="mcm-stt__line-orig">{seg.text}</div>
       {showTranslation && (
@@ -195,8 +206,10 @@ const SegmentRow = ({
  *  (their own audio being recognised by Deepgram in real time). */
 const InterimLine = ({
   entry,
+  compact = false,
 }: {
   entry: { socketId: string; username: string; text: string };
+  compact?: boolean;
 }) => {
   const t = useT();
   const myProfile = useAtomValue(userProfileAtom);
@@ -208,15 +221,21 @@ const InterimLine = ({
       : peerProfiles.get(entry.socketId);
   const name = speakerProfile?.username || entry.username;
   return (
-    <div className="mcm-stt__line mcm-stt__line--interim">
+    <div
+      className={`mcm-stt__line mcm-stt__line--interim${
+        compact ? " mcm-stt__line--compact" : ""
+      }`}
+    >
       <div className="mcm-stt__line-head">
-        <MCMAvatar
-          className="mcm-stt__line-avatar"
-          avatar={speakerProfile?.avatar}
-          name={name}
-          email={speakerProfile?.email}
-          identityKey={speakerProfile?.email ?? entry.socketId}
-        />
+        {!compact && (
+          <MCMAvatar
+            className="mcm-stt__line-avatar"
+            avatar={speakerProfile?.avatar}
+            name={name}
+            email={speakerProfile?.email}
+            identityKey={speakerProfile?.email ?? entry.socketId}
+          />
+        )}
         <span
           className="mcm-stt__line-spk"
           // eslint-disable-next-line react/forbid-dom-props
@@ -255,6 +274,11 @@ export const SpeechToTextPanel = () => {
   // language until the user picks one; AudioRoomController restarts the live
   // session on change.
   const [spokenLang, setSpokenLangState] = useAtom(sttSpokenLanguageAtom);
+  // Panel chrome density: "full" (scrollable history) vs "compact" (only the
+  // newest few lines, trimmed chrome). Persisted per device like the other STT
+  // prefs so the user's choice survives reloads.
+  const [panelDensity, setPanelDensityState] = useAtom(sttPanelStyleAtom);
+  const compact = panelDensity === "compact";
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const log = useAtomValue(transcriptionLogAtom);
   const interims = useAtomValue(liveTranscriptsAtom);
@@ -272,6 +296,16 @@ export const SpeechToTextPanel = () => {
   const lastInterimText = useMemo(
     () => interimEntries.map((e) => e.text).join(""),
     [interimEntries],
+  );
+
+  // Compact mode renders only the newest few finalised segments so the
+  // card stays small on the canvas. Full mode renders the entire log.
+  // Auto-scroll still applies to the slice (a long single line can
+  // overflow, and a fresh interim must pin to bottom).
+  const COMPACT_VISIBLE_SEGMENTS = 3;
+  const visibleLog = useMemo(
+    () => (compact ? log.slice(-COMPACT_VISIBLE_SEGMENTS) : log),
+    [compact, log],
   );
 
   // ----- auto-scroll (chat-style "stick to bottom") ----------------
@@ -792,7 +826,7 @@ export const SpeechToTextPanel = () => {
 
   return (
     <aside
-      className="mcm-stt"
+      className={`mcm-stt${compact ? " mcm-stt--compact" : ""}`}
       aria-label={t("stt.title")}
       ref={panelRef}
       // eslint-disable-next-line react/forbid-dom-props
@@ -837,6 +871,29 @@ export const SpeechToTextPanel = () => {
           )}
           {status.label}
         </span>
+        {/* Full ↔ Compact density toggle. Compact keeps only the newest
+            ~3 lines + trimmed chrome so the panel barely covers the
+            canvas. Glass-Desk pill, mirrors the controls-row toggles.
+            It's a <button> so the header-drag handler skips it (the
+            closest("button") guard in handleHeaderPointerDown). */}
+        <button
+          type="button"
+          className={`mcm-stt__style-toggle${
+            compact ? " mcm-stt__style-toggle--compact" : ""
+          }`}
+          onClick={() => {
+            const next = compact ? "full" : "compact";
+            setPanelDensityState(next);
+            setSttPanelStyle(next);
+          }}
+          title={
+            compact
+              ? t("stt.styleToggleToFullTitle")
+              : t("stt.styleToggleToCompactTitle")
+          }
+        >
+          {compact ? t("stt.styleFull") : t("stt.styleCompact")}
+        </button>
         <button
           type="button"
           className="mcm-stt__hide"
@@ -991,16 +1048,21 @@ export const SpeechToTextPanel = () => {
           </div>
         )}
 
-        {log.map((seg) => (
+        {visibleLog.map((seg) => (
           <SegmentRow
             key={seg.id}
             seg={seg}
             translateEnabled={translateEnabled}
+            compact={compact}
           />
         ))}
 
         {interimEntries.map((entry) => (
-          <InterimLine key={`interim-${entry.socketId}`} entry={entry} />
+          <InterimLine
+            key={`interim-${entry.socketId}`}
+            entry={entry}
+            compact={compact}
+          />
         ))}
       </div>
 
