@@ -36,6 +36,7 @@ import type {
 } from "@daily-co/daily-js";
 
 import type { AudioRoomEvents, PeerState } from "./audioTypes";
+import { getVideoBg, toDailyProcessor, type VideoBg } from "./videoBg";
 
 export type DailyTokenFetcher = (
   roomId: string,
@@ -430,6 +431,15 @@ export class DailyAudio {
         throw err;
       }
       this.cameraOn = true;
+      // Re-apply the user's persisted virtual background (blur / image) now that
+      // the camera track exists — a processor can only attach to a live video
+      // input. Best-effort: a failed processor must NOT abort turning the camera
+      // on (the user still publishes a raw feed), and desktop-only support means
+      // this is a silent no-op on mobile. Fire-and-forget so the toggle stays
+      // snappy; the processor warms up a beat later.
+      void this.setVideoBackground(getVideoBg()).catch((err) =>
+        warn("initial video background apply failed (non-fatal)", err),
+      );
       // Self-view: surface the local camera stream to our own tile (mirrored
       // in the UI). The local track does NOT arrive via track-started for the
       // local participant in a way we subscribe to, so we publish it here.
@@ -462,6 +472,32 @@ export class DailyAudio {
       }
       this.localVideoStream = null;
     }
+  }
+
+  /**
+   * Apply a virtual background (blur / image / none) to the LOCAL camera via
+   * Daily's video PROCESSOR pipeline on this same call object. Desktop-browser
+   * only — Daily silently no-ops the processor on mobile web.
+   *
+   * Safe to call before the camera is on: updateInputSettings persists the
+   * processor and Daily attaches it when a video track next appears, so the
+   * choice "sticks" through a camera off→on cycle. Resolves to the applied
+   * VideoBg; rejects only if the SDK call itself throws (caller treats that as
+   * non-fatal — the raw camera keeps publishing).
+   */
+  async setVideoBackground(bg: VideoBg): Promise<VideoBg> {
+    const call = this.call;
+    if (!call || !this.active) {
+      // No call object yet — nothing to apply to. The persisted preference is
+      // re-applied from setCamera() once the camera comes up.
+      return bg;
+    }
+    // toDailyProcessor maps our VideoBg union to Daily's exact processor shape
+    // ({type:'background-blur'|'background-image'|'none', config}); see videoBg.ts.
+    await call.updateInputSettings({
+      video: { processor: toDailyProcessor(bg) },
+    });
+    return bg;
   }
 
   // ---- Daily events ------------------------------------------------------

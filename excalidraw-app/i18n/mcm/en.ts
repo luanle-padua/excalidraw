@@ -965,6 +965,21 @@ export const en: Widened<typeof vi> = {
     cameraError: "Couldn't start the camera — check permissions and retry.",
   },
 
+  // ---------------- Video background (blur / change camera bg) ------
+  videoBg: {
+    title: "Change / blur background",
+    desktopOnlyTitle: "Background effects are only supported on desktop",
+    none: "No background",
+    blur: "Blur",
+    blur_light: "Light",
+    blur_medium: "Medium",
+    blur_strong: "Strong",
+    images: "Backgrounds",
+    imgForest: "Forest mist",
+    imgCrystal: "Crystal leaves",
+    imgOffice: "Office",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "Audio call isn't ready yet",

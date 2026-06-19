@@ -1010,6 +1010,23 @@ export const vi = {
     cameraError: "Không bật được camera — kiểm tra quyền truy cập và thử lại.",
   },
 
+  // ---------------- Video background (blur / đổi nền camera) --------
+  // Daily áp lên track CAMERA qua updateInputSettings; CHỈ chạy trên trình
+  // duyệt máy tính (mobile web không hỗ trợ).
+  videoBg: {
+    title: "Đổi nền / làm mờ nền",
+    desktopOnlyTitle: "Đổi nền chỉ hỗ trợ trên máy tính",
+    none: "Không nền",
+    blur: "Làm mờ",
+    blur_light: "Nhẹ",
+    blur_medium: "Vừa",
+    blur_strong: "Mạnh",
+    images: "Ảnh nền",
+    imgForest: "Rừng sương",
+    imgCrystal: "Lá pha lê",
+    imgOffice: "Văn phòng",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "Audio call chưa sẵn sàng",

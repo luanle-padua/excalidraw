@@ -13,6 +13,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioRoomInstanceAtom, audioStateAtom } from "../../audio/audioState";
+import {
+  BLUR_STRENGTHS,
+  VIDEO_BG_IMAGE_PRESETS,
+  isVideoBgSupported,
+  setVideoBgPref,
+  videoBgAtom,
+  type BlurLevel,
+  type VideoBg,
+} from "../../audio/videoBg";
 import { cameraStateAtom } from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
@@ -85,6 +94,25 @@ const PhoneOffIcon = () => (
   <Icon d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91 M23 1L1 23" />
 );
 
+// Image/landscape glyph for the "change background" control — reads as
+// "scene behind me" without leaning on the camera icon (already taken).
+const BackgroundIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    width="18"
+    height="18"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <path d="M21 15l-5-5L5 21" />
+  </svg>
+);
+
 const SmileyIcon = () => (
   <svg
     viewBox="0 0 24 24"
@@ -135,6 +163,16 @@ export const MeetingCallControls = () => {
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const reactionsPopoverRef = useRef<HTMLDivElement | null>(null);
 
+  // Virtual-background (blur / image) state. Persisted choice drives the
+  // picker's active highlight and is applied to the live call object on change.
+  const videoBg = useAtomValue(videoBgAtom);
+  const [bgOpen, setBgOpen] = useState(false);
+  const bgPopoverRef = useRef<HTMLDivElement | null>(null);
+  // Daily's background processors are DESKTOP-BROWSER only. Probe once on mount
+  // (it can't change for the life of the page) so the control can disable +
+  // explain itself on mobile rather than silently no-op.
+  const [bgSupported] = useState(isVideoBgSupported);
+
   // Close the reactions popover on outside click / Escape — same
   // pattern as the chat reaction popover.
   useEffect(() => {
@@ -162,6 +200,50 @@ export const MeetingCallControls = () => {
       document.removeEventListener("keydown", onKey);
     };
   }, [reactionsOpen]);
+
+  // Close the background picker on outside click / Escape — same pattern as
+  // the reactions popover above.
+  useEffect(() => {
+    if (!bgOpen) {
+      return undefined;
+    }
+    const onDown = (e: MouseEvent) => {
+      if (
+        bgPopoverRef.current &&
+        e.target instanceof Node &&
+        !bgPopoverRef.current.contains(e.target)
+      ) {
+        setBgOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setBgOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [bgOpen]);
+
+  // Pick a virtual background: persist it (so it re-applies on the next camera
+  // start + survives reload) AND push it to the live call object so the change
+  // shows immediately if the camera is already on. updateInputSettings is a
+  // no-op-safe persist when the camera is off — Daily attaches the processor
+  // when a video track next appears (06-19).
+  const applyVideoBg = useCallback(
+    (bg: VideoBg) => {
+      setVideoBgPref(bg);
+      // Fire-and-forget: a processor failure must not break the picker. The raw
+      // camera keeps publishing; the error is logged inside DailyAudio.
+      void audioRoom?.setVideoBackground(bg).catch(() => undefined);
+      setBgOpen(false);
+    },
+    [audioRoom],
+  );
 
   const toggleRaiseHand = useCallback(() => {
     collabAPI?.toggleRaiseHand();
@@ -330,6 +412,112 @@ export const MeetingCallControls = () => {
             </button>
           );
         })()}
+
+        {/* Virtual background — blur or a company scene applied to the local
+            camera via Daily's video processor. Desktop-only (the processor is
+            unsupported on mobile web); disabled there with an explaining
+            tooltip. Lives next to the camera toggle since it only affects the
+            outgoing camera feed. */}
+        <div className="mcm-call-controls__bg" ref={bgPopoverRef}>
+          <button
+            type="button"
+            className={`mcm-call-controls__btn mcm-call-controls__btn--bg${
+              videoBg.kind !== "none"
+                ? " mcm-call-controls__btn--bg-active"
+                : ""
+            }${bgOpen ? " mcm-call-controls__btn--bg-open" : ""}`}
+            onClick={bgSupported ? () => setBgOpen((v) => !v) : undefined}
+            disabled={!bgSupported}
+            aria-haspopup="menu"
+            aria-expanded={bgOpen}
+            title={
+              bgSupported
+                ? t("videoBg.title")
+                : t("videoBg.desktopOnlyTitle")
+            }
+            aria-label={
+              bgSupported
+                ? t("videoBg.title")
+                : t("videoBg.desktopOnlyTitle")
+            }
+          >
+            <BackgroundIcon />
+          </button>
+          {bgOpen && bgSupported && (
+            <div
+              className="mcm-call-controls__bg-popover"
+              role="menu"
+              aria-label={t("videoBg.title")}
+            >
+              <div className="mcm-call-controls__bg-section">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={videoBg.kind === "none"}
+                  className={`mcm-call-controls__bg-item${
+                    videoBg.kind === "none"
+                      ? " mcm-call-controls__bg-item--active"
+                      : ""
+                  }`}
+                  onClick={() => applyVideoBg({ kind: "none" })}
+                >
+                  {t("videoBg.none")}
+                </button>
+              </div>
+
+              <div className="mcm-call-controls__bg-label">
+                {t("videoBg.blur")}
+              </div>
+              <div className="mcm-call-controls__bg-section mcm-call-controls__bg-section--row">
+                {(Object.keys(BLUR_STRENGTHS) as BlurLevel[]).map((level) => {
+                  const active =
+                    videoBg.kind === "blur" && videoBg.level === level;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      className={`mcm-call-controls__bg-chip${
+                        active ? " mcm-call-controls__bg-chip--active" : ""
+                      }`}
+                      onClick={() => applyVideoBg({ kind: "blur", level })}
+                    >
+                      {t(`videoBg.blur_${level}`)}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mcm-call-controls__bg-label">
+                {t("videoBg.images")}
+              </div>
+              <div className="mcm-call-controls__bg-section mcm-call-controls__bg-grid">
+                {VIDEO_BG_IMAGE_PRESETS.map((preset) => {
+                  const active =
+                    videoBg.kind === "image" && videoBg.src === preset.src;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      className={`mcm-call-controls__bg-thumb${
+                        active ? " mcm-call-controls__bg-thumb--active" : ""
+                      }`}
+                      style={{ backgroundImage: `url("${preset.src}")` }}
+                      onClick={() =>
+                        applyVideoBg({ kind: "image", src: preset.src })
+                      }
+                      title={t(preset.labelKey)}
+                      aria-label={t(preset.labelKey)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

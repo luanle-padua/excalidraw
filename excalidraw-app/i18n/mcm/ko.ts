@@ -971,6 +971,21 @@ export const ko: Widened<typeof vi> = {
       "카메라를 시작할 수 없습니다 — 권한을 확인하고 다시 시도하세요.",
   },
 
+  // ---------------- Video background (blur / change camera bg) ------
+  videoBg: {
+    title: "배경 변경 / 흐리게",
+    desktopOnlyTitle: "배경 효과는 데스크톱에서만 지원됩니다",
+    none: "배경 없음",
+    blur: "흐리게",
+    blur_light: "약하게",
+    blur_medium: "보통",
+    blur_strong: "강하게",
+    images: "배경 이미지",
+    imgForest: "숲 안개",
+    imgCrystal: "크리스탈 잎",
+    imgOffice: "사무실",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "오디오 통화가 아직 준비되지 않았어요",
