@@ -2,9 +2,34 @@
 
 > **🎯 HAI MỐC GO-LIVE (chốt 06-17):** **Tháng 7 = TEST NỘI BỘ** (chỉ @mapgroup) · **Tháng 8 = MỞ KHÁCH NGOÀI**. Tháng 7 gồm Recording (P5) + full Admin Console (P-A) + Phase 6 hardening (B1–B11), **trừ 1b** (canvas-relay-auth = chấp nhận tạm cho nội bộ). Tháng 8 thêm **1b auth room server + email-verify + cohost server-validation** trước khi mở external. Chi tiết blocker: memory `mcm-july-v1-scope` + audit task `wztvf5jk8`.
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-17 (cuối ngày, sau lượt ship lớn)** — **app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects** (DO migration BUILT + DEPLOYED + **client ép DO theo build**, nuốt 1b/B12; room server socket.io/Fly bị khai tử). I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE, **B9 DR (backup/archive/cron/trash) DONE**, **B7 AI rate-limit DONE**, **AI cost-metering FIXED (`waitUntil`)**, **D1 migration 0029**. Phase 6 go-live blocker phần lớn ✅ (chi tiết dưới). **CÒN LẠI chặn tháng 7: B1 spend-cap (Luân) + B3 rotate (Luân) + B5 daily-token-room cap + B8 STT-OFF/consent.** Chairman = đã viết spec (`specs/chairman-account.md`), CHƯA code. Chi tiết hôm nay: `logs/2026-06-17.md`.
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-19** — **STT THỰC SỰ CHẠY** (root-cause `[object Blob]` = `server.binaryType="arraybuffer"`, fix 1 dòng trị mọi provider) + **đại tu hiển thị caption** (`captionSurfaceAtom` 1-surface/view, Caption Dock per-viewer, Full/Compact, auto-scroll) + **share-window resilience** + **audio optimize** (chống ồn + latency 250→100ms) + đồng bộ UI Glass-Desk. **Hạ tầng đã chốt** tóm tắt ở **`specs/infrastructure.md`** (mới). Trước đó: app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects (06-17); I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE, B9 DR DONE, B7 AI rate-limit DONE. **CÒN NỢ chặn tháng 7: B1 spend-cap (Luân) + B3 rotate (Luân) + B5 daily-token-room cap + B8 STT-OFF/consent + Recording MVP.** Chairman = spec xong, CHƯA code. Chi tiết: `logs/2026-06-17.md` → `2026-06-19.md`.
 
 > **📊 ĐÁNH GIÁ NHANH (06-17 cuối ngày) — đứng đâu:** **Hạ tầng + tiền-mặt-tích-cực phần lớn đã khoá.** 8/11 blocker B1–B11 đã đóng (B2,B4,B6,B7,B9,B10 ✅; B11 huỷ). 3 việc còn lại đều **ngắn**: **B1** (đặt trần chi GCP/Deepgram/Daily — 30', việc Luân, làm TRƯỚC) · **B3** (rotate secrets — việc Luân) · **B5+B8** (chặn auto-tạo Daily room + STT-default-OFF — code S). **Tháng 7 (test nội bộ) gần sẵn sàng**; rủi ro còn lại là *soft host-control* (chấp nhận cho nội bộ). **Tháng 8 (khách ngoài)** cần thêm: cohost server-validation (kick/mute) qua DO, email-verify out-of-band, guest data-lifecycle (revoke≠delete) — xem cuối doc.
+
+## 🔼 Delta 06-18 → 06-19 (cập nhật trạng thái)
+
+> Hai ngày này KHÔNG tiến roadmap-đã-định (Daily caps / Chairman / Recording) — test live PC↔iPad lộ một cụm bug nền tảng (nghe tiếng, phiên âm, khách vào họp) nên ưu tiên dập. Kết quả: **STT giờ ra chữ thật trên thiết bị thực.** Hạ tầng đã chốt gom vào **`specs/infrastructure.md`** (mới).
+
+**✅ DONE thêm (06-18/06-19):**
+- **STT THỰC SỰ CHẠY** — root-cause `[object Blob]` (Cloudflare WS giao Blob ≠ Node ArrayBuffer → `send(blob)` thành text `"[object Blob]"` → Deepgram `SchemaError` mọi frame, mọi provider). Fix 1 dòng `server.binaryType="arraybuffer"` (`worker/src/stt.ts`, `61bc0b00`). Trước đó 06-18 đã loại trừ ngôn ngữ (nova-3 có ko/vi/en, `keyterm` chỉ khi `ko`, bỏ `numerals`), clone track iOS, worklet flow.
+- **Caption system per-view** — `captionSurfaceAtom` (`captionState.ts`) định tuyến **đúng 1 surface/view** (giết double-mount / rò canvas trần); **Caption Dock** per-viewer (font S/M/L) cho present/share; Full/Compact toggle; auto-scroll stick-to-bottom; toggle CC ở header (`e0ea5c42`, `e54cf608`, `deccbef2`, `cd124eaf`).
+- **Audio optimize** — chống ồn (box-filter anti-alias downsample trong worklet) + giảm latency (chunk 250→100ms + endpointing Deepgram) (`33f78d48`). Audio iPad→PC FIX (publish mic sau join, autoplay capture-phase) (06-18).
+- **Share-window resilience** — người share re-announce qua `broadcastScreenShareSnapshot()` ở new-user handler → viewer refresh/vào-muộn lại thấy share (`9f96ec05`). _(Giới hạn: chính người share reload thì browser xé `getDisplayMedia` — phải chọn lại.)_
+- **Đồng bộ UI transcription** — indicator "đang thu" lái bằng **PCM thật**; panel/caption đồng bộ Glass-Desk; sửa dropdown provider thiếu style; host thấy guest knock (`viewerAuthority` thay `iAmHost`, `e8a39e10`).
+- **Guest deadlock FIX (06-18)** — khách qua portal-tile bị 403/"Couldn't open" do `room_key=null` trước khi kịp vào lobby knock → client cho park ở phòng chờ với key rỗng, fetch lại key thật sau admit. _(Server strip giữ nguyên.)_
+
+**⏳ CÒN NỢ / PHASE SAU (cập nhật 06-19):**
+- **Option Gemini Live cho STT** — provider `gemini-live` (`gemini-3.5-live-translate-preview`) skeleton qua REGISTRY; **đang wire API**, chưa xong; cần secret `GEMINI_LIVE_API_KEY`.
+- **Thực thi chiến lược design-system** theo `plans/design-system-unification.md` (06-19, mới có plan): hợp nhất token dashboard(Glass-Desk)↔canvas, P0→P3. 2 quyết định P3 còn treo: **accent hue** + **typography**.
+- **Recording MVP** (Phase 5, tháng 7) — chưa build.
+- **Chairman MVP** — spec xong, chưa code.
+- **Admin Daily-caps** — chuyển 2 cap hardcode (exp 6h / max 50) sang `system_settings` + ô Settings (spec `daily-usage-admin.md`), chưa làm.
+- **B1 spend-cap** (Luân) + **B3 rotate secrets** (Luân) — vẫn CÒN.
+- **B8 STT default-OFF + consent banner** — default-OFF có, banner còn thiếu (cần khi đi đa quốc gia).
+- **Cohost server-validation** (kick/mute live qua DO) — tháng 8, track I-2.
+- _(Merge branch `fix/live-bugs-video-audio-stt-translate` về master — 06-19 đã làm thẳng trên master, dải `d75e7588…7dd1f407`.)_
+
+---
 
 ## 🎯 Ưu tiên 1–2 tuần tới (chốt 06-17 cuối ngày)
 
