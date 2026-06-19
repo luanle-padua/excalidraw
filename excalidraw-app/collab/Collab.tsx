@@ -160,6 +160,7 @@ import {
 } from "../data/userProfile";
 import { resetRoomRecording, setRoomRecording } from "../data/roomRecording";
 import { audioRoomInstanceAtom, audioStateAtom } from "../audio/audioState";
+import { screenShareMediaAtom } from "../screenshare/screenShareState";
 
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
@@ -1606,6 +1607,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.portal.socket.on("new-user", () => {
       this.broadcastLibrarySnapshot();
       this.broadcastUserProfileSnapshot();
+      // If WE are the one currently presenting, re-announce it so the
+      // just-joined peer learns there's an in-progress share. Without this,
+      // SCREEN_SHARE presence is fire-once at start time and a viewer who
+      // joins/refreshes mid-share sees an empty presence map → never joins
+      // Daily → never sees the screen (the media track is still live in the
+      // SFU; we just have to re-trigger the presence-driven ensureJoined).
+      this.broadcastScreenShareSnapshot();
     });
 
     this.portal.socket.on(
@@ -3251,6 +3259,28 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.lastAudio = { inCall, muted };
     this.portal.broadcastAudioState({ inCall, muted });
+  };
+
+  /** Re-announce OUR screen-share presence so a (late) joiner who just fired
+   *  "new-user" learns we're presenting. Each client only asserts its OWN
+   *  state (presence model) — we read the local MEDIA truth (Daily-driven
+   *  `localActive`), NOT the presence map, so we never re-broadcast on behalf
+   *  of another peer. Only the sharer broadcasts; this is a no-op for everyone
+   *  else, so it doesn't spam the room.
+   *
+   *  Idempotent: re-emitting SCREEN_SHARE(true) just re-sets the same
+   *  socketId→true entry in the receiver's `screenShareStateAtom` (see
+   *  `applyScreenShare`, which short-circuits when the value is unchanged) and
+   *  the presence-driven `ensureJoined()` is itself de-duped — no double pane. */
+  broadcastScreenShareSnapshot = () => {
+    if (!this.portal.socket) {
+      return;
+    }
+    const media = appJotaiStore.get(screenShareMediaAtom);
+    if (!media.localActive) {
+      return;
+    }
+    this.portal.broadcastScreenShare(true);
   };
 
   /** Host-only broadcast wrapper for RECORDING_STATE. Called by the

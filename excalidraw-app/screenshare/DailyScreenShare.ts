@@ -161,6 +161,13 @@ export class DailyScreenShare {
         // track-started only for tracks beginning after we subscribe), so a
         // late joiner sees an in-progress screen share.
         this.reconcileRemoteScreenVideo();
+        // A sharer who REFRESHED mid-share rejoins Daily with the screen track
+        // still live in the SFU, but localActive was reset to false by the
+        // reload — Daily won't re-fire a local track-started for the existing
+        // track. Re-detect our own active screenVideo here so the controller
+        // re-broadcasts SCREEN_SHARE presence (otherwise peers prune our old
+        // socketId and never re-learn we're presenting). Idempotent.
+        this.reconcileLocalScreenShare();
         this.recomputeStatus();
         this.emit();
         return true;
@@ -233,6 +240,33 @@ export class DailyScreenShare {
       this.remoteSharerName = null;
       this.recomputeStatus();
       this.emit();
+    }
+  }
+
+  /** Reconcile OUR OWN screen-share against the live participant set. Used on
+   *  (re)join to recover a local share that survived a reload: the screen
+   *  track is still live in the SFU but `localActive` was reset, and Daily does
+   *  NOT re-fire a local track-started for a pre-existing track. Detecting it
+   *  here lets us flip localActive back on and tell the controller to
+   *  re-broadcast presence. Idempotent — if localActive is already true (or we
+   *  have no local screen track) this is a no-op and never double-fires. */
+  private reconcileLocalScreenShare() {
+    const call = this.call;
+    if (!call || this.localActive) {
+      return;
+    }
+    const local = call.participants().local;
+    const sv = local?.tracks.screenVideo;
+    // "sendable"/"playable" (or simply not "off"/"blocked") means our screen
+    // track is actually live in the SFU; an absent/off track means we're not
+    // really sharing and must not announce presence.
+    const live =
+      !!sv && sv.state !== "off" && sv.state !== "blocked" && !!local?.local;
+    if (live) {
+      this.localActive = true;
+      this.recomputeStatus();
+      this.emit();
+      this.events.onLocalShareChange(true);
     }
   }
 
