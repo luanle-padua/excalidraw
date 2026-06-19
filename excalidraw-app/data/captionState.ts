@@ -21,6 +21,11 @@
 // caption layer's view-state stays decoupled from the STT data model: caption
 // prefs are per-device cosmetics, the transcript log is meeting content.
 
+import { floatingPresenterAtom } from "../audio/videoFocus";
+import { videoLayoutAtom } from "../audio/videoLayout";
+import { galleryOpenAtom } from "../audio/videoState";
+import { screenShareMediaAtom } from "../screenshare/screenShareState";
+
 import { atom } from "../app-jotai";
 
 const CAPTION_ENABLED_LS_KEY = "mcm:captionDockEnabled";
@@ -128,3 +133,70 @@ export const setCaptionFontScale = (scale: CaptionFontScale): void => {
     // best-effort
   }
 };
+
+// ---------------------------------------------------------------------
+// Central surface router — the ONE place that decides where (if anywhere)
+// the caption dock mounts for the current context.
+// ---------------------------------------------------------------------
+//
+// Every surface that COULD carry captions (the share viewer pane, the floating-
+// presenter PiP, the gallery, a canvas overlay, the pop-out window) used to
+// decide on its own from a local mix of share / PiP flags. Nothing coordinated
+// them, so combinations DOUBLE-mounted (a viewer who popped the floating
+// presenter while watching a share got TWO docks) and the dock leaked onto the
+// plain canvas next to the STT panel. This derived atom is the SINGLE source of
+// truth: it returns the ONE surface that owns captions right now, and each mount
+// point renders only when `captionSurfaceAtom === <its value>`. Precedence =
+// "whichever surface visually owns the viewport".
+
+export type CaptionSurface =
+  | "popout" // share video is in a separate OS window — caption rides it there
+  | "pane" // watching a remote share in the in-app viewer pane
+  | "gallery" // gallery grid/speaker is open (a full-screen modal over everything)
+  | "presenter" // we're presenting with the floating-presenter PiP up
+  | "overlay" // we're presenting, no PiP — a bottom overlay on the canvas
+  | "panel-only" // plain canvas / no share — only the STT panel, NO dock
+  | "none";
+
+/** True while the share video has been popped out to a Document-PiP window, so
+ *  the in-app pane (and its dock) steps aside and the caption rides the pop-out
+ *  window instead. Set by ScreenSharePane on pop-out / return. */
+export const captionPoppedOutAtom = atom<boolean>(false);
+
+/** Read-only selector: the single surface that owns captions for THIS client's
+ *  current view. Routes off the local share MEDIA state (who's viewing/sharing)
+ *  + layout (gallery / floating presenter), deliberately NOT the share PRESENCE
+ *  map — media is what determines whether *this* viewer actually has a pane to
+ *  pin to, and reading it avoids importing the heavy Collab module. */
+export const captionSurfaceAtom = atom<CaptionSurface>((get) => {
+  const media = get(screenShareMediaAtom);
+  const pipOn = get(floatingPresenterAtom);
+  const galleryOpen =
+    get(galleryOpenAtom) || get(videoLayoutAtom) === "gallery";
+  const poppedOut = get(captionPoppedOutAtom);
+
+  const viewingRemote = media.remoteStream !== null;
+  const localSharing = media.localActive;
+
+  // Watching a remote share that's been popped out → the caption lives in that
+  // separate window; the in-app surfaces stay quiet.
+  if (viewingRemote && poppedOut) {
+    return "popout";
+  }
+  // Gallery is a full-screen modal that covers the pane + canvas — captions ride
+  // its bottom edge (so they're visible in grid / speaker view).
+  if (galleryOpen) {
+    return "gallery";
+  }
+  // Watching someone's shared screen in the in-app pane.
+  if (viewingRemote) {
+    return "pane";
+  }
+  // We're the presenter: ride the PiP when it's up, else a bottom overlay.
+  if (localSharing) {
+    return pipOn ? "presenter" : "overlay";
+  }
+  // Plain canvas (minimal / filmstrip), no share for us → the STT panel owns
+  // captions; NO dock (kills the "redundant dock on the canvas" case).
+  return "panel-only";
+});
