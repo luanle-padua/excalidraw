@@ -54,10 +54,16 @@ const SILENT_WAV =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
 // Simulcast receive layers for the CPU/bandwidth saver. Daily cameras publish
-// up to 3 spatial layers (0 = lowest res, 2 = highest); we default everyone to
-// the lowest and promote only the active speaker. "inherit" hands a tile back
-// to Daily's own adaptive picker (used when demoting the previous speaker).
-const RECEIVE_LAYER_BASE = 0;
+// up to 3 spatial layers (0 = lowest res, 1 = medium, 2 = highest); we default
+// non-speakers to the MIDDLE layer and promote only the active speaker to the
+// top. "inherit" hands a tile back to Daily's own adaptive picker (used when
+// demoting the previous speaker).
+//
+// Base was layer 0 (lowest), which made every non-speaking tile look blurry —
+// for a small internal meeting that read as "bad video" across the board. Layer
+// 1 keeps idle tiles legibly sharp while still saving meaningful CPU/bandwidth
+// vs. decoding everyone at full 720p; the speaker still gets the crisp top layer.
+const RECEIVE_LAYER_BASE = 1;
 const RECEIVE_LAYER_ACTIVE = 2;
 
 const log = (...a: unknown[]) => console.info("[audio]", ...a);
@@ -391,15 +397,21 @@ export class DailyAudio {
       return this.cameraOn;
     }
     if (on) {
-      // Acquire a reasonably-sized camera (NOT full HD) to keep Daily/egress
-      // cost down; Daily applies simulcast/quality defaults on top.
+      // Acquire a 720p camera (1280x720 @ 30fps). This is the QUALITY floor we
+      // feed Daily's simulcast encoder — capturing low (was 360p) means even the
+      // TOP simulcast layer is soft, so faces look blurry no matter the network.
+      // 720p is the deliberate balance: sharp for an internal meeting without the
+      // CPU/egress hit of 1080p. `ideal` (not `exact`) lets a weaker webcam fall
+      // back gracefully instead of failing getUserMedia. Daily downscales to
+      // lower layers itself for constrained receivers (see updateSendSettings /
+      // applyReceiveLayers), so capturing high costs us nothing on the slow paths.
       let camStream: MediaStream;
       try {
         camStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 640 },
-            height: { ideal: 360 },
-            frameRate: { ideal: 24, max: 30 },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 30 },
             facingMode: "user",
           },
           audio: false,
@@ -431,6 +443,21 @@ export class DailyAudio {
         throw err;
       }
       this.cameraOn = true;
+      // QUALITY: tell Daily to encode this camera with the "quality-optimized"
+      // preset. Without an explicit send setting Daily's DEFAULT aggressively
+      // bandwidth-optimizes (low max bitrate + heavy downscale) — the real reason
+      // the feed looked muddy even at a good capture resolution. The preset
+      // publishes adaptive 3-layer simulcast tuned to PRESERVE detail (higher per-
+      // layer bitrate), so the top layer the active speaker receives is crisp and
+      // even the base layers others see are less crushed. Adaptive layers stay on,
+      // so Daily still drops bitrate/layers automatically when a sender's uplink
+      // is weak — we raise the ceiling, we don't pin it. Best-effort: a failure
+      // must not abort turning the camera on (raw feed still publishes).
+      try {
+        await call.updateSendSettings({ video: "quality-optimized" });
+      } catch (err) {
+        warn("updateSendSettings(quality-optimized) failed (non-fatal)", err);
+      }
       // Re-apply the user's persisted virtual background (blur / image) now that
       // the camera track exists — a processor can only attach to a live video
       // input. Best-effort: a failed processor must NOT abort turning the camera
