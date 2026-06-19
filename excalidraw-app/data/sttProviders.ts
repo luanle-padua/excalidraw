@@ -60,6 +60,18 @@ export const STT_PROVIDERS: readonly STTProviderMeta[] = [
     requiredKey: "ELEVENLABS_API_KEY",
     comingSoon: true,
   },
+  {
+    id: "gemini-live",
+    name: "Gemini Live — dịch trực tiếp (preview)",
+    model: "gemini-3.5-live-translate-preview",
+    // PLACEHOLDER price — mirrors the worker adapter's "verify pricing later"
+    // (0). Gemini Live bills on its own Live-API schedule; update once confirmed.
+    usdPerMinute: 0,
+    requiredKey: "GEMINI_LIVE_API_KEY",
+    // No API key / real protocol yet → shown disabled as "to be added soon"
+    // until the PM wires GeminiLiveAdapter.open() in the worker.
+    comingSoon: true,
+  },
 ] as const;
 
 /** Default mirrors the Worker's DEFAULT_STT_PROVIDER. */

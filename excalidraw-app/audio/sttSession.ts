@@ -38,7 +38,11 @@ export type STTLang = "vi" | "en" | "ko" | "ja" | "zh" | "multi";
  *  worker/src/stt-provider.ts. Sent to /stt as ?provider=<id> so the PM can
  *  A/B-test accuracy per session; the Worker falls back to its env default
  *  (deepgram) for an unknown/absent value, so this is a safe live lever. */
-export type STTProvider = "deepgram" | "openai" | "elevenlabs";
+export type STTProvider =
+  | "deepgram"
+  | "openai"
+  | "elevenlabs"
+  | "gemini-live";
 
 export type STTSessionOptions = {
   lang: STTLang;
@@ -125,19 +129,8 @@ export class STTSession {
    *  transcripts. Routing through a gain=0 node makes the graph render WITHOUT
    *  echoing the mic to the speakers (06-19). Disconnected in stop(). */
   private sinkNode: GainNode | null = null;
-  /** Diagnostics: count PCM chunks posted from the worklet so we can tell
-   *  "PCM not flowing" apart from "PCM flowing but Deepgram empty" from the
-   *  console. Throttled logging — a few lines only, never a spam loop. */
-  private pcmChunks = 0;
-  private lastPcmLogAt = 0;
-  /** Last time we pinged onCapture — throttle clock for the live indicator,
-   *  independent of the (first-few-seconds-only) diagnostic log clock above. */
+  /** Throttle clock for the live "capturing" indicator heartbeat (onCapture). */
   private lastCapturePingAt = 0;
-  private firstTranscriptLogged = false;
-  /** Diagnostic counters: how many frames the SERVER sent back (any Deepgram
-   *  type) — distinguishes "Deepgram silent / relay broken" from "Deepgram
-   *  talking but no Results". Capped so it can't spam. */
-  private rxMsgCount = 0;
   private opts: STTSessionOptions;
   private closed = false;
   /** true when WE created the AudioContext (so stop() must close it); false when
@@ -196,24 +189,6 @@ export class STTSession {
       } catch {
         return;
       }
-      // Diagnostic: log EVERY frame the server relays back (capped). Tells apart
-      // "Deepgram silent / relay broken" (nothing after ready) from "Deepgram
-      // talking but no Results" (SpeechStarted/UtteranceEnd/Metadata arrive, or
-      // Results with empty transcript). Capped so it can't spam the console.
-      this.rxMsgCount++;
-      if (this.rxMsgCount <= 50) {
-        const alt0 = msg?.channel?.alternatives?.[0];
-        console.info(
-          `[stt] rx #${this.rxMsgCount} type=${msg?.type}` +
-            (msg?.type === "Results"
-              ? ` is_final=${msg?.is_final} text="${(alt0?.transcript ?? "").slice(0, 40)}"`
-              : // For non-Results frames (notably Deepgram's `{type:"Error"}`,
-                // capital E — which our `=== "error"` check below never matched,
-                // so the failure was swallowed) dump the raw payload so the
-                // console shows Deepgram's actual complaint (description/code).
-                ` raw=${JSON.stringify(msg).slice(0, 300)}`),
-        );
-      }
       // Deepgram signals stream problems with `{type:"Error"}` (capital E);
       // surface it through the same error path as our own lowercase "error"
       // frames so it stops being silently dropped.
@@ -224,12 +199,6 @@ export class STTSession {
         return;
       }
       if (msg.type === "ready") {
-        // Diagnostic: handshake reached Deepgram. If transcripts never follow,
-        // pair this with the "[stt] PCM flowing" line to localise the fault
-        // (no PCM line ⇒ mic→worklet broke; PCM but no transcript ⇒ upstream).
-        console.info(
-          `[stt] ready — Deepgram upstream open (lang=${this.opts.lang}, sampleRate=${this.audioCtx?.sampleRate ?? "?"})`,
-        );
         // Deepgram is live — raise the AI-in-use indicator for the duration
         // of the transcription session (cleared in stop()).
         if (!this.aiActive && !this.closed) {
@@ -249,14 +218,6 @@ export class STTSession {
         const text = alt?.transcript?.trim();
         if (!text) {
           return;
-        }
-        if (!this.firstTranscriptLogged) {
-          // Diagnostic: proves the FULL path (mic→worklet→WS→Deepgram→back) is
-          // alive. Logged once; the live UI shows every segment thereafter.
-          this.firstTranscriptLogged = true;
-          console.info(
-            `[stt] first transcript received after ${this.pcmChunks} PCM chunks`,
-          );
         }
         if (result.is_final) {
           this.opts.onFinal?.(text, Date.now());
@@ -365,21 +326,10 @@ export class STTSession {
         }
       }
       const level = peak / 0x8000;
-      // Diagnostic: confirm PCM keeps flowing AND carries signal. Logged
-      // CONTINUOUSLY every 3s (no cap) so we can SEE whether capture is steady or
-      // dies after a moment — the iOS failure where the cloned mic goes silent a
-      // few seconds in (Daily reclaims the mic) shows up as peak→0 or the line
-      // stopping entirely. Temporary while diagnosing 06-19.
-      this.pcmChunks++;
+      // Heartbeat for the live "capturing" indicator, carrying the chunk's peak
+      // level so the UI can tell real audio from a silent clone (chunks flowing
+      // at peak≈0). Throttled to ~CAPTURE_PING_MS.
       const now = Date.now();
-      if (now - this.lastPcmLogAt >= 3000) {
-        this.lastPcmLogAt = now;
-        console.info(
-          `[stt] PCM flowing: ${this.pcmChunks} chunks, lang=${this.opts.lang}, sampleRate=${this.audioCtx?.sampleRate ?? "?"}, peak=${level.toFixed(3)}`,
-        );
-      }
-      // Heartbeat for the live "capturing" indicator, carrying the level so the
-      // UI can tell real audio from a silent clone (chunks flowing at peak≈0).
       if (now - this.lastCapturePingAt >= CAPTURE_PING_MS) {
         this.lastCapturePingAt = now;
         this.opts.onCapture?.(level);

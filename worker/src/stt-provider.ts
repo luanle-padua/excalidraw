@@ -27,6 +27,12 @@ export type SttProviderEnv = {
   DEEPGRAM_STT_MODEL?: string;
   ELEVENLABS_API_KEY?: string;
   OPENAI_API_KEY?: string;
+  // SEPARATE key from GEMINI_API_KEY on purpose: Gemini Live is a distinct
+  // bidi-WebSocket product (the Live API) with its own auth + billing, NOT the
+  // standard generateContent REST endpoint GEMINI_API_KEY is used for. Reusing
+  // that key would conflate two billing lines and could fail if the Live API is
+  // provisioned under a different key/project. Wire the real key here later.
+  GEMINI_LIVE_API_KEY?: string;
   STT_PROVIDER?: string;
   STT_PROVIDER_CONFIG?: string;
 };
@@ -601,12 +607,63 @@ export class OpenAIRealtimeAdapter implements SttAdapter {
   }
 }
 
+// Gemini Live translate-preview model. PM is putting it in the A/B picker to
+// test Google's bidi "Live" pipeline (transcription + inline translation) for
+// VI/KO/EN meeting audio. The id is the PM's exact preview model under test.
+const GEMINI_LIVE_DEFAULT_MODEL = "gemini-3.5-live-translate-preview";
+
+export class GeminiLiveAdapter implements SttAdapter {
+  readonly meta: ProviderMetadata = {
+    id: "gemini-live",
+    name: "Gemini Live (translate)",
+    // PLACEHOLDER cost — verify pricing later. Gemini Live bills audio I/O on
+    // its own schedule (per-token / per-second for the Live API), NOT the same
+    // as the generateContent text price; do NOT trust this number for the admin
+    // Cost tab until confirmed against Google's Live API pricing page.
+    cost: { unit: "minute", usdPerUnit: 0 },
+    requiredApiKey: "GEMINI_LIVE_API_KEY",
+    defaultModel: GEMINI_LIVE_DEFAULT_MODEL,
+  };
+
+  async open(
+    env: SttProviderEnv,
+    _lang: string,
+    _model: string,
+  ): Promise<WebSocket> {
+    const apiKey = (env.GEMINI_LIVE_API_KEY ?? "").trim();
+    if (!apiKey) {
+      // Exact "provider not configured" string so the proxy reports no-provider
+      // (same contract as the other skeletons) until the PM adds the key.
+      throw new Error("provider not configured");
+    }
+    // STUB — real connection NOT wired yet. Gemini Live differs from Deepgram:
+    // it speaks a BIDIRECTIONAL WebSocket (Google "Live API",
+    // wss://generativelanguage.googleapis.com/.../BidiGenerateContent) whose
+    // handshake is a `setup` JSON message (declaring the model +
+    // responseModalities for transcription + translation output), AFTER which
+    // the client streams realtimeInput audio chunks. MCM's worklet emits PCM16
+    // @16kHz mono, so audio must be sent as Gemini realtimeInput blobs
+    // (audio/pcm;rate=16000), likely base64-in-JSON like the ElevenLabs/OpenAI
+    // adapters (reuse wrapBinaryAsJson). PM to wire setup + audio framing +
+    // normalizeMessage when the API key + finalized protocol land.
+    throw new Error("provider not configured");
+  }
+
+  normalizeMessage(_raw: unknown): NormalizedSttMessage | null {
+    // STUB — Gemini Live's serverContent frames carry transcription/translation
+    // text in a different shape than Deepgram. Map them to {interim|final} here
+    // once the real wire format is confirmed. Returns null until then.
+    return null;
+  }
+}
+
 // ---- Registry + selection --------------------------------------------------
 
 const REGISTRY: Record<string, () => SttAdapter> = {
   deepgram: () => new DeepgramAdapter(),
   elevenlabs: () => new ElevenLabsAdapter(),
   openai: () => new OpenAIRealtimeAdapter(),
+  "gemini-live": () => new GeminiLiveAdapter(),
 };
 
 export const DEFAULT_STT_PROVIDER = "deepgram";
