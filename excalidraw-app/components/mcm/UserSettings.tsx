@@ -33,6 +33,16 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAtom, useAtomValue } from "../../app-jotai";
 import { useAppLangCode } from "../../app-language/language-state";
+import { audioRoomInstanceAtom } from "../../audio/audioState";
+import {
+  BLUR_STRENGTHS,
+  VIDEO_BG_IMAGE_PRESETS,
+  isVideoBgSupported,
+  setVideoBgPref,
+  videoBgAtom,
+  type BlurLevel,
+  type VideoBg,
+} from "../../audio/videoBg";
 import { getMyMeetingsChecked, type CalMeeting } from "../../data/calendar";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
@@ -562,6 +572,27 @@ const PreferencesTab = () => {
   const [captionLines, setCaptionLinesAtom] = useAtom(captionLineCountAtom);
   const [captionFont, setCaptionFontAtom] = useAtom(captionFontScaleAtom);
 
+  // Virtual-background (blur / company scene) preference. Persisted per-browser
+  // via setVideoBgPref; the picker reflects the live atom value. Read the live
+  // call object (the SAME global atom MeetingCallControls used) so a change here
+  // applies immediately when the user is already in a meeting with the camera on.
+  const videoBg = useAtomValue(videoBgAtom);
+  const audioRoom = useAtomValue(audioRoomInstanceAtom);
+  // Daily's background processors are DESKTOP-ONLY (no-op on iPad / phone web).
+  // Probe once on mount — it can't change for the life of the page — so the
+  // subsection can render disabled + explained on mobile rather than silently
+  // no-op. State (not a bare call) so the value is stable across re-renders.
+  const [bgSupported] = useState(isVideoBgSupported);
+
+  // Pick a virtual background: persist it (so it survives reload AND re-applies
+  // the next time the camera turns on — videoBg.ts owns the auto-apply) and, if
+  // a live call object exists, push it now so an already-on camera updates
+  // instantly. Fire-and-forget: a processor failure must never break the picker.
+  const applyVideoBg = (bg: VideoBg) => {
+    setVideoBgPref(bg);
+    void audioRoom?.setVideoBackground(bg).catch(() => undefined);
+  };
+
   // The UI-language <select> mirrors the live MCM language: map the current
   // Excalidraw lang code to its UI_LANG row (vi-VN/ko-KR → vi/ko, else en).
   const currentLangCode =
@@ -730,6 +761,77 @@ const PreferencesTab = () => {
           }}
         />
       </PrefRow>
+
+      {/* --- Camera background ---
+          Virtual background for the outgoing camera feed (moved here from the
+          call controls so the bar stays compact). Desktop-only: on iPad/phone
+          web Daily's processor is unsupported, so the whole picker renders
+          disabled with an explaining note rather than silently no-op. */}
+      <h3 className="mcm-settings__h3">{t("videoBg.title")}</h3>
+
+      {!bgSupported && (
+        <p className="mcm-settings__note">{t("videoBg.desktopOnlyTitle")}</p>
+      )}
+
+      <div
+        className={`mcm-settings__bg${bgSupported ? "" : " --disabled"}`}
+        aria-disabled={!bgSupported}
+      >
+        {/* None / Blur(light·medium·strong) / 3 image presets — one flat radio
+            group so only a single choice is ever active. */}
+        <div className="mcm-settings__bg-row" role="radiogroup" aria-label={t("videoBg.title")}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={videoBg.kind === "none"}
+            disabled={!bgSupported}
+            className={`mcm-settings__bg-chip${
+              videoBg.kind === "none" ? " --active" : ""
+            }`}
+            onClick={() => applyVideoBg({ kind: "none" })}
+          >
+            {t("videoBg.none")}
+          </button>
+
+          {(Object.keys(BLUR_STRENGTHS) as BlurLevel[]).map((level) => {
+            const active = videoBg.kind === "blur" && videoBg.level === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={!bgSupported}
+                className={`mcm-settings__bg-chip${active ? " --active" : ""}`}
+                onClick={() => applyVideoBg({ kind: "blur", level })}
+              >
+                {t("videoBg.blur")} · {t(`videoBg.blur_${level}`)}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mcm-settings__bg-grid" role="radiogroup" aria-label={t("videoBg.images")}>
+          {VIDEO_BG_IMAGE_PRESETS.map((preset) => {
+            const active =
+              videoBg.kind === "image" && videoBg.src === preset.src;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={!bgSupported}
+                className={`mcm-settings__bg-thumb${active ? " --active" : ""}`}
+                style={{ backgroundImage: `url("${preset.src}")` }}
+                onClick={() => applyVideoBg({ kind: "image", src: preset.src })}
+                title={t(preset.labelKey)}
+                aria-label={t(preset.labelKey)}
+              />
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

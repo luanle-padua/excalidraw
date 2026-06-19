@@ -409,6 +409,86 @@
     }
   }
 
+  // ----- Camera background picker (Preferences tab) -----
+  // Desktop-only feature: when unsupported the whole block is dimmed +
+  // non-interactive (buttons also carry `disabled`, this is the visual cue).
+  &__bg {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 4px;
+
+    &.--disabled {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+  }
+  // None + 3 blur levels — wrapping row of equal-feel chips.
+  &__bg-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  &__bg-chip {
+    flex: 1 1 auto;
+    min-width: 72px;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+    background: var(--mcm-surface-2, #f0f0f3);
+    border: 1px solid transparent;
+    border-radius: var(--mcm-radius-sm, 10px);
+    cursor: pointer;
+    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+    &:hover {
+      color: var(--mcm-text, #1b1b1f);
+    }
+    &.--active {
+      background: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 14%,
+        var(--mcm-surface, #fff)
+      );
+      border-color: color-mix(
+        in srgb,
+        var(--mcm-accent, #6965db) 45%,
+        transparent
+      );
+      color: var(--mcm-accent, #6965db);
+    }
+  }
+  // Image presets — a 3-up grid of cover-painted tiles.
+  &__bg-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  &__bg-thumb {
+    aspect-ratio: 16 / 10;
+    padding: 0;
+    background-color: var(--mcm-surface-2, #f0f0f3);
+    background-size: cover;
+    background-position: center;
+    border: 2px solid transparent;
+    border-radius: var(--mcm-radius-sm, 10px);
+    cursor: pointer;
+    transition: border-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+      transform var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+    &:hover {
+      transform: scale(1.03);
+    }
+    &.--active {
+      border-color: var(--mcm-accent, #6965db);
+      box-shadow: 0 0 0 2px
+        color-mix(in srgb, var(--mcm-accent, #6965db) 35%, transparent);
+    }
+  }
+
   // ----- My Data lists -----
   &__list {
     list-style: none;
