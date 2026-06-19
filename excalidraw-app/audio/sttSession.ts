@@ -60,7 +60,20 @@ export type STTSessionOptions = {
   onReady?: () => void;
   onError?: (message: string) => void;
   onClose?: () => void;
+  /** Fired (throttled) whenever real PCM is flowing mic→worklet→here — i.e.
+   *  audio is actually being captured and pushed upstream. The UI uses this as
+   *  the GROUND-TRUTH "mic is being recorded" signal: a session can be {ready}
+   *  yet silent (suspended context / dead clone on iPad), and only the arrival
+   *  of PCM chunks proves capture works. Throttled to ~CAPTURE_PING_MS so it's a
+   *  heartbeat for the UI, not a per-chunk firehose (chunks arrive every few ms). */
+  onCapture?: () => void;
 };
+
+/** How often onCapture is allowed to fire. PCM chunks arrive every few ms; the
+ *  indicator only needs a periodic "still alive" heartbeat, so we coalesce to
+ *  one call per this window — cheap for React, still well under the panel's
+ *  ~2s "no audio" threshold so the dot reacts promptly. */
+const CAPTURE_PING_MS = 300;
 
 // Deepgram "Results" payload shape (subset we care about).
 type DeepgramResult = {
@@ -116,6 +129,9 @@ export class STTSession {
    *  console. Throttled logging — a few lines only, never a spam loop. */
   private pcmChunks = 0;
   private lastPcmLogAt = 0;
+  /** Last time we pinged onCapture — throttle clock for the live indicator,
+   *  independent of the (first-few-seconds-only) diagnostic log clock above. */
+  private lastCapturePingAt = 0;
   private firstTranscriptLogged = false;
   private opts: STTSessionOptions;
   private closed = false;
@@ -314,6 +330,14 @@ export class STTSession {
         console.info(
           `[stt] PCM flowing: ${this.pcmChunks} chunks, sampleRate=${this.audioCtx?.sampleRate ?? "?"}`,
         );
+      }
+      // Heartbeat for the live "capturing" indicator. Separate, always-on
+      // throttle (the diagnostic log above stops after the first few seconds) so
+      // the panel keeps a fresh signal for the whole session — this is what tells
+      // the dot apart from the "enabled but no audio" amber state.
+      if (now - this.lastCapturePingAt >= CAPTURE_PING_MS) {
+        this.lastCapturePingAt = now;
+        this.opts.onCapture?.();
       }
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(buf);

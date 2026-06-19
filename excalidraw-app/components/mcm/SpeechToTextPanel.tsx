@@ -32,6 +32,7 @@ import {
   setSttEnabled,
   setSttSpokenLanguage,
   setSttTranslateEnabled,
+  sttCapturingAtom,
   sttEnabledAtom,
   sttLiveErrorAtom,
   sttSpokenLanguageAtom,
@@ -237,6 +238,11 @@ export const SpeechToTextPanel = () => {
   // floating "Live transcript" pill.
   const [open, setOpen] = useState(false);
   const sttLiveError = useAtomValue(sttLiveErrorAtom);
+  // Ground-truth "mic is actually being captured into STT" — true only while PCM
+  // is flowing (AudioRoomController drives it off STTSession.onCapture). Lets the
+  // status pill distinguish a genuinely-live session from one that's enabled but
+  // silent (suspended context / dead mic-clone on iPad).
+  const sttCapturing = useAtomValue(sttCapturingAtom);
   const [sttEnabled, setSttEnabledState] = useAtom(sttEnabledAtom);
   const [translateEnabled, setTranslateEnabledState] = useAtom(
     sttTranslateEnabledAtom,
@@ -704,18 +710,24 @@ export const SpeechToTextPanel = () => {
     );
   }
 
-  // Status badge state — single source of truth for the LIVE / TEST /
-  // PAUSED / OFFLINE pill that anchors the panel's identity row.
+  // Status badge state — single source of truth for the pill that anchors the
+  // panel's identity row. The LIVE case splits in two by ground-truth capture:
+  //   • capturing  → PCM is genuinely flowing → "Live" + pulsing dot & level bars
+  //   • no-audio   → enabled but no PCM in the last ~2s → amber "No audio" warning
+  // This is the diagnostic the PM needs on iPad: "enabled" alone never proved the
+  // mic was actually reaching STT; only the capture heartbeat does.
   const status: {
     label: string;
-    tone: "live" | "test" | "paused" | "error";
+    tone: "live" | "test" | "paused" | "error" | "noaudio";
   } =
     testStatus === "running"
       ? { label: t("stt.statusTest"), tone: "test" }
       : testStatus === "error"
       ? { label: t("stt.statusError"), tone: "error" }
       : sttEnabled
-      ? { label: t("stt.statusLive"), tone: "live" }
+      ? sttCapturing
+        ? { label: t("stt.statusCapturing"), tone: "live" }
+        : { label: t("stt.statusNoAudio"), tone: "noaudio" }
       : { label: t("stt.statusPaused"), tone: "paused" };
 
   // Inline overrides for the user's pinned position + custom size.
@@ -764,7 +776,21 @@ export const SpeechToTextPanel = () => {
           aria-live="polite"
         >
           {status.tone === "live" && (
-            <span className="mcm-stt__status-dot" aria-hidden="true" />
+            // Live + actually capturing: pulsing dot beside a trio of mini level
+            // bars that ripple — a calm, glass-y "your mic IS being heard" cue.
+            <span className="mcm-stt__status-meter" aria-hidden="true">
+              <span className="mcm-stt__status-dot" />
+              <span className="mcm-stt__status-bars">
+                <span />
+                <span />
+                <span />
+              </span>
+            </span>
+          )}
+          {status.tone === "noaudio" && (
+            // Enabled but nothing reaching STT: hollow amber ring (no fill, no
+            // pulse) — visually "waiting / not hearing" rather than "live".
+            <span className="mcm-stt__status-dot--hollow" aria-hidden="true" />
           )}
           {status.label}
         </span>

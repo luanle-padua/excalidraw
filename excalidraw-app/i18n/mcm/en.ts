@@ -1147,6 +1147,10 @@ export const en: Widened<typeof vi> = {
     waiting: "Waiting for someone to speak…",
     paused: "Turn on STT to start speech recognition.",
     statusLive: "LIVE",
+    // Mic audio is actually being captured into STT right now (PCM flowing).
+    statusCapturing: "Live",
+    // STT is on but no audio is reaching it (muted mic / suspended context on iPad).
+    statusNoAudio: "No audio",
     statusTest: "TEST",
     statusPaused: "PAUSED",
     statusError: "ERROR",

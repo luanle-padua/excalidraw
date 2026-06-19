@@ -687,6 +687,30 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 }
 
+// Mini level-bar ripple for the live STT "capturing" cue. Squashes the bar on
+// its vertical axis and dims it; the three bars share this with staggered delays
+// so they wave in sequence. Fake levels by design — a believable "alive" motion.
+@keyframes mcm-stt-meter {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+// Respect reduced-motion: hold the live cue steady (no pulse / ripple) so the
+// indicator still READS as live without animating.
+@media (prefers-reduced-motion: reduce) {
+  .mcm-stt__status-dot,
+  .mcm-stt__status-bars span {
+    animation: none;
+  }
+}
+
 // =========================================================================
 // CALL CONTROLS (floating pill above the participants bar)
 // =========================================================================
@@ -2136,6 +2160,13 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       background: color-mix(in srgb, var(--mcm-danger) 16%, transparent);
       color: var(--mcm-danger);
     }
+    // Enabled but no PCM reaching STT — amber, deliberately calmer than --live
+    // (no pulse, hollow dot) so it reads as "waiting / not hearing the mic",
+    // the diagnostic the PM watches for on iPad.
+    &--noaudio {
+      background: color-mix(in srgb, var(--mcm-warning) 14%, transparent);
+      color: var(--mcm-warning);
+    }
   }
 
   &__status-dot {
@@ -2144,6 +2175,53 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 50%;
     background: currentColor;
     animation: mcm-pulse 1.6s ease-in-out infinite;
+  }
+
+  // Hollow amber ring for the "no audio" state — same footprint as the live dot
+  // but unfilled and still, so the pill doesn't look alive when STT can't hear.
+  &__status-dot--hollow {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    box-sizing: border-box;
+    opacity: 0.85;
+  }
+
+  // Live capture cue: the pulsing dot plus three mini level bars that ripple in
+  // sequence — a subtle, glass-y "your mic is actually being heard" signal. We
+  // animate opacity + scaleY (cheap, GPU-friendly) rather than real audio levels:
+  // the goal is a believable "alive" motion, not a true VU meter.
+  &__status-meter {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__status-bars {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.5px;
+    height: 9px;
+
+    span {
+      width: 2px;
+      height: 100%;
+      border-radius: 1px;
+      background: currentColor;
+      transform-origin: center;
+      animation: mcm-stt-meter 0.9s ease-in-out infinite;
+      opacity: 0.85;
+    }
+    span:nth-child(1) {
+      animation-delay: 0s;
+    }
+    span:nth-child(2) {
+      animation-delay: 0.18s;
+    }
+    span:nth-child(3) {
+      animation-delay: 0.36s;
+    }
   }
 
   // Header row 2 — controls. Smaller pill-style buttons. Wraps on

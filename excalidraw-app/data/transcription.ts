@@ -86,6 +86,17 @@ export const setSttEnabled = (enabled: boolean): void => {
  *  null = no current error; cleared when a session (re)starts or tears down. */
 export const sttLiveErrorAtom = atom<string | null>(null);
 
+/** Ground-truth "is the LOCAL user's mic actually being captured into STT right
+ *  now?" — true only while PCM is genuinely flowing from the worklet (see
+ *  STTSession.onCapture). Distinct from `sttEnabledAtom`, which is just the
+ *  user's intent: a session can be enabled + {ready} yet capture NOTHING (a
+ *  suspended AudioContext or dead mic-clone on iPad), and this atom is the only
+ *  thing that tells those apart. AudioRoomController owns the write side (sets it
+ *  true on each onCapture frame, flips it back to false ~1.5s after the last
+ *  frame). The panel renders it as a pulsing "Live" dot vs an amber "No audio"
+ *  warning. Resets to false on teardown so a stale true never lingers. */
+export const sttCapturingAtom = atom<boolean>(false);
+
 /** Per-viewer toggle: translate each finalised transcript segment to
  *  the viewer's preferred language. Mirrors the chat translation
  *  feature. Off → only the original is rendered. */

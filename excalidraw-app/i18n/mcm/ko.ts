@@ -1157,6 +1157,10 @@ export const ko: Widened<typeof vi> = {
     waiting: "누군가 말하기를 기다리는 중…",
     paused: "STT를 켜서 음성 인식을 시작하세요.",
     statusLive: "라이브",
+    // 실제로 마이크 오디오가 STT로 캡처되는 중 (PCM 수신 중).
+    statusCapturing: "수음 중",
+    // STT는 켜졌지만 들어오는 소리가 없음 (마이크 음소거 / iPad 컨텍스트 정지).
+    statusNoAudio: "마이크 안 들림",
     statusTest: "테스트",
     statusPaused: "일시정지",
     statusError: "오류",

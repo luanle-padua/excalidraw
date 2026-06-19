@@ -15,6 +15,7 @@ import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
 import { getDailyToken } from "../data/projects";
 import { sttProviderAtom } from "../data/sttProviders";
 import {
+  sttCapturingAtom,
   sttEnabledAtom,
   sttLiveErrorAtom,
   sttSpokenLanguageAtom,
@@ -52,10 +53,16 @@ export const AudioRoomController = () => {
   const setCameraState = useSetAtom(cameraStateAtom);
   const setActiveSpeaker = useSetAtom(activeSpeakerAtom);
   const setSttLiveError = useSetAtom(sttLiveErrorAtom);
+  const setSttCapturing = useSetAtom(sttCapturingAtom);
   /** Live STT session bound to the user's own mic. Spun up when the
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
   const sttRef = useRef<STTSession | null>(null);
+  /** Unix ms of the last PCM-capture heartbeat from the live session (see
+   *  STTSession.onCapture). A watchdog interval compares against it to flip
+   *  `sttCapturingAtom` false once frames stop — that's the "enabled but no
+   *  audio" signal. Held in a ref (not state) so the heartbeat doesn't re-render. */
+  const lastCaptureAtRef = useRef(0);
   /** keep a ref of the live DailyAudio for cleanup independent of React
    *  render timing — we must tear the call down deterministically */
   const roomRef = useRef<DailyAudio | null>(null);
@@ -245,6 +252,10 @@ export const AudioRoomController = () => {
       await session.stop();
       collabAPI?.clearLocalInterimTranscript();
       setSttLiveError(null);
+      // Clear the capture heartbeat so the indicator can't linger on "Live"
+      // after the mic stops streaming.
+      lastCaptureAtRef.current = 0;
+      setSttCapturing(false);
     };
 
     if (!shouldRunSTT) {
@@ -276,6 +287,14 @@ export const AudioRoomController = () => {
       // a context created here (no user activation) stays SUSPENDED and the
       // worklet emits no PCM, so Deepgram gets silence (06-18).
       audioCtx: roomRef.current?.getCaptureContext() ?? undefined,
+      onCapture: () => {
+        // PCM heartbeat — real mic audio is flowing into STT right now. Stamp
+        // the time and flip the live indicator on. The watchdog below flips it
+        // back off if frames stop (≈1.5s), which is the "enabled but no audio
+        // reaching STT" condition the PM needs to SEE without a console.
+        lastCaptureAtRef.current = Date.now();
+        setSttCapturing(true);
+      },
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);
         // First successful interim proves capture→Deepgram is flowing — drop
@@ -299,7 +318,23 @@ export const AudioRoomController = () => {
       sttRef.current = null;
     });
 
+    // Capture watchdog: onCapture only ever turns the indicator ON. This timer
+    // turns it OFF when the heartbeat goes stale — i.e. STT is enabled but no PCM
+    // has arrived for a while (suspended context / muted clone / silent mic). The
+    // 1.5s gap tolerates the ~300ms heartbeat plus a brief pause between words
+    // without false-flipping to "no audio". Cleared on teardown below.
+    const CAPTURE_STALE_MS = 1500;
+    const watchdog = window.setInterval(() => {
+      if (
+        lastCaptureAtRef.current !== 0 &&
+        Date.now() - lastCaptureAtRef.current > CAPTURE_STALE_MS
+      ) {
+        setSttCapturing(false);
+      }
+    }, 500);
+
     return () => {
+      window.clearInterval(watchdog);
       void teardownSTT();
     };
   }, [

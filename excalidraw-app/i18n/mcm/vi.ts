@@ -1192,6 +1192,10 @@ export const vi = {
     waiting: "Đang chờ ai đó nói…",
     paused: "Bật STT để bắt đầu nhận dạng giọng nói.",
     statusLive: "LIVE",
+    // Đang thực sự thu được mic vào STT (có PCM chảy về).
+    statusCapturing: "Đang thu",
+    // Đã bật STT nhưng KHÔNG có tiếng vào (mic câm / context bị treo trên iPad).
+    statusNoAudio: "Không nghe thấy mic",
     statusTest: "TEST",
     statusPaused: "PAUSED",
     statusError: "ERROR",
