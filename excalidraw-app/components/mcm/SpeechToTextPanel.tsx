@@ -14,7 +14,7 @@
 // through an offline STTSession (no mic / no peer broadcast — useful
 // for testing Deepgram without joining a real call).
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { useAtom, useAtomValue } from "../../app-jotai";
 import { STTSession } from "../../audio/sttSession";
@@ -266,19 +266,62 @@ export const SpeechToTextPanel = () => {
   // appended at the end. Interims render italic and refresh in place
   // as Deepgram emits hypotheses.
   const interimEntries = useMemo(() => Object.values(interims), [interims]);
+  // Concatenated interim text — a cheap dependency that changes whenever
+  // ANY in-flight hypothesis grows, even when the number of interim rows
+  // stays the same. Used to re-pin auto-scroll as a live sentence streams.
+  const lastInterimText = useMemo(
+    () => interimEntries.map((e) => e.text).join(""),
+    [interimEntries],
+  );
 
-  // Auto-scroll to bottom when new content arrives. Skip if user has
-  // scrolled up to read history (don't yank them away).
-  useEffect(() => {
-    if (!open || !scrollRef.current) {
+  // ----- auto-scroll (chat-style "stick to bottom") ----------------
+  // Standard transcript/chat behaviour: keep the newest line in view as
+  // segments/interims stream in, but DON'T yank the user down if they
+  // scrolled up to read history.
+  //
+  // We track stickiness as a ref (not state) so reading it inside the
+  // layout effect never lags behind a render. `onScroll` flips it the
+  // instant the user moves away from the bottom; the layout effect only
+  // pins to bottom while it's true. The decision is therefore made from
+  // the user's LAST scroll position — independent of the content height
+  // change that triggered the effect — which is what makes "I scrolled
+  // up, leave me alone" reliable.
+  const stickToBottomRef = useRef(true);
+  // Distance (px) from the bottom still treated as "at the bottom". A
+  // little slack absorbs sub-pixel rounding and the height jump of a
+  // freshly-appended line so normal streaming stays glued.
+  const NEAR_BOTTOM_PX = 60;
+
+  const handleLinesScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    stickToBottomRef.current =
+      el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
+  };
+
+  // useLayoutEffect (not useEffect) so the scroll correction is applied
+  // before the browser paints — no visible flash of the list sitting one
+  // line short of the bottom when new content lands.
+  useLayoutEffect(() => {
+    if (!open || !scrollRef.current || !stickToBottomRef.current) {
       return;
     }
     const el = scrollRef.current;
-    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    if (isAtBottom) {
-      el.scrollTop = el.scrollHeight;
+    el.scrollTop = el.scrollHeight;
+    // Re-running on the textual content of the latest interim (not just
+    // its count) keeps us pinned while a single in-flight hypothesis
+    // grows word-by-word — otherwise the list would only re-stick when a
+    // NEW interim row appeared, letting long live sentences drift.
+  }, [open, log.length, interimEntries.length, lastInterimText]);
+
+  // Re-arm stickiness every time the panel is (re)opened so the user
+  // always lands on the newest line — a fresh look at a transcript
+  // should show the latest, not wherever they happened to leave the
+  // scroll the previous time they peeked.
+  useEffect(() => {
+    if (open) {
+      stickToBottomRef.current = true;
     }
-  }, [open, log.length, interimEntries.length]);
+  }, [open]);
 
   // ----- file-upload test path -------------------------------------
   // Spin up an offline STTSession from a picked audio file. Outputs
@@ -937,7 +980,11 @@ export const SpeechToTextPanel = () => {
         />
       </div>
 
-      <div className="mcm-stt__lines" ref={scrollRef}>
+      <div
+        className="mcm-stt__lines"
+        ref={scrollRef}
+        onScroll={handleLinesScroll}
+      >
         {log.length === 0 && interimEntries.length === 0 && (
           <div className="mcm-stt__empty">
             {sttEnabled ? t("stt.waiting") : t("stt.paused")}
