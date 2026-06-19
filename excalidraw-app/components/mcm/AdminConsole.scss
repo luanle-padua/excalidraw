@@ -352,6 +352,41 @@
     }
   }
 
+  // Segmented pill for small enum settings (e.g. the video-quality cap) — same
+  // Glass-Desk language as the field inputs, with an accent-filled active tier.
+  &__seg {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 3px;
+    gap: 3px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: var(--mcm-radius-md);
+    background: var(--mcm-surface-0);
+  }
+  &__seg-btn {
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    height: 30px;
+    padding: 0 14px;
+    border-radius: calc(var(--mcm-radius-md) - 3px);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--mcm-text-soft);
+    background: transparent;
+    transition: background var(--mcm-dur-base) var(--mcm-ease),
+      color var(--mcm-dur-base) var(--mcm-ease);
+
+    &:hover {
+      color: var(--mcm-text);
+    }
+    &.--active {
+      color: #fff;
+      background: var(--mcm-accent);
+    }
+  }
+
   &__pad {
     padding: 0;
     max-width: 1240px;

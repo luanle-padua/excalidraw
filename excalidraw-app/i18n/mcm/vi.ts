@@ -1027,6 +1027,20 @@ export const vi = {
     imgOffice: "Văn phòng",
   },
 
+  // ---------------- Video quality (user + admin cap) ---------------
+  videoQuality: {
+    title: "Chất lượng video",
+    hint: "Tự điều chỉnh theo mạng; bạn chọn mức trần của mình.",
+    auto: "Tự động",
+    autoHint: "Tự động tới mức trần admin cho phép",
+    low: "Thấp",
+    medium: "Vừa",
+    high: "Cao",
+    adminCap: "Admin giới hạn tối đa: {level}",
+    adminCapTitle: "Trần chất lượng video tối đa",
+    adminCapHint: "Giới hạn mức cao nhất mọi người được chọn",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "Audio call chưa sẵn sàng",

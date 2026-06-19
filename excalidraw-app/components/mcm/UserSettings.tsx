@@ -43,6 +43,13 @@ import {
   type BlurLevel,
   type VideoBg,
 } from "../../audio/videoBg";
+import {
+  allowedTiers,
+  setVideoQualityPref,
+  videoQualityAtom,
+  videoQualityCapAtom,
+  type QualityLevel,
+} from "../../audio/videoQuality";
 import { getMyMeetingsChecked, type CalMeeting } from "../../data/calendar";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
@@ -578,6 +585,13 @@ const PreferencesTab = () => {
   // applies immediately when the user is already in a meeting with the camera on.
   const videoBg = useAtomValue(videoBgAtom);
   const audioRoom = useAtomValue(audioRoomInstanceAtom);
+
+  // Video-quality ceiling: the user's own pick + the org-wide admin cap (read
+  // from GET /v1/config at login). The picker greys out tiers above the cap and
+  // re-applies live if the user is already in a call (mirrors applyVideoBg).
+  const [videoQuality, setVideoQualityAtom] = useAtom(videoQualityAtom);
+  const videoQualityCap = useAtomValue(videoQualityCapAtom);
+  const allowedQualityTiers = allowedTiers(videoQualityCap);
   // Daily's background processors are DESKTOP-ONLY (no-op on iPad / phone web).
   // Probe once on mount — it can't change for the life of the page — so the
   // subsection can render disabled + explained on mobile rather than silently
@@ -591,6 +605,21 @@ const PreferencesTab = () => {
   const applyVideoBg = (bg: VideoBg) => {
     setVideoBgPref(bg);
     void audioRoom?.setVideoBackground(bg).catch(() => undefined);
+  };
+
+  // Pick a video-quality ceiling: persist it (survives reload + re-applies on
+  // the next camera-on — videoQuality.ts owns the clamp-against-cap) and, if a
+  // live call exists, push it now so an already-on camera re-encodes instantly.
+  // setVideoQuality is owned by DailyAudio (parallel to setVideoBackground); we
+  // feature-detect it so this UI typechecks and no-ops cleanly until DailyAudio
+  // ships the method — the persisted pref still applies on the next camera cycle.
+  const applyVideoQuality = (level: QualityLevel) => {
+    setVideoQualityPref(level);
+    setVideoQualityAtom(level);
+    const room = audioRoom as
+      | { setVideoQuality?: (l: QualityLevel) => Promise<unknown> }
+      | null;
+    void room?.setVideoQuality?.(level)?.catch(() => undefined);
   };
 
   // The UI-language <select> mirrors the live MCM language: map the current
@@ -832,6 +861,60 @@ const PreferencesTab = () => {
           })}
         </div>
       </div>
+
+      {/* --- Video quality ---
+          The user's own ceiling for the OUTGOING camera (Daily ABR still floats
+          below it on a weak uplink). "Auto" rides the admin cap; the explicit
+          tiers are disabled past the cap so a user can never exceed the org
+          limit — the same clamp videoQuality.ts enforces when applying. */}
+      <h3 className="mcm-settings__h3">{t("videoQuality.title")}</h3>
+
+      <PrefRow label={t("videoQuality.title")} hint={t("videoQuality.hint")}>
+        <div
+          className="mcm-settings__seg"
+          role="group"
+          aria-label={t("videoQuality.title")}
+        >
+          {(["auto", "low", "medium", "high"] as const).map((level) => {
+            // "auto" is always selectable (it just rides whatever the cap is);
+            // concrete tiers are disabled when they sit above the admin cap.
+            const blocked =
+              level !== "auto" && !allowedQualityTiers.includes(level);
+            return (
+              <button
+                key={level}
+                type="button"
+                className={`mcm-settings__seg-btn${
+                  videoQuality === level ? " --active" : ""
+                }`}
+                aria-pressed={videoQuality === level}
+                disabled={blocked}
+                // The shared seg-btn style has no :disabled rule and this file's
+                // SCSS is out of scope here — grey blocked tiers inline so the
+                // admin cap is visibly (not just functionally) enforced.
+                style={
+                  blocked
+                    ? { opacity: 0.4, cursor: "not-allowed" }
+                    : undefined
+                }
+                onClick={() => applyVideoQuality(level)}
+              >
+                {t(`videoQuality.${level}`)}
+              </button>
+            );
+          })}
+        </div>
+      </PrefRow>
+
+      {/* Tell the user WHY the high tiers are greyed out (only when the admin
+          has actually lowered the cap below "high"). */}
+      {videoQualityCap !== "high" && (
+        <p className="mcm-settings__note">
+          {t("videoQuality.adminCap", {
+            level: t(`videoQuality.${videoQualityCap}`),
+          })}
+        </p>
+      )}
     </div>
   );
 };

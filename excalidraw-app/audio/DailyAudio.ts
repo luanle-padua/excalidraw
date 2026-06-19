@@ -35,8 +35,33 @@ import type {
   DailyParticipant,
 } from "@daily-co/daily-js";
 
+import { appJotaiStore } from "../app-jotai";
+
 import type { AudioRoomEvents, PeerState } from "./audioTypes";
 import { getVideoBg, toDailyProcessor, type VideoBg } from "./videoBg";
+import {
+  clampQuality,
+  QUALITY_TIERS,
+  videoQualityAtom,
+  videoQualityCapAtom,
+  type QualityLevel,
+} from "./videoQuality";
+
+// Map our tier.sendSetting (the videoQuality vocabulary) to Daily's exact
+// updateSendSettings preset literals. We CAN'T touch videoQuality.ts, and its
+// medium tier is named "balanced", whereas Daily's matching preset is spelled
+// "bandwidth-and-quality-balanced" — so the translation lives here, at the one
+// boundary that talks to the SDK. "quality-optimized"/"bandwidth-optimized"
+// pass through unchanged. Every target preset is a 3-layer adaptive simulcast,
+// so ABR keeps scaling DOWN under load on all tiers — we only move the ceiling.
+const SEND_PRESET: Record<
+  (typeof QUALITY_TIERS)[keyof typeof QUALITY_TIERS]["sendSetting"],
+  "quality-optimized" | "bandwidth-and-quality-balanced" | "bandwidth-optimized"
+> = {
+  "quality-optimized": "quality-optimized",
+  balanced: "bandwidth-and-quality-balanced",
+  "bandwidth-optimized": "bandwidth-optimized",
+};
 
 export type DailyTokenFetcher = (
   roomId: string,
@@ -443,21 +468,14 @@ export class DailyAudio {
         throw err;
       }
       this.cameraOn = true;
-      // QUALITY: tell Daily to encode this camera with the "quality-optimized"
-      // preset. Without an explicit send setting Daily's DEFAULT aggressively
-      // bandwidth-optimizes (low max bitrate + heavy downscale) — the real reason
-      // the feed looked muddy even at a good capture resolution. The preset
-      // publishes adaptive 3-layer simulcast tuned to PRESERVE detail (higher per-
-      // layer bitrate), so the top layer the active speaker receives is crisp and
-      // even the base layers others see are less crushed. Adaptive layers stay on,
-      // so Daily still drops bitrate/layers automatically when a sender's uplink
-      // is weak — we raise the ceiling, we don't pin it. Best-effort: a failure
-      // must not abort turning the camera on (raw feed still publishes).
-      try {
-        await call.updateSendSettings({ video: "quality-optimized" });
-      } catch (err) {
-        warn("updateSendSettings(quality-optimized) failed (non-fatal)", err);
-      }
+      // QUALITY: apply the effective tier (capture constraints + encode preset)
+      // now that the camera is live. This replaces the old hardcoded
+      // "quality-optimized" — the chosen tier is clampQuality(userPref, adminCap),
+      // so it honours both the user's own ceiling and the org-wide admin cap.
+      // Adaptive simulcast still floats BELOW the tier on a weak uplink — we move
+      // the ceiling, we don't pin it. Best-effort inside applyVideoQuality: a
+      // failure must not abort turning the camera on (raw feed still publishes).
+      await this.applyVideoQuality();
       // Re-apply the user's persisted virtual background (blur / image) now that
       // the camera track exists — a processor can only attach to a live video
       // input. Best-effort: a failed processor must NOT abort turning the camera
@@ -525,6 +543,76 @@ export class DailyAudio {
       video: { processor: toDailyProcessor(bg) },
     });
     return bg;
+  }
+
+  /**
+   * Apply the effective video-quality tier to the LIVE camera: capture
+   * constraints (width/height/frameRate) via updateInputSettings AND the encode
+   * preset via updateSendSettings. The effective tier is
+   * clampQuality(userPref, adminCap), so it never exceeds the org-wide admin cap
+   * even if the user picked higher. Adaptive simulcast still scales below it.
+   *
+   * No-op unless the camera is actually publishing — there is no input/encoder
+   * to retune otherwise, and the next setCamera(true) re-applies the current tier
+   * from scratch. Best-effort throughout: a tuning failure must NEVER drop the
+   * already-working camera (mirrors the updateSendSettings guard in setCamera).
+   */
+  private async applyVideoQuality(): Promise<void> {
+    const call = this.call;
+    if (!call || !this.active || !this.cameraOn) {
+      return;
+    }
+    const tier =
+      QUALITY_TIERS[
+        clampQuality(
+          appJotaiStore.get(videoQualityAtom),
+          appJotaiStore.get(videoQualityCapAtom),
+        )
+      ];
+
+    // Capture constraints. CRITICAL: updateInputSettings({video}) REPLACES the
+    // whole video input-settings object, so passing only `settings` would WIPE
+    // the virtual-background processor that setVideoBackground installed. We
+    // re-send the CURRENT processor (derived from the persisted videoBg, the same
+    // source setVideoBackground uses) alongside the new constraints so both land
+    // in one atomic call and the blur/image keeps running while resolution shifts.
+    try {
+      await call.updateInputSettings({
+        video: {
+          processor: toDailyProcessor(getVideoBg()),
+          settings: {
+            width: { ideal: tier.width },
+            height: { ideal: tier.height },
+            frameRate: { ideal: tier.frameRate, max: tier.frameRate },
+          },
+        },
+      });
+    } catch (err) {
+      warn("applyVideoQuality: updateInputSettings failed (non-fatal)", err);
+    }
+
+    // Encode ceiling. SEND_PRESET maps our tier vocabulary to Daily's preset
+    // literal (medium "balanced" → "bandwidth-and-quality-balanced").
+    try {
+      await call.updateSendSettings({
+        video: SEND_PRESET[tier.sendSetting],
+      });
+    } catch (err) {
+      warn("applyVideoQuality: updateSendSettings failed (non-fatal)", err);
+    }
+  }
+
+  /**
+   * RE-APPLY the video quality live after the UI has changed the user pref.
+   * applyVideoQuality reads the atoms directly, so the UI's contract is: set
+   * videoQualityAtom (and persist) FIRST, then call this. The `level` argument is
+   * accepted to match the UI call-site shape (audioRoom.setVideoQuality(level))
+   * and to document intent; the effective tier is still the clamp of the atoms,
+   * so an out-of-band value can never bypass the admin cap. No-op if the camera
+   * is off (the new pref is picked up automatically on the next camera-on).
+   */
+  async setVideoQuality(_level: QualityLevel): Promise<void> {
+    await this.applyVideoQuality();
   }
 
   // ---- Daily events ------------------------------------------------------

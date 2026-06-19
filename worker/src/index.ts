@@ -1118,8 +1118,16 @@ app.get("/v1/health", (c) => c.json({ ok: true }));
 // Runtime config for ANY authenticated user — the live internal-domain list
 // (admin-editable system setting), so the client's internal/guest DISPLAY
 // matches what authz actually enforces instead of a client-side hardcode.
-// The JWT middleware already refreshed the per-isolate cache this request.
-app.get("/v1/config", (c) => c.json({ internal_domains: internalDomains }));
+// The JWT middleware already refreshed the per-isolate internalDomains cache
+// this request. video_quality_cap is the admin-set resolution ceiling the
+// client clamps its sender to; read through its own 60s per-isolate cache so
+// this hot boot/reconnect endpoint stays a single (usually cache-hit) lookup.
+app.get("/v1/config", async (c) =>
+  c.json({
+    internal_domains: internalDomains,
+    video_quality_cap: await readVideoQualityCap(c.env.DB),
+  }),
+);
 
 // ---- Scene (canvas) blob -------------------------------------------------
 
@@ -4146,6 +4154,46 @@ const readDailyCaps = async (
   return { maxParticipants, expHours };
 };
 
+// Admin-chosen ceiling on the video resolution any client may request
+// (system_settings.video_quality_cap ∈ 'low'|'medium'|'high'; default 'high').
+// The client reads this via GET /v1/config and clamps its sender resolution to
+// it, so an admin can cap egress media bandwidth org-wide without a redeploy.
+// Validated against the enum on READ as well as on write: a row that's blank,
+// garbage, or a stale value from a future/rolled-back schema must NOT leak an
+// out-of-contract string to the client (which would fall through its own
+// clamp). Cached per-isolate for 60s mirroring internalDomains, since /v1/config
+// is hit on every client boot/reconnect and the value changes rarely.
+type VideoQualityCap = "low" | "medium" | "high";
+const VIDEO_QUALITY_CAPS: readonly VideoQualityCap[] = ["low", "medium", "high"];
+const DEFAULT_VIDEO_QUALITY_CAP: VideoQualityCap = "high";
+const isVideoQualityCap = (v: unknown): v is VideoQualityCap =>
+  typeof v === "string" && (VIDEO_QUALITY_CAPS as readonly string[]).includes(v);
+let videoQualityCap: VideoQualityCap = DEFAULT_VIDEO_QUALITY_CAP;
+let videoQualityCapAt = 0;
+const readVideoQualityCap = async (
+  db: D1Database,
+): Promise<VideoQualityCap> => {
+  if (Date.now() - videoQualityCapAt < 60_000) {
+    return videoQualityCap;
+  }
+  videoQualityCapAt = Date.now();
+  try {
+    const row = await db
+      .prepare(
+        `SELECT value FROM system_settings WHERE key = 'video_quality_cap'`,
+      )
+      .first<{ value: string }>();
+    const v = (row?.value ?? "").trim();
+    // Only adopt a value that's exactly in the enum; anything else (unset,
+    // blank, typo) keeps the default — never serve an unvalidated cap.
+    videoQualityCap = isVideoQualityCap(v) ? v : DEFAULT_VIDEO_QUALITY_CAP;
+  } catch {
+    // settings table missing (pre-0007 DB) — keep the default cap
+    videoQualityCap = DEFAULT_VIDEO_QUALITY_CAP;
+  }
+  return videoQualityCap;
+};
+
 app.get("/v1/daily/token", async (c) => {
   // Kill-switch (audit): DAILY_ENABLED==="off" → 503, BEFORE any Daily REST
   // call, so `wrangler secret put DAILY_ENABLED off` stops media-minute spend
@@ -5968,6 +6016,20 @@ app.get("/v1/admin/settings", async (c) => {
 app.put("/v1/admin/settings", async (c) => {
   const body = await c.req.json<{ settings?: Record<string, string> }>();
   const entries = Object.entries(body.settings ?? {});
+  // Backstop validation: this upsert is generic (any key/value), but
+  // video_quality_cap has a hard enum contract with the client. Reject the
+  // whole write 400 if it's out of band so a bad value never lands in the row
+  // (the read path would coerce it back to default, but failing loud here keeps
+  // the stored setting honest and surfaces the admin's typo immediately).
+  if (
+    Object.prototype.hasOwnProperty.call(body.settings ?? {}, "video_quality_cap") &&
+    !isVideoQualityCap(body.settings?.video_quality_cap)
+  ) {
+    return c.json(
+      { error: "video_quality_cap must be one of: low, medium, high" },
+      400,
+    );
+  }
   for (const [k, v] of entries) {
     await c.env.DB.prepare(
       `INSERT INTO system_settings (key, value, updated_at) VALUES (?1, ?2, ?3)
@@ -5975,6 +6037,13 @@ app.put("/v1/admin/settings", async (c) => {
     )
       .bind(k, v, now())
       .run();
+  }
+  // Invalidate the per-isolate cap cache so an admin's new ceiling is served by
+  // the very next /v1/config (this isolate) instead of lagging up to 60s.
+  if (
+    Object.prototype.hasOwnProperty.call(body.settings ?? {}, "video_quality_cap")
+  ) {
+    videoQualityCapAt = 0;
   }
   await logAudit(c.env.DB, c.get("email"), "settings.update", undefined, {
     keys: entries.map((e) => e[0]),

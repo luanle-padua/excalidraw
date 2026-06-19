@@ -986,6 +986,19 @@ export const ko: Widened<typeof vi> = {
     imgOffice: "사무실",
   },
 
+  videoQuality: {
+    title: "비디오 품질",
+    hint: "네트워크에 맞춰 자동 조정 — 상한을 선택하세요.",
+    auto: "자동",
+    autoHint: "관리자 허용 상한까지 자동",
+    low: "낮음",
+    medium: "보통",
+    high: "높음",
+    adminCap: "관리자 최대 제한: {level}",
+    adminCapTitle: "최대 비디오 품질 상한",
+    adminCapHint: "모두가 선택할 수 있는 최고 수준을 제한",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "오디오 통화가 아직 준비되지 않았어요",

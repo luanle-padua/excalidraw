@@ -137,6 +137,9 @@ const SETTING_DEFAULTS: Record<string, string> = {
   // call size + token lifetime so a stale/abused room can't run up cost.
   daily_room_max_participants: "50",
   daily_room_exp_hours: "12",
+  // Org-wide ceiling on the video quality any user may pick (low|medium|high).
+  // "high" = no throttle until an admin lowers it; the pref UI clamps to this.
+  video_quality_cap: "high",
 };
 
 const isAdminUser = (u: AdminUser): boolean => u.app_metadata?.role === "admin";
@@ -665,6 +668,14 @@ export const AdminConsole = () => {
     // Validate the Daily caps before persisting (UI inputs also enforce the
     // range, but a hand-typed value could slip past): participants 2–200,
     // expiry 1–24h. Pairs with the worker lane that reads these keys.
+    // Whitelist the video-quality cap to the three known tiers — a hand-typed
+    // or stale value must never leak through to the pref clamp; fall back to
+    // the permissive "high" so a bad value can't accidentally throttle the org.
+    const rawCap = settings.video_quality_cap;
+    const videoQualityCap =
+      rawCap === "low" || rawCap === "medium" || rawCap === "high"
+        ? rawCap
+        : "high";
     const validated: Record<string, string> = {
       ...settings,
       daily_room_max_participants: clampSetting(
@@ -673,6 +684,7 @@ export const AdminConsole = () => {
         200,
       ),
       daily_room_exp_hours: clampSetting("daily_room_exp_hours", 1, 24),
+      video_quality_cap: videoQualityCap,
     };
     setBusy(true);
     await putAdminSettings(validated);
@@ -2796,6 +2808,28 @@ export const AdminConsole = () => {
                 }
               />
             </label>
+            {/* Org-wide video-quality cap. Segmented (low/medium/high) so the
+                admin sets the highest tier any user may pick; the pref UI greys
+                out tiers above this and videoQuality.ts clamps on apply. */}
+            <div className="mcm-admin__field">
+              <span>{t("videoQuality.adminCapTitle")}</span>
+              <div className="mcm-admin__seg" role="group">
+                {(["low", "medium", "high"] as const).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className={`mcm-admin__seg-btn${
+                      settingOf("video_quality_cap") === level ? " --active" : ""
+                    }`}
+                    aria-pressed={settingOf("video_quality_cap") === level}
+                    onClick={() => setSetting("video_quality_cap", level)}
+                  >
+                    {t(`videoQuality.${level}`)}
+                  </button>
+                ))}
+              </div>
+              <small>{t("videoQuality.adminCapHint")}</small>
+            </div>
             <button
               type="button"
               className="mcm-btn mcm-btn--primary mcm-btn--sm"

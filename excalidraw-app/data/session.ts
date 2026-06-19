@@ -11,7 +11,11 @@
 
 import { atom, appJotaiStore } from "../app-jotai";
 
+import { videoQualityCapAtom } from "../audio/videoQuality";
+
 import { fetchWithAuth } from "./fetchWithAuth";
+
+import type { QualityCap } from "../audio/videoQuality";
 import { supabase } from "./supabaseClient";
 import {
   clearTranslationCache,
@@ -91,15 +95,29 @@ const syncInternalDomains = (): void => {
   domainsSynced = true;
   void fetchWithAuth(`${STORAGE_URL}/v1/config`)
     .then((res) => (res.ok ? res.json() : null))
-    .then((cfg: { internal_domains?: string[] } | null) => {
-      const list = (cfg?.internal_domains ?? [])
-        .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
-        .filter(Boolean);
-      if (list.length) {
-        // Mutate in place — every importer of INTERNAL_DOMAINS sees the update.
-        INTERNAL_DOMAINS.splice(0, INTERNAL_DOMAINS.length, ...list);
-      }
-    })
+    .then(
+      (
+        cfg:
+          | { internal_domains?: string[]; video_quality_cap?: string }
+          | null,
+      ) => {
+        const list = (cfg?.internal_domains ?? [])
+          .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
+          .filter(Boolean);
+        if (list.length) {
+          // Mutate in place — every importer of INTERNAL_DOMAINS sees the update.
+          INTERNAL_DOMAINS.splice(0, INTERNAL_DOMAINS.length, ...list);
+        }
+        // Org-wide video-quality cap (system_settings.video_quality_cap). The
+        // pref UI clamps every user's pick to this ceiling. Validate the enum —
+        // a missing/garbage value must NOT throttle anyone, so fall back to the
+        // permissive "high" (matches videoQualityCapAtom's own default).
+        const cap = cfg?.video_quality_cap;
+        const validCap: QualityCap =
+          cap === "low" || cap === "medium" || cap === "high" ? cap : "high";
+        appJotaiStore.set(videoQualityCapAtom, validCap);
+      },
+    )
     .catch(() => {
       domainsSynced = false; // offline — retry on the next auth event
     });

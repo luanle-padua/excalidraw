@@ -980,6 +980,19 @@ export const en: Widened<typeof vi> = {
     imgOffice: "Office",
   },
 
+  videoQuality: {
+    title: "Video quality",
+    hint: "Adapts to your network; pick your own ceiling.",
+    auto: "Auto",
+    autoHint: "Auto, up to the admin-allowed cap",
+    low: "Low",
+    medium: "Medium",
+    high: "High",
+    adminCap: "Admin caps the max at {level}",
+    adminCapTitle: "Max video quality cap",
+    adminCapHint: "Limits the highest level everyone can pick",
+  },
+
   // ---------------- Meeting recording ------------------------------
   recording: {
     audioNotReady: "Audio call isn't ready yet",
