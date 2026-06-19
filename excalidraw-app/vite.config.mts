@@ -334,6 +334,29 @@ export default defineConfig(({ mode }) => {
               sizes: "192x192",
               type: "image/png",
             },
+            // mcm: 512px "any" icon — Android/Chrome install prompt picks the
+            // largest available; without it the home-screen icon is upscaled
+            // from 192 and looks blurry.
+            {
+              src: "android-chrome-512x512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "any",
+            },
+            // mcm: maskable variants so adaptive-icon platforms (Android) crop
+            // into the safe zone instead of clipping our real icon's edges.
+            {
+              src: "maskable_icon_x512.png",
+              sizes: "512x512",
+              type: "image/png",
+              purpose: "maskable",
+            },
+            {
+              src: "maskable_icon_x192.png",
+              sizes: "192x192",
+              type: "image/png",
+              purpose: "maskable",
+            },
             {
               src: "apple-touch-icon.png",
               type: "image/png",
