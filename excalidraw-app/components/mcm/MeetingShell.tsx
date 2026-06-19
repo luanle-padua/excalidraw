@@ -364,7 +364,13 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   return (
     <div className="mcm-shell">
       <MeetingHeader
-        participantCount={MOCK_PARTICIPANTS.length}
+        // PREVIEW-ONLY count: MeetingHeader uses this prop solely for the
+        // empty/showcase state (no activeRoomLink); once in a real room it
+        // derives the count from the live collaborator map instead. It MUST
+        // match what ParticipantsBar renders in that same preview — the bar
+        // slices MOCK_PARTICIPANTS to 4 tiles, so passing the full 8 here made
+        // the header say "8" while the bar showed 4 (the "8 vs 4" mismatch).
+        participantCount={Math.min(MOCK_PARTICIPANTS.length, 4)}
         onOpenLog={() => setLogOpen(true)}
         onOpenProfile={() => setProfileOpen(true)}
         onLeave={handleLeave}

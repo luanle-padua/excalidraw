@@ -807,6 +807,7 @@ export const en: Widened<typeof vi> = {
     screenSharingAria: "Sharing screen",
     you: "You",
     guest: "Guest",
+    joining: "Joining…",
     followHint: "Click to follow their view",
     unfollowHint: "Following — click to stop",
     muteHint: "Mute this participant",

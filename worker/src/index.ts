@@ -652,6 +652,35 @@ const canSeeMeeting = async (
   return !!(row.owner || row.invited || row.member || row.authority);
 };
 
+// Does this room have a registry row in `meeting`? (security 06-19)
+// `canSeeMeeting` deliberately returns TRUE for an UNREGISTERED room (no `meeting`
+// row) so the OWNER of a freshly-created ad-hoc room can PUT its first scene/chat
+// blob during the brief window BEFORE the client's fire-and-forget registerMeeting
+// lands — without that grace the legit owner's first save would 403 and lose data.
+// But that same grace is a HOLE on the realtime JOIN path: anyone who learns
+// `#room=<id>,<key>` of an unregistered room joins the live relay with no invite
+// check ("ai có link cũng vào"). If register fails the room stays ungated forever.
+//
+// This helper lets the JOIN path (realtime WS, metered STT) FAIL CLOSED on an
+// unregistered room while leaving `canSeeMeeting` permissive for blob/AI writes,
+// so the owner's pre-register writes still survive the race. The client team's
+// registerMeeting now awaits+retries, so any LEGITIMATE room has a row before
+// anyone joins the relay — the only rooms this rejects are ones that never
+// registered (the leak), which is exactly the intent.
+const roomIsRegistered = async (
+  db: D1Database,
+  roomId: string,
+): Promise<boolean> => {
+  if (!roomId) {
+    return false;
+  }
+  const row = await db
+    .prepare(`SELECT 1 AS registered FROM meeting WHERE id = ?1`)
+    .bind(roomId)
+    .first<{ registered: number | null }>();
+  return !!row?.registered;
+};
+
 // Per-project access LEVEL (case "phòng ban này mời phòng ban khác"):
 //   "full"    — admin or project_member: the whole folder.
 //   "partial" — INTERNAL user who isn't a member but was invited to (or
@@ -6324,6 +6353,25 @@ export const handleRealtimeUpgrade = async (
       });
     }
     return new Response("forbidden", { status: 403 });
+  }
+
+  // 2a) Unregistered-room FAIL-CLOSED on the JOIN path (security 06-19). The leak:
+  //     `canSeeMeeting` returns TRUE for a room with no `meeting` row (the ad-hoc
+  //     grace that keeps the owner's pre-register blob writes alive). On the relay
+  //     JOIN that means any logged-in user who knows `#room=<id>,<key>` of an
+  //     unregistered room joins with NO invite check — and a failed client-side
+  //     register would leave the room ungated forever. So we REQUIRE a registry
+  //     row here. The client now awaits+retries registerMeeting, so a legitimate
+  //     room has its row before anyone joins; this only rejects rooms that never
+  //     registered (the hole). Reject 403 (NEVER 101) and audit so an ungated room
+  //     surfaces in the admin Realtime rejection feed instead of silently leaking.
+  if (!(await roomIsRegistered(env.DB, roomId))) {
+    if (shouldLogRealtimeReject(roomId, identity.email, "unregistered")) {
+      void logAudit(env.DB, identity.email, "realtime.reject", roomId, {
+        reason: "unregistered",
+      });
+    }
+    return new Response("room not registered", { status: 403 });
   }
 
   // 2b) Finished = immutable review (D3). A finished meeting is read-only; a

@@ -843,6 +843,7 @@ export const vi = {
     screenSharingAria: "Đang chia sẻ màn hình",
     you: "Bạn",
     guest: "Khách",
+    joining: "Đang vào…",
     followHint: "Bấm để follow view",
     unfollowHint: "Đang follow — bấm để thoát",
     muteHint: "Tắt mic người này",

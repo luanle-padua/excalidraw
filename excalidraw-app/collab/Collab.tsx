@@ -135,6 +135,7 @@ import { getMyKnock, knockToMeeting } from "../data/invite";
 import {
   getMeeting,
   getMeetingChecked,
+  IS_PROJECTS_CONFIGURED,
   registerMeeting,
 } from "../data/projects";
 import { isInternalEmail, sessionAtom } from "../data/session";
@@ -379,6 +380,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   private socketInitializationTimer?: number;
   private lastBroadcastedOrReceivedSceneVersion: number = -1;
   private collaborators = new Map<SocketId, Collaborator>();
+  // The ONLY source of truth for "who is actually in the room right now":
+  // rebuilt from the live socket list every `room-user-change`
+  // (setCollaborators). Anything that wants to ADD/ENRICH a collaborator
+  // (updateCollaborator, the peerProfilesAtom sub) must gate on this so a
+  // late / re-announced USER_PROFILE from a peer who already LEFT can never
+  // resurrect a ghost tile. Empty until the first roster lands.
+  private liveSocketIds = new Set<SocketId>();
   private remoteElementIds = new Set<string>();
   // Set once the eager storage prefetch (kicked off in startCollaboration,
   // in parallel with the socket connect) has rendered the saved scene, so
@@ -492,6 +500,13 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     const unsubPeerProfiles = appJotaiStore.sub(peerProfilesAtom, () => {
       const peers = appJotaiStore.get(peerProfilesAtom);
       for (const [socketId, profile] of peers) {
+        // GHOST GUARD (mirror of updateCollaborator): a peerProfilesAtom entry
+        // can outlive the peer briefly — a re-announced USER_PROFILE upserts the
+        // profile before the matching room-user-change prunes it. Only ENRICH a
+        // peer the live roster still lists; never seed a tile for one who left.
+        if (!this.liveSocketIds.has(socketId as SocketId)) {
+          continue;
+        }
         // Default to a deterministic library image when the peer
         // hasn't picked an avatar — keeps Excalidraw's on-canvas
         // cursor + built-in UserList off the placeholder initials.
@@ -804,6 +819,9 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       appJotaiStore.set(meetingFilesAtom, []);
       this.setActiveRoomLink(null);
       this.collaborators = new Map();
+      // Reset the live roster too — a stale liveSocketId would otherwise let a
+      // late USER_PROFILE from the LEFT room seed a ghost into the next room.
+      this.liveSocketIds = new Set();
       this.excalidrawAPI.updateScene({
         collaborators: this.collaborators,
       });
@@ -1098,11 +1116,19 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // OWNER and a lifecycle from birth, like every other meeting — the
       // organizer email is stamped server-side from the verified JWT, status
       // goes straight to `live` (nobody schedules an ad-hoc room), and the
-      // creator can later End-for-all / find it on their calendar. Best-effort:
-      // when storage/auth isn't configured the call no-ops and the room works
-      // exactly as before (just unregistered).
+      // creator can later End-for-all / find it on their calendar.
+      //
+      // RELIABILITY (06-19): this used to be fire-and-forget (`void`), which
+      // SWALLOWED failures — a dropped POST meant NO D1 row, and the worker's
+      // `canSeeMeeting` then treated the unregistered room as open to every
+      // logged-in user (an access-gating hole). We now reliably register with a
+      // bounded retry. We DON'T block the join UX on it (the await runs in
+      // parallel with the socket handshake below and we never `return` on
+      // failure), but we try hard and LOUDLY warn if every attempt fails so an
+      // ungated room is never created silently. The worker fail-closes
+      // server-side for still-unregistered rooms as the backstop.
       const session = appJotaiStore.get(sessionAtom);
-      void registerMeeting({
+      void this.registerAdHocMeetingReliably({
         roomId,
         roomKey,
         createdBy: session?.name,
@@ -1843,6 +1869,51 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     document.addEventListener(EVENT.VISIBILITY_CHANGE, this.onVisibilityChange);
   };
 
+  /**
+   * Register an ad-hoc room with bounded retry + backoff so a flaky network
+   * doesn't leave the room unregistered (and therefore ungated server-side).
+   * registerMeeting() resolves `false` on a non-ok / thrown request, `true` on
+   * success, and short-circuits to `false` when storage isn't configured —
+   * which we treat as "nothing to do" (not an error worth shouting about).
+   * Non-blocking by design: the caller `void`s this so the join handshake
+   * proceeds in parallel.
+   */
+  private registerAdHocMeetingReliably = async (m: {
+    roomId: string;
+    roomKey: string;
+    createdBy?: string;
+    status: "live";
+  }): Promise<void> => {
+    // Storage off (dev / unconfigured) → registerMeeting() no-ops and returns
+    // false; the room legitimately stays unregistered, exactly as before. Bail
+    // before the retry loop so we don't retry-then-warn on a non-error.
+    if (!IS_PROJECTS_CONFIGURED) {
+      return;
+    }
+    const MAX_ATTEMPTS = 4;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const ok = await registerMeeting(m);
+      if (ok) {
+        return;
+      }
+      if (attempt < MAX_ATTEMPTS) {
+        // Short exponential-ish backoff (0.5s, 1s, 2s) — long enough to ride
+        // out a transient blip, short enough not to leave the room ungated for
+        // long. We DON'T await this before opening the socket; it races the
+        // handshake so the user never waits on it.
+        await new Promise((resolve) =>
+          setTimeout(resolve, 500 * 2 ** (attempt - 1)),
+        );
+      }
+    }
+    // Every attempt failed: do NOT stay silent — an unregistered ad-hoc room is
+    // an access-gating risk (worker fail-closes, but we want a visible trail).
+    console.error(
+      `[MCM] Failed to register ad-hoc meeting ${m.roomId} after ${MAX_ATTEMPTS} attempts — ` +
+        `room may be unregistered (server will fail-closed for unregistered rooms).`,
+    );
+  };
+
   setCollaborators(sockets: SocketId[]) {
     const collaborators: InstanceType<typeof Collab>["collaborators"] =
       new Map();
@@ -1864,6 +1935,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       );
     }
     this.collaborators = collaborators;
+    // Refresh the live roster from the authoritative socket list. This is the
+    // ONLY place liveSocketIds grows; updateCollaborator / the peerProfiles sub
+    // only READ it, so a peer who isn't in `sockets` can never be (re)added by a
+    // late USER_PROFILE — the ghost-presence root cause (06-19).
+    this.liveSocketIds = new Set(sockets);
     this.excalidrawAPI.updateScene({ collaborators });
 
     // Prune raised hands belonging to peers who left the room — they
@@ -1928,6 +2004,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
   }
 
   updateCollaborator = (socketId: SocketId, updates: Partial<Collaborator>) => {
+    // GHOST GUARD: only add/enrich a collaborator that the live roster knows is
+    // actually present. A USER_PROFILE / pointer update that arrives AFTER a peer
+    // left (late delivery or the 06-19 snapshot re-announce) must not resurrect a
+    // tile — it would render as a fallback "Guest" nobody invited. Self is always
+    // allowed (our own id may not be in liveSocketIds before the first roster).
+    // updateCollaborator only ENRICHES known peers; setCollaborators owns adds.
+    const isSelf = socketId === this.portal.socket?.id;
+    if (!isSelf && !this.liveSocketIds.has(socketId)) {
+      return;
+    }
     const collaborators = new Map(this.collaborators);
     const user: Mutable<Collaborator> = Object.assign(
       {},

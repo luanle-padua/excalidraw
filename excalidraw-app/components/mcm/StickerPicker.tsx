@@ -299,7 +299,19 @@ export const StickerPicker = () => {
         width: w,
         height: h,
         fileId: id as FileId,
-        status: "saved",
+        // PERSIST + LATE-JOIN SYNC: start "pending", NOT "saved". A
+        // decoration's bytes were previously only sent inline over the
+        // websocket (publishLibraryFile below), so they never reached R2 —
+        // late-joiners and re-opens got an element pointing at a fileId with
+        // no stored bytes and rendered an empty box. By starting "pending"
+        // the element rides the SAME pipeline as a regular pasted image:
+        // Portal.queueFileUpload → fileManager.saveFiles PUTs the bytes to
+        // R2, then flips the element to "saved" (and broadcasts that flip)
+        // only AFTER the upload confirms. Peers then fetch the bytes from R2
+        // like any other image, so the decoration survives late-join/reopen.
+        // (The element already has a fileId, so isInitializedImageElement
+        // picks it up in saveFiles automatically — no Collab/Portal change.)
+        status: "pending",
         groupIds: stampGroupIds,
         customData: {
           // Mark this element as an MCM stamp so subsequent
@@ -327,6 +339,12 @@ export const StickerPicker = () => {
         elements: syncInvalidIndices([...elementsWithPatch, element]),
       });
       if (collabAPI) {
+        // LIVE path (belt-and-suspenders): push the bytes inline over the
+        // websocket so peers already in the room paint the decoration
+        // instantly, without waiting for the R2 PUT + fetch round-trip. The
+        // R2 upload above (driven by status:"pending") is the DURABLE path
+        // that covers late-join and reopen; this inline send only covers the
+        // "everyone's here right now" case, so the two are complementary.
         collabAPI.publishLibraryFile({
           id,
           name: `${placing.kind}-${placing.path.split("/").pop()}`,

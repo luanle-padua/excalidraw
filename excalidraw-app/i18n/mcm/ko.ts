@@ -813,6 +813,7 @@ export const ko: Widened<typeof vi> = {
     screenSharingAria: "화면 공유 중",
     you: "나",
     guest: "손님",
+    joining: "입장 중…",
     followHint: "이 사람의 뷰 따라가기",
     unfollowHint: "따라가는 중 — 클릭하여 중지",
     muteHint: "이 참가자 음소거",

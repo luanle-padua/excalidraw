@@ -147,7 +147,8 @@ const sttOpenRateLimited = (email: string | undefined): boolean => {
 // Membership gate — mirrors canSeeMeeting() in index.ts (kept local to avoid a
 // circular import: index.ts imports handleSttUpgrade from this file). Returns
 // true when the caller may open a metered stream for `roomId`: admins always;
-// an ad-hoc room with no registry row is ungated; otherwise the same
+// an unregistered room (no `meeting` row) is REJECTED here (security 06-19 —
+// STT is metered and meeting-bound, no ad-hoc grace); otherwise the same
 // owner/invitee/member/authority arms, with confidential = invitee-only.
 const sttCanSeeMeeting = async (
   db: D1Database,
@@ -195,7 +196,15 @@ const sttCanSeeMeeting = async (
       authority: number | null;
     }>();
   if (!row?.registered) {
-    return true;
+    // FAIL CLOSED on an unregistered room (security 06-19). Unlike the blob/AI
+    // path — where canSeeMeeting() stays permissive so the owner's pre-register
+    // writes survive the registerMeeting race — STT opens a METERED Deepgram
+    // stream with the server key and is always meeting-bound (meetingId is
+    // required by the caller). There is no legit "ad-hoc pre-register" STT, so a
+    // room that has no registry row (register never landed) must NOT mint a
+    // billable stream that anyone with the leaked roomId could open. Mirrors the
+    // realtime-upgrade roomIsRegistered gate in index.ts.
+    return false;
   }
   if ((row.conf ?? "").toLowerCase() === "confidential") {
     return !!(row.owner || row.invited);

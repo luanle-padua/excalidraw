@@ -949,10 +949,20 @@ export const ParticipantsBar = ({
     };
   }, [liveReactions, collabAPI]);
 
-  // Not in a collab room yet → show the design-mock cast so the empty
-  // shell still has something for stakeholders to look at. Trimmed to
-  // 4 entries so the preview doesn't look misleadingly populated.
-  if (!activeRoomLink) {
+  // Are we mid-join into a REAL room? The URL carries the room hash the instant
+  // the user opens a meeting link, but `activeRoomLink` only flips once the
+  // collab handshake completes. In that async gap we must NOT fall through to
+  // the mock cast — showing 4 fake strangers in a real meeting (the "guest ma"
+  // flash, 06-19) is worse than an honest empty bar. Detect the hash directly.
+  const joiningRealRoom =
+    typeof window !== "undefined" &&
+    window.location.hash.includes("#room=");
+
+  // Not in a collab room AND not joining one → showcase/empty-state. Show the
+  // design-mock cast so the empty shell still has something for stakeholders to
+  // look at. Trimmed to 4 entries so the preview doesn't look misleadingly
+  // populated.
+  if (!activeRoomLink && !joiningRealRoom) {
     const previewTiles = MOCK_PARTICIPANTS.slice(0, 4).map(mockTile);
     return (
       <>
@@ -966,6 +976,25 @@ export const ParticipantsBar = ({
             {previewTiles.map((p) => (
               <Person key={p.id} p={p} onOpenProfile={onOpenProfile} />
             ))}
+          </div>
+        </footer>
+        <MeetingReactionsOverlay />
+      </>
+    );
+  }
+
+  // Joining a real room but the collab layer hasn't handed us a roster yet →
+  // honest "Joining…" placeholder instead of fake mock tiles. Zeroed count so
+  // the header (which also keys off the live roster) never disagrees with us.
+  if (!activeRoomLink) {
+    return (
+      <>
+        <footer className="mcm-people-bar" aria-label={t("participants.label")}>
+          <CountChip inRoom={0} inCall={0} />
+          <div className="mcm-people-bar__list mcm-people-bar__list--joining">
+            <span className="mcm-people-bar__joining">
+              {t("participants.joining")}
+            </span>
           </div>
         </footer>
         <MeetingReactionsOverlay />
