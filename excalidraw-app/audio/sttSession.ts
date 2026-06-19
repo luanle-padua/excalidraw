@@ -134,6 +134,10 @@ export class STTSession {
    *  independent of the (first-few-seconds-only) diagnostic log clock above. */
   private lastCapturePingAt = 0;
   private firstTranscriptLogged = false;
+  /** Diagnostic counters: how many frames the SERVER sent back (any Deepgram
+   *  type) — distinguishes "Deepgram silent / relay broken" from "Deepgram
+   *  talking but no Results". Capped so it can't spam. */
+  private rxMsgCount = 0;
   private opts: STTSessionOptions;
   private closed = false;
   /** true when WE created the AudioContext (so stop() must close it); false when
@@ -191,6 +195,20 @@ export class STTSession {
         msg = JSON.parse(typeof e.data === "string" ? e.data : "");
       } catch {
         return;
+      }
+      // Diagnostic: log EVERY frame the server relays back (capped). Tells apart
+      // "Deepgram silent / relay broken" (nothing after ready) from "Deepgram
+      // talking but no Results" (SpeechStarted/UtteranceEnd/Metadata arrive, or
+      // Results with empty transcript). Capped so it can't spam the console.
+      this.rxMsgCount++;
+      if (this.rxMsgCount <= 50) {
+        const alt0 = msg?.channel?.alternatives?.[0];
+        console.info(
+          `[stt] rx #${this.rxMsgCount} type=${msg?.type}` +
+            (msg?.type === "Results"
+              ? ` is_final=${msg?.is_final} text="${(alt0?.transcript ?? "").slice(0, 40)}"`
+              : ""),
+        );
       }
       if (msg.type === "ready") {
         // Diagnostic: handshake reached Deepgram. If transcripts never follow,
@@ -334,11 +352,14 @@ export class STTSession {
         }
       }
       const level = peak / 0x8000;
-      // Diagnostic: confirm PCM is flowing mic→worklet→here AND whether it
-      // carries signal. Throttled to ~one line / 2s for the first few seconds.
+      // Diagnostic: confirm PCM keeps flowing AND carries signal. Logged
+      // CONTINUOUSLY every 3s (no cap) so we can SEE whether capture is steady or
+      // dies after a moment — the iOS failure where the cloned mic goes silent a
+      // few seconds in (Daily reclaims the mic) shows up as peak→0 or the line
+      // stopping entirely. Temporary while diagnosing 06-19.
       this.pcmChunks++;
       const now = Date.now();
-      if (this.pcmChunks <= 12 && now - this.lastPcmLogAt >= 2000) {
+      if (now - this.lastPcmLogAt >= 3000) {
         this.lastPcmLogAt = now;
         console.info(
           `[stt] PCM flowing: ${this.pcmChunks} chunks, lang=${this.opts.lang}, sampleRate=${this.audioCtx?.sampleRate ?? "?"}, peak=${level.toFixed(3)}`,
