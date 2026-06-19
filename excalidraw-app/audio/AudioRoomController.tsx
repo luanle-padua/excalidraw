@@ -287,13 +287,18 @@ export const AudioRoomController = () => {
       // a context created here (no user activation) stays SUSPENDED and the
       // worklet emits no PCM, so Deepgram gets silence (06-18).
       audioCtx: roomRef.current?.getCaptureContext() ?? undefined,
-      onCapture: () => {
-        // PCM heartbeat — real mic audio is flowing into STT right now. Stamp
-        // the time and flip the live indicator on. The watchdog below flips it
-        // back off if frames stop (≈1.5s), which is the "enabled but no audio
-        // reaching STT" condition the PM needs to SEE without a console.
-        lastCaptureAtRef.current = Date.now();
-        setSttCapturing(true);
+      onCapture: (level) => {
+        // PCM heartbeat carrying the chunk's peak level. Only count it as
+        // "capturing" when there's REAL signal — a silent clone (iOS mic
+        // exclusivity) still streams chunks at peak≈0, which must read as
+        // "no audio" (amber), not a false green. ~-40dBFS gate tolerates the
+        // room noise floor but not true silence. The watchdog flips it back off
+        // if signal stops (≈1.5s) — exactly the "enabled but no audio reaching
+        // STT" state the PM needs to SEE without a console.
+        if (level > 0.01) {
+          lastCaptureAtRef.current = Date.now();
+          setSttCapturing(true);
+        }
       },
       onInterim: (text) => {
         collabAPI?.setLocalInterimTranscript(text);

@@ -60,13 +60,14 @@ export type STTSessionOptions = {
   onReady?: () => void;
   onError?: (message: string) => void;
   onClose?: () => void;
-  /** Fired (throttled) whenever real PCM is flowing mic→worklet→here — i.e.
-   *  audio is actually being captured and pushed upstream. The UI uses this as
-   *  the GROUND-TRUTH "mic is being recorded" signal: a session can be {ready}
-   *  yet silent (suspended context / dead clone on iPad), and only the arrival
-   *  of PCM chunks proves capture works. Throttled to ~CAPTURE_PING_MS so it's a
-   *  heartbeat for the UI, not a per-chunk firehose (chunks arrive every few ms). */
-  onCapture?: () => void;
+  /** Fired (throttled) for each PCM chunk reaching the worklet port, carrying
+   *  the chunk's PEAK amplitude (0..1). The UI uses this as the GROUND-TRUTH
+   *  "mic is being recorded" signal — but level matters: a session can be {ready}
+   *  and even stream chunks yet be SILENT (iOS hands the mic exclusively to
+   *  Daily's PeerConnection, so the STT clone delivers all-zero samples). Only a
+   *  non-trivial `level` proves real audio is captured. Throttled to
+   *  ~CAPTURE_PING_MS so it's a heartbeat, not a per-chunk firehose. */
+  onCapture?: (level: number) => void;
 };
 
 /** How often onCapture is allowed to fire. PCM chunks arrive every few ms; the
@@ -196,7 +197,7 @@ export class STTSession {
         // pair this with the "[stt] PCM flowing" line to localise the fault
         // (no PCM line ⇒ mic→worklet broke; PCM but no transcript ⇒ upstream).
         console.info(
-          `[stt] ready — Deepgram upstream open (sampleRate=${this.audioCtx?.sampleRate ?? "?"})`,
+          `[stt] ready — Deepgram upstream open (lang=${this.opts.lang}, sampleRate=${this.audioCtx?.sampleRate ?? "?"})`,
         );
         // Deepgram is live — raise the AI-in-use indicator for the duration
         // of the transcription session (cleared in stop()).
@@ -319,25 +320,35 @@ export class STTSession {
       if (!buf || buf.byteLength === 0) {
         return;
       }
-      // Diagnostic: confirm PCM is actually flowing mic→worklet→here. Throttled
-      // to ~one line / 2s and only for the first few seconds, so it never spams
-      // the console; absence of these lines means the worklet isn't producing
-      // (the symptom this fix targets).
+      // Peak amplitude (0..1) of this chunk — the discriminator between a LIVE
+      // mic and a SILENT clone. iOS gives the mic exclusively to Daily's
+      // PeerConnection, so the STT clone can deliver all-zero samples: chunks
+      // still "flow" but carry no audio → Deepgram returns nothing. peak≈0 here
+      // = silent clone; a real mic tracks the voice. Cheap (~4 chunks/s).
+      const samples = new Int16Array(buf);
+      let peak = 0;
+      for (let i = 0; i < samples.length; i++) {
+        const a = samples[i] < 0 ? -samples[i] : samples[i];
+        if (a > peak) {
+          peak = a;
+        }
+      }
+      const level = peak / 0x8000;
+      // Diagnostic: confirm PCM is flowing mic→worklet→here AND whether it
+      // carries signal. Throttled to ~one line / 2s for the first few seconds.
       this.pcmChunks++;
       const now = Date.now();
       if (this.pcmChunks <= 12 && now - this.lastPcmLogAt >= 2000) {
         this.lastPcmLogAt = now;
         console.info(
-          `[stt] PCM flowing: ${this.pcmChunks} chunks, sampleRate=${this.audioCtx?.sampleRate ?? "?"}`,
+          `[stt] PCM flowing: ${this.pcmChunks} chunks, lang=${this.opts.lang}, sampleRate=${this.audioCtx?.sampleRate ?? "?"}, peak=${level.toFixed(3)}`,
         );
       }
-      // Heartbeat for the live "capturing" indicator. Separate, always-on
-      // throttle (the diagnostic log above stops after the first few seconds) so
-      // the panel keeps a fresh signal for the whole session — this is what tells
-      // the dot apart from the "enabled but no audio" amber state.
+      // Heartbeat for the live "capturing" indicator, carrying the level so the
+      // UI can tell real audio from a silent clone (chunks flowing at peak≈0).
       if (now - this.lastCapturePingAt >= CAPTURE_PING_MS) {
         this.lastCapturePingAt = now;
-        this.opts.onCapture?.();
+        this.opts.onCapture?.(level);
       }
       if (this.ws?.readyState === WebSocket.OPEN) {
         this.ws.send(buf);
