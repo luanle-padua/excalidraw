@@ -45,3 +45,9 @@ call-bar-pre-live.png
 text-translate-before.png
 post-invite-click.png
 post-upload.png
+
+# handbook generated output
+docs/handbook/dist/
+
+# local test credentials — never commit
+USER-CANVASM.txt

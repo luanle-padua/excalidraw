@@ -1,0 +1,29 @@
+/* ============================================================================
+   Canvas M — Participant Handbook · "Architectural Monograph"
+   book.css — MANIFEST ONLY. Imports the cascade layers in dependency order.
+
+   Dependency direction is enforced by @layer: blocks > layouts > objects >
+   base > tokens, regardless of selector specificity (zero !important, zero IDs).
+   To add a layout: drop a file in 4-layouts/ and add one @import line below.
+   See README.md for the five recipes.
+   ========================================================================== */
+
+@layer tokens, base, objects, layouts, blocks;
+
+/* fonts (unlayered — just loads faces). Self-hosted woff2 swaps in at chunk 6. */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Manrope:wght@300..800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@300..700&family=Noto+Serif+KR:wght@300..600&display=swap");
+
+@import "1-tokens.css" layer(tokens);
+@import "2-base.css" layer(base);
+@import "3-objects.css" layer(objects);
+
+@import "4-layouts/layout--opener.css" layer(layouts);
+@import "4-layouts/layout--divider.css" layer(layouts);
+@import "4-layouts/layout--prose.css" layer(layouts);
+@import "4-layouts/layout--steps.css" layer(layouts);
+@import "4-layouts/layout--plate.css" layer(layouts);
+@import "4-layouts/layout--gallery.css" layer(layouts);
+@import "4-layouts/layout--table.css" layer(layouts);
+@import "4-layouts/layout--card.css" layer(layouts);
+
+@import "5-blocks.css" layer(blocks);

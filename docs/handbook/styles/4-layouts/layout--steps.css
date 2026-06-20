@@ -1,0 +1,29 @@
+/* layout: steps — ordered task in 1–7, a support figure tracking it in 8–12,
+   asides drop into the rail below the figure. */
+.layout--steps {
+  --main: 1 / 8;
+  --rail: 8 / 13;
+}
+.layout--steps .col-side .fig {
+  margin-block-start: 0;
+}
+/* the support figure drops full-width below the steps — fills the page and
+   gives landscape app screenshots room to read (a narrow rail starved them) */
+.layout--steps .step-fig {
+  margin-block-start: var(--space-4);
+}
+.layout--steps .step-fig .fig {
+  margin: 0;
+}
+.layout--steps .step-fig .frame {
+  max-block-size: calc(30 * var(--baseline));
+}
+.layout--steps .outcome {
+  margin-block-start: 0.6rem;
+  padding-block-start: 0.5rem;
+  border-block-start: 1px solid var(--rule-soft);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 11pt;
+  color: var(--text-soft);
+}

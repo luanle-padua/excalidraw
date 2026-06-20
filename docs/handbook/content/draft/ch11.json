@@ -1,0 +1,124 @@
+{
+  "number": 11,
+  "blocks": [
+    { "id": "ch11-open", "type": "opener", "layout": "opener" },
+    { "id": "ch11-model", "type": "prose", "layout": "prose", "diagram": "ch11-flow" },
+    { "id": "ch11-upload", "type": "steps", "layout": "steps", "figure": "ch11-myfiles" },
+    { "id": "ch11-shelf", "type": "steps", "layout": "steps" },
+    { "id": "ch11-place", "type": "steps", "layout": "steps" },
+    { "id": "ch11-toolbar", "type": "reference-table", "layout": "table" },
+    { "id": "ch11-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch11-state-empty", "ch11-state-nomatch", "ch11-state-readonly"] },
+    { "id": "ch11-lock", "type": "prose", "layout": "prose" },
+    { "id": "ch11-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch11-open": {
+      "eyebrow": "Chapter 11",
+      "title": "The meeting library",
+      "standfirst": "Every image, drawing, document and 3D model the room shares lives in one shelf. This chapter shows you how to add a file, find it again, place it on the canvas, and keep it from being deleted out from under you."
+    },
+    "ch11-model": {
+      "eyebrow": "Mental model",
+      "heading": "One shelf, shared by everyone",
+      "lead": "<b>The library is the room's shared shelf of files.</b> Anything you upload appears for every participant, and anything they upload appears for you. It is not your personal storage — it belongs to <em>this meeting</em>.",
+      "body": "Four kinds of file are first-class here: ordinary <b>images</b>, <b>DXF</b> CAD drawings, <b>PDF</b> documents, and <b>IFC</b> 3D building models. Each tile carries a small type badge — <kbd>IMG</kbd>, <kbd>DXF</kbd>, <kbd>PDF</kbd>, <kbd>IFC</kbd>, or <kbd>FILE</kbd> for anything else. A file in the library is just a file; it does nothing until you <b>place</b> it on the canvas by clicking or dragging its tile.",
+      "pull": "Adding a file to the library shares it with the whole room. Placing it on the canvas is a separate, second step.",
+      "diagram": { "label": "Upload → shelf → canvas", "cap": "A file flows from your device into the shared shelf, then onto the canvas only when you click or drag it." },
+      "note": { "tag": "Good to know", "html": "When you paste or drop an image straight onto the canvas, Canvas M quietly adds it to the library too, so peers receive it. App-generated assets — stickers, stamps, and the snapshot images behind PDF, DXF and IFC anchors — are deliberately kept out of the shelf so it stays clean." }
+    },
+    "ch11-upload": {
+      "eyebrow": "Adding files",
+      "heading": "Upload from your device",
+      "steps": [
+        "Open the library panel in the meeting.",
+        "Click <b>+ Upload image / DXF / PDF / IFC · or drag &amp; drop</b> at the top of the panel.",
+        "Pick one or more files — the picker accepts images, <kbd>.dxf</kbd>, <kbd>.pdf</kbd> and <kbd>.ifc</kbd>. You can select several at once.",
+        "Alternatively, drag files from your desktop straight onto the panel; the button changes to <b>Drop files to upload</b> while you hover.",
+        "Wait for the tile to appear — IFC models are baked in the background and can take several seconds for large files."
+      ],
+      "outcome": "Each accepted file becomes a tile in the shelf, tagged with your name as the uploader, and is shared with everyone in the room.",
+      "note": "Only images, DXF, PDF and IFC are accepted. Drop anything else and you get “Only images, DXF, PDF and IFC are supported for now. Skipped: <em>name</em>”, and that one file is skipped while the rest carry on.",
+      "figcap": "The library panel with the upload button and the My Files shelf entry."
+    },
+    "ch11-shelf": {
+      "eyebrow": "Adding files",
+      "heading": "Reuse a file from “My Files”",
+      "steps": [
+        "Click <b>From my shelf</b> (the folder-heart button next to Upload).",
+        "The <b>My Files</b> picker opens with the hint <em>Click to copy into this meeting</em>.",
+        "Click any row to copy that document into the meeting; its row shows <b>Copying into the meeting…</b> while it works.",
+        "If the file is marked <b>Private</b>, confirm the prompt that warns everyone in the meeting will be able to see it.",
+        "The picker closes and the copied file appears as a normal library tile, owned by you."
+      ],
+      "outcome": "The meeting gets its own private copy of the document — baked and encrypted for this room. Deleting it here never touches the original on your shelf.",
+      "host": { "tag": "Host-only", "html": "<b>From my shelf</b> only appears for internal accounts. If you do not see it, your account simply isn't connected to a personal shelf — use the upload button instead; the result is identical." },
+      "note": "Each row shows the file kind, name, a <b>Private</b> or <b>Sharable</b> badge, and its size. If your shelf is empty you'll read “Your shelf is empty — upload from the home page, under “My Files”.”"
+    },
+    "ch11-place": {
+      "eyebrow": "Using files",
+      "heading": "Put a file on the canvas",
+      "steps": [
+        "<b>Click a tile</b> to drop it at the centre of your current view.",
+        "Or <b>drag a tile</b> onto the canvas to place it exactly where you let go.",
+        "Images land at their natural size (capped so large pictures stay sane); DXF, PDF and IFC land at a sensible default frame you can resize with the normal selection handles.",
+        "PDFs open on page 1 — advance pages later from the focus toolbar on the placed document.",
+        "Click the tile again and Canvas M jumps to the copy already on the canvas instead of dropping a duplicate."
+      ],
+      "outcome": "The file appears as a normal canvas element that everyone in the room can see, move, and draw on top of.",
+      "note": "Pen strokes, shapes and stickers you add <em>after</em> a PDF or IFC sit on top of it via the usual “Bring to Front” ordering, because those anchors are real image elements on the canvas — not a separate overlay.",
+      "figcap": "Click to insert at centre; drag to place at the drop point."
+    },
+    "ch11-toolbar": {
+      "eyebrow": "Finding files",
+      "heading": "Search, filter, sort and view",
+      "cols": ["Control", "What it does", "Notes"],
+      "rows": [
+        ["<b>Search</b> box", "Filters tiles by file name or uploader", "Placeholder reads “Search by name or uploader…”; matching is live as you type"],
+        ["Filter chips", "Show only one type: <b>All</b>, <b>DXF</b>, <b>IFC</b>, <b>PDF</b>, <b>Image</b>, <b>Other</b>", "Each chip shows a count; chips with zero files are hidden, but <b>All</b> always shows"],
+        ["<b>Sort</b> menu", "Orders tiles", "<b>Newest</b> (default), <b>Oldest</b>, <b>Name A-Z</b>, <b>Uploader</b>"],
+        ["Grid button (▦)", "Shows tiles as a grid", "The default layout"],
+        ["List button (☰)", "Shows tiles as rows with a relative timestamp", "Times read “just now”, “2m”, “3h”, “5d”, then a date"],
+        ["Group button (⌘)", "Groups files under collapsible type headings", "Sections: CAD drawings, IFC models, PDF documents, Images, Other files — click a heading to collapse it"]
+      ],
+      "note": "The search box, chips, sort and view controls only appear once the room has at least one file. None of these settings are saved — each time you open the meeting the library starts on Newest, grid view, All files."
+    },
+    "ch11-states": {
+      "eyebrow": "What you might see",
+      "heading": "The three resting states",
+      "tiles": [
+        { "state": "Empty room", "cap": "“No files in this room yet.” with the hint “Drag images here or paste/drop onto the canvas to get started.” The toolbar controls stay hidden." },
+        { "state": "No match", "cap": "“No files match the filters.” with a <b>Clear filters</b> button that resets the search box and the chip back to All." },
+        { "state": "Read-only", "cap": "After the meeting ends the upload button is disabled with the tooltip “The meeting has finished — the library is read-only, uploads are disabled.” You can still place existing files on the canvas." }
+      ],
+      "useWhen": "Use these to tell apart “nothing here yet” from “your filter hid everything” — the first means upload something, the second means clear your filters."
+    },
+    "ch11-lock": {
+      "eyebrow": "Protecting files",
+      "heading": "Locking, deleting, and linking",
+      "lead": "<b>Each tile carries three actions.</b> Hover a tile to reveal them: a <b>link</b> button (🔗), a <b>lock</b> toggle (🔓 unlocked, 🔒 locked), and a <b>delete</b> button (✕).",
+      "body": "<b>Lock</b> a file to stop anyone else removing it. Once locked, only the person who locked it or the original uploader can unlock it again — anyone else trying gets “Only <em>locker</em> (who locked it) or <em>uploader</em> (the uploader) can unlock it.” <b>Delete</b> removes the file from the library <em>and</em> every copy of it on the canvas, for everyone, after a confirmation. If the file is locked by someone else the delete button is disabled and reads “File is locked by <em>name</em>”; click it anyway and you're told to ask them to unlock it first. The <b>link</b> button connects the file to a text element you've selected on the canvas, so the file can be mentioned from there.",
+      "pull": "Locking protects a file from deletion; it does not stop people placing it on the canvas.",
+      "note": { "tag": "Heads up", "variant": "warn", "html": "Deleting a file is destructive and shared — it pulls every on-canvas copy out from under every participant. The confirmation spells this out: “Every image using this file on the canvas is removed too (for everyone).” There is no undo from the library." }
+    },
+    "ch11-trouble": {
+      "eyebrow": "When it doesn't work",
+      "heading": "Library troubleshooting",
+      "rows": [
+        { "sym": "My file was skipped on upload", "cause": "The type isn't supported — only images, DXF, PDF and IFC are accepted", "fix": "Convert it or upload a supported format; you'll see “…Skipped: name” for each rejected file", "ref": "11.2" },
+        { "sym": "“Couldn't process IFC file”", "cause": "The IFC model failed to bake (corrupt or unsupported geometry)", "fix": "Re-export the IFC from your authoring tool and try again; other files in the same batch are unaffected", "ref": "11.2" },
+        { "sym": "The upload button is greyed out", "cause": "The meeting has finished — the library is read-only", "fix": "You can still drag existing files onto the canvas; uploading needs a live meeting", "ref": "11.7" },
+        { "sym": "Clicking a tile doesn't add a second copy", "cause": "That file is already on the canvas; Canvas M scrolls to it instead", "fix": "This is intended — drag the tile if you genuinely want it in a new spot", "ref": "11.5" },
+        { "sym": "I can't delete a file", "cause": "It's locked by someone else", "fix": "Ask the person who locked it, or the original uploader, to unlock or delete it", "ref": "11.8" },
+        { "sym": "Search controls are missing", "cause": "The room has no files yet", "fix": "Upload or drop a file — the toolbar appears once there's at least one", "ref": "11.6" }
+      ],
+      "note": "Search and filter settings reset every time you reopen the meeting — that is by design, not a fault."
+    }
+  },
+  "figures": {
+    "ch11-flow": { "ref": "11.1", "placeholder": "Diagram: device → shared shelf → canvas, with the second arrow labelled ‘click or drag’" },
+    "ch11-myfiles": { "ref": "11.2", "placeholder": "Library panel: upload button and From my shelf entry", "shot": "04-files/my-files" },
+    "ch11-state-empty": { "ref": "11.3", "placeholder": "Empty library: ‘No files in this room yet.’" },
+    "ch11-state-nomatch": { "ref": "11.4", "placeholder": "Filtered to nothing: ‘No files match the filters.’ with Clear filters" },
+    "ch11-state-readonly": { "ref": "11.5", "placeholder": "Finished meeting: disabled upload button with read-only tooltip" }
+  }
+}

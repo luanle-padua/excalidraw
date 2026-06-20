@@ -1,0 +1,76 @@
+/* ============================================================================
+   print.css — paged A4 (media="print"). White paper, mirrored margins for a
+   bound spine, break discipline. Chunk 6 wires Paged.js for TOC page-refs +
+   running heads; the geometry + breaks below already make Ctrl-P faithful.
+   ========================================================================== */
+
+@media print {
+  /* The .page IS the full A4 sheet (bleed); its own padding is the page
+     margin, so the crop-marks (inset from the sheet) always frame the content.
+     @page margin is therefore 0. */
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: var(--paper) !important;
+    padding: 0;
+  }
+  .book {
+    display: block;
+  }
+  .page {
+    inline-size: var(--page-w);
+    min-block-size: var(--page-h);
+    margin: 0;
+    box-shadow: none;
+    break-after: page;
+  }
+  .page:last-child {
+    break-after: auto;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .reader-bar,
+  [data-screen-only] {
+    display: none !important;
+  }
+  [data-print-only] {
+    display: revert;
+  }
+
+  h1,
+  h2,
+  h3,
+  .title,
+  .part-title {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  figure.fig,
+  .note,
+  .card,
+  ol.steps > li,
+  table tr {
+    break-inside: avoid;
+  }
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  [lang="ko"] {
+    word-break: keep-all;
+  }
+}

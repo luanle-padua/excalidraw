@@ -1,0 +1,24 @@
+/* layout: prose — mental-model pages. Lead-in column 1–7, a tall drawn
+   diagram (hairline, not a screenshot) in 8–12, pull-quote may interrupt. */
+.layout--prose {
+  --main: 1 / 8;
+  --rail: 8 / 13;
+}
+.layout--prose .diagram {
+  border: 1px solid var(--rule);
+  background: var(--paper-2);
+  background-image: linear-gradient(var(--rule-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule-faint) 1px, transparent 1px);
+  background-size: 5mm 5mm, 5mm 5mm;
+  min-block-size: 70mm;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.layout--prose .diagram .cap {
+  display: block;
+  margin-block-start: 6px;
+}

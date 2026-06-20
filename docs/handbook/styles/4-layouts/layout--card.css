@@ -1,0 +1,53 @@
+/* layout: card — glance-at / tear-out tools (60-second, panic card, recap).
+   A bordered card echoing the title-block stroke; mono-titled cells; denser
+   margins to signal "tool, not read"; no body serif, no drop-cap. */
+.layout--card .card {
+  border: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(var(--cells, 3), 1fr);
+}
+.layout--card .card > section {
+  padding: 16px 18px;
+  border-inline-start: 1px solid var(--rule-soft);
+}
+.layout--card .card > section:first-child {
+  border-inline-start: 0;
+}
+.layout--card .card__h {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 10px;
+  padding-block-end: 6px;
+  border-block-end: 1px solid var(--rule-soft);
+}
+.layout--card .card ol,
+.layout--card .card ul {
+  margin: 0;
+  padding-inline-start: 0;
+  list-style: none;
+}
+.layout--card .card li {
+  display: flex;
+  gap: 9px;
+  padding-block: 5px;
+  font-size: 9pt;
+  line-height: 1.4;
+}
+.layout--card .card li .k {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  font-weight: 600;
+  color: var(--accent);
+  flex: 0 0 16px;
+}
+.layout--card .card__lead {
+  font-family: var(--font-display);
+  font-size: 13pt;
+  font-style: italic;
+  color: var(--text-soft);
+  margin: 0 0 1rem;
+}

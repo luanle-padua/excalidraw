@@ -1,0 +1,36 @@
+/* layout: opener — chapter frontispiece. The ONE gold-numeral moment.
+   Kicker up top; the rest sinks to the foot (numeral, title, rule, standfirst,
+   title block lower-outer). */
+.layout--opener .opener {
+  min-block-size: calc(
+    var(--page-h) - var(--margin-top) - var(--margin-bottom)
+  );
+  display: flex;
+  flex-direction: column;
+}
+.layout--opener .numeral {
+  font-size: var(--fs-numeral);
+  font-weight: 300;
+  margin-block: auto 0; /* pushes everything below the kicker to the foot */
+}
+.layout--opener .title {
+  font-size: var(--fs-disp);
+  line-height: var(--lh-disp);
+  font-weight: 400;
+  max-inline-size: 15ch;
+  margin-block-start: var(--space-1);
+}
+.layout--opener .rule {
+  inline-size: 100%;
+  block-size: 1px;
+  background: var(--rule);
+  margin-block: var(--space-3);
+}
+.layout--opener .standfirst {
+  margin-block-end: 0;
+}
+.layout--opener .titleblock {
+  align-self: flex-end;
+  inline-size: 64mm;
+  margin-block-start: var(--space-4);
+}

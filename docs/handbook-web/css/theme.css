@@ -1,0 +1,152 @@
+/* ============================================================
+   Canvas M — Handbook Web · "Glass-Desk Atelier" design system
+   Dark-default, frosted-glass panels, purple accent, gold host asides.
+   ============================================================ */
+
+:root {
+  /* Brand */
+  --accent: #5e5ad8;
+  --accent-bright: #a8a5ff;
+  --accent-soft: rgba(94, 90, 216, 0.16);
+  --gold: #b08d3e;
+  --gold-bright: #d8b873;
+  --gold-soft: rgba(176, 141, 62, 0.12);
+  --ink: #16161a;
+
+  /* Dark theme (default) */
+  --bg: #0f0f15;
+  --bg-2: #14141c;
+  --panel: rgba(28, 27, 42, 0.62);
+  --panel-solid: #1a1a25;
+  --panel-2: rgba(40, 39, 60, 0.5);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #ecebf5;
+  --text-dim: #a7a6bd;
+  --text-faint: #6f6e85;
+  --shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.7);
+  --shadow-sm: 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --glass-blur: 18px;
+  --code-bg: rgba(255, 255, 255, 0.05);
+
+  /* Callout tints */
+  --tip: #4fbf8b;
+  --tip-bg: rgba(79, 191, 139, 0.1);
+  --note: #5e9bd8;
+  --note-bg: rgba(94, 155, 216, 0.1);
+  --warn: #e0894f;
+  --warn-bg: rgba(224, 137, 79, 0.1);
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --maxw: 760px;
+  --sidebar-w: 296px;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-ui: "Manrope", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+}
+
+html[data-theme="light"] {
+  --bg: #f6f5f2;
+  --bg-2: #efeee9;
+  --panel: rgba(255, 255, 255, 0.7);
+  --panel-solid: #ffffff;
+  --panel-2: rgba(94, 90, 216, 0.04);
+  --border: rgba(22, 22, 26, 0.1);
+  --border-strong: rgba(22, 22, 26, 0.18);
+  --text: #1d1c28;
+  --text-dim: #56546a;
+  --text-faint: #8d8ba0;
+  --shadow: 0 24px 60px -24px rgba(60, 56, 110, 0.28);
+  --shadow-sm: 0 8px 24px -14px rgba(60, 56, 110, 0.22);
+  --code-bg: rgba(22, 22, 26, 0.05);
+  --accent-soft: rgba(94, 90, 216, 0.1);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; scroll-padding-top: 92px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.62;
+  font-size: 16.5px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.1px;
+}
+
+/* Ambient backdrop — soft aurora that reads as "glass desk" */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(900px 600px at 12% -8%, rgba(94, 90, 216, 0.22), transparent 60%),
+    radial-gradient(800px 700px at 100% 0%, rgba(176, 141, 62, 0.1), transparent 55%),
+    radial-gradient(700px 700px at 80% 110%, rgba(94, 90, 216, 0.12), transparent 60%);
+  pointer-events: none;
+}
+html[data-theme="light"] body::before {
+  background:
+    radial-gradient(900px 600px at 12% -8%, rgba(94, 90, 216, 0.13), transparent 60%),
+    radial-gradient(800px 700px at 100% 0%, rgba(176, 141, 62, 0.1), transparent 55%);
+}
+
+a { color: var(--accent-bright); text-decoration: none; }
+html[data-theme="light"] a { color: var(--accent); }
+a:hover { text-decoration: underline; }
+
+::selection { background: var(--accent-soft); color: var(--text); }
+
+/* ---------- Typography ---------- */
+h1, h2, h3 { font-family: var(--font-display); font-weight: 560; line-height: 1.18; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.1rem, 4.4vw, 3.1rem); margin: 0 0 0.4em; }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); margin: 2.4em 0 0.6em; }
+h3 { font-size: 1.22rem; margin: 1.8em 0 0.5em; font-family: var(--font-ui); font-weight: 700; letter-spacing: 0; }
+p { margin: 0 0 1.1em; color: var(--text); }
+strong { color: var(--text); font-weight: 700; }
+.lead { font-size: 1.2rem; color: var(--text-dim); line-height: 1.6; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  font-weight: 500;
+}
+html[data-theme="light"] .eyebrow { color: var(--accent); }
+
+code, kbd { font-family: var(--font-mono); font-size: 0.86em; }
+:not(pre) > code {
+  background: var(--code-bg);
+  padding: 0.12em 0.42em;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--accent-bright);
+}
+html[data-theme="light"] :not(pre) > code { color: var(--accent); }
+
+/* ---------- Buttons / chips ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5em;
+  font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem;
+  padding: 0.6em 1.1em; border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong); background: var(--panel);
+  color: var(--text); cursor: pointer; transition: all 0.18s ease;
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+.btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #7a76e8);
+  border-color: transparent; color: #fff;
+}
+.btn-primary:hover { box-shadow: 0 8px 24px -8px var(--accent); }

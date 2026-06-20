@@ -1,0 +1,33 @@
+/* layout: gallery — the same thing in different STATES, as a specimen sheet.
+   Uniform hairline tiles + mono captions. 2 or 3 columns via --cols. */
+.layout--gallery .gallery {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  gap: var(--col-gap);
+  margin-block: 1.2rem 0;
+}
+.layout--gallery .gallery .fig {
+  margin: 0;
+}
+.layout--gallery .gallery .fig__cap {
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.layout--gallery .gallery .state {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.layout--gallery .use-when {
+  margin-block-start: 1.2rem;
+  padding-block-start: 0.6rem;
+  border-block-start: 1px solid var(--rule);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 12pt;
+  color: var(--text-soft);
+  max-inline-size: 60ch;
+}

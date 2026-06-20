@@ -1,0 +1,116 @@
+{
+  "number": 14,
+  "blocks": [
+    { "id": "ch14-open", "type": "opener", "layout": "opener" },
+    { "id": "ch14-concept", "type": "prose", "layout": "prose", "diagram": "ch14-twolayers" },
+    { "id": "ch14-panel-open", "type": "steps", "layout": "steps", "figure": "ch14-transcript" },
+    { "id": "ch14-controls", "type": "reference-table", "layout": "table" },
+    { "id": "ch14-status", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch14-st-live", "ch14-st-noaudio", "ch14-st-paused"] },
+    { "id": "ch14-dock", "type": "prose", "layout": "prose", "diagram": "ch14-dock-anatomy" },
+    { "id": "ch14-recording", "type": "steps", "layout": "steps" },
+    { "id": "ch14-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch14-open": {
+      "eyebrow": "Chapter 14",
+      "title": "Captions &amp; transcript",
+      "standfirst": "Canvas M can listen to the room and write it down. A live <b>caption strip</b> floats subtitles at the bottom of a shared screen; a draggable <b>Live transcript</b> panel keeps the full, scrollable history. Both can translate into the language you prefer, line by line. This chapter covers every toggle, state and error you will meet as a participant, and gently points out where the host holds the controls."
+    },
+    "ch14-concept": {
+      "eyebrow": "How it fits together",
+      "heading": "Two views of one stream",
+      "lead": "<b>Speech-to-text</b> (STT) turns spoken audio into text in real time. Canvas M shows that text in two places, and both read the same underlying stream — turning a knob in one is reflected in the other.",
+      "body": "The <b>Live transcript</b> panel is the full record: every finalised line, oldest at the top, with a speaker name, a timestamp and (optionally) a translation beneath. It is a scrollable history you can drag, resize and leave open. The <b>caption strip</b> is a glance-only layer: a slim glass band pinned to the bottom of whatever is being shared, showing only the newest one to three lines of whoever is speaking right now, then auto-hiding after a few seconds of silence.",
+      "pull": "The panel is the record. The strip is the glance. Same words, two windows.",
+      "diagram": { "label": "STT feeds both the transcript panel and the caption strip", "cap": "One recognition stream, two surfaces: the scrollable panel keeps everything; the strip shows only the freshest lines and collapses to a small <b>CC</b> puck when no one is talking." },
+      "note": { "tag": "Good to know", "html": "Two kinds of line exist. An <b>interim</b> line is a still-changing guess — it appears dimmed and italic, and is never translated (it would flicker word by word). A <b>final</b> line is locked in; only finals get a translation." }
+    },
+    "ch14-panel-open": {
+      "eyebrow": "Opening the transcript",
+      "heading": "Show the Live transcript panel",
+      "steps": [
+        "Find the floating <b>Live transcript</b> pill near the bottom-left of the canvas. A small number badge on it counts the segments captured so far.",
+        "Click it. The panel opens already scrolled to the newest line.",
+        "To start capturing your own voice, click <b>STT: off</b> so it becomes <b>STT: on</b> — your mic is now transcribed live.",
+        "To read everyone in your own language, click <b>Translate: off</b> so it becomes <b>Translate: on</b>; each finalised line gains an italic translation beneath it.",
+        "Drag the panel by its header to reposition it; drag the bottom-right corner to resize. Double-click the header to snap it back to the default size and place.",
+        "Click <b>×</b> (titled <b>Hide (still logging in background)</b>) to tuck the panel away. Recognition keeps running while it is hidden."
+      ],
+      "outcome": "The panel lists finalised lines with a speaker name, a clock time and — when translation is on and the language differs — a translated line beneath. Your own in-progress speech appears at the bottom marked <b>speaking…</b>.",
+      "note": "Toggling <b>STT</b> or <b>Translate</b> here is the <em>same</em> switch the caption strip obeys. Turn translation on once and both surfaces speak your language.",
+      "host": { "tag": "Host-only", "html": "Whether STT starts on for everyone by default is part of the host's meeting setup; as a participant you can always flip your own <b>STT</b> and <b>Translate</b> from this panel." },
+      "figcap": "The Live transcript panel, opened from the floating pill, with finalised lines and a live interim row."
+    },
+    "ch14-controls": {
+      "eyebrow": "Every control on the panel",
+      "heading": "Transcript panel reference",
+      "cols": ["Control", "Label / states", "What it does"],
+      "rows": [
+        ["Show button", "<b>Live transcript</b> (with a count badge)", "Opens the panel. The badge shows how many segments exist."],
+        ["STT toggle", "<b>STT: on</b> / <b>STT: off</b>", "Turns speech recognition of <em>your</em> mic on or off. Tooltip: <em>Turn on/off speech recognition</em>. Hidden in review (read-only) mode."],
+        ["Translate toggle", "<b>Translate: on</b> / <b>Translate: off</b>", "Translates each finalised segment into your preferred language. Tooltip: <em>Translate transcript to preferred language</em>."],
+        ["STT model", "<b>STT model</b> dropdown (default <em>Deepgram Nova-3</em>)", "Picks the recognition model; each option shows its per-minute price. Changing it restarts the live session. Hidden in review mode."],
+        ["Language I speak", "<b>English</b> · <b>한국어</b> · <b>Tiếng Việt</b>", "The language Deepgram transcribes <em>your</em> mic in — independent of the app's interface language. Changing it restarts your session."],
+        ["Density toggle", "<b>Full</b> / <b>Compact</b>", "Full shows the whole scrollable history; Compact shows only the 3 newest lines with trimmed chrome and hides the configuration row."],
+        ["Test file", "<b>Test file</b> / <b>Testing…</b>", "A testing aid: plays an audio file through the recognition pipeline. Hidden in review mode."],
+        ["Hide", "<b>×</b> — <em>Hide (still logging in background)</em>", "Closes the panel without stopping recognition."],
+        ["Resize handle", "bottom-right corner", "Drag to resize; the panel remembers its size and position on this device."]
+      ],
+      "note": "Your spoken-language, model, density and translate choices are saved per device, so they survive a reload. In <b>Compact</b> mode the whole settings row is hidden — switch back to <b>Full</b> to reach the model, language and test controls.",
+      "host": null
+    },
+    "ch14-status": {
+      "eyebrow": "Reading the status pill",
+      "heading": "What the status badge is telling you",
+      "tiles": [
+        { "state": "Live", "cap": "STT is on and your mic audio is genuinely flowing into recognition — a pulsing dot and three rippling level bars. This is the only state that proves the mic is actually being heard." },
+        { "state": "No audio", "cap": "STT is on but nothing has reached it for a couple of seconds — a hollow amber ring. Usually a muted mic or a sound system that needs a tap to wake (common on iPad). Captions cannot appear until audio flows." },
+        { "state": "PAUSED", "cap": "STT is off. Click <b>STT: off</b> to turn it on. The transcript body reads <em>Turn on STT to start speech recognition.</em>" }
+      ],
+      "useWhen": "Glance at the pill in the panel header whenever captions or transcript lines are not appearing — it separates \"off\" from \"on but silent\" from \"genuinely live.\" Two more pills appear during the testing flow: <b>TEST</b> (an audio file is playing through the pipeline) and <b>ERROR</b> (the test failed). When STT is on and waiting, the body shows <em>Waiting for someone to speak…</em>."
+    },
+    "ch14-dock": {
+      "eyebrow": "The caption strip",
+      "heading": "Live captions over a shared screen",
+      "lead": "When someone shares a screen, a thin glass <b>caption strip</b> appears along the bottom of the shared view and shows the newest lines of whoever is speaking. It is on by default, so captions light up automatically — no hunting for a toggle.",
+      "body": "Each line carries the speaker's name in their personal colour, with a pulsing dot while they are still talking. After about four seconds of silence the strip collapses to a small <b>CC</b> puck and reappears on the next utterance. The strip rides whichever surface owns the view: the in-app viewer pane, the gallery, the presenter's picture-in-picture, or a plain overlay on the canvas. When you pop a shared screen out into its own window, the captions follow it there.",
+      "diagram": { "label": "Caption strip controls", "cap": "On the strip: the <b>CC</b> button toggles captions; the <b>1 / 2 / 3</b> group sets how many lines show; the <b>A / A / A</b> group sets Small / Medium / Large text; the <b>×</b> hides the current strip until the next line. When CC is off, only a small <b>CC</b> puck remains so you can turn it back on." },
+      "note": { "tag": "Two different hides", "html": "The <b>×</b> on the strip is titled <em>Hide captions for now</em> — it dismisses the current strip but leaves captions on, so they return on the next sentence. The <b>CC</b> button actually turns the feature off. Captions follow the <em>same</em> translation toggle as the transcript panel: with <b>Translate</b> on you read everyone in your language; with it off you see their original words verbatim, never a blank line." }
+    },
+    "ch14-recording": {
+      "eyebrow": "Recording the meeting",
+      "heading": "Who can record, and what you see",
+      "steps": [
+        "Look in the bottom call-controls bar for a small red record-dot. If you are a participant (not the host) it is greyed out.",
+        "Hover it: the tooltip reads <em>Only the host (Name) can record</em> — this tells you who holds the control.",
+        "When the host starts recording, an inline pill appears in everyone's call bar: a pulsing red dot and a ticking timer such as <b>0:05</b>.",
+        "Hover the pill as a participant to see <em>Name is recording the meeting · 0:05</em>. Your pill is read-only — it has no stop button.",
+        "When the host stops, the pill disappears for everyone. The recording file downloads to the host's device only."
+      ],
+      "outcome": "Recording state lives entirely in the call bar — there is no banner across the canvas. The same pill is shown to host and participants, so you always know when the meeting is being captured.",
+      "host": { "tag": "Host-only", "html": "Only the host can start and stop recording, and the file saves to the host's machine. Recording captures audio (your mic plus peers) — it is separate from the text transcript, which any participant can keep with <b>STT</b> on." }
+    },
+    "ch14-trouble": {
+      "eyebrow": "When captions misbehave",
+      "heading": "Captions &amp; transcript troubleshooting",
+      "rows": [
+        { "sym": "No lines appear, status reads <b>No audio</b>", "cause": "Mic muted, or the audio context is suspended (common on iPad after switching tabs).", "fix": "Unmute your mic and speak; tap the page if needed to wake audio. The pill turns to <b>Live</b> with rippling bars once audio flows.", "ref": "14.5" },
+        { "sym": "Transcript body says <em>Turn on STT to start speech recognition.</em>", "cause": "STT is off (status pill reads <b>PAUSED</b>).", "fix": "Click <b>STT: off</b> in the panel so it reads <b>STT: on</b>.", "ref": "14.4" },
+        { "sym": "Lines stay in another language", "cause": "Translation is off, or the line is still an interim guess.", "fix": "Click <b>Translate: off</b> so it reads <b>Translate: on</b>; interim (dimmed, italic) lines are never translated — wait for the final line.", "ref": "14.3" },
+        { "sym": "Captions never appear over a shared screen", "cause": "The <b>CC</b> button was switched off, leaving only the small CC puck.", "fix": "Click the <b>CC</b> puck on the shared view to turn captions back on.", "ref": "14.6" },
+        { "sym": "Captions vanish mid-conversation", "cause": "Normal behaviour — the strip auto-hides after ~4 seconds of silence.", "fix": "Nothing to do; the strip returns on the next utterance. Use the line-count and text-size controls if it feels too small.", "ref": "14.6" },
+        { "sym": "I can't find a record button", "cause": "Only the host can record; a participant's record-dot is disabled.", "fix": "Ask the host to start recording. Hover the greyed dot to confirm who the host is.", "ref": "14.7" },
+        { "sym": "<em>STT WebSocket error</em> / <em>STT error</em> in the panel footer", "cause": "The recognition connection dropped or failed to configure.", "fix": "Toggle <b>STT</b> off and on to restart the session; check your network. The footer surfaces these errors so a silent failure stays visible.", "ref": "14.4" }
+      ],
+      "note": "The <b>No audio</b> heartbeat exists precisely because \"STT is on\" never proved your mic was reaching recognition. When in doubt, trust the pulsing <b>Live</b> meter, not the toggle."
+    }
+  },
+  "figures": {
+    "ch14-twolayers": { "ref": "14.1", "placeholder": "Diagram: one STT stream branching to the scrollable transcript panel and the bottom caption strip" },
+    "ch14-transcript": { "ref": "14.2", "placeholder": "Live transcript panel with finalised lines, speaker colours, timestamps and a live interim row", "shot": "06-meeting/transcript" },
+    "ch14-st-live": { "ref": "14.3", "placeholder": "Status pill in the Live state: pulsing dot and three rippling level bars" },
+    "ch14-st-noaudio": { "ref": "14.4", "placeholder": "Status pill in the No audio state: hollow amber ring" },
+    "ch14-st-paused": { "ref": "14.5", "placeholder": "Status pill in the PAUSED state with STT off" },
+    "ch14-dock-anatomy": { "ref": "14.6", "placeholder": "Caption strip anatomy: CC toggle, 1/2/3 line count, A/A/A text size, and the × quick-hide" }
+  }
+}

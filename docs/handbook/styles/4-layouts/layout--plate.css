@@ -1,0 +1,164 @@
+/* layout: plate — a hero screenshot that IS the lesson. The frame bleeds past
+   the trim; pins sit on the image; the keyed legend sits in the rail.
+   Also hosts the front cover (a full-bleed plate of brand). */
+.layout--plate {
+  --main: 1 / 9;
+  --rail: 9 / 13;
+}
+/* bleed only to the inner (spine) trim so the legend rail stays clear */
+.layout--plate .bleed {
+  margin-inline-start: calc(var(--margin-inner) * -1);
+}
+.layout--plate .bleed .frame {
+  border-inline-start: 0;
+}
+.layout--plate .legend {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+}
+.layout--plate .legend li {
+  list-style: none;
+  display: flex;
+  gap: 8px;
+  padding-block: 3px;
+  border-block-start: 1px solid var(--rule-soft);
+}
+.layout--plate .legend ol {
+  margin: 0;
+  padding: 0;
+}
+.layout--plate .legend .n {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* --- full-page plate: image fills the whole leaf, caption in the foot margin --- */
+.layout--plate.is-fullpage {
+  padding: 0;
+}
+.layout--plate.is-fullpage .grid,
+.layout--plate.is-fullpage .col-main,
+.layout--plate.is-fullpage .bleed {
+  display: block;
+  margin: 0;
+}
+.layout--plate.is-fullpage .frame {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  aspect-ratio: auto;
+}
+.layout--plate.is-fullpage.page--sheet::before {
+  content: none; /* no crop-marks on a bled leaf */
+}
+.layout--plate.is-fullpage .fig__cap {
+  position: absolute;
+  inset-block-end: 12mm;
+  inset-inline: var(--margin-inner) var(--margin-outer);
+  border: 0;
+  z-index: 2;
+}
+.layout--plate.is-fullpage .legend {
+  display: none;
+}
+
+/* --- spread, image leaf: full-bleed picture, annotations live on the facing page --- */
+.layout--plate.is-spread {
+  padding: 0;
+}
+.layout--plate.is-spread .grid,
+.layout--plate.is-spread .col-main,
+.layout--plate.is-spread .bleed {
+  display: block;
+  margin: 0;
+}
+.layout--plate.is-spread .frame {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  aspect-ratio: auto;
+}
+.layout--plate.is-spread.page--sheet::before {
+  content: none;
+}
+.layout--plate.is-spread .legend {
+  display: none;
+}
+
+/* --- spread, annotation leaf: the facing recto with the keyed legend --- */
+.layout--spreadnote .fig-numeral {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-size: var(--fs-disp);
+  font-weight: 340;
+  color: var(--gold); /* the one gold figure numeral lives here */
+  line-height: var(--lh-disp);
+}
+.layout--spreadnote .legend-table {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  max-inline-size: 110mm;
+}
+.layout--spreadnote .legend-table li {
+  display: flex;
+  gap: 12px;
+  padding-block: var(--space-1);
+  border-block-start: 1px solid var(--rule-soft);
+}
+.layout--spreadnote .legend-table .n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--accent);
+  font-weight: 600;
+  flex: 0 0 18px;
+}
+
+/* --- front cover: a plate of pure brand --- */
+.layout--plate.is-cover {
+  display: grid;
+}
+.is-cover .cover {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.is-cover .cover__mark {
+  inline-size: 86mm;
+  margin-block-end: 30mm;
+}
+.is-cover .cover__kicker {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-block-end: 14px;
+}
+.is-cover .cover__title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 52pt;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.is-cover .cover__sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 18pt;
+  color: var(--text-soft);
+  margin: 10px 0 0;
+}
+.is-cover .cover__foot {
+  margin-block-start: auto;
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}

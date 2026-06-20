@@ -1,0 +1,996 @@
+{
+  "ch1-login": {
+    "ref": "1.1",
+    "placeholder": "The Canvas M login card",
+    "shot": "01-auth/login"
+  },
+  "ch2-flow": {
+    "ref": "2.1",
+    "placeholder": "Flow diagram: Join → (live / scheduled / guest) → canvas / start gate / waiting room"
+  },
+  "ch2-join": {
+    "ref": "2.1",
+    "placeholder": "FIG 2.1 · join screen"
+  },
+  "ch2-waiting": {
+    "ref": "2.4",
+    "placeholder": "Waiting room — “Waiting to be let in” card with name + spinner"
+  },
+  "ch3-mic-muted": {
+    "ref": "3.4",
+    "placeholder": "Red struck-through mic, tooltip 'Unmute'"
+  },
+  "ch3-mic-live": {
+    "ref": "3.3",
+    "placeholder": "Solid mic icon, live, tooltip 'Mute'"
+  },
+  "ch3-mic-listen": {
+    "ref": "3.2",
+    "placeholder": "Disabled struck-mic button, tooltip 'This device has no microphone — listen only'"
+  },
+  "ch4-minimal": {
+    "ref": "4.3a",
+    "placeholder": "Minimal: bottom avatar strip, canvas maximal"
+  },
+  "ch4-filmstrip": {
+    "ref": "4.3b",
+    "placeholder": "Filmstrip: full-width camera rail docked to the bottom"
+  },
+  "ch4-gallery": {
+    "ref": "4.3c",
+    "placeholder": "Gallery: full-screen grid of cameras"
+  },
+  "ch5-present": {
+    "ref": "5.1",
+    "placeholder": "05 · floating presenter window"
+  },
+  "ch5-raise": {
+    "ref": "5.2",
+    "placeholder": "05 · raised hand"
+  },
+  "ch5-react": {
+    "ref": "5.3",
+    "placeholder": "05 · reactions popover"
+  },
+  "ch5-follow": {
+    "ref": "5.4",
+    "placeholder": "05 · following a participant"
+  },
+  "ch6-blur-light": {
+    "ref": "6.1",
+    "placeholder": "06 · blur · light"
+  },
+  "ch6-blur-medium": {
+    "ref": "6.2",
+    "placeholder": "06 · blur · medium"
+  },
+  "ch6-blur-strong": {
+    "ref": "6.3",
+    "placeholder": "06 · blur · strong"
+  },
+  "ch6-bg": {
+    "ref": "6.4",
+    "placeholder": "FIG 6.4 · background picker"
+  },
+  "ch7-toolbar": {
+    "ref": "7.1",
+    "placeholder": "FIG 7.1 · canvas toolbar",
+    "shot": "06-meeting/shell"
+  },
+  "ch7-anatomy": {
+    "ref": "7.2",
+    "placeholder": "PLATE 7.2 · toolbar anatomy",
+    "pins": [
+      {
+        "n": 1,
+        "x": 14,
+        "y": 50
+      },
+      {
+        "n": 2,
+        "x": 38,
+        "y": 50
+      },
+      {
+        "n": 3,
+        "x": 60,
+        "y": 50
+      },
+      {
+        "n": 4,
+        "x": 82,
+        "y": 50
+      },
+      {
+        "n": 5,
+        "x": 50,
+        "y": 88
+      }
+    ],
+    "shot": "06-meeting/shell"
+  },
+  "ch8-sticker": {
+    "ref": "8.1",
+    "placeholder": "08 · stickers & stamps",
+    "shot": "07-canvas/stickers"
+  },
+  "ch8-cloud": {
+    "ref": "8.2",
+    "placeholder": "08 · revision cloud + note"
+  },
+  "ch8-authors": {
+    "ref": "8.3",
+    "placeholder": "08 · author badges"
+  },
+  "ch9-translate": {
+    "ref": "9.0",
+    "placeholder": "diagram · translate text on canvas"
+  },
+  "ch9-bot": {
+    "ref": "9.6",
+    "placeholder": "Bot prompt box open on the canvas at a drop point",
+    "shot": "07-canvas/bot"
+  },
+  "ch10-share": {
+    "ref": "10.1",
+    "placeholder": "FIG 10.1 · share screen"
+  },
+  "ch10-watch": {
+    "ref": "10.2",
+    "placeholder": "PLATE 10.2 · watching a share",
+    "pins": [
+      {
+        "n": 1,
+        "x": 50,
+        "y": 18
+      },
+      {
+        "n": 2,
+        "x": 84,
+        "y": 34
+      },
+      {
+        "n": 3,
+        "x": 84,
+        "y": 60
+      }
+    ]
+  },
+  "ch11-library": {
+    "ref": "11.1",
+    "placeholder": "FIG 11.1 · meeting library bar",
+    "shot": "04-files/my-files"
+  },
+  "ch12-pdf": {
+    "ref": "12.1",
+    "placeholder": "PLATE 12.1 · PDF viewer",
+    "pins": [
+      {
+        "n": 1,
+        "x": 50,
+        "y": 12
+      },
+      {
+        "n": 2,
+        "x": 20,
+        "y": 88
+      },
+      {
+        "n": 3,
+        "x": 80,
+        "y": 88
+      }
+    ]
+  },
+  "ch12-ifc": {
+    "ref": "12.2",
+    "placeholder": "PLATE 12.2 · IFC 3D viewer",
+    "pins": [
+      {
+        "n": 1,
+        "x": 16,
+        "y": 16
+      },
+      {
+        "n": 2,
+        "x": 48,
+        "y": 16
+      },
+      {
+        "n": 3,
+        "x": 80,
+        "y": 16
+      },
+      {
+        "n": 4,
+        "x": 16,
+        "y": 84
+      }
+    ],
+    "shot": "07-canvas/3d-view"
+  },
+  "ch12-dxf": {
+    "ref": "12.3",
+    "placeholder": "PLATE 12.3 · DXF / CAD viewer",
+    "pins": [
+      {
+        "n": 1,
+        "x": 16,
+        "y": 16
+      },
+      {
+        "n": 2,
+        "x": 48,
+        "y": 16
+      },
+      {
+        "n": 3,
+        "x": 80,
+        "y": 16
+      }
+    ],
+    "shot": "07-canvas/cad-view"
+  },
+  "ch13-chat": {
+    "ref": "13.1",
+    "placeholder": "FIG 13.1 · chat panel"
+  },
+  "ch13-xlate": {
+    "ref": "13.0",
+    "placeholder": "diagram · per-message translate"
+  },
+  "ch14-cc-off": {
+    "ref": "14.1",
+    "placeholder": "14 · captions off"
+  },
+  "ch14-cc-on": {
+    "ref": "14.2",
+    "placeholder": "14 · captions on (dock)"
+  },
+  "ch14-panel": {
+    "ref": "14.3",
+    "placeholder": "14 · live transcript panel",
+    "shot": "06-meeting/transcript"
+  },
+  "ch15-dashboard": {
+    "ref": "15.1",
+    "placeholder": "FIG 15.1 · dashboard lobby",
+    "shot": "02-dashboard/home"
+  },
+  "ch16-settings": {
+    "ref": "16.1",
+    "placeholder": "PLATE 16.1 · settings shell",
+    "pins": [
+      {
+        "n": 1,
+        "x": 16,
+        "y": 22
+      },
+      {
+        "n": 2,
+        "x": 16,
+        "y": 50
+      },
+      {
+        "n": 3,
+        "x": 60,
+        "y": 40
+      },
+      {
+        "n": 4,
+        "x": 60,
+        "y": 78
+      }
+    ],
+    "shot": "08-settings/profile"
+  },
+  "ch16-profile": {
+    "ref": "16.2",
+    "placeholder": "FIG 16.2 · profile & avatar",
+    "shot": "08-settings/profile"
+  },
+  "ch17-leave": {
+    "ref": "17.1",
+    "placeholder": "FIG 17.1 · leave & review banner"
+  },
+  "ch19-manage": {
+    "ref": "19.1",
+    "placeholder": "Manage projects page: search box, grid/list toggle, New project button, and grouped project tiles (My projects / Invited)",
+    "shot": "03-projects/manage"
+  },
+  "ch20-form": {
+    "ref": "20.1",
+    "shot": "02-dashboard/new-meeting",
+    "placeholder": "FIG 20.1 · new meeting"
+  },
+  "ch21-guests": {
+    "ref": "21.1",
+    "shot": "05-client/guest-manager",
+    "placeholder": "FIG 21.1 · guest manager"
+  },
+  "ch22-shell": {
+    "ref": "22.1",
+    "shot": "06-meeting/shell",
+    "placeholder": "FIG 22.1 · host header"
+  },
+  "ch1-mode-password": {
+    "ref": "1.2",
+    "placeholder": "Password form"
+  },
+  "ch1-mode-magic": {
+    "ref": "1.3",
+    "placeholder": "Login-link (guest) form"
+  },
+  "ch1-mode-link": {
+    "ref": "1.4",
+    "placeholder": "Meeting-link form"
+  },
+  "ch2-portal": {
+    "ref": "2.2",
+    "placeholder": "Guest portal — “Your meetings with MAP” with Join / Review rows"
+  },
+  "ch2-gate-wait": {
+    "ref": "2.3a",
+    "placeholder": "Start gate — “Meeting hasn't started yet” with spinner"
+  },
+  "ch2-gate-cancelled": {
+    "ref": "2.3b",
+    "placeholder": "Start gate — “Meeting cancelled” terminal notice"
+  },
+  "ch2-gate-finished": {
+    "ref": "2.3c",
+    "placeholder": "Start gate — “Meeting has ended” terminal notice"
+  },
+  "ch2-shell": {
+    "ref": "2.5",
+    "placeholder": "Meeting shell with numbered header legend",
+    "shot": "06-meeting/shell"
+  },
+  "ch2-call-idle": {
+    "ref": "2.6a",
+    "placeholder": "Media group before joining the call — open-door Join button"
+  },
+  "ch2-call-live": {
+    "ref": "2.6b",
+    "placeholder": "Live call cluster — mic / camera / hand / reactions / leave call"
+  },
+  "ch2-call-error": {
+    "ref": "2.6c",
+    "placeholder": "Red mic-off error button with retry tooltip"
+  },
+  "ch3-shell": {
+    "ref": "3.1",
+    "placeholder": "Meeting header with the live call cluster: mic, camera, raise-hand, reactions, recording, leave-call",
+    "shot": "06-meeting/shell"
+  },
+  "ch3-shell-plate": {
+    "ref": "3.5",
+    "placeholder": "People strip with count chip, self tile, mic dots, host crown, raised hand and reaction emoji",
+    "shot": "06-meeting/shell"
+  },
+  "ch4-surfaces": {
+    "ref": "4.1",
+    "placeholder": "Diagram: one tile set feeding Minimal, Filmstrip and Gallery"
+  },
+  "ch4-switcher": {
+    "ref": "4.2",
+    "placeholder": "The Video layout popover open in the header",
+    "shot": "06-meeting/video-layout"
+  },
+  "ch4-stage": {
+    "ref": "4.4",
+    "placeholder": "Gallery in Speaker sub-mode with numbered legend"
+  },
+  "ch4-focus-chain": {
+    "ref": "4.5",
+    "placeholder": "Diagram: focus precedence chain"
+  },
+  "ch4-pip": {
+    "ref": "4.6",
+    "placeholder": "Floating presenter card snapped to a corner"
+  },
+  "ch5-focus-diagram": {
+    "ref": "5.1",
+    "placeholder": "Precedence ladder: pin → screen-share → active speaker → host → first tile"
+  },
+  "ch5-hand-fig": {
+    "ref": "5.2",
+    "placeholder": "Header hand button (amber, raised) and the ✋ badge on an avatar tile"
+  },
+  "ch5-react-fig": {
+    "ref": "5.3",
+    "placeholder": "Reactions popover open with the six emoji 👍 ❤️ 😂 🎉 👏 😮"
+  },
+  "ch5-follow-fig": {
+    "ref": "5.4",
+    "placeholder": "A participant tile with the 👁 follow badge and 'Following — click to stop' tooltip"
+  },
+  "ch5-surface-minimal": {
+    "ref": "5.5",
+    "placeholder": "Minimal: clean canvas with just the bottom participant strip"
+  },
+  "ch5-surface-filmstrip": {
+    "ref": "5.6",
+    "placeholder": "Filmstrip: opaque camera rail docked across the bottom edge"
+  },
+  "ch5-surface-gallery": {
+    "ref": "5.7",
+    "placeholder": "Gallery: full-screen grid with the Grid/Speaker toggle"
+  },
+  "ch5-float-fig": {
+    "ref": "5.8",
+    "placeholder": "Floating presenter card in a corner with minimise (−) and hide (×) buttons"
+  },
+  "ch6-map": {
+    "ref": "6.1",
+    "placeholder": "Two-panel map: lobby header wallpaper button vs. Account settings Preferences panel"
+  },
+  "ch6-wallp": {
+    "ref": "6.2",
+    "placeholder": "The Hình nền wallpaper popover with preset tiles and the upload tile"
+  },
+  "ch6-settings": {
+    "ref": "6.3",
+    "placeholder": "Account settings → Preferences tab showing Change / blur background and Video quality",
+    "shot": "08-settings/profile"
+  },
+  "ch7-toolbar-shot": {
+    "ref": "7.1",
+    "placeholder": "The full canvas toolbar with numbered callouts",
+    "shot": "07-canvas/toolbar"
+  },
+  "ch7-sticker": {
+    "ref": "7.2",
+    "placeholder": "Stickers picker grid open with the resize hint"
+  },
+  "ch7-bot": {
+    "ref": "7.3",
+    "placeholder": "Ask MCM Bot prompt box floating on the canvas"
+  },
+  "ch7-openers": {
+    "ref": "7.4",
+    "placeholder": "CAD view and 3D view opener popovers"
+  },
+  "ch7-place-ghost": {
+    "ref": "7.5",
+    "placeholder": "A translucent sticker ghost tracking the pointer in placing mode"
+  },
+  "ch7-nav-widget": {
+    "ref": "7.6",
+    "placeholder": "Bottom-right navigation widget with mini-map expanded",
+    "shot": "06-meeting/shell"
+  },
+  "ch8-toolbar": {
+    "ref": "8.1",
+    "placeholder": "The Excalidraw toolbar with the Stickers, Stamps, and Show authors buttons highlighted in the extras strip"
+  },
+  "ch8-stickers-shot": {
+    "ref": "8.2",
+    "placeholder": "Stickers popover open over the canvas",
+    "shot": "07-canvas/stickers"
+  },
+  "ch8-ghost-small": {
+    "ref": "8.3a",
+    "placeholder": "Sticker ghost scrolled small with a tiny size readout"
+  },
+  "ch8-ghost-mid": {
+    "ref": "8.3b",
+    "placeholder": "Sticker ghost at default 100% size"
+  },
+  "ch8-ghost-big": {
+    "ref": "8.3c",
+    "placeholder": "Sticker ghost scrolled large with a big size readout"
+  },
+  "ch8-stamps-shot": {
+    "ref": "8.5",
+    "placeholder": "Stamps popover open over the canvas",
+    "shot": "07-canvas/stamps"
+  },
+  "ch8-revcloud": {
+    "ref": "8.6",
+    "placeholder": "A scalloped revision cloud with an arrow pointing to a Note label"
+  },
+  "ch8-badge": {
+    "ref": "8.7",
+    "placeholder": "Author badge with avatar and short name floating above a text element, plus the bot's robot badge"
+  },
+  "ch9-translate-flow": {
+    "ref": "9.1",
+    "placeholder": "Diagram: source text element with a grey, linked translation line appearing directly beneath it"
+  },
+  "ch9-translate-pill": {
+    "ref": "9.2",
+    "placeholder": "Translate pill floating above a selected canvas text note, with the language icon and ▾ caret"
+  },
+  "ch9-state-translate": {
+    "ref": "9.3a",
+    "placeholder": "Translate pill in default state: Translate label + ▾ caret"
+  },
+  "ch9-state-busy": {
+    "ref": "9.3b",
+    "placeholder": "Translate pill showing 'Translating…' with buttons disabled"
+  },
+  "ch9-state-stale": {
+    "ref": "9.3c",
+    "placeholder": "Refresh state: refresh icon + 'Refresh translation' over faded, out-of-date lines"
+  },
+  "ch9-bot-frame": {
+    "ref": "9.7",
+    "placeholder": "A dark, cyan-bordered '🤖 MCM BOT' answer panel on the canvas with numbered callouts"
+  },
+  "ch10-flow": {
+    "ref": "10.1",
+    "placeholder": "Diagram: presenter's screen flows over a live media channel to every viewer; viewers join silently with no mic/cam prompt"
+  },
+  "ch10-st-idle": {
+    "ref": "10.2",
+    "placeholder": "Present button in default ready state with monitor icon"
+  },
+  "ch10-st-active": {
+    "ref": "10.3",
+    "placeholder": "Present button highlighted while you are presenting"
+  },
+  "ch10-st-locked": {
+    "ref": "10.4",
+    "placeholder": "Present button disabled while another participant presents"
+  },
+  "ch10-st-unsupported": {
+    "ref": "10.5",
+    "placeholder": "Present button disabled with the unsupported-device tooltip"
+  },
+  "ch10-st-viewonly": {
+    "ref": "10.6",
+    "placeholder": "Present button disabled in finished-meeting review"
+  },
+  "ch10-st-badge": {
+    "ref": "10.7",
+    "placeholder": "Participant tile with the 📺 'Sharing screen' badge"
+  },
+  "ch10-pane": {
+    "ref": "10.8",
+    "placeholder": "Floating viewer showing a remote presenter's screen with header, Pop out and Minimize buttons"
+  },
+  "ch10-pip": {
+    "ref": "10.9",
+    "placeholder": "Diagram: live share popped out into a standalone window dragged to a second monitor"
+  },
+  "ch11-flow": {
+    "ref": "11.1",
+    "placeholder": "Diagram: device → shared shelf → canvas, with the second arrow labelled ‘click or drag’"
+  },
+  "ch11-myfiles": {
+    "ref": "11.2",
+    "placeholder": "Library panel: upload button and From my shelf entry",
+    "shot": "04-files/my-files"
+  },
+  "ch11-state-empty": {
+    "ref": "11.3",
+    "placeholder": "Empty library: ‘No files in this room yet.’"
+  },
+  "ch11-state-nomatch": {
+    "ref": "11.4",
+    "placeholder": "Filtered to nothing: ‘No files match the filters.’ with Clear filters"
+  },
+  "ch11-state-readonly": {
+    "ref": "11.5",
+    "placeholder": "Finished meeting: disabled upload button with read-only tooltip"
+  },
+  "ch12-anchor-diagram": {
+    "ref": "12.1",
+    "placeholder": "Flow: library file -> canvas anchor -> right-docked pane"
+  },
+  "ch12-pdf-focus": {
+    "ref": "12.2",
+    "placeholder": "PDF anchor in focus mode with prev / page-count / next / exit toolbar"
+  },
+  "ch12-cad-view": {
+    "ref": "12.3",
+    "placeholder": "DXF open in the CAD view pane with Layers panel",
+    "shot": "07-canvas/cad-view"
+  },
+  "ch12-3d-view": {
+    "ref": "12.4",
+    "placeholder": "IFC model in 3D view with full toolbar and properties panel",
+    "shot": "07-canvas/3d-view"
+  },
+  "ch12-style-shaded": {
+    "ref": "12.5",
+    "placeholder": "Model rendered Shaded (original colours)"
+  },
+  "ch12-style-clay": {
+    "ref": "12.6",
+    "placeholder": "Model rendered Clay (uniform grey)"
+  },
+  "ch12-style-wireframe": {
+    "ref": "12.7",
+    "placeholder": "Model rendered Wireframe (edge lines only)"
+  },
+  "ch13-panel": {
+    "ref": "13.1",
+    "placeholder": "The Conversation panel with header, grouped message stream, and the two-row composer"
+  },
+  "ch13-empty-room": {
+    "ref": "13.2",
+    "placeholder": "Not-in-session empty state: 'Start a live collaboration session'"
+  },
+  "ch13-empty-msgs": {
+    "ref": "13.3",
+    "placeholder": "Empty live room: 'No messages yet' with the @ / @bot hint"
+  },
+  "ch13-readonly": {
+    "ref": "13.4",
+    "placeholder": "Read-only review notice replacing the composer"
+  },
+  "ch13-bot-flow": {
+    "ref": "13.5",
+    "placeholder": "Diagram: @bot question → thinking dots → context gathering → reply bubble"
+  },
+  "ch14-twolayers": {
+    "ref": "14.1",
+    "placeholder": "Diagram: one STT stream branching to the scrollable transcript panel and the bottom caption strip"
+  },
+  "ch14-transcript": {
+    "ref": "14.2",
+    "placeholder": "Live transcript panel with finalised lines, speaker colours, timestamps and a live interim row",
+    "shot": "06-meeting/transcript"
+  },
+  "ch14-st-live": {
+    "ref": "14.3",
+    "placeholder": "Status pill in the Live state: pulsing dot and three rippling level bars"
+  },
+  "ch14-st-noaudio": {
+    "ref": "14.4",
+    "placeholder": "Status pill in the No audio state: hollow amber ring"
+  },
+  "ch14-st-paused": {
+    "ref": "14.5",
+    "placeholder": "Status pill in the PAUSED state with STT off"
+  },
+  "ch14-dock-anatomy": {
+    "ref": "14.6",
+    "placeholder": "Caption strip anatomy: CC toggle, 1/2/3 line count, A/A/A text size, and the × quick-hide"
+  },
+  "ch15-home": {
+    "ref": "15.1",
+    "placeholder": "The full three-column dashboard with numbered callouts",
+    "shot": "02-dashboard/home"
+  },
+  "ch15-invited": {
+    "ref": "15.2",
+    "placeholder": "Invited / Upcoming list of meeting cards",
+    "shot": "02-dashboard/invited-upcoming"
+  },
+  "ch15-state-live": {
+    "ref": "15.3a",
+    "placeholder": "A live meeting card with green pill and live dot"
+  },
+  "ch15-state-upcoming": {
+    "ref": "15.3b",
+    "placeholder": "A scheduled meeting card with date and Scheduled pill"
+  },
+  "ch15-state-done": {
+    "ref": "15.3c",
+    "placeholder": "A finished meeting card with greyed Finished pill"
+  },
+  "ch16-plate": {
+    "ref": "16.1",
+    "placeholder": "Account settings window with tab rail and Profile panel, numbered",
+    "shot": "08-settings/profile"
+  },
+  "ch16-profile-fig": {
+    "ref": "16.2",
+    "placeholder": "Profile tab: name, company, avatar gallery, live preview"
+  },
+  "ch16-av-lib": {
+    "ref": "16.3",
+    "placeholder": "Avatar gallery with a selected tile"
+  },
+  "ch16-av-upload": {
+    "ref": "16.4",
+    "placeholder": "Upload image button and Remove action"
+  },
+  "ch16-av-none": {
+    "ref": "16.5",
+    "placeholder": "Generated fallback avatar from name and email"
+  },
+  "ch17-exit-glyphs": {
+    "ref": "17.1",
+    "placeholder": "Three header exit icons side by side: hang-up handset, arrow-out-of-box, red power button"
+  },
+  "ch17-banner": {
+    "ref": "17.2",
+    "placeholder": "Review banner across the canvas top: eye icon + 'Reviewing (read-only) · meeting finished — extract only'"
+  },
+  "ch17-chat-ro": {
+    "ref": "17.3",
+    "placeholder": "Chat panel with the read-only notice in place of the compose box"
+  },
+  "ch17-upload-ro": {
+    "ref": "17.3b",
+    "placeholder": "Library panel showing the uploads-disabled review message"
+  },
+  "ch17-log-modal": {
+    "ref": "17.6",
+    "placeholder": "Meeting log modal: Transcript / Summary tabs, speaker-grouped lines, download footer"
+  },
+  "ch18-tooltip": {
+    "ref": "18.1",
+    "placeholder": "Annotated meeting header showing a hovered mic tooltip, a sample toast, and a faded full-screen gate card behind — the three places Canvas M surfaces messages"
+  },
+  "ch18-st-join": {
+    "ref": "18.2",
+    "placeholder": "Call control in the Join state — open-door icon"
+  },
+  "ch18-st-live": {
+    "ref": "18.3",
+    "placeholder": "Live mic and camera buttons — accent mic, red muted state"
+  },
+  "ch18-st-listen": {
+    "ref": "18.4",
+    "placeholder": "Disabled listen-only mic button with its tooltip"
+  },
+  "ch18-st-error": {
+    "ref": "18.5",
+    "placeholder": "Red MicOff error button with the mic-denied tooltip and retry hint"
+  },
+  "ch18-st-connecting": {
+    "ref": "18.6",
+    "placeholder": "Disabled spinner button while requesting mic permission"
+  },
+  "ch18-st-denied": {
+    "ref": "18.7",
+    "placeholder": "Waiting-room 'Not admitted' card with the Knock again button"
+  },
+  "ch19-detail": {
+    "ref": "19.2",
+    "placeholder": "Project detail: back link, cover hero with name and stage, palette/emoji accents, Edit project and View meetings buttons, Details grid, Members, Guests and Danger zone sections",
+    "shot": "03-projects/project-detail"
+  },
+  "ch19-state-mine": {
+    "ref": "19.3",
+    "placeholder": "My projects group of cards, each with cover, name, stage pill and code/client/location meta"
+  },
+  "ch19-state-invited": {
+    "ref": "19.4",
+    "placeholder": "Invited group: project cards badged 'Invited', opening read-only"
+  },
+  "ch19-state-empty": {
+    "ref": "19.5",
+    "placeholder": "Empty state: folder-kanban icon, 'No projects yet', hint and a New project button"
+  },
+  "ch20-modes-dia": {
+    "ref": "20.1",
+    "placeholder": "Branching diagram: form → now (live, enter room) vs schedule (scheduled, Upcoming list)"
+  },
+  "ch20-new-meeting": {
+    "ref": "20.2",
+    "placeholder": "The meeting form open in the right column, four zones visible",
+    "shot": "02-dashboard/new-meeting"
+  },
+  "ch20-state-now": {
+    "ref": "20.3",
+    "placeholder": "Foot button reading Create & join (now mode)"
+  },
+  "ch20-state-sched": {
+    "ref": "20.4",
+    "placeholder": "Foot button reading Create & invite, with date/time/duration row above"
+  },
+  "ch21-plate": {
+    "ref": "21.1",
+    "placeholder": "Guest manager page: project picker, Guest details grid, credentials panel, and guests grouped by project — numbered",
+    "shot": "05-client/guest-manager"
+  },
+  "ch21-logo-none": {
+    "ref": "21.2",
+    "placeholder": "Guest row with placeholder logo icon and Upload logo button"
+  },
+  "ch21-logo-set": {
+    "ref": "21.3",
+    "placeholder": "Guest row showing a company logo thumbnail with Remove logo X"
+  },
+  "ch21-logo-replace": {
+    "ref": "21.4",
+    "placeholder": "Upload button tooltip reading Replace logo over a set logo"
+  },
+  "ch22-lifecycle-dia": {
+    "ref": "22.1",
+    "placeholder": "Lifecycle state diagram: Scheduled ↔ Cancelled, Scheduled → Live → Finished"
+  },
+  "ch22-gate-fig": {
+    "ref": "22.2",
+    "placeholder": "Start gate card with Start meeting button and Scheduled-for line"
+  },
+  "ch22-shell-fig": {
+    "ref": "22.3",
+    "placeholder": "Meeting shell with numbered header callouts",
+    "shot": "06-meeting/shell"
+  },
+  "ch22-invite-fig": {
+    "ref": "22.4",
+    "placeholder": "Invite people panel: internal directory + project guest pickers + Grant access"
+  },
+  "ch22-waiting-fig": {
+    "ref": "22.5",
+    "placeholder": "Participants panel Waiting to join section with Admit / Deny"
+  },
+  "ch22-mod-host": {
+    "ref": "22.6",
+    "placeholder": "Host tile with Mute and Remove hover buttons"
+  },
+  "ch22-mod-cohost": {
+    "ref": "22.7",
+    "placeholder": "Co-host avatar with half-crown badge"
+  },
+  "ch22-mod-guest": {
+    "ref": "22.8",
+    "placeholder": "Guest tile with no moderation controls"
+  },
+  "ch1-password-img": {
+    "ref": "1.1",
+    "placeholder": "Sign in with email and password"
+  },
+  "ch1-guest-img": {
+    "ref": "1.2",
+    "placeholder": "Get a one-time login link by email"
+  },
+  "ch1-link-img": {
+    "ref": "1.3",
+    "placeholder": "Start from a meeting link"
+  },
+  "ch1-langtheme-img": {
+    "ref": "1.4",
+    "placeholder": "Set the language and theme"
+  },
+  "ch3-mental-img": {
+    "ref": "3.1",
+    "placeholder": "Three exits, one entrance"
+  },
+  "ch3-mic-img": {
+    "ref": "3.2",
+    "placeholder": "Speak when you're ready"
+  },
+  "ch3-camera-img": {
+    "ref": "3.3",
+    "placeholder": "Turn on your camera"
+  },
+  "ch3-handreact-img": {
+    "ref": "3.4",
+    "placeholder": "Raise your hand & react"
+  },
+  "ch5-pin-img": {
+    "ref": "5.1",
+    "placeholder": "Lock the focus onto one face"
+  },
+  "ch7-mental-img": {
+    "ref": "7.1",
+    "placeholder": "One infinite board, shared live"
+  },
+  "ch10-present-img": {
+    "ref": "10.1",
+    "placeholder": "Share your screen"
+  },
+  "ch10-audio-img": {
+    "ref": "10.2",
+    "placeholder": "Hearing a shared tab or system sound"
+  },
+  "ch11-shelf-img": {
+    "ref": "11.1",
+    "placeholder": "Reuse a file from “My Files”"
+  },
+  "ch11-place-img": {
+    "ref": "11.2",
+    "placeholder": "Put a file on the canvas"
+  },
+  "ch11-lock-img": {
+    "ref": "11.3",
+    "placeholder": "Locking, deleting, and linking"
+  },
+  "ch13-send-img": {
+    "ref": "13.1",
+    "placeholder": "Send a message"
+  },
+  "ch13-mention-img": {
+    "ref": "13.2",
+    "placeholder": "Reference a file from the library"
+  },
+  "ch13-react-img": {
+    "ref": "13.3",
+    "placeholder": "Tapback reactions and quoted replies"
+  },
+  "ch13-translate-img": {
+    "ref": "13.4",
+    "placeholder": "Auto-translate"
+  },
+  "ch14-recording-img": {
+    "ref": "14.1",
+    "placeholder": "Who can record, and what you see"
+  },
+  "ch15-topbar-img": {
+    "ref": "15.1",
+    "placeholder": "Notifications, history, and your account"
+  },
+  "ch15-sidebar-img": {
+    "ref": "15.2",
+    "placeholder": "Switching what the middle column shows"
+  },
+  "ch15-bell-img": {
+    "ref": "15.3",
+    "placeholder": "Invitations that need your answer"
+  },
+  "ch15-resume-img": {
+    "ref": "15.4",
+    "placeholder": "The Resume banner"
+  },
+  "ch16-security-img": {
+    "ref": "16.1",
+    "placeholder": "Change your password, or sign out"
+  },
+  "ch16-privacy-img": {
+    "ref": "16.2",
+    "placeholder": "Microphone consent and what we keep"
+  },
+  "ch17-leave-img": {
+    "ref": "17.1",
+    "placeholder": "Leaving the meeting"
+  },
+  "ch17-ended-img": {
+    "ref": "17.2",
+    "placeholder": "When the host ends the meeting"
+  },
+  "ch19-mental-img": {
+    "ref": "19.1",
+    "placeholder": "Two doors into one project"
+  },
+  "ch19-create-img": {
+    "ref": "19.2",
+    "placeholder": "Create a project with full metadata"
+  },
+  "ch19-edit-img": {
+    "ref": "19.3",
+    "placeholder": "Edit a project's metadata"
+  },
+  "ch19-members-img": {
+    "ref": "19.4",
+    "placeholder": "Build the member roster"
+  },
+  "ch19-cosmetic-img": {
+    "ref": "19.5",
+    "placeholder": "Set a project colour & icon"
+  },
+  "ch19-delete-img": {
+    "ref": "19.6",
+    "placeholder": "Delete a project"
+  },
+  "ch20-essentials-img": {
+    "ref": "20.1",
+    "placeholder": "Title, date, time, duration"
+  },
+  "ch20-roles-img": {
+    "ref": "20.2",
+    "placeholder": "Naming the host and co-host"
+  },
+  "ch20-people-img": {
+    "ref": "20.3",
+    "placeholder": "Inviting the room"
+  },
+  "ch21-model-img": {
+    "ref": "21.1",
+    "placeholder": "A guest is a contact, not an account"
+  },
+  "ch21-where-img": {
+    "ref": "21.2",
+    "placeholder": "Per-project, or the all-projects manager"
+  },
+  "ch21-creds-img": {
+    "ref": "21.3",
+    "placeholder": "Copy the login + password (shown once)"
+  },
+  "ch21-card-img": {
+    "ref": "21.4",
+    "placeholder": "Edit details, reset, or revoke"
+  },
+  "ch22-end-img": {
+    "ref": "22.1",
+    "placeholder": "Ending the meeting for everyone"
+  }
+}

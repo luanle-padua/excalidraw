@@ -1,0 +1,110 @@
+/* layer: tokens — custom properties only, no painting selectors.
+   White paper is canonical (printed PDF). [data-theme="dark"] = screen opt-in. */
+
+:root,
+[data-theme="light"] {
+  --bg: #e9e9ec; /* gray behind floating pages (screen only) */
+  --paper: #fffefb; /* the sheet — a hair of warmth, never pure #fff */
+  --paper-2: #f6f5f1;
+  --paper-3: #eceae4;
+
+  --ink: #1a1916; /* warm near-black, not 0-chroma */
+  --text: #1a1916;
+  --text-soft: rgba(26, 25, 22, 0.6);
+  --text-faint: rgba(26, 25, 22, 0.4);
+  --text-ghost: rgba(26, 25, 22, 0.06); /* huge ghost numerals */
+
+  --rule: rgba(26, 25, 22, 0.55); /* hairline — recedes so whitespace separates */
+  --rule-soft: rgba(26, 25, 22, 0.2);
+  --rule-faint: rgba(26, 25, 22, 0.1); /* ghost canvas grid */
+  --rule-leader: rgba(26, 25, 22, 0.35); /* TOC dotted leader */
+
+  --accent: #5e5ad8; /* brand purple — links / live markers only */
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(94, 90, 216, 0.1);
+  --gold: #a8842f; /* champagne — the ONE signature numeral per chapter */
+  --gold-soft: rgba(168, 132, 47, 0.12);
+  --field-dark: #14131a; /* dark field behind a contained app screenshot */
+
+  --success: #15803d;
+  --danger: #c0392b;
+  --warning: #b45309;
+
+  --kind-pdf: #c0392b;
+  --kind-dxf: #2563eb;
+  --kind-ifc: #7c3aed;
+  --kind-img: #059669;
+
+  --shadow-3: 0 1px 2px rgba(16, 17, 20, 0.05), 0 16px 40px rgba(16, 17, 20, 0.1);
+
+  --font-display: "Fraunces", "Noto Serif KR", Georgia, "Times New Roman", serif;
+  --font-ui: "Manrope", "Noto Sans KR", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* ---- geometry: A4 canon, mirrored, on a 4mm baseline ----
+     live text area = 154 × 236 mm = exactly 59 baseline ticks. */
+  --page-w: 210mm;
+  --page-h: 297mm;
+  --baseline: 4mm; /* the universal layout tick — all vertical spacing snaps here */
+
+  --margin-top: 24mm;
+  --margin-bottom: 37mm; /* deep classic foot; absorbs short pages */
+  --margin-inner: 20mm;
+  --margin-outer: 32mm; /* holds the marginalia rail */
+  --gutter-bind: 4mm; /* binding allowance → effective inner = 24mm */
+
+  --col-gap: 6mm;
+  --measure: 66ch; /* fewer rivers under justification at 10pt */
+
+  /* column drivers (recto default; .page--verso flips them) */
+  --main: 1 / 8;
+  --rail: 9 / 13;
+
+  /* ---- spacing: every token an integer baseline tick ---- */
+  --space-1: 4mm;
+  --space-2: 8mm;
+  --space-3: 12mm;
+  --space-4: 16mm;
+  --space-6: 24mm;
+
+  /* ---- type scale: 1.25 major third anchored on 10pt body ----
+     line-heights are whole ticks so headings/captions/folios align page-to-page. */
+  --fs-numeral: 96pt;
+  --fs-disp: 38pt;
+  --lh-disp: 16mm;
+  --fs-h1: 24.4pt;
+  --lh-h1: 12mm;
+  --fs-lead: 12.5pt;
+  --fs-h2: 15.6pt;
+  --lh-h2: 8mm;
+  --fs-h3: 11pt;
+  --lh-h3: 4mm;
+  --fs-body: 10pt;
+  --lh-body: 15pt;
+  --fs-cap: 8.5pt;
+  --lh-cap: 4mm;
+  --fs-mono: 7.5pt;
+  --lh-mono: 4mm;
+}
+
+[data-theme="dark"] {
+  --bg: #0c0c0e;
+  --paper: #161519;
+  --paper-2: #1d1c21;
+  --paper-3: #24232a;
+  --ink: #ece9e1;
+  --text: #ece9e1;
+  --text-soft: rgba(236, 233, 225, 0.6);
+  --text-faint: rgba(236, 233, 225, 0.36);
+  --text-ghost: rgba(236, 233, 225, 0.06);
+  --rule: rgba(236, 233, 225, 0.85);
+  --rule-soft: rgba(236, 233, 225, 0.22);
+  --rule-faint: rgba(236, 233, 225, 0.1);
+  --accent: #a8a5ff;
+  --accent-ink: #14131a;
+  --accent-soft: rgba(168, 165, 255, 0.16);
+  --gold: #d2ad62;
+  --gold-soft: rgba(210, 173, 98, 0.15);
+  --shadow-3: 0 2px 6px rgba(0, 0, 0, 0.5), 0 24px 60px rgba(0, 0, 0, 0.6);
+}

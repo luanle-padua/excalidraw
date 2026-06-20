@@ -1,0 +1,68 @@
+/* ============================================================================
+   screen.css — on-screen reading only (media="screen"). Pages float as sheets
+   on a soft gray desk; a small reader bar offers language + theme + print.
+   Nothing here reaches the PDF (print.css owns that).
+   ========================================================================== */
+
+@media screen {
+  body {
+    padding: 40px 0 80px;
+  }
+  .book {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+  }
+  .page {
+    box-shadow: var(--shadow-3);
+    scroll-margin-block-start: 80px;
+  }
+
+  /* floating reader bar */
+  .reader-bar {
+    position: fixed;
+    inset-block-start: 16px;
+    inset-inline-end: 16px;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px;
+    border: 1px solid var(--rule-soft);
+    border-radius: 999px;
+    background: var(--paper);
+    box-shadow: var(--shadow-3);
+  }
+  .reader-bar button,
+  .reader-bar a {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 8.5pt;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    background: transparent;
+    padding: 5px 11px;
+    border-radius: 999px;
+  }
+  .reader-bar button:hover,
+  .reader-bar a:hover {
+    background: var(--accent-soft);
+  }
+  .reader-bar button[aria-pressed="true"] {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .reader-bar .sep {
+    inline-size: 1px;
+    block-size: 18px;
+    background: var(--rule-soft);
+  }
+
+  [data-print-only] {
+    display: none !important;
+  }
+}

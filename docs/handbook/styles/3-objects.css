@@ -1,0 +1,107 @@
+/* layer: objects — geometry primitives. No colour/font beyond inherited.
+   .page = an A4 sheet. The 12-col grid. The marginalia rail. Crop-marks +
+   title block + folio = the drawing-sheet chrome. Column spans are driven by
+   --main / --rail so each layout--* re-spends the grid in one line. */
+
+.page {
+  position: relative;
+  inline-size: var(--page-w);
+  min-block-size: var(--page-h);
+  background: var(--paper);
+  color: var(--text);
+  overflow: hidden;
+  padding-block: var(--margin-top) var(--margin-bottom);
+  padding-inline: var(--margin-inner) var(--margin-outer);
+}
+
+/* registration crop-marks — eight hairline segments at the four corners */
+.page--sheet::before {
+  content: "";
+  position: absolute;
+  inset: 11mm;
+  pointer-events: none;
+  z-index: 2;
+  background-repeat: no-repeat;
+  background-image: linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft)),
+    linear-gradient(var(--rule-soft), var(--rule-soft));
+  background-size: 6mm 1px, 1px 6mm, 6mm 1px, 1px 6mm, 6mm 1px, 1px 6mm, 6mm 1px,
+    1px 6mm;
+  background-position: left top, left top, right top, right top, left bottom,
+    left bottom, right bottom, right bottom;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  column-gap: var(--col-gap);
+  align-items: start;
+}
+.col-main {
+  grid-column: var(--main, 1 / 8);
+  min-inline-size: 0;
+}
+.col-side {
+  grid-column: var(--rail, 9 / 13);
+  min-inline-size: 0;
+}
+.col-wide,
+.col-full {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+/* folio — technical footer with a thin rule */
+.folio {
+  position: absolute;
+  inset-block-end: 12mm;
+  inset-inline: var(--margin-inner) var(--margin-outer);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-block-start: 4px;
+  border-block-start: 1px solid var(--rule-soft);
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.folio .n {
+  color: var(--text-soft);
+}
+
+/* drawing-sheet title block — a bordered metadata grid */
+.titleblock {
+  border: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.titleblock > div {
+  padding: 7px 9px;
+  border-inline-start: 1px solid var(--rule-soft);
+}
+.titleblock > div:first-child {
+  border-inline-start: 0;
+}
+.titleblock .k {
+  display: block;
+  color: var(--text-faint);
+  font-size: 6pt;
+  margin-block-end: 3px;
+}
+.titleblock .v {
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}

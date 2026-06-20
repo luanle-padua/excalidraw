@@ -1,0 +1,367 @@
+/* layer: blocks — components + type utilities. Reusable across layouts. */
+
+/* ---- technical micro-type (mono): the "drawing annotation" voice ---- */
+.kicker,
+.h-eyebrow,
+.fig__cap,
+.note__tag,
+.sidenote__lbl,
+.chip-host,
+ol.steps > li::before {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+}
+.kicker {
+  font-size: 7.5pt;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.kicker .i {
+  color: var(--accent);
+}
+.h-eyebrow {
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 1mm;
+}
+.h-eyebrow + h1,
+.h-eyebrow + h2,
+.h-eyebrow + h3 {
+  margin-block-start: 0;
+}
+
+/* ---- display type utilities (Fraunces) ---- */
+.numeral {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+  font-weight: 300;
+  font-variant-numeric: lining-nums;
+  color: var(--gold); /* THE one warm signature */
+  line-height: 0.78;
+  letter-spacing: -0.02em;
+}
+.numeral--ghost {
+  color: var(--text-ghost); /* divider only — never gold */
+}
+.title {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-size: 30pt;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+.standfirst {
+  font-family: var(--font-display);
+  font-style: normal; /* roman — italic display is an AI tell */
+  font-weight: 400;
+  font-size: var(--fs-lead);
+  line-height: 1.4;
+  color: var(--text-soft);
+  max-inline-size: 44ch;
+  margin: 0 0 var(--space-4);
+}
+.lead-in::first-letter {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 3.8em;
+  line-height: 0.82;
+  float: inline-start;
+  padding-inline-end: 0.09em;
+  padding-block-start: 0.04em;
+  color: var(--ink); /* drop-cap is ink; gold is reserved for the numeral */
+}
+.pull {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 17pt;
+  line-height: 1.26;
+  letter-spacing: -0.01em;
+  border-block: 1px solid var(--rule-soft);
+  padding-block: var(--space-1);
+  margin: var(--space-2) 0;
+  max-inline-size: 38ch;
+}
+
+/* ---- marginalia / sidenote (lives in the rail) ---- */
+.sidenote {
+  font-size: 8pt;
+  line-height: 1.5;
+  color: var(--text-soft);
+  padding-block-start: 6px;
+  border-block-start: 1px solid var(--rule);
+  margin-block: var(--space-1);
+}
+.sidenote__lbl {
+  display: block;
+  font-size: 6.5pt;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-block-end: 4px;
+}
+.sidenote--host {
+  border-color: var(--ink);
+}
+.sidenote--host .sidenote__lbl {
+  color: var(--ink);
+}
+
+/* ---- steps ---- */
+ol.steps {
+  list-style: none;
+  counter-reset: step;
+  margin: var(--space-1) 0 var(--space-2);
+  padding: 0;
+}
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  padding-inline-start: 34px;
+  margin-block-end: 9px;
+  max-inline-size: var(--measure);
+}
+ol.steps > li::before {
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: 0.28em;
+  font-size: 8pt;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+}
+ol.steps > li::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 22px;
+  inset-block-start: 0.62em;
+  inline-size: 7px;
+  block-size: 1px;
+  background: var(--rule-soft);
+}
+
+/* ---- notes (editorial sidebars) ---- */
+.note {
+  margin: var(--space-1) 0;
+  padding-inline-start: 13px;
+  border-inline-start: 1px solid var(--accent);
+  max-inline-size: var(--measure);
+}
+.note__tag {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.note p {
+  margin: 0.25rem 0 0;
+}
+.note--warn {
+  border-color: var(--warning);
+}
+.note--warn .note__tag {
+  color: var(--warning);
+}
+.note--host {
+  border-color: var(--ink);
+}
+.note--host .note__tag {
+  color: var(--ink);
+}
+.note--limits {
+  border-color: var(--text-soft);
+}
+.note--limits .note__tag {
+  color: var(--text-soft);
+}
+
+.chip-host {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  font-size: 6.5pt;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ---- figures (technical plates) ---- */
+figure.fig {
+  margin-block: var(--space-2);
+  break-inside: avoid;
+}
+/* figure-size tiers — total height resolves to whole baseline ticks */
+figure.fig[data-tier="column"] .frame {
+  aspect-ratio: 16 / 10;
+}
+figure.fig[data-tier="wide"] {
+  grid-column: 1 / -1;
+}
+figure.fig[data-tier="wide"] .frame {
+  aspect-ratio: 16 / 9;
+}
+figure.fig[data-tier="half"] {
+  grid-column: 1 / -1;
+}
+figure.fig[data-tier="half"] .frame {
+  block-size: calc(31 * var(--baseline));
+}
+figure.fig .frame {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+}
+/* placeholder until real screenshots land: a faint blueprint grid + label */
+.frame[data-placeholder] {
+  aspect-ratio: 16 / 10;
+  background-image: linear-gradient(var(--rule-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule-faint) 1px, transparent 1px);
+  background-size: 6mm 6mm, 6mm 6mm;
+}
+/* full-page / spread frames fill the leaf — override the column aspect-ratio
+   here (same layer) so the layouts-layer position:absolute can take effect */
+.is-fullpage figure.fig .frame,
+.is-spread figure.fig .frame {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  aspect-ratio: auto;
+}
+.is-fullpage .frame[data-placeholder],
+.is-spread .frame[data-placeholder] {
+  background-color: var(--paper-3);
+}
+.is-fullpage .frame[data-placeholder]::after,
+.is-spread .frame[data-placeholder]::after {
+  color: var(--text-soft);
+  font-size: 9pt;
+}
+.frame[data-placeholder]::after {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+figure.fig img {
+  display: block;
+  inline-size: 100%;
+}
+/* real screenshots fill their frame; pin overlays sit on top */
+.frame--shot {
+  position: relative;
+}
+/* landscape app screenshots show at their natural aspect, filling the frame width */
+.frame--shot img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+/* on a full-page / spread leaf the screenshot is centred on a dark field */
+.is-fullpage .frame--shot,
+.is-spread .frame--shot {
+  background: var(--field-dark);
+}
+.is-fullpage .frame--shot img,
+.is-spread .frame--shot img {
+  block-size: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.fig__cap {
+  margin-block-start: 2mm;
+  font-size: 7pt;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+.fig__lbl {
+  color: var(--ink);
+  font-weight: 600;
+  margin-inline-end: 6px;
+}
+/* single-column full-width visuals (no rail) */
+.fig--wide {
+  margin-block: var(--space-3) var(--space-2);
+}
+.diagram--wide {
+  margin-block: var(--space-3);
+}
+.legend-row {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42mm, 1fr));
+  gap: 6px var(--col-gap);
+}
+.legend-row li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  line-height: 1.5;
+  color: var(--text-soft);
+  padding-block-start: 5px;
+  border-block-start: 1px solid var(--rule-soft);
+}
+.legend-row .n {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.pin {
+  position: absolute;
+  inline-size: 18px;
+  block-size: 18px;
+  margin: -9px 0 0 -9px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--paper);
+  z-index: 1;
+}
+/* knockout pin for busy full-page/spread imagery */
+.pin--knockout {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--ink);
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  padding: 1px 5px;
+  border: 1px solid var(--rule-soft);
+  border-block-end-width: 2px;
+  background: var(--paper-2);
+}
+.term {
+  border-block-end: 1px dotted var(--accent);
+}

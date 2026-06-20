@@ -1,0 +1,115 @@
+{
+  "number": 9,
+  "blocks": [
+    { "id": "ch9-open", "type": "opener", "layout": "opener" },
+    { "id": "ch9-translate-concept", "type": "ai", "layout": "prose", "diagram": "ch9-translate-flow" },
+    { "id": "ch9-translate-steps", "type": "steps", "layout": "steps", "figure": "ch9-translate-pill" },
+    { "id": "ch9-translate-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch9-state-translate", "ch9-state-busy", "ch9-state-stale"] },
+    { "id": "ch9-translate-ref", "type": "reference-table", "layout": "table" },
+    { "id": "ch9-bot-steps", "type": "steps", "layout": "steps", "figure": "ch9-bot" },
+    { "id": "ch9-bot-plate", "type": "plate", "layout": "plate", "figure": "ch9-bot-frame" },
+    { "id": "ch9-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch9-open": {
+      "eyebrow": "Chapter 9",
+      "title": "Translate &amp; the Canvas Bot",
+      "standfirst": "Two pieces of on-canvas intelligence live side by side: a <b>Translate</b> pill that turns any text you select into Vietnamese, English or Korean, and the <b>MCM Bot</b> you drop anywhere on the board to summarise, list decisions, or answer a question about the meeting. Both write real canvas elements, so everyone in the room sees the result."
+    },
+    "ch9-translate-concept": {
+      "eyebrow": "How translation works",
+      "heading": "A translation is a real element, not a tooltip",
+      "lead": "<b>Canvas M</b> does not show you a private, hover-only translation. When you translate a text element, it creates a <em>new child text element</em> placed just below the original. Because it is a genuine canvas element, it rides the normal collaboration pipeline &mdash; every peer in the room sees the same translated line, with no extra setup.",
+      "body": "The child stays linked to its source. Move or resize the original and the translation follows by the same offset, keeping the pair together. Delete the original and its translations are swept away with it. The translation is drawn in a muted grey so it reads as secondary text beneath the source.",
+      "pull": "Translate once, and the whole room reads it &mdash; the result is a shared canvas line, not a personal pop-up.",
+      "diagram": { "label": "Source text &rarr; linked translation child", "cap": "Picking a language adds a grey, linked line directly under the original." },
+      "note": { "tag": "Good to know", "html": "The three languages share one round-trip. Picking <b>Tiếng Việt</b> also warms the cache for <b>English</b> and <b>한국어</b>, so your next language choice on the same text is instant." }
+    },
+    "ch9-translate-steps": {
+      "eyebrow": "Translate selected text",
+      "heading": "Turn a note into another language",
+      "steps": [
+        "Click a single <b>text element</b> on the canvas to select it. The pill appears only when exactly one item is selected.",
+        "A small <b>Translate</b> pill floats just above the text's top-left corner. It carries a language icon and follows the text as you pan or zoom.",
+        "Click <b>Translate</b> to translate into your current app language straight away &mdash; its tooltip reads <em>Translate to {lang}</em> for whichever language that is.",
+        "To pick a different target, click the <b>▾</b> caret (tooltip <em>Choose another language</em>) and choose <b>🇻🇳 Tiếng Việt</b>, <b>🇬🇧 English</b> or <b>🇰🇷 한국어</b>.",
+        "The button shows <em>Translating…</em> while it works, then a grey translated line appears below your text."
+      ],
+      "outcome": "The translated line sits under the source, visible to everyone in the room. Translate again into a second language and the new line stacks neatly below the first.",
+      "note": "Pick the same language twice and Canvas M rewrites the existing line in place &mdash; it never piles up duplicate translations of the same pair.",
+      "figcap": "The Translate pill anchored above a selected text note."
+    },
+    "ch9-translate-states": {
+      "eyebrow": "Pill states",
+      "heading": "Every face of the Translate pill",
+      "tiles": [
+        { "state": "Translate", "cap": "Default. The <b>Translate</b> label plus a <b>▾</b> caret. Clicking the label uses your app language; the caret opens the three-language menu." },
+        { "state": "Translating…", "cap": "While the request is in flight the label reads <em>Translating…</em> and every button is disabled so you can't fire a second call." },
+        { "state": "Refresh translation", "cap": "Shown after you edit the source. A refresh icon and the label <b>Refresh translation</b> replace the normal pill; the stale lines fade to signal they're out of date." }
+      ],
+      "useWhen": "Watch the pill swap to <b>Refresh translation</b> whenever you change the source text after translating &mdash; that's your cue the lines below no longer match."
+    },
+    "ch9-translate-ref": {
+      "eyebrow": "Reference",
+      "heading": "Translate controls and behaviours",
+      "cols": ["Control / behaviour", "Exact text", "What it does"],
+      "rows": [
+        ["Translate button", "Translate", "Translates into your current app language in one click."],
+        ["Translate tooltip", "Translate to {lang}", "Names the target language the one-click button will use."],
+        ["Language caret", "Choose another language", "Opens the menu: Tiếng Việt, English, 한국어."],
+        ["In-progress label", "Translating…", "Shown on the button during the request; all buttons disabled."],
+        ["Refresh button", "Refresh translation", "Re-translates every out-of-date line against the edited source."],
+        ["Refresh tooltip", "Translation is out of date — click to refresh", "Explains why the pill changed to the refresh state."],
+        ["Accessible name", "Translate text", "The pill's aria-label for screen readers."]
+      ],
+      "note": "If the translation provider is unavailable, or returns the same text it was given, no line is added &mdash; the canvas is left untouched rather than cluttered with a duplicate.",
+      "host": { "tag": "Host-only", "html": "There is no host-side switch for the on-canvas Translate pill &mdash; any participant who selects a text element can use it. (The separate <b>chat</b> translation toggle lives in the AI Tools panel; see the chat chapter.)" }
+    },
+    "ch9-bot-steps": {
+      "eyebrow": "The Canvas Bot",
+      "heading": "Drop the bot and ask a question",
+      "steps": [
+        "In the toolbar, click the <b>bot</b> icon (tooltip <em>Ask MCM Bot</em>). The pointer enters placing mode and a small bot ghost follows your cursor.",
+        "Click anywhere on the canvas to drop it. Click outside the canvas, or press <kbd>Esc</kbd>, to cancel placing.",
+        "A small prompt box opens at the drop point, with the placeholder <em>Type your request… (e.g. summarize the meeting, list decisions)</em>.",
+        "Type any request &mdash; summarise, list decisions, translate this, and so on &mdash; then click <b>Send</b> or press <kbd>Enter</kbd>. Use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line, <kbd>Esc</kbd> or <b>×</b> to cancel.",
+        "A framed panel reading <em>🤖 Working…</em> appears at the drop point, then is replaced in place by the bot's answer."
+      ],
+      "outcome": "The answer lands as a dark, cyan-bordered <b>🤖 MCM BOT</b> panel &mdash; a normal, movable canvas element everyone in the room can see and reposition.",
+      "note": "Nothing fires automatically. The bot only runs on your explicit click, so there's no risk of two people triggering it at once &mdash; the prompt box is local to you; only the answer panel is shared.",
+      "host": { "tag": "Host-only", "html": "Any participant can drop the bot &mdash; there is no host gate in the tool itself. Access is checked server-side by room membership, so only people actually in the meeting can run it." },
+      "figcap": "The bot prompt box open at a drop point on the canvas."
+    },
+    "ch9-bot-plate": {
+      "eyebrow": "Anatomy of an answer",
+      "legend": [
+        { "n": "1", "text": "Bot header &mdash; every answer panel opens with <b>🤖 MCM BOT</b> in monospace so it's unmistakably the bot's, not a peer's note." },
+        { "n": "2", "text": "Answer body &mdash; light text on a dark panel, wrapped to the frame width. This is what the bot wrote in reply to your request." },
+        { "n": "3", "text": "Cyan frame &mdash; the panel is a real rectangle with bound text. Drag it, resize it, or delete it like any element; changes sync to the room." },
+        { "n": "4", "text": "Authored by <b>MCM Bot</b> &mdash; the panel is stamped with the bot's identity, so it's excluded from the meeting context the bot reads next time (it never quotes its own answers back to you)." }
+      ]
+    },
+    "ch9-trouble": {
+      "eyebrow": "Troubleshooting",
+      "heading": "When translate or the bot misbehaves",
+      "rows": [
+        { "sym": "No Translate pill appears", "cause": "Nothing selected, more than one element selected, or you selected a translation line rather than a source.", "fix": "Click a single text element. Translating a translation is blocked on purpose, so the pill hides on those grey lines.", "ref": "9.2" },
+        { "sym": "Pill shows Refresh translation, not Translate", "cause": "You edited the source text after translating, so the lines below it are now stale and faded.", "fix": "Click <b>Refresh translation</b> to re-translate every out-of-date line in one pass.", "ref": "9.4" },
+        { "sym": "Clicking a language adds nothing", "cause": "The source is empty/whitespace, or the provider is unavailable and returned the original text.", "fix": "Make sure the note has real text. If the provider is down, Canvas M intentionally adds no line; try again later.", "ref": "9.5" },
+        { "sym": "Translation moved when I dragged the note", "cause": "Expected. Translation lines are linked to their source and shift by the same offset to stay together.", "fix": "Nothing to fix &mdash; move the source and the pair travels as one. Delete the source to remove its translations too.", "ref": "9.2" },
+        { "sym": "Bot panel says \"The bot hit an error, try again.\"", "cause": "The request to the bot failed or the server returned an error.", "fix": "Press the bot icon again, drop a fresh prompt, and resend. The error text replaces the loading frame in place.", "ref": "9.6" },
+        { "sym": "Dropped the bot but no prompt box", "cause": "You clicked outside the canvas area, which cancels placing.", "fix": "Re-arm the bot from the toolbar and click inside the canvas to drop it.", "ref": "9.6" }
+      ],
+      "note": "The bot reads the meeting's chat, voice transcript, canvas notes (with authors), participants and shelf files as context &mdash; but it skips its own previous answers, so it won't loop on \"no info\" replies."
+    }
+  },
+  "figures": {
+    "ch9-translate-flow": { "ref": "9.1", "placeholder": "Diagram: source text element with a grey, linked translation line appearing directly beneath it" },
+    "ch9-translate-pill": { "ref": "9.2", "placeholder": "Translate pill floating above a selected canvas text note, with the language icon and ▾ caret" },
+    "ch9-state-translate": { "ref": "9.3a", "placeholder": "Translate pill in default state: Translate label + ▾ caret" },
+    "ch9-state-busy": { "ref": "9.3b", "placeholder": "Translate pill showing 'Translating…' with buttons disabled" },
+    "ch9-state-stale": { "ref": "9.3c", "placeholder": "Refresh state: refresh icon + 'Refresh translation' over faded, out-of-date lines" },
+    "ch9-bot": { "ref": "9.6", "placeholder": "Bot prompt box open on the canvas at a drop point", "shot": "07-canvas/bot" },
+    "ch9-bot-frame": { "ref": "9.7", "placeholder": "A dark, cyan-bordered '🤖 MCM BOT' answer panel on the canvas with numbered callouts" }
+  }
+}

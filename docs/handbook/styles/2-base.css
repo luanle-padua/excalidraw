@@ -1,0 +1,99 @@
+/* layer: base — element selectors only (no classes). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-weight: 400;
+  line-height: var(--lh-body);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+img {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  margin: 0 0 0.5rem;
+}
+h1 {
+  font-weight: 400;
+  font-size: var(--fs-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: -0.015em;
+  margin: var(--space-4) 0 var(--space-1);
+}
+h2 {
+  font-weight: 400;
+  font-size: var(--fs-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: -0.005em;
+  margin: var(--space-3) 0 var(--space-1);
+}
+h3 {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: var(--fs-h3);
+  line-height: var(--lh-h3);
+  letter-spacing: 0.01em;
+  margin: var(--space-2) 0 calc(var(--space-1) / 2);
+}
+p {
+  margin: 0 0 var(--space-2);
+  max-inline-size: var(--measure);
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  text-align: justify;
+  text-justify: inter-word;
+}
+/* Korean reads better ragged-right than justified */
+[lang="ko"] p {
+  text-align: start;
+}
+
+/* mirrored binding margins: rail on the fore-edge, gutter on the spine */
+.page--recto {
+  padding-inline: calc(var(--margin-inner) + var(--gutter-bind)) var(--margin-outer);
+}
+.page--verso {
+  padding-inline: var(--margin-outer) calc(var(--margin-inner) + var(--gutter-bind));
+  --main: 6 / 13;
+  --rail: 1 / 5;
+}
+strong,
+b {
+  font-weight: 600;
+}
+em {
+  font-style: italic;
+}
+
+/* Korean: no mid-word breaks, looser leading. Vietnamese: balance headings. */
+[lang="ko"] {
+  word-break: keep-all;
+  line-height: 1.8;
+}
+[lang="vi"] h1,
+[lang="vi"] h2 {
+  text-wrap: balance;
+}

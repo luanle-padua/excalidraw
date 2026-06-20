@@ -1,0 +1,92 @@
+/* ============================================================================
+   print-paged.css — pagination stylesheet for Paged.js. Content FLOWS across
+   A4 pages (many blocks per page, filling them), with running feet, automatic
+   folios, and a TOC whose page numbers resolve via target-counter.
+   Loaded together with book.css; Paged.js reads these @page rules.
+   ============================================================================ */
+
+/* the running foot text = the current chapter/part, carried by [data-rh] */
+[data-rh] { string-set: rh attr(data-rh); }
+
+@page {
+  size: A4 portrait;
+  margin: 24mm 22mm 22mm 22mm;
+  @bottom-left {
+    content: string(rh);
+    font-family: var(--font-mono);
+    font-size: 7pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    vertical-align: top;
+    padding-block-start: 4mm;
+  }
+  @bottom-right {
+    content: counter(page);
+    font-family: var(--font-mono);
+    font-size: 7.5pt;
+    letter-spacing: 0.08em;
+    color: var(--text-soft);
+    vertical-align: top;
+    padding-block-start: 4mm;
+  }
+}
+/* mirrored gutter for binding */
+@page :left { margin: 24mm 24mm 22mm 20mm; }
+@page :right { margin: 24mm 20mm 22mm 24mm; }
+/* cover: no margins, no chrome */
+@page cover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+html, body { background: var(--paper); }
+body { font-size: var(--fs-body); line-height: var(--lh-body); }
+.book { display: block; }
+
+/* ---- full-page leaves: cover, TOC, dividers, openers ---- */
+.sheet { break-before: page; }
+.sheet--cover { page: cover; break-before: avoid; }
+.layout--opener { break-before: page; break-after: page; }
+/* opener fills its page so the numeral sits near the foot */
+.layout--opener .opener { min-block-size: 228mm; }
+
+/* ---- flowing content blocks ---- */
+.block { break-inside: auto; margin-block-end: var(--space-3); }
+.block:last-child { margin-block-end: 0; }
+.block > :first-child { margin-block-start: 0; } /* uniform section gap (the block margin governs) */
+h1, h2, h3, .title, .part-title { break-after: avoid; break-inside: avoid; }
+figure.fig, .note, .diagram, .legend-row, ol.steps > li, table tr, .gallery .fig, blockquote.pull {
+  break-inside: avoid;
+}
+p { orphans: 3; widows: 3; }
+
+/* exact ink + no motion */
+* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+*, *::before, *::after { animation: none !important; transition: none !important; }
+[data-screen-only] { display: none !important; }
+
+/* ---- TOC with leader + resolved page number ---- */
+.toc-sheet .toc-item a {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: var(--text);
+  padding-block: 4px;
+}
+.toc-sheet .toc-item a .t { order: 1; font-size: 10pt; white-space: nowrap; }
+.toc-sheet .toc-item a::before {
+  content: "";
+  order: 2;
+  flex: 1 1 auto;
+  margin: 0 6px;
+  transform: translateY(-3px);
+  border-block-end: 1px dotted var(--rule-leader);
+}
+.toc-sheet .toc-item a::after {
+  content: target-counter(attr(href url), page);
+  order: 3;
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+[lang="ko"] { word-break: keep-all; }

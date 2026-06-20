@@ -1,0 +1,59 @@
+/* layout: divider — part frontispiece. Oversized GHOST numeral bleeds in;
+   part title + mono chapter list sit low-left. Never gold (that's the
+   deliberate divider↔chapter distinction). */
+.layout--divider .divider {
+  position: relative;
+  min-block-size: calc(
+    var(--page-h) - var(--margin-top) - var(--margin-bottom)
+  );
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.layout--divider .numeral {
+  position: absolute;
+  inset-block-start: -6mm;
+  inset-inline-end: -14mm;
+  font-size: 380pt;
+  font-weight: 250;
+  z-index: 0;
+}
+.layout--divider .part-label {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-block-end: 0.6rem;
+}
+.layout--divider .part-title {
+  font-family: var(--font-display);
+  font-weight: 320;
+  font-size: 40pt;
+  line-height: 1.05;
+  max-inline-size: 13ch;
+  position: relative;
+  z-index: 1;
+}
+.layout--divider .chapter-list {
+  list-style: none;
+  margin: 1.4rem 0 0;
+  padding-block-start: 0.8rem;
+  border-block-start: 1px solid var(--rule);
+  max-inline-size: 70mm;
+  position: relative;
+  z-index: 1;
+}
+.layout--divider .chapter-list li {
+  display: flex;
+  gap: 10px;
+  padding-block: 4px;
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+}
+.layout--divider .chapter-list .cn {
+  color: var(--text-faint);
+}

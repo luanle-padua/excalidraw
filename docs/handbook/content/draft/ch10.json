@@ -1,0 +1,128 @@
+{
+  "number": 10,
+  "blocks": [
+    { "id": "ch10-open", "type": "opener", "layout": "opener" },
+    { "id": "ch10-model", "type": "prose", "layout": "prose", "diagram": "ch10-flow" },
+    { "id": "ch10-present", "type": "steps", "layout": "steps" },
+    { "id": "ch10-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch10-st-idle", "ch10-st-active", "ch10-st-locked", "ch10-st-unsupported", "ch10-st-viewonly", "ch10-st-badge"] },
+    { "id": "ch10-watch", "type": "steps", "layout": "steps", "figure": "ch10-pane" },
+    { "id": "ch10-popout", "type": "prose", "layout": "prose", "diagram": "ch10-pip" },
+    { "id": "ch10-audio", "type": "prose", "layout": "prose" },
+    { "id": "ch10-ref", "type": "reference-table", "layout": "table" },
+    { "id": "ch10-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch10-open": {
+      "eyebrow": "Chapter 10",
+      "title": "Screen sharing",
+      "standfirst": "One presenter at a time, broadcast live to the whole room. Share your screen with a single click, or watch someone else's in a floating viewer you can pop onto a second monitor. This chapter covers presenting, watching, audio, and every state the button can be in."
+    },
+    "ch10-model": {
+      "eyebrow": "How it works",
+      "heading": "One screen, shared to everyone",
+      "lead": "Screen sharing in Canvas M is deliberately simple: at any moment <b>one</b> person in the room can present their screen, and everyone else watches it live. There is no \"request to present\" queue and no host approval step — whoever clicks <b>Present</b> first holds the floor until they stop.",
+      "body": "Your screen travels over a separate live-media channel, not the drawing canvas. That means the canvas, chat, and captions keep working normally while a share is running. As a viewer you don't have to do anything to start watching — the moment a presenter begins, a floating viewer appears for you automatically. When the presenter stops (or leaves the room), the viewer disappears on its own.",
+      "pull": "Whoever clicks Present first holds the floor. There is no queue and no host approval.",
+      "diagram": { "label": "Presenter → live channel → every viewer", "cap": "The presenter's screen is sent over a dedicated media channel. Viewers join silently — no camera or microphone prompt — purely to receive the screen." },
+      "note": { "tag": "Single-share lock", "html": "Because only one person can present at a time, your <b>Present</b> button is <b>disabled while someone else is presenting</b>. Wait for them to finish, then it unlocks." }
+    },
+    "ch10-present": {
+      "eyebrow": "Presenting",
+      "heading": "Share your screen",
+      "steps": [
+        "Find the <b>Present</b> button in the meeting header — it sits in the media group beside the microphone and camera controls, drawn as a monitor-with-arrow icon. Hover it to confirm the <b>Present</b> tooltip.",
+        "Click <b>Present</b>. Your browser opens its own picker asking which <em>entire screen</em>, <em>window</em>, or <em>browser tab</em> you want to share.",
+        "Choose a source and confirm in the browser dialog. Sharing begins the instant the real screen feed starts — not when you click, so cancelling the picker leaves nothing shared.",
+        "Watch the <b>Present</b> button take on its active (highlighted) state. That is your confirmation you are now the presenter; you keep seeing your own screen, so no extra viewer window opens for you.",
+        "When you're done, click the highlighted <b>Present</b> button again to stop. The share ends immediately and everyone's viewer closes."
+      ],
+      "outcome": "You are presenting. Every other participant sees your screen in a floating viewer, and a small screen badge appears on your tile in the participants bar.",
+      "note": "Cancelling the browser's screen picker is harmless — nothing is broadcast and the button returns to its normal state. Presence is only announced once the live feed actually starts.",
+      "host": { "tag": "Host-only", "html": "There is no host \"give me the screen\" or \"stop their share\" control. Sharing is self-service and governed only by the single-share lock — a host who wants to present simply waits for the current presenter to stop." }
+    },
+    "ch10-states": {
+      "eyebrow": "Button states",
+      "heading": "Every state of the Present button",
+      "tiles": [
+        { "state": "Ready", "cap": "Default. The monitor icon with the <b>Present</b> tooltip. Click to open the screen picker." },
+        { "state": "Presenting", "cap": "Highlighted/active. You are the current presenter. Click again to stop sharing." },
+        { "state": "Locked", "cap": "Disabled. Another participant is presenting (single-share lock). It re-enables the moment they stop." },
+        { "state": "Unsupported", "cap": "Disabled, with the tip <em>\"Screen sharing isn't supported on this device or browser (e.g. iPad / iPhone). Present from a computer instead.\"</em>" },
+        { "state": "Review (view-only)", "cap": "Disabled. You're reviewing a finished meeting — live sharing is switched off entirely in read-only review." },
+        { "state": "Your tile badge", "cap": "While you present, a 📺 badge labelled <em>\"Sharing screen\"</em> sits on your avatar in the participants bar." }
+      ],
+      "useWhen": "If the button looks greyed out, check these states in order: are you in a finished-meeting review, is someone else already presenting, or is your device simply unable to share?"
+    },
+    "ch10-watch": {
+      "eyebrow": "Watching",
+      "heading": "When someone else presents",
+      "steps": [
+        "Do nothing — the floating viewer appears automatically the moment a presenter starts. Its header reads <b>\"{name} is presenting\"</b> with a live indicator dot.",
+        "Use the <b>—</b> (minimize) button in the viewer header to collapse it to just the title bar when you need the canvas, then <b>▢</b> (<b>Expand</b>) to bring the picture back.",
+        "If your browser supports it, use the <b>⧉</b> button (<b>Pop out</b>) to float the share in a separate, draggable window — handy for a second monitor (see the next section).",
+        "Live captions, when on, pin to the bottom edge of the viewer so you can follow along with the spoken audio.",
+        "When the presenter stops or leaves, the viewer closes by itself. If they only minimised their shared window, the picture pauses and recovers automatically when it reappears — you don't need to do anything."
+      ],
+      "outcome": "You see the presenter's live screen in a movable viewer, with captions and any shared audio carried along with it.",
+      "note": "You join the share silently to watch — Canvas M never prompts for your camera or microphone just to receive someone's screen.",
+      "figcap": "The floating viewer: title \"{name} is presenting\", a Pop out button, and a Minimize / Expand toggle."
+    },
+    "ch10-popout": {
+      "eyebrow": "Second monitor",
+      "heading": "Pop the share into its own window",
+      "lead": "The <b>⧉</b> button — tooltip <b>\"Open in a separate window to drag to another screen\"</b> — lifts the live screen out of the in-app viewer and into a standalone, always-on-top window you can drag onto a second monitor. The drawing canvas keeps the rest of your first screen to yourself.",
+      "body": "While popped out, the in-app viewer shows the note <b>\"Watching in a separate window\"</b> in place of the picture, and live captions travel <em>with</em> the share into the pop-out window. Closing the pop-out window — or clicking back in the app — returns the picture to the in-app viewer and brings the captions home. The viewer also re-homes itself automatically if the presenter stops while you're popped out.",
+      "note": { "tag": "Browser support", "html": "Pop out uses the browser's Document Picture-in-Picture feature, which today is <b>Chromium-only</b> (Chrome, Edge, and similar). On Firefox and Safari the <b>⧉</b> button simply doesn't appear, and the in-app viewer remains your way to watch.", "variant": "warn" },
+      "diagram": { "label": "In-app viewer → pop-out window on monitor 2", "cap": "Pop out moves the live video into its own OS window without re-loading the feed, so the picture never flickers as it leaves the app." }
+    },
+    "ch10-audio": {
+      "eyebrow": "Shared audio",
+      "heading": "Hearing a shared tab or system sound",
+      "lead": "If a presenter chose to include audio when picking a tab or screen — for example to play a video clip — Canvas M plays that shared sound to you automatically alongside the picture.",
+      "body": "Browsers sometimes block audio from starting until you've interacted with the page. If a share's sound doesn't come through at first, simply click anywhere in the app (or press any key); the audio resumes on that first gesture. Shared audio is separate from the meeting's voice call — muting yourself or others in the call has no effect on a presenter's shared tab sound.",
+      "note": { "tag": "Presenter tip", "html": "Sharing system or tab audio is a choice you make in your <b>browser's</b> screen-picker dialog (e.g. a \"Share tab audio\" checkbox), not in Canvas M. If viewers can't hear your clip, re-share and tick that box." }
+    },
+    "ch10-ref": {
+      "eyebrow": "Reference",
+      "heading": "Screen-sharing controls at a glance",
+      "cols": ["Control / element", "Where", "What it does"],
+      "rows": [
+        ["<b>Present</b> (monitor icon)", "Meeting header, media group", "Starts your screen share; click again while active to stop. Locked while another person presents."],
+        ["Active highlight", "Present button", "Indicates you are the current presenter."],
+        ["📺 badge — \"Sharing screen\"", "Your tile in the participants bar", "Shows everyone who is currently presenting."],
+        ["\"{name} is presenting\"", "Floating viewer header", "Names the presenter you're watching, with a live dot."],
+        ["<b>⧉</b> — \"Pop out\"", "Floating viewer header (Chromium only)", "Moves the live screen into a separate, draggable window."],
+        ["<b>—</b> / <b>▢</b> — Minimize / Expand", "Floating viewer header", "Collapses the viewer to its title bar, or restores the picture."],
+        ["\"Watching in a separate window\"", "Floating viewer body", "Shown while the share is popped out to another window."]
+      ],
+      "note": "Labels are quoted exactly as they appear in the English interface. The presenter never sees a viewer pane — they watch their own screen directly.",
+      "host": { "tag": "Host-only", "html": "None of these are host controls. There is no moderator screen-share lock, force-stop, or approval step — the single-share lock is fully automatic." }
+    },
+    "ch10-trouble": {
+      "eyebrow": "Troubleshooting",
+      "heading": "When sharing misbehaves",
+      "rows": [
+        { "sym": "Present button is greyed out", "cause": "Someone else is already presenting (single-share lock), you're in a finished-meeting review, or your device can't share.", "fix": "Wait for the current presenter to stop, exit review mode, or present from a computer if the tip says it's unsupported.", "ref": "10.4" },
+        { "sym": "Tooltip says screen sharing isn't supported", "cause": "Your browser has no screen-capture API — typically iPad / iPhone Safari.", "fix": "Present from a desktop or laptop browser instead, as the tip advises.", "ref": "10.4" },
+        { "sym": "Toast: \"Couldn't present your screen.\"", "cause": "The share failed to start — connection or media error (any detail appears after the message).", "fix": "Click Present again to retry; check your network if it persists.", "ref": "10.3" },
+        { "sym": "Clicked Present but nothing shared", "cause": "You cancelled the browser's screen-picker dialog. Sharing only begins when a source is confirmed.", "fix": "Click Present again and pick a screen, window, or tab.", "ref": "10.3" },
+        { "sym": "Viewer froze or went black", "cause": "The presenter minimised the shared window, so its picture paused.", "fix": "No action needed — it recovers automatically when they bring the window back.", "ref": "10.5" },
+        { "sym": "No sound from a shared clip", "cause": "The browser blocked audio until you interact, or the presenter didn't share audio.", "fix": "Click anywhere in the app to resume audio; ask the presenter to re-share with tab audio on.", "ref": "10.7" },
+        { "sym": "No Pop out button in the viewer", "cause": "Your browser doesn't support Document Picture-in-Picture (Firefox / Safari).", "fix": "Use the in-app viewer; minimise it to free up the canvas.", "ref": "10.6" },
+        { "sym": "Joined mid-share and see nothing", "cause": "A late joiner is reconciled against the live share automatically.", "fix": "The viewer should appear within moments; refresh the page if it doesn't.", "ref": "10.5" }
+      ],
+      "note": "The error toast and the disabled-button tip are the only on-screen messages screen sharing surfaces; everything else recovers silently."
+    }
+  },
+  "figures": {
+    "ch10-flow": { "ref": "10.1", "placeholder": "Diagram: presenter's screen flows over a live media channel to every viewer; viewers join silently with no mic/cam prompt" },
+    "ch10-st-idle": { "ref": "10.2", "placeholder": "Present button in default ready state with monitor icon" },
+    "ch10-st-active": { "ref": "10.3", "placeholder": "Present button highlighted while you are presenting" },
+    "ch10-st-locked": { "ref": "10.4", "placeholder": "Present button disabled while another participant presents" },
+    "ch10-st-unsupported": { "ref": "10.5", "placeholder": "Present button disabled with the unsupported-device tooltip" },
+    "ch10-st-viewonly": { "ref": "10.6", "placeholder": "Present button disabled in finished-meeting review" },
+    "ch10-st-badge": { "ref": "10.7", "placeholder": "Participant tile with the 📺 'Sharing screen' badge" },
+    "ch10-pane": { "ref": "10.8", "placeholder": "Floating viewer showing a remote presenter's screen with header, Pop out and Minimize buttons" },
+    "ch10-pip": { "ref": "10.9", "placeholder": "Diagram: live share popped out into a standalone window dragged to a second monitor" }
+  }
+}

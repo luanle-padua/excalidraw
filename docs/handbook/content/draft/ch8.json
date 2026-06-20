@@ -1,0 +1,132 @@
+{
+  "number": 8,
+  "blocks": [
+    { "id": "ch8-open", "type": "opener", "layout": "opener" },
+    { "id": "ch8-where", "type": "prose", "layout": "prose", "diagram": "ch8-toolbar" },
+    { "id": "ch8-stickers", "type": "steps", "layout": "steps", "figure": "ch8-stickers-shot" },
+    { "id": "ch8-sizing", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch8-ghost-small", "ch8-ghost-mid", "ch8-ghost-big"] },
+    { "id": "ch8-stamps", "type": "steps", "layout": "steps", "figure": "ch8-stamps-shot" },
+    { "id": "ch8-revcloud", "type": "steps", "layout": "steps", "figure": "ch8-revcloud" },
+    { "id": "ch8-authors", "type": "prose", "layout": "prose", "diagram": "ch8-badge" },
+    { "id": "ch8-ref", "type": "reference-table", "layout": "table" },
+    { "id": "ch8-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch8-open": {
+      "eyebrow": "Chapter 8",
+      "title": "Decorate & annotate",
+      "standfirst": "Stickers, stamps, revision clouds, and author badges turn a working canvas into a marked-up one. This chapter covers every decoration tool a participant can reach — where the buttons live, how placing mode behaves, and what each one leaves behind on the shared scene."
+    },
+    "ch8-where": {
+      "eyebrow": "Orientation",
+      "heading": "Where the decoration tools live",
+      "lead": "Canvas M adds its decoration controls straight into the Excalidraw toolbar, sitting next to the shape buttons rather than in a separate panel. Look for the small strip of extra buttons: a <b>Stickers</b> button (a colourful character icon), a <b>Stamps</b> button, and a people-shaped <b>Show authors</b> toggle.",
+      "body": "These three buttons share one host strip, so on a narrow screen they stay grouped as a single horizontal row instead of stacking into full-width buttons. The revision-cloud tool is different: it is a regular drawing tool in the main shape row, reachable with the keyboard shortcut <kbd>Q</kbd>.",
+      "note": {
+        "tag": "Host-only",
+        "html": "Decoration tools that <em>create</em> canvas content — stickers, stamps, the bot, and text translation — are hidden when you open a finished meeting in review mode. A completed meeting is immutable and extract-only, so the buttons simply do not appear. The <b>Show authors</b> toggle stays available so you can still see who wrote what."
+      }
+    },
+    "ch8-stickers": {
+      "eyebrow": "Stickers",
+      "heading": "Drop a sticker on the canvas",
+      "steps": [
+        "Click the <b>Stickers</b> button in the toolbar. A popover opens showing a grid of chibi-animal stickers.",
+        "Read the hint at the top of the popover: <em>Pick → scroll to resize → click to place</em>.",
+        "Click any sticker tile. The popover closes and a translucent ghost of the sticker starts following your pointer.",
+        "Move over the canvas — the ghost previews the exact size and shows a live <b>width × height</b> readout.",
+        "Scroll the mouse wheel to resize before you commit (scroll up = bigger, down = smaller).",
+        "Click once on the canvas to drop the sticker at that point.",
+        "Press <kbd>Esc</kbd> at any time to cancel placing mode without dropping anything."
+      ],
+      "outcome": "The sticker lands centred on your click and becomes a normal image element — free-floating, selectable, movable, and synced to everyone in the room.",
+      "note": "Stickers and stamps work with a mouse, a trackpad, an Apple Pencil, a Surface Pen, or a touch finger — placing mode is built on pointer events, so all input types behave the same. With a pen, the ghost preview is offset slightly so it sits next to the stylus tip instead of under your hand.",
+      "figcap": "The Stickers popover: a 16-tile grid of animal stickers with the pick-scroll-place hint."
+    },
+    "ch8-sizing": {
+      "eyebrow": "Placing mode",
+      "heading": "Sizing the ghost before you click",
+      "tiles": [
+        { "state": "Small", "cap": "Scroll down to shrink. The smallest the wheel allows is 12% of the base size." },
+        { "state": "Default", "cap": "Every pick starts at 100%. Base size is capped at 240px on the longest edge." },
+        { "state": "Large", "cap": "Scroll up to grow, up to 6× the base size. The readout updates as you scroll." }
+      ],
+      "useWhen": "The ghost is true WYSIWYG: it is drawn at the on-canvas scene size multiplied by your current zoom, so the floating preview is exactly what lands when you click. The corner readout (e.g. <b>180 × 180</b>) is the scene size in canvas pixels, not screen pixels."
+    },
+    "ch8-stamps": {
+      "eyebrow": "Stamps",
+      "heading": "Stamp an image so the mark travels with it",
+      "steps": [
+        "Click the <b>Stamps</b> button. A popover opens with a 12-tile grid of postal-style stamps.",
+        "Click a stamp tile, then scroll to size and click on the canvas — exactly like a sticker.",
+        "To attach a stamp to an image, drop it directly on top of that image.",
+        "Drag the underlying image afterwards — the stamp moves with it."
+      ],
+      "outcome": "A stamp dropped on top of an image <b>adheres</b> to it: the two are grouped, so dragging, selecting, or copying one carries the other. It behaves like a real rubber stamp on a photo. A stamp dropped on empty canvas stays free-floating, just like a sticker.",
+      "note": "The topmost image under your click wins the binding. Canvas M skips its own anchor images (PDF and DXF views own their navigation toolbars) and skips other stamps — stamping a stamp does nothing, since you would just delete the old one. To detach a stamp later, select the group and use Excalidraw's <b>Ungroup</b>.",
+      "figcap": "The Stamps popover: postal-style chibi-animal stamps with the same placing flow as stickers."
+    },
+    "ch8-revcloud": {
+      "eyebrow": "Revision clouds",
+      "heading": "Cloud an area and attach a note",
+      "steps": [
+        "Pick the revision-cloud tool from the shape row, or press <kbd>Q</kbd>.",
+        "Drag a rectangle over the area you want to flag. On release, the rectangle becomes a scalloped cloud outline.",
+        "A toast appears: <em>Click where you want to place the note</em>.",
+        "Click anywhere on the canvas. A text note reading <b>Note</b> drops at that spot.",
+        "An arrow is drawn from the note to the nearest scallop of the cloud, and all three pieces are grouped together.",
+        "Double-click the <b>Note</b> text to edit it; the arrow stays tethered as you move the note."
+      ],
+      "outcome": "You get a grouped revision marker — cloud, note, and connecting arrow — inherited from the colour, stroke width, roughness, and opacity that were active when you drew. Everything is synced to the room as standard canvas elements.",
+      "note": "A single click (no drag) leaves nothing behind — the placeholder is dropped silently. The note inherits your current font so typed text, including Vietnamese, renders correctly. The cloud, the arrow, and the note are all selected together right after creation, so you can move the whole marker as a unit immediately.",
+      "figcap": "A revision cloud with its arrow-tethered Note over a flagged region of the canvas."
+    },
+    "ch8-authors": {
+      "eyebrow": "Author badges",
+      "heading": "See who wrote each piece of text",
+      "lead": "Canvas M stamps the creator's name onto every text element they add. An author badge — a small avatar plus a short name — floats above the top-left corner of authored text so you can tell at a glance who left it.",
+      "body": "By default badges are quiet: one appears only over the text you have <b>selected</b> or are <b>hovering</b>. To reveal every author at once, click the people-shaped <b>Show authors</b> button in the toolbar; its tooltip flips to <b>Hide authors</b> while active. Click again to go back to the calm, selection-only view. Badges are deliberately text-only — shapes, images, stickers, and stamps don't get them, which keeps the canvas readable.",
+      "pull": "Bot answers carry a fixed identity: a 🤖 avatar and the MCM Bot name, so AI-generated text is always distinguishable from a person's.",
+      "note": {
+        "tag": "Good to know",
+        "html": "A badge survives its author leaving the room — the name is snapshotted onto the element, so it keeps showing even after that person disconnects. If a name can't be resolved, the badge falls back to <b>Guest</b>. Badges never appear on text bound inside a container (like the bot frame's own label), because the frame already shows who it belongs to."
+      }
+    },
+    "ch8-ref": {
+      "eyebrow": "Reference",
+      "heading": "Decoration tools at a glance",
+      "cols": ["Tool", "Where", "Shortcut", "Leaves behind", "Synced?"],
+      "rows": [
+        ["Stickers", "Toolbar extras strip", "—", "Free-floating image", "Yes"],
+        ["Stamps", "Toolbar extras strip", "—", "Image, grouped to the image beneath it", "Yes"],
+        ["Revision cloud", "Shape row", "Q", "Cloud + arrow + Note text, grouped", "Yes"],
+        ["Show / Hide authors", "Toolbar extras strip", "—", "Nothing — a view toggle only", "Local view"]
+      ],
+      "note": "Placing-mode controls are identical for stickers and stamps: <b>scroll</b> resizes (0.12× to 6×), <b>click</b> places, <kbd>Esc</kbd> cancels. The wheel resizes the decoration instead of zooming the canvas while a ghost is active."
+    },
+    "ch8-trouble": {
+      "eyebrow": "Troubleshooting",
+      "heading": "When decorations don't behave",
+      "rows": [
+        { "sym": "The Stickers / Stamps buttons aren't in the toolbar", "cause": "You're viewing a finished meeting in review mode, where content-creating tools are hidden.", "fix": "Open the live meeting instead — review canvases are immutable and extract-only.", "ref": "8.1" },
+        { "sym": "I picked a sticker but nothing follows my pointer", "cause": "The asset failed to load (missing or forbidden file); placing mode never started.", "fix": "Pick a different tile. A failed asset is skipped quietly without an error popup.", "ref": "8.2" },
+        { "sym": "Clicking off the canvas dropped nothing", "cause": "A click outside the canvas bounds cancels placing instead of placing the decoration.", "fix": "Aim your click inside the canvas area. Press the tool again to retry.", "ref": "8.2" },
+        { "sym": "The wheel won't zoom the canvas", "cause": "A sticker or stamp ghost is active — the wheel resizes the decoration, not the view.", "fix": "Click to place, or press ⌫Esc to cancel, then the wheel zooms normally.", "ref": "8.4" },
+        { "sym": "My stamp didn't stick to the image", "cause": "It landed on empty canvas, on an MCM anchor (PDF/DXF), or on another stamp — none of which bind.", "fix": "Drop the stamp squarely on top of the target image element.", "ref": "8.5" },
+        { "sym": "The revision-cloud drag did nothing", "cause": "The drag was too small — a cloud needs at least a 12px-by-12px rectangle.", "fix": "Drag a larger area, then click to place the note when prompted.", "ref": "8.6" },
+        { "sym": "A badge shows “Guest” instead of a name", "cause": "The author's identity couldn't be resolved from the stamped name or profile cache.", "fix": "Expected for anonymous or departed peers — the marker is still correct.", "ref": "8.7" }
+      ],
+      "note": "Stickers and stamps ride the same upload pipeline as a pasted image, so they survive a late-join and a reopen. If a peer momentarily sees an empty box, it resolves once the bytes finish syncing."
+    }
+  },
+  "figures": {
+    "ch8-toolbar": { "ref": "8.1", "placeholder": "The Excalidraw toolbar with the Stickers, Stamps, and Show authors buttons highlighted in the extras strip" },
+    "ch8-stickers-shot": { "ref": "8.2", "placeholder": "Stickers popover open over the canvas", "shot": "07-canvas/stickers" },
+    "ch8-ghost-small": { "ref": "8.3a", "placeholder": "Sticker ghost scrolled small with a tiny size readout" },
+    "ch8-ghost-mid": { "ref": "8.3b", "placeholder": "Sticker ghost at default 100% size" },
+    "ch8-ghost-big": { "ref": "8.3c", "placeholder": "Sticker ghost scrolled large with a big size readout" },
+    "ch8-stamps-shot": { "ref": "8.5", "placeholder": "Stamps popover open over the canvas", "shot": "07-canvas/stamps" },
+    "ch8-revcloud": { "ref": "8.6", "placeholder": "A scalloped revision cloud with an arrow pointing to a Note label" },
+    "ch8-badge": { "ref": "8.7", "placeholder": "Author badge with avatar and short name floating above a text element, plus the bot's robot badge" }
+  }
+}

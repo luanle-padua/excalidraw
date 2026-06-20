@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Canvas M — Participant Guide</title>
+  <meta name="description" content="The participant's guide to Canvas M, the realtime meeting whiteboard for MAP-GROUP.">
+  <link rel="icon" href="assets/icon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,560&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body data-page="home" data-base="." data-slug="">
+
+  <div class="shell">
+    <main class="content">
+      <!-- Hero -->
+      <section class="hero">
+        <span class="eyebrow">MAP-GROUP · Realtime meeting whiteboard</span>
+        <h1>Your guide to <span class="accent">Canvas&nbsp;M</span>, as a participant.</h1>
+        <p class="lead">One shared canvas to meet, mark up BIM/CAD, transcribe, translate, and let AI remember every decision. This guide walks you through everything you do in a meeting — from signing in to leaving with a recap.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="chapters/01-signing-in.html">Start with Chapter 1 &nbsp;→</a>
+          <a class="btn" href="#map">Browse all chapters</a>
+        </div>
+        <div class="hero-meta">
+          <span>📘 <b>18</b> chapters · <b>6</b> parts</span>
+          <span>🎯 Written for <b>meeting participants</b></span>
+          <span>🌐 EN · VI · KO ready</span>
+        </div>
+      </section>
+
+      <!-- App preview frame -->
+      <section class="hero" style="padding-top:0">
+        <div class="frame">
+          <div class="frame-bar">
+            <div class="dots"><i></i><i></i><i></i></div>
+            <span class="title">canvas-m · design review · live</span>
+          </div>
+          <div class="frame-stage">
+            <div class="ph-label">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              <b>The Canvas M meeting room</b>
+              <small>shared canvas · video filmstrip · library · live captions</small>
+            </div>
+          </div>
+          <div class="frame-cap"><b>Screenshot placeholder.</b> Real product captures are dropped in here later.</div>
+        </div>
+      </section>
+
+      <!-- Chapter map -->
+      <section class="hero" id="map" style="padding-top:1rem">
+        <span class="eyebrow">The whole journey</span>
+        <h2 style="margin-top:0.6rem">Six parts, in the order you'll meet them</h2>
+        <p class="lead" style="font-size:1.05rem">Chapters 1–3 are written in full. The rest are scaffolded and fill in as the product settles.</p>
+        <div id="chapterMap"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="js/toc.js"></script>
+  <script>
+    // Render the chapter map from the shared TOC.
+    (function () {
+      const wrap = document.getElementById("chapterMap");
+      wrap.innerHTML = window.MCM_TOC.map(function (part) {
+        const items = part.chapters.map(function (c) {
+          const stub = c.ready ? "" : " stub";
+          return '<a class="ch-item' + stub + '" href="chapters/' + c.slug + '.html">' +
+            '<span class="n">' + String(c.n).padStart(2, "0") + '</span>' +
+            '<span><span class="t">' + c.title + '</span><br><span class="d">' + c.desc + '</span></span></a>';
+        }).join("");
+        return '<div class="part-block"><div class="part-head"><span class="pn">PART ' + part.part +
+          '</span><h2>' + part.label + '</h2></div><div class="ch-list">' + items + '</div></div>';
+      }).join("");
+    })();
+  </script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+{
+  "number": 7,
+  "blocks": [
+    { "id": "ch7-open", "type": "opener", "layout": "opener" },
+    { "id": "ch7-toolbar", "type": "plate", "layout": "plate", "figure": "ch7-toolbar-shot" },
+    { "id": "ch7-tools", "type": "reference-table", "layout": "table" },
+    { "id": "ch7-extras", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch7-sticker", "ch7-bot", "ch7-openers"] },
+    { "id": "ch7-place", "type": "steps", "layout": "steps", "figure": "ch7-place-ghost" },
+    { "id": "ch7-nav", "type": "steps", "layout": "steps", "figure": "ch7-nav-widget" },
+    { "id": "ch7-mental", "type": "prose", "layout": "prose" },
+    { "id": "ch7-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch7-open": {
+      "eyebrow": "Chapter 7",
+      "title": "Canvas basics",
+      "standfirst": "The shared canvas is where the meeting actually happens. This chapter walks the toolbar tool by tool, shows the Canvas&nbsp;M extras tucked beside it, and explains how to place things, move the camera, and read the mini-map &mdash; all from a participant's seat."
+    },
+    "ch7-toolbar": {
+      "eyebrow": "The toolbar",
+      "legend": [
+        { "n": "1", "text": "<b>Hand</b> (<kbd>H</kbd>) &mdash; the panning tool. Hold and drag to slide the canvas without selecting or drawing anything." },
+        { "n": "2", "text": "<b>Selection</b> (<kbd>V</kbd> or <kbd>1</kbd>) &mdash; pick, move, and resize elements. The default tool. If you have the lasso preference on, this slot becomes <b>Lasso selection</b> instead." },
+        { "n": "3", "text": "Drawing shapes: <b>Rectangle</b> (<kbd>R</kbd>/<kbd>2</kbd>), <b>Diamond</b> (<kbd>D</kbd>/<kbd>3</kbd>), <b>Ellipse</b> (<kbd>O</kbd>/<kbd>4</kbd>), <b>Arrow</b> (<kbd>A</kbd>/<kbd>5</kbd>), <b>Line</b> (<kbd>L</kbd>/<kbd>6</kbd>)." },
+        { "n": "4", "text": "<b>Draw</b> (<kbd>P</kbd> or <kbd>X</kbd>, also <kbd>7</kbd>) &mdash; freehand pen. <b>Text</b> (<kbd>T</kbd>/<kbd>8</kbd>). <b>Insert image</b> (<kbd>9</kbd>)." },
+        { "n": "5", "text": "<b>Eraser</b> (<kbd>E</kbd>/<kbd>0</kbd>) and <b>Revision cloud</b> (<kbd>Q</kbd>) &mdash; the dashed markup cloud for flagging changes." },
+        { "n": "6", "text": "Canvas&nbsp;M extras strip: the <b>Stickers</b> and <b>Stamps</b> pickers, the <b>Ask&nbsp;MCM&nbsp;Bot</b> tool, and the <b>CAD&nbsp;view</b> / <b>3D&nbsp;view</b> openers &mdash; added next to the shape switcher." },
+        { "n": "7", "text": "<b>Laser pointer</b> (<kbd>K</kbd>) &mdash; a temporary dot for pointing during a walkthrough; reach it from <b>More tools</b> rather than the main strip." }
+      ]
+    },
+    "ch7-tools": {
+      "eyebrow": "Every tool",
+      "heading": "The toolbar at a glance",
+      "cols": ["Tool", "Shortcut", "What it does"],
+      "rows": [
+        ["Hand (panning tool)", "H", "Drag the canvas around without touching elements."],
+        ["Selection", "V or 1", "Click to pick; drag to marquee-select; drag a handle to resize."],
+        ["Rectangle", "R or 2", "Click-drag a rectangle. Hold to keep drawing more."],
+        ["Diamond", "D or 3", "Click-drag a diamond."],
+        ["Ellipse", "O or 4", "Click-drag a circle or oval."],
+        ["Arrow", "A or 5", "Click a start point, click an end point. Snaps to nearby shapes."],
+        ["Line", "L or 6", "Straight line; click again to add a bend, double-click to finish."],
+        ["Draw", "P, X or 7", "Freehand pen &mdash; just drag."],
+        ["Text", "T or 8", "Click to place a text cursor and type. Double-clicking with Selection also starts text."],
+        ["Insert image", "9", "Pick an image file to drop on the canvas."],
+        ["Eraser", "E or 0", "Drag over strokes to remove them."],
+        ["Revision cloud", "Q", "Draw a dashed cloud to mark up a change."],
+        ["Laser pointer", "K", "A fading dot for pointing; lives under More tools."]
+      ],
+      "note": "Number keys mirror the icons left to right (<kbd>1</kbd>&ndash;<kbd>0</kbd>). The same shortcuts work whether you are a host or a participant &mdash; the toolbar is identical for everyone with edit access.",
+      "host": null
+    },
+    "ch7-extras": {
+      "eyebrow": "Canvas M extras",
+      "heading": "The buttons beyond plain whiteboarding",
+      "tiles": [
+        { "state": "Stickers / Stamps", "cap": "Two pickers labelled <b>Stickers</b> and <b>Stamps</b>. Open one, and a grid of assets appears with the hint <em>&ldquo;Pick &rarr; scroll to resize &rarr; click to place.&rdquo;</em> An empty library reads <em>&ldquo;No Stickers in the library yet.&rdquo;</em>" },
+        { "state": "Ask MCM Bot", "cap": "The bot tool (<b>Ask MCM Bot</b>) drops a prompt box on the canvas. Type any request &mdash; <em>&ldquo;summarize the meeting, list decisions&rdquo;</em> &mdash; and the answer is written onto the canvas. It shows <em>&ldquo;🤖 Working&hellip;&rdquo;</em> while it thinks." },
+        { "state": "CAD / 3D openers", "cap": "<b>CAD view</b> opens a DXF in a pane; <b>3D view</b> opens an IFC model. If the library has none, the popover reads <em>&ldquo;No DXF files in the library yet.&rdquo;</em> / <em>&ldquo;No IFC models in the library yet.&rdquo;</em>" }
+      ],
+      "useWhen": "Reach for the extras when plain shapes aren't enough: stickers and stamps to react or approve, the bot to pull answers out of the transcript, and the CAD/3D openers to inspect drawings and models right on the board. They sit in one strip next to the shape switcher; on a narrow phone screen they collapse into a single row below the toolbar."
+    },
+    "ch7-place": {
+      "eyebrow": "Placing assets",
+      "heading": "Drop a sticker, stamp, or bot answer",
+      "steps": [
+        "Click <b>Stickers</b> or <b>Stamps</b> in the extras strip to open the picker.",
+        "Click an asset. A translucent ghost now follows your pointer &mdash; you are in <em>placing mode</em>.",
+        "<b>Scroll the wheel</b> (or pinch) to resize the ghost before you commit.",
+        "Click once on the canvas to drop the asset at that point.",
+        "For the bot, click <b>Ask MCM Bot</b>, click the canvas, then type your request in the floating box and press <b>Send</b>."
+      ],
+      "outcome": "The sticker, stamp, or bot answer lands on the canvas as a normal element that everyone in the room sees &mdash; you can then select, move, or resize it like any shape.",
+      "note": "Placing mode works the same with a mouse, an Apple Pencil, a Surface Pen, or a finger. With a pen, the ghost sits beside the tip rather than under your hand.",
+      "host": null,
+      "figcap": "Placing mode: a ghost preview tracks the pointer until you click to commit."
+    },
+    "ch7-nav": {
+      "eyebrow": "Moving the camera",
+      "heading": "Zoom, reset, and the mini-map",
+      "steps": [
+        "Find the navigation widget in the <b>bottom-right corner</b> of the canvas &mdash; it is always there.",
+        "Click <b>+</b> (<b>Zoom in</b>) or <b>&minus;</b> (<b>Zoom out</b>). The buttons grey out at the maximum and minimum zoom.",
+        "Read the live zoom percentage in the middle; click it to <b>Reset zoom (100%)</b>.",
+        "Click the map icon to toggle the mini-map &mdash; its tooltip flips between <b>Show navigation map</b> and <b>Hide navigation map</b>.",
+        "On the mini-map, <b>click or drag to move the camera</b>; the bright rectangle is your current view."
+      ],
+      "outcome": "You can reach any corner of a large board without a scroll wheel or trackpad gestures &mdash; useful on a tablet. Your mini-map open/closed choice is remembered on this device.",
+      "note": "Moving your own camera is local: it does not move anyone else's view, and following is separate &mdash; that is the participants panel's job, covered earlier.",
+      "host": null,
+      "figcap": "The corner widget: zoom buttons, a clickable percentage, and the toggleable mini-map."
+    },
+    "ch7-mental": {
+      "eyebrow": "How the canvas thinks",
+      "heading": "One infinite board, shared live",
+      "lead": "The canvas is a single, endless sheet that everyone in the room shares in real time. There are no pages and no edges &mdash; you pan and zoom to wherever the work is, and what you draw appears for everyone the instant you draw it.",
+      "body": "Two ideas keep it calm. First, <b>your camera is yours</b>: zooming or panning only moves your own view, never anyone else's, so you can wander off to inspect a detail without dragging the room with you. Second, <b>your edits are everyone's</b>: a shape, sticker, or bot answer you place is collaborative the moment it lands. The mini-map exists to reconcile the two &mdash; it shows the whole board at once so you never lose your bearings.",
+      "pull": "Your camera is yours; your edits are everyone's.",
+      "note": {
+        "tag": "Read-only",
+        "html": "When a meeting has <b>finished</b>, the canvas switches to review mode and the editing extras step back &mdash; the Stickers, Stamps, and bot buttons disappear, while the CAD and 3D openers and the navigation widget stay so you can still inspect and move around."
+      }
+    },
+    "ch7-trouble": {
+      "eyebrow": "When something's off",
+      "heading": "Canvas snags and fixes",
+      "rows": [
+        { "sym": "The zoom + or &minus; button is greyed out.", "cause": "You're already at the maximum or minimum zoom.", "fix": "Click the percentage to reset to 100%, or use the other button.", "ref": "7.6" },
+        { "sym": "A sticker picker grid is empty.", "cause": "No assets are bundled for that kind yet.", "fix": "You'll see <em>&ldquo;No Stickers in the library yet&rdquo;</em> &mdash; use a stamp or a shape instead.", "ref": "7.4" },
+        { "sym": "<b>CAD view</b> / <b>3D view</b> opens an empty popover.", "cause": "No DXF or IFC files have been uploaded to the room.", "fix": "Add a file via the library bar on the right first, then re-open the view.", "ref": "7.4" },
+        { "sym": "The Stickers, Stamps, and bot buttons vanished.", "cause": "The meeting has finished &mdash; the canvas is read-only.", "fix": "This is expected. You can still pan, zoom, and open CAD/3D views to review.", "ref": "7.7" },
+        { "sym": "The bot says it can't answer.", "cause": "A connection or API problem.", "fix": "You'll see <em>&ldquo;The bot hit an error, try again.&rdquo;</em> &mdash; wait a moment and resend.", "ref": "7.4" }
+      ],
+      "note": "Most canvas controls are local-only, so a hiccup rarely affects the rest of the room &mdash; a quick retry or a zoom reset usually clears it."
+    }
+  },
+  "figures": {
+    "ch7-toolbar-shot": { "ref": "7.1", "placeholder": "The full canvas toolbar with numbered callouts", "shot": "07-canvas/toolbar" },
+    "ch7-sticker": { "ref": "7.2", "placeholder": "Stickers picker grid open with the resize hint" },
+    "ch7-bot": { "ref": "7.3", "placeholder": "Ask MCM Bot prompt box floating on the canvas" },
+    "ch7-openers": { "ref": "7.4", "placeholder": "CAD view and 3D view opener popovers" },
+    "ch7-place-ghost": { "ref": "7.5", "placeholder": "A translucent sticker ghost tracking the pointer in placing mode" },
+    "ch7-nav-widget": { "ref": "7.6", "placeholder": "Bottom-right navigation widget with mini-map expanded", "shot": "06-meeting/shell" }
+  }
+}

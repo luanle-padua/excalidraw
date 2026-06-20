@@ -1,0 +1,124 @@
+{
+  "number": 15,
+  "blocks": [
+    { "id": "ch15-open", "type": "opener", "layout": "opener" },
+    { "id": "ch15-anatomy", "type": "plate", "layout": "plate", "figure": "ch15-home" },
+    { "id": "ch15-topbar", "type": "prose", "layout": "prose" },
+    { "id": "ch15-sidebar", "type": "steps", "layout": "steps" },
+    { "id": "ch15-cards", "type": "steps", "layout": "steps", "figure": "ch15-invited" },
+    { "id": "ch15-cardstates", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch15-state-live", "ch15-state-upcoming", "ch15-state-done"] },
+    { "id": "ch15-bell", "type": "prose", "layout": "prose" },
+    { "id": "ch15-resume", "type": "prose", "layout": "prose" },
+    { "id": "ch15-statuses", "type": "reference-table", "layout": "table" },
+    { "id": "ch15-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch15-open": {
+      "eyebrow": "Chapter 15",
+      "title": "Your dashboard",
+      "standfirst": "Every time you sign in to Canvas M and you are not inside a meeting, the dashboard takes over the whole screen. It is the home base where your meetings, your projects and your calendar all live side by side. This chapter walks every button, panel and badge you will meet there."
+    },
+    "ch15-anatomy": {
+      "eyebrow": "The lay of the land",
+      "legend": [
+        { "n": 1, "text": "<b>Brand & top bar</b> — the Canvas M wordmark on the left; the action cluster on the right (notifications, history, wallpaper, theme, language, <b>Use the canvas solo</b>, and your account chip)." },
+        { "n": 2, "text": "<b>Left sidebar</b> — your views: <b>My meetings</b> and <b>Invited / Upcoming</b>, plus the list of <b>Projects</b> you belong to." },
+        { "n": 3, "text": "<b>Middle column</b> — the meeting cards for whatever you picked on the left. A header shows the context name, a <b>Grid</b>/<b>List</b> toggle, a <b>Sort by</b> menu and status filter chips." },
+        { "n": 4, "text": "<b>Right calendar</b> — a month calendar that always stays visible, tinted to match your meeting colours. Drag its left edge to make it wider or narrower." },
+        { "n": 5, "text": "<b>Resume banner</b> — appears above everything when you left a live meeting open and came back; one click drops you straight back in." }
+      ]
+    },
+    "ch15-topbar": {
+      "eyebrow": "The top bar",
+      "heading": "Notifications, history, and your account",
+      "lead": "<span>The</span> top bar carries the controls that belong to <em>you</em>, not to any single meeting. From left to right it reads as four clusters: a row of round icon buttons, the language capsule, the <b>Use the canvas solo</b> button, and finally your account chip.",
+      "body": "The icon buttons are, in order: the <b>bell</b> (pending invitations, covered below), the <b>history</b> clock (<b>My activity</b>), the <b>image</b> tile (wallpaper), and the <b>moon</b> (light / dark theme). The history panel is a reverse-chronological log of what you did — it lists <b>Created meeting</b>, <b>Invited to</b>, <b>Joined meeting</b> and <b>Uploaded to My Files</b> rows, with an <b>Accepted</b> or <b>Declined</b> chip next to invitations you answered. When you have done nothing yet it simply reads <b>No activity yet</b>.",
+      "pull": "The clock is your past; the bell is your to-do list. They are deliberately kept apart.",
+      "note": { "tag": "Wallpaper", "html": "The wallpaper picker dresses the desk behind the glass panels. Pick any preset tile, or choose <b>Tải ảnh lên</b> (Upload image) to use your own photo — it applies instantly and is remembered on this browser. The small <b>x</b> on your uploaded tile returns you to the default. Wallpaper is purely cosmetic and only you see it." }
+    },
+    "ch15-sidebar": {
+      "eyebrow": "The sidebar",
+      "heading": "Switching what the middle column shows",
+      "steps": [
+        "Open <b>My meetings</b> to see your whole personal calendar of meetings — everything you organize or attend, across every project.",
+        "Open <b>Invited / Upcoming</b> to see only the meetings you were invited to. This view never shows an edit pencil — you do not edit a meeting you were merely invited to.",
+        "Scroll to the <b>Projects</b> heading to see the projects you belong to. Each row may show a colour dot and the project's <b>stage</b>; a project you were only invited into carries an <b>Invited</b> badge instead.",
+        "Click any project to list just its meetings. The project name becomes the column title."
+      ],
+      "outcome": "The middle column reloads for whatever you picked, and any open detail or form is cleared so you never see a stale view.",
+      "note": "If the project list can't load, the empty slot says <b>Couldn't load — check your network connection.</b> with a <b>Retry</b> link, rather than pretending you have no projects.",
+      "host": { "tag": "Host-only", "html": "Internal staff also see <b>My Files</b>, <b>Guest manager</b> and <b>Manage projects</b> entries here, plus a <b>New project</b> button at the bottom. As a participant these are hidden — projects are created and run for you." }
+    },
+    "ch15-cards": {
+      "eyebrow": "Meeting cards",
+      "heading": "Reading and opening a card",
+      "figure": "ch15-invited",
+      "steps": [
+        "Each card shows the meeting's <b>title</b> (optional emoji icon and topic), its <b>date and time</b>, the <b>creator</b> (avatar + name), a coloured <b>status pill</b>, and — in the overview and invited lists — a clickable <b>project</b> chip.",
+        "Click the body of a card to open the meeting. A live or scheduled one joins you; a finished one opens read-only for review.",
+        "Click the project chip on a card to jump straight to that project's list instead of opening the meeting.",
+        "Use <b>Grid</b> / <b>List</b> in the header to switch the layout, and <b>Sort by</b> to order by <b>By time</b>, <b>By title</b> or <b>By status</b>.",
+        "Use the status chips — <b>All</b>, <b>Live</b>, <b>Upcoming</b>, <b>Done</b>, <b>Cancelled</b> — to narrow the list to one lifecycle stage."
+      ],
+      "outcome": "When sorted <b>By time</b> the list groups by day with <b>Today</b> / <b>Tomorrow</b> / date separators — upcoming days first (nearest first), then past days (most recent first).",
+      "figcap": "The Invited / Upcoming view, with each card's status pill and creator.",
+      "note": "Two small icon buttons on every card — a <b>Palette</b> and a <b>Details</b> (eye) — let you tint the card or open its full detail panel. If the cards can't load you'll see <b>Couldn't load — check your network connection.</b> with <b>Retry</b>; an empty list reads <b>No meetings in this project yet</b>."
+    },
+    "ch15-cardstates": {
+      "eyebrow": "Status at a glance",
+      "heading": "The colours a card can wear",
+      "tiles": [
+        { "state": "Live", "cap": "A green <b>Live</b> pill and a pulsing live dot. Clicking the card joins the meeting in progress." },
+        { "state": "Scheduled", "cap": "An <b>Upcoming</b> card carries a <b>Scheduled</b> pill and its planned date and time. Joining goes through the start gate until the host begins." },
+        { "state": "Finished / Cancelled", "cap": "A <b>Finished</b> or <b>Cancelled</b> pill marks a closed meeting. Opening it shows the canvas read-only — you can review and extract, but not change anything." }
+      ],
+      "useWhen": "Glance at the pill before you click: green means walk straight in, a date means it has not started, and a grey pill means review-only."
+    },
+    "ch15-bell": {
+      "eyebrow": "The notification bell",
+      "heading": "Invitations that need your answer",
+      "lead": "<span>The</span> bell collects every meeting invitation still waiting on <em>your</em> reply, so none slip past. A small numbered badge shows how many are pending; click it to open the <b>Notifications & invitations</b> panel.",
+      "body": "Each row shows the meeting title, when it is (or a red <b>LIVE NOW</b> tag if it is already running), and the project name. Two buttons sit on the right: <b>Accept</b> and <b>Decline</b>. Accepting a meeting that is live counts as \"I'm coming\" and joins you on the spot; accepting a scheduled one simply confirms your seat. Declining removes the row and quietly confirms with <b>Invitation declined</b>. When nothing is pending the panel reads <b>No notifications</b>.",
+      "note": { "tag": "Good to know", "html": "An invitation grants access but sends no email or push — the bell <em>is</em> the notification channel, refreshed automatically about once a minute. The bell only ever lists things you can still act on; finished and cancelled meetings drop off by themselves." }
+    },
+    "ch15-resume": {
+      "eyebrow": "Picking up where you left off",
+      "heading": "The Resume banner",
+      "lead": "<span>If</span> you closed the tab or refreshed while a meeting was still going, the dashboard greets you with a <b>Resume meeting</b> banner above the columns, showing the meeting's title. One click takes you straight back in.",
+      "body": "The banner is careful: it only appears for a meeting that is genuinely resumable. A meeting that has since been ended for everyone, or cancelled, never offers Resume — the banner re-checks the meeting's real status when you return to the tab, and quietly removes itself if the meeting is over. A scheduled meeting that has not started yet is not offered either; you join those through the normal start gate.",
+      "note": { "tag": "Use the canvas solo", "html": "Separately, the <b>Use the canvas solo</b> button in the top bar drops you onto a blank private canvas with no meeting and nobody else — handy for a quick sketch. Leaving it returns you to the dashboard." }
+    },
+    "ch15-statuses": {
+      "eyebrow": "Reference",
+      "heading": "Meeting lifecycle and what you can do",
+      "cols": ["Status", "Pill", "On the card", "What clicking does"],
+      "rows": [
+        ["Scheduled", "Scheduled", "Planned date & time shown", "Goes through the start gate; you wait until the host starts"],
+        ["Live", "Live", "Pulsing live dot; LIVE NOW in the bell", "Joins the meeting immediately"],
+        ["Finished", "Finished", "Greyed", "Opens read-only — review and extract only"],
+        ["Cancelled", "Cancelled", "Greyed", "Opens read-only; the organizer cancelled it"]
+      ],
+      "note": "These four are the only canonical statuses. Older meetings may carry legacy labels, but Canvas M maps them onto this set so the pill is always one of these four.",
+      "host": { "tag": "Host-only", "html": "Starting a scheduled meeting, ending one for everyone, cancelling and restoring are organizer / project-authority actions. As a participant you only ever join, review, or answer an invitation." }
+    },
+    "ch15-trouble": {
+      "eyebrow": "When something looks off",
+      "heading": "Dashboard troubleshooting",
+      "rows": [
+        { "sym": "The middle column shows \"Couldn't load\"", "cause": "The server didn't respond when fetching your meetings or projects", "fix": "Click <b>Retry</b>; check your internet connection if it keeps failing", "ref": "15.4" },
+        { "sym": "A card won't open", "cause": "The room couldn't be reached or you don't have access", "fix": "You'll see \"Couldn't open the meeting…\"; confirm you were invited and try again", "ref": "15.5" },
+        { "sym": "An invitation isn't in the bell", "cause": "It's already finished, cancelled, or you already answered or joined", "fix": "The bell only lists open, unanswered invitations; check the card in your lists instead", "ref": "15.7" },
+        { "sym": "The Resume banner disappeared", "cause": "The host ended or cancelled the meeting while you were away", "fix": "Expected — the banner re-checks status on focus and drops dead meetings", "ref": "15.8" },
+        { "sym": "No \"New meeting\" or project tools", "cause": "Those are organizer / internal-staff controls", "fix": "Ask a host to schedule the meeting and invite you", "ref": "15.4" }
+      ],
+      "note": "Most dashboard errors are transient network hiccups — a <b>Retry</b> usually clears them. If sign-in itself fails, that's covered earlier in the login chapter."
+    }
+  },
+  "figures": {
+    "ch15-home": { "ref": "15.1", "placeholder": "The full three-column dashboard with numbered callouts", "shot": "02-dashboard/home" },
+    "ch15-invited": { "ref": "15.2", "placeholder": "Invited / Upcoming list of meeting cards", "shot": "02-dashboard/invited-upcoming" },
+    "ch15-state-live": { "ref": "15.3a", "placeholder": "A live meeting card with green pill and live dot" },
+    "ch15-state-upcoming": { "ref": "15.3b", "placeholder": "A scheduled meeting card with date and Scheduled pill" },
+    "ch15-state-done": { "ref": "15.3c", "placeholder": "A finished meeting card with greyed Finished pill" }
+  }
+}

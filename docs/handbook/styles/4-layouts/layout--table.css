@@ -1,0 +1,103 @@
+/* layout: table — any lookup (reference, keymap, troubleshooting, glossary).
+   Hairline rules ONLY, never fills. Mono for keys/codes/refs; serif only in
+   the section title. Table in 1–8, explanatory rail 9–12. */
+.layout--table {
+  --main: 1 / 9;
+  --rail: 9 / 13;
+}
+.layout--table table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  line-height: 1.5;
+}
+.layout--table thead th {
+  font-family: var(--font-mono);
+  font-size: 6.5pt;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: start;
+  padding: 0 10px 6px 0;
+  border-block-end: 1px solid var(--rule);
+}
+.layout--table tbody td {
+  padding: 8px 10px 8px 0;
+  vertical-align: top;
+  border-block-end: 1px solid var(--rule-soft);
+  color: var(--text);
+}
+.layout--table tbody tr:last-child td {
+  border-block-end: 0;
+}
+.layout--table .sym {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  color: var(--ink);
+  font-weight: 500;
+}
+.layout--table .ref {
+  font-family: var(--font-mono);
+  font-size: 7.5pt;
+  color: var(--accent);
+  white-space: nowrap;
+}
+/* table of contents variant */
+.layout--table .toc-list {
+  list-style: none;
+  margin: 1.2rem 0 0;
+  padding: 0;
+  max-inline-size: 130mm;
+}
+.layout--table .toc-part {
+  font-family: var(--font-mono);
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-block: 1.1rem 0.4rem;
+  padding-block-end: 4px;
+  border-block-end: 1px solid var(--rule);
+}
+.layout--table .toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-block: 4px;
+}
+.layout--table .toc-item .t {
+  font-size: 10pt;
+}
+.layout--table .toc-item .dots {
+  flex: 1;
+  border-block-end: 1px dotted var(--rule-soft);
+  transform: translateY(-3px);
+}
+.layout--table .toc-item .pg {
+  font-family: var(--font-mono);
+  font-size: 8.5pt;
+  color: var(--text-soft);
+}
+
+/* glossary / definition-list variant */
+.layout--table .terms {
+  margin: 0;
+  columns: 2;
+  column-gap: var(--col-gap);
+}
+.layout--table .terms dt {
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  margin-block-start: 0.7rem;
+}
+.layout--table .terms dd {
+  margin: 2px 0 0;
+  font-size: 8.5pt;
+  color: var(--text-soft);
+  break-inside: avoid;
+}
