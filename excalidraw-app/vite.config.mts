@@ -26,48 +26,22 @@ export default defineConfig(({ mode }) => {
       // the page origin (ws:// for plain http, wss:// when fronted by a
       // tunnel/proxy that terminates HTTPS).
       allowedHosts: true,
-      // route the client's /socket.io requests to the local room server
-      // so we only need one host (the Vite dev server) to reach the
-      // collab socket — works for localhost, LAN IP, and tunnel access.
+      // Same-origin proxy so one host (the Vite dev server) reaches the
+      // storage Worker for REST. Realtime is 100% Durable Objects on the
+      // Worker (:8787) since 06-17 — the old socket.io room server (:3002)
+      // is retired, so its /socket.io, /translate, /translate-batch,
+      // /chatbot, /stt, /summarize proxies are gone (AI/STT now live under
+      // the Worker's /v1). The DO realtime WebSocket connects straight to
+      // the Worker (`/rooms/:id/ws`, via VITE_APP_STORAGE_URL), not through
+      // this proxy, so /v1 stays plain HTTP (no `ws: true`).
+      //
+      // /v1: durable scene/file save+load reachable SAME-ORIGIN through the
+      // tunnel. Without this, the browser fetches http://localhost:8787
+      // directly, which is cross-origin from the tunnel (and on a remote
+      // visitor's machine points at a worker that isn't running) →
+      // CORS/503 and no shared storage between users. The worker serves
+      // everything under /v1, so keep the prefix (no rewrite).
       proxy: {
-        "/socket.io": {
-          target: "http://localhost:3002",
-          ws: true,
-          changeOrigin: true,
-        },
-        "/translate": {
-          target: "http://localhost:3002",
-          changeOrigin: true,
-        },
-        "/translate-batch": {
-          target: "http://localhost:3002",
-          changeOrigin: true,
-        },
-        "/chatbot": {
-          target: "http://localhost:3002",
-          changeOrigin: true,
-        },
-        // Realtime speech-to-text. Must be `ws: true` so the WebSocket
-        // upgrade is forwarded — without it Vite returns 404 on the
-        // upgrade request and the browser shows "WebSocket is closed
-        // before the connection is established".
-        "/stt": {
-          target: "http://localhost:3002",
-          ws: true,
-          changeOrigin: true,
-        },
-        "/summarize": {
-          target: "http://localhost:3002",
-          changeOrigin: true,
-        },
-        // Storage worker (Cloudflare Worker: R2 blobs + D1 metadata) so
-        // durable scene/file save+load is reachable SAME-ORIGIN through the
-        // tunnel — mirrors the /socket.io room-server proxy. Without this,
-        // the browser fetches http://localhost:8787 directly, which is
-        // cross-origin from the tunnel (and on a remote visitor's machine
-        // points at a worker that isn't running) → CORS/503 and no shared
-        // storage between users. The worker serves everything under /v1, so
-        // keep the prefix (no rewrite). Plain HTTP — no `ws: true`.
         "/v1": {
           target: "http://localhost:8787",
           changeOrigin: true,

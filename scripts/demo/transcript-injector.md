@@ -254,7 +254,7 @@ Mỗi snippet có array `segments` với `delay` (ms). Anh có thể:
 
 - **"collabAPI not found"** trong console → tab chưa join room. Verify thanh participants có 3 avatar + host crown trên Luân.
 - **Segment đã chạy nhưng transcript không hiện** → Live Transcript panel chưa mở. Click "Live transcript" pill ở bottom-left của canvas.
-- **Translation không hiện** → Gemini API key chưa active, hoặc auto-translate đang OFF. Kiểm tra `room/.env` + chat header có icon "Auto-translate (on)".
+- **Translation không hiện** → Gemini API key chưa active, hoặc auto-translate đang OFF. Kiểm tra `GEMINI_API_KEY` (Worker secret trên `mcm-storage`; local `worker/.dev.vars`) + chat header có icon "Auto-translate (on)".
 
 ---
 

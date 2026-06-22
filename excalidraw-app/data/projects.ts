@@ -333,10 +333,12 @@ export type Meeting = {
   /** RUNTIME per-meeting realtime backend selector (DO migration, 06-17).
    *  Team A stamps this on the meeting row in D1: "do" routes the realtime
    *  collab through the Cloudflare Durable Object (raw WebSocket transport);
-   *  anything else (incl. absent/null) keeps the legacy socket.io relay on
-   *  Fly. Read at `initializeRoom` so every client in ONE meeting picks the
-   *  SAME backend (no build-time `import.meta.env` split-brain — see
-   *  docs/plans/durable-objects-migration.md §7.1). */
+   *  anything else (incl. absent/null) is now IGNORED for routing — the
+   *  socket.io room server is RETIRED (06-17), so every meeting resolves to
+   *  "do" (see resolveRealtimeBackend). The flag is kept only for the admin
+   *  rollout view. Read at `initializeRoom` so every client in ONE meeting
+   *  picks the SAME backend (no build-time `import.meta.env` split-brain —
+   *  see docs/plans/durable-objects-migration.md §7.1). */
   realtime_backend?: "do" | "socketio" | null;
 };
 

@@ -9,7 +9,6 @@ packages/excalidraw/types
 examples/**/public
 dev-dist
 coverage
-room/
 scripts/split_avatars.py
 # E2E parity skeleton — depends on @playwright/test (not installed; opt-in,
 # see e2e/README.md). Lint/typecheck it only after wiring Playwright.

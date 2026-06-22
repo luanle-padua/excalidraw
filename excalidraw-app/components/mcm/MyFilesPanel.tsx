@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   deleteMyFile,
+  fetchMyFileThumb,
   listMyFilesChecked,
   updateMyFile,
   uploadMyFile,
@@ -106,12 +107,19 @@ const fmtDate = (ts: number): string =>
  *  metadata flows through `onUpdate` (PATCH + list refresh upstream). */
 const MyFileRow = ({
   file,
+  thumbUrl,
+  thumbRef,
   saving,
   deleting,
   onUpdate,
   onDelete,
 }: {
   file: UserFile;
+  /** Object URL for an image thumbnail, or null/undefined to use the icon. */
+  thumbUrl?: string | null;
+  /** Callback ref for the thumb cell — set only on image rows so the
+   *  IntersectionObserver fetches the thumb when it scrolls into view. */
+  thumbRef?: (node: HTMLElement | null) => void;
   saving: boolean;
   deleting: boolean;
   onUpdate: (file: UserFile, patch: Parameters<typeof updateMyFile>[1]) => void;
@@ -119,9 +127,12 @@ const MyFileRow = ({
 }) => {
   const t = useT();
   const [tagDraft, setTagDraft] = useState("");
+  // A thumb that 404s/decodes-bad falls back to the kind icon (no broken img).
+  const [thumbBroken, setThumbBroken] = useState(false);
   const tags = parseTags(file.tags);
   const isPrivate = file.visibility === "private";
   const Icon = KIND_ICON[file.kind] ?? KIND_ICON.other;
+  const showThumb = !!thumbUrl && !thumbBroken;
 
   const addTag = () => {
     // Commas are the storage separator — swap them out of user input.
@@ -139,8 +150,17 @@ const MyFileRow = ({
 
   return (
     <li className={`mcm-myfiles__row mcm-myfiles__row--${file.kind}`}>
-      <span className="mcm-myfiles__icon" aria-hidden="true">
-        <Icon size={17} />
+      <span className="mcm-myfiles__icon" aria-hidden="true" ref={thumbRef}>
+        {showThumb ? (
+          <img
+            className="mcm-myfiles__thumb-img"
+            src={thumbUrl ?? undefined}
+            alt=""
+            onError={() => setThumbBroken(true)}
+          />
+        ) : (
+          <Icon size={17} />
+        )}
       </span>
       <span className="mcm-myfiles__main">
         <span className="mcm-myfiles__name" title={file.name}>
@@ -220,26 +240,45 @@ const MyFileRow = ({
  *  stays in LIST mode — the grid is for scanning, not metadata work. */
 const MyFileCard = ({
   file,
+  thumbUrl,
+  thumbRef,
   saving,
   deleting,
   onUpdate,
   onDelete,
 }: {
   file: UserFile;
+  /** Object URL for an image thumbnail, or null/undefined to use the icon. */
+  thumbUrl?: string | null;
+  /** Callback ref for the thumb cell — set only on image cards so the
+   *  IntersectionObserver fetches the thumb when it scrolls into view. */
+  thumbRef?: (node: HTMLElement | null) => void;
   saving: boolean;
   deleting: boolean;
   onUpdate: (file: UserFile, patch: Parameters<typeof updateMyFile>[1]) => void;
   onDelete: (file: UserFile) => void;
 }) => {
   const t = useT();
+  // A thumb that 404s/decodes-bad falls back to the kind icon (no broken img).
+  const [thumbBroken, setThumbBroken] = useState(false);
   const isPrivate = file.visibility === "private";
   const Icon = KIND_ICON[file.kind] ?? KIND_ICON.other;
   const visLabel = t(isPrivate ? "myfiles.visPrivate" : "myfiles.visSharable");
+  const showThumb = !!thumbUrl && !thumbBroken;
 
   return (
     <li className={`mcm-myfiles__card mcm-myfiles__card--${file.kind}`}>
-      <div className="mcm-myfiles__card-thumb">
-        <Icon size={26} aria-hidden="true" />
+      <div className="mcm-myfiles__card-thumb" ref={thumbRef}>
+        {showThumb ? (
+          <img
+            className="mcm-myfiles__card-thumb-img"
+            src={thumbUrl ?? undefined}
+            alt=""
+            onError={() => setThumbBroken(true)}
+          />
+        ) : (
+          <Icon size={26} aria-hidden="true" />
+        )}
         <span className="mcm-myfiles__kind mcm-myfiles__card-kind">
           {file.kind.toUpperCase()}
         </span>
@@ -298,7 +337,20 @@ export const MyFilesPanel = () => {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+  // Lazy image thumbnails, keyed by file.id. The content route is JWT-gated,
+  // so we fetch bytes via fetchWithAuth and hold an object URL per image —
+  // revoked on prune (file deleted) and on unmount to avoid leaking blobs.
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
+  // Ids we've already started (or finished) fetching — a *ref*, not state, so
+  // resolving one thumb can't re-run the fetch loop and re-issue fetches for
+  // every other image (the old O(N^2) re-fetch storm). Each image is fetched
+  // at most once for the life of the panel.
+  const requestedIdsRef = useRef<Set<string>>(new Set());
+  // In-flight AbortControllers keyed by file.id, so we can cancel the network
+  // request (not just discard the result) on unmount or when a file leaves the
+  // list before its bytes arrive.
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   const refresh = useCallback(async () => {
     const r = await listMyFilesChecked();
@@ -315,6 +367,152 @@ export const MyFilesPanel = () => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Fetch one image's thumbnail exactly once. Dedup is by the requestedIds
+  // *ref* (not `thumbs` state) so resolving a thumb never re-triggers the loop
+  // and re-fetches the rest. Only images get here (the IntersectionObserver
+  // only observes image cells), and only when the cell scrolls into view, so
+  // we never pull originals the user can't see. The in-flight request is
+  // abortable via a per-id AbortController.
+  //
+  // Bandwidth-optimal: we load the SMALL server-stored thumb (…/thumb,
+  // tens of KB), never the full-resolution original. `hasThumb` (from the
+  // list's has_thumb flag) picks the path: present ⇒ cheap thumb route;
+  // absent ⇒ fetchMyFileThumb backfills once (pull original → bake → store →
+  // render the baked thumb) so the next panel load takes the cheap path.
+  // Visible-only + fetch-once still bounds the (now one-time) backfill cost to
+  // what the user actually looks at.
+  const fetchThumb = useCallback((id: string, hasThumb: boolean) => {
+    if (requestedIdsRef.current.has(id)) {
+      return;
+    }
+    requestedIdsRef.current.add(id);
+    const controller = new AbortController();
+    abortControllersRef.current.set(id, controller);
+    void fetchMyFileThumb(id, hasThumb, controller.signal).then((url) => {
+      abortControllersRef.current.delete(id);
+      if (!url) {
+        return;
+      }
+      if (controller.signal.aborted) {
+        // Raced an abort (unmount / left the list) — don't store, don't leak.
+        URL.revokeObjectURL(url);
+        return;
+      }
+      setThumbs((m) => {
+        // Belt-and-braces: never overwrite (and leak) an existing URL.
+        if (m[id]) {
+          URL.revokeObjectURL(url);
+          return m;
+        }
+        return { ...m, [id]: url };
+      });
+    });
+  }, []);
+
+  // IntersectionObserver: fetch an image's thumb only when its cell scrolls
+  // into view, then unobserve it (one-shot). Image cells register their DOM
+  // node via the `registerThumbCell` callback ref below. rootMargin pre-loads
+  // a little before the cell is fully on-screen for a smoother reveal.
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  if (observerRef.current === null && typeof IntersectionObserver !== "undefined") {
+    observerRef.current = new IntersectionObserver(
+      (entries, observer) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement;
+            const id = el.dataset.fileId;
+            // hasThumb is threaded through the DOM dataset (same pattern as
+            // fileId) so the observer keeps its id-only contract.
+            const hasThumb = el.dataset.hasThumb === "1";
+            observer.unobserve(entry.target);
+            if (id) {
+              fetchThumb(id, hasThumb);
+            }
+          }
+        }
+      },
+      { rootMargin: "200px" },
+    );
+  }
+
+  // Callback ref handed to each IMAGE cell. On mount: stamp the id and observe
+  // (or, if observers are unsupported, fetch eagerly so thumbs still appear).
+  // On unmount (node === null): React calls this with the previous node, but
+  // we can't read it then — unobserve happens implicitly when the node leaves
+  // the DOM, and an already-fetched cell is unobserved on intersect anyway.
+  const registerThumbCell = useCallback(
+    (id: string, hasThumb: boolean) => (node: HTMLElement | null) => {
+      if (!node) {
+        return;
+      }
+      node.dataset.fileId = id;
+      node.dataset.hasThumb = hasThumb ? "1" : "0";
+      const observer = observerRef.current;
+      if (observer) {
+        observer.observe(node);
+      } else {
+        fetchThumb(id, hasThumb);
+      }
+    },
+    [fetchThumb],
+  );
+
+  // Tear down the observer on unmount.
+  useEffect(() => {
+    const observer = observerRef.current;
+    return () => observer?.disconnect();
+  }, []);
+
+  // Prune thumbs whose file disappeared (deleted upstream) so we don't leak
+  // the object URL after refresh() rebuilds the list without that id. Also
+  // abort any in-flight fetch for the gone id and drop it from the requested
+  // set so a re-added file can be fetched again later.
+  useEffect(() => {
+    if (!files) {
+      return;
+    }
+    const live = new Set(files.map((file) => file.id));
+    for (const id of [...requestedIdsRef.current]) {
+      if (!live.has(id)) {
+        abortControllersRef.current.get(id)?.abort();
+        abortControllersRef.current.delete(id);
+        requestedIdsRef.current.delete(id);
+      }
+    }
+    setThumbs((m) => {
+      const stale = Object.keys(m).filter((id) => !live.has(id));
+      if (stale.length === 0) {
+        return m;
+      }
+      const next = { ...m };
+      for (const id of stale) {
+        URL.revokeObjectURL(next[id]);
+        delete next[id];
+      }
+      return next;
+    });
+  }, [files]);
+
+  // On unmount: abort every in-flight fetch and revoke every thumb object URL.
+  // The abort runs first so a request that resolves mid-teardown sees
+  // signal.aborted and revokes its own URL instead of leaking it.
+  useEffect(
+    () => {
+      const abortControllers = abortControllersRef.current;
+      return () => {
+        for (const controller of abortControllers.values()) {
+          controller.abort();
+        }
+        abortControllers.clear();
+        setThumbs((m) => {
+          Object.values(m).forEach((url) => URL.revokeObjectURL(url));
+          return {};
+        });
+      };
+    },
+    [],
+  );
 
   const handleUpload = useCallback(
     async (list: FileList | File[]) => {
@@ -585,6 +783,12 @@ export const MyFilesPanel = () => {
                     <MyFileCard
                       key={file.id}
                       file={file}
+                      thumbUrl={thumbs[file.id]}
+                      thumbRef={
+                        file.kind === "image"
+                          ? registerThumbCell(file.id, file.has_thumb)
+                          : undefined
+                      }
                       saving={savingId === file.id}
                       deleting={deletingId === file.id}
                       onUpdate={(target, patch) =>
@@ -596,6 +800,12 @@ export const MyFilesPanel = () => {
                     <MyFileRow
                       key={file.id}
                       file={file}
+                      thumbUrl={thumbs[file.id]}
+                      thumbRef={
+                        file.kind === "image"
+                          ? registerThumbCell(file.id, file.has_thumb)
+                          : undefined
+                      }
                       saving={savingId === file.id}
                       deleting={deletingId === file.id}
                       onUpdate={(target, patch) =>

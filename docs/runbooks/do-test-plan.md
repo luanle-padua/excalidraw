@@ -1,4 +1,9 @@
-# DO realtime — GO/NO-GO test execution plan
+# DO realtime — GO/NO-GO test execution plan [HISTORICAL — cutover DONE 06-17]
+
+> **✅ CUTOVER DONE (06-17):** realtime is now 100% Durable Objects; the socket.io
+> (Fly) room server + the `room/` directory are RETIRED/removed. This GO/NO-GO matrix
+> is kept as the historical record of the cutover gate — there is no longer a flag to
+> flip back to socket.io.
 
 Cutover matrix for the socket.io → Durable Objects realtime migration. Maps
 **every** item of the "Parity acceptance checklist (Team C)" + the §9.4 GO/NO-GO

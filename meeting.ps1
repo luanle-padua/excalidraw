@@ -1,6 +1,6 @@
 # meeting.ps1 — one-stop launcher for MAP CanvasMeet.
 #
-# Starts room (socket.io :3002), vite (excalidraw-app :3001), and a
+# Starts vite (excalidraw-app :3001), the storage Worker (:8787), and a
 # Cloudflare quick tunnel that gives us HTTPS so window.crypto.subtle
 # (E2E collab) and any future getUserMedia (mic/camera) actually work
 # across machines. Captures the public trycloudflare.com URL from the
@@ -13,7 +13,7 @@
 # message with ngrok as a fallback path.
 #
 # Usage from the repo root:
-#   .\meeting.ps1          # full demo: room + vite + HTTPS tunnel
+#   .\meeting.ps1          # full demo: vite + worker + HTTPS tunnel
 #   .\meeting.ps1 -Stop    # kill everything
 #
 # Each service still opens its own PowerShell window so you can read
@@ -27,7 +27,6 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot  = $PSScriptRoot
 $toolsDir  = Join-Path $repoRoot "tools"
-$roomDir   = Join-Path $repoRoot "room"
 $appDir    = Join-Path $repoRoot "excalidraw-app"
 $workerDir = Join-Path $repoRoot "worker"
 $cf        = Join-Path $toolsDir "cloudflared.exe"
@@ -36,7 +35,7 @@ $tunnelLog = Join-Path $env:TEMP "mcm-cloudflared.log"
 # --- helpers ------------------------------------------------------------
 
 function Stop-AllServices {
-    Get-NetTCPConnection -LocalPort 3001, 3002, 8787 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-NetTCPConnection -LocalPort 3001, 8787 -State Listen -ErrorAction SilentlyContinue | ForEach-Object {
         try {
             Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
             Write-Host "killed PID=$($_.OwningProcess) on :$($_.LocalPort)" -ForegroundColor DarkGray
@@ -83,15 +82,6 @@ $lanIP = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
     Where-Object { $_.IPAddress -notlike "127.*" -and $_.PrefixOrigin -ne 'WellKnown' } |
     Select-Object -First 1).IPAddress
 
-# --- 3. start room (port 3002) -----------------------------------------
-
-Write-Host "starting room (port 3002)..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList @(
-    "-NoExit",
-    "-Command",
-    "`$Host.UI.RawUI.WindowTitle = 'room :3002'; Set-Location '$roomDir'; yarn start:dev"
-) | Out-Null
-
 # --- 4. start vite (port 3001) -----------------------------------------
 
 Write-Host "starting vite (port 3001)..." -ForegroundColor Cyan
@@ -112,17 +102,6 @@ Start-Process powershell -ArgumentList @(
 ) | Out-Null
 
 # --- 5. wait for both to listen ----------------------------------------
-
-# 90s: room cold start can exceed 30s when the machine is loaded (agent
-# teams / compiles) — short threshold false-alarms while the service
-# window still comes up fine moments later.
-Write-Host "waiting for room :3002..." -NoNewline
-if (Wait-Port 3002 90) {
-    Write-Host " ready" -ForegroundColor Green
-} else {
-    Write-Host " TIMEOUT (cua so 'room :3002' co the van dang len — kiem tra truoc khi chay lai)" -ForegroundColor Red
-    return
-}
 
 Write-Host "waiting for vite :3001 (cold start may take ~30s)..." -NoNewline
 if (Wait-Port 3001 120) {

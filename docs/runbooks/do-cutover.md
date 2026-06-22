@@ -1,4 +1,8 @@
-# Runbook — Cutover realtime sang Durable Objects (DO)
+# Runbook — Cutover realtime sang Durable Objects (DO) [HOÀN TẤT 06-17]
+
+> **✅ CUTOVER ĐÃ XONG (06-17):** realtime hiện **100% Durable Objects**. socket.io (Fly) +
+> thư mục `room/` **ĐÃ retire/gỡ hẳn**. Runbook này giữ làm lịch sử quy trình cutover; phần
+> rollback về socketio không còn khả thi (server cũ không còn tồn tại — xem `do-rollback.md`).
 
 Chuyển lớp realtime của Canvas M từ **socket.io (Fly)** sang **Durable Objects**
 chạy trên Worker `mcm-storage`. Cờ chọn backend là **`realtime_backend` per-meeting
@@ -85,7 +89,7 @@ nào fail = NO-GO, không cắt.**
 - [ ] CORS allowlist (B6) đúng; WS-count cap (B1 spend-cap) bật.
 - [ ] **Hibernation thật:** phòng idle 10 phút → **0 wake event** trong DO log → $0 compute.
 - [ ] **Rollback diễn tập** (xem [`do-rollback.md`](./do-rollback.md)): đổi D1 + reconnect
-      **< 5 phút**, không mất data; socket.io-client còn trong bundle; Fly socket.io còn chạy.
+      **< 5 phút**, không mất data; socket.io-client còn trong bundle; Fly socket.io ~~còn chạy~~ **ĐÃ tắt 06-17 — historical** (rollback về socketio không còn khả thi).
 - [ ] **Placement:** host nội bộ APAC là người mở phòng đầu (DO neo APAC) — đã hiểu, không cần schema.
 
 ---

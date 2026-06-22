@@ -12615,6 +12615,16 @@ body:has(.excalidraw.theme--dark) {
     );
   }
 
+  // Real image preview fills the thumb well, cropped to its 16/10 frame.
+  &__card-thumb-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
   // Kind badge rides the thumb's top-left corner (reuses __kind look).
   &__card-kind {
     position: absolute;
@@ -12744,6 +12754,7 @@ body:has(.excalidraw.theme--dark) {
     place-items: center;
     width: 34px;
     height: 34px;
+    overflow: hidden;
     border-radius: var(--mcm-radius-sm, 9px);
     color: var(--myfile-accent, var(--mcm-accent));
     background: color-mix(
@@ -12751,6 +12762,14 @@ body:has(.excalidraw.theme--dark) {
       var(--myfile-accent, var(--mcm-accent)) 10%,
       var(--mcm-surface)
     );
+  }
+
+  // List-row image preview fills the 34px icon well, cropped square.
+  &__thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   &__main {

@@ -8,7 +8,7 @@
 **Còn lại trước external thật:** 1b (canvas relay auth) — blocker; remote migration `0025_meeting_knock` chưa chạy (xem mục Data / Migrations).
 
 - [x] **Cổng duyệt ép server ở Daily token** (decision **1a**, `plans/waiting-room.md`): external chưa `admitted` → 403 token → **không audio**; blob/meeting routes vẫn qua `canSeeMeeting`. Migration `0025_meeting_knock` (PK room_id+email; status invited|admitted|denied; cooldown 30s server-enforced cho re-knock).
-- [ ] **1b — canvas relay VẪN trust-the-key** (🔴 blocker trước khi mở cho khách NGOÀI thật): socket canvas nối room-server gốc (`VITE_APP_WS_SERVER_URL`) **không auth** — ai có `#room=ID,KEY` vẫn đọc/vẽ stroke + presence, dù chưa admitted/chưa mời. Cổng audio + blob đã chặn; canvas thì chưa (lỗi sẵn có, gắn track I-2 Durable Objects / room-server JWT). **Phải đóng trước external exposure.**
+- [x] **1b — canvas relay auth** (đóng 06-17 bởi cutover Durable Objects): realtime giờ 100% RoomDO trên worker mcm-storage, WS handshake **auth bằng Supabase token + room gate** (không còn trust-the-key). Room-server socket.io gốc + thư mục `room/` ĐÃ retire/gỡ; `VITE_APP_WS_SERVER_URL` không còn là đường realtime. (Trước: ai có `#room=ID,KEY` đọc/vẽ được dù chưa admitted — lỗi sẵn có, nay DO chặn ở handshake.)
 - [x] **Kick-via-link đóng cho external** (06-16): external chưa admitted không lấy được Daily token; nhưng canvas vẫn vào được tới khi 1b (xem trên).
 
 ## 🔴 Bảo mật / Auth (làm trước khi production)
@@ -19,11 +19,11 @@
 - [x] **canSeeMeeting = invited-only** (06-10): bỏ internal-allow — chỉ organizer/host, invitee active, project_member, admin. Project visibility 3 mức qua `projectAccess`: full (member) / partial (nội bộ được mời ≥1 meeting → folder lọc) / null.
 - [x] **PATCH `/v1/meetings/:id` ĐÃ guard state machine** (06-10): value whitelist (400), transition hợp lệ scheduled→live|cancelled · live→finished · cancelled→scheduled (409 nếu sai), **`finished` = immutable** (admin bypass cho ops), huỷ/khôi phục = **organizer-only** (403; legacy không organizer → internal). Organizer/host*email giờ stamp từ **JWT** lúc POST tạo meeting — client không gửi/đổi identity được. *(06-11 verify lại: `scheduled_at` ĐÃ nằm trong `touchesContent` → organizer-only như mọi content field — note "chưa check organizer" cũ là stale.)\_
 - [ ] **CORS** Worker `origin:"*"` → khoá về origin thật.
-- [ ] **Chưa rate-limit** (Worker + room server).
+- [ ] **Chưa rate-limit** (Worker — gồm cả realtime DO; room server cũ đã retire).
 - [ ] **Mật khẩu mặc định hardcode** (`MapMeet@2026`, `MapAdmin@2026`) + **auto-login 1-click** → bỏ + bắt đổi mật khẩu lần đầu trước prod. (Secrets thật: KHÔNG lộ git, đã verify.)
 - [ ] **`room_key` lưu D1** (server đọc được) — chưa E2E thật.
 - [x] **Internal domain — WORKER đã đọc `system_settings.internal_domains`** (06-10 P0.2): cache per-isolate 60s, fallback hardcode khi bảng trống — setting admin sửa giờ có hiệu lực THẬT với authz. **(06-11) Client cũng đã đồng bộ**: worker mở `GET /v1/config` (mọi user đã đăng nhập) trả list live; `session.ts` fetch sau login và thay `INTERNAL_DOMAINS` in-place, `AdminConsole.tsx` bỏ hardcode riêng dùng chung `isInternalEmail` — hardcode chỉ còn là fallback offline.
-- [ ] **Compliance open meeting LIVE = admin tàng hình** (chốt 06-10): hiện admin mở nội dung qua snapshot R2 không join socket (không hiện presence). Nếu sau này cần xem realtime live thì phải làm silent-observer ở room server.
+- [ ] **Compliance open meeting LIVE = admin tàng hình** (chốt 06-10): hiện admin mở nội dung qua snapshot R2 không join phòng (không hiện presence). Nếu sau này cần xem realtime live thì phải làm silent-observer **trong RoomDO** (worker mcm-storage), không còn room server.
 
 ## 🟠 Host control (Phase 4 — hiện là SOFT enforcement)
 
@@ -57,8 +57,8 @@
 
 ## ⚙️ Hạ tầng (chi tiết ở roadmap.md — track I-1..I-6)
 
-- [ ] **AI/STT/TURN backend** đang trên room server → dời lên Cloudflare.
-- [ ] **Realtime socket.io** (1 instance) → **Durable Objects**.
+- [x] **AI/STT backend** dời từ room server → Cloudflare Worker (mcm-storage, dưới `/v1`); room server đã retire. (TURN: dùng Daily managed.)
+- [x] **Realtime socket.io** (1 instance) → **Durable Objects** (RoomDO, cutover 06-17 — 100% DO live; room server socket.io đã gỡ).
 - [ ] **Deploy production**: CI/CD, domain thật, staging.
 - [ ] **Observability** (Sentry chưa wire) + runbooks (deploy/key-rotation/incident).
 

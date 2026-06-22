@@ -455,6 +455,12 @@ const libraryKey = (roomId: string) => `library/${roomId}/current`;
 const transcriptKey = (roomId: string) => `transcripts/${roomId}/current`;
 const userFileKey = (email: string, fileId: string) =>
   `userfiles/${email}/${fileId}`;
+// Small downscaled-WebP thumb sits alongside the original under the same
+// owner-scoped prefix (userfiles/<email>/<fileId>/thumb). Baked client-side at
+// upload (and backfilled on first view for legacy images); served by the
+// dedicated GET …/thumb route so the My Files grid never pulls the original.
+const userFileThumbKey = (email: string, fileId: string) =>
+  `${userFileKey(email, fileId)}/thumb`;
 
 // Avatar R2 key — STABLE per identity so a re-upload overwrites the old image
 // (no orphan blobs, no cache-busting churn on the canvas) and the reference URL
@@ -3939,8 +3945,10 @@ app.get("/v1/me/files", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const { results } = await c.env.DB.prepare(
-    `SELECT id, name, kind, size, tags, visibility, created_at FROM user_file
-     WHERE owner_email = ?1 ORDER BY created_at DESC LIMIT 500`,
+    `SELECT id, name, kind, size, tags, visibility, created_at,
+            (thumb_r2_key IS NOT NULL) AS has_thumb
+       FROM user_file
+      WHERE owner_email = ?1 ORDER BY created_at DESC LIMIT 500`,
   )
     .bind(email)
     .all();
@@ -4081,20 +4089,96 @@ app.get("/v1/me/files/:fileId/content", async (c) => {
   });
 });
 
+// Store a small downscaled-WebP thumbnail for a shelf image (bandwidth fix:
+// the My Files grid loads THIS, not the full original). Baked client-side at
+// upload, and lazily backfilled on first view for legacy images. Owner-scoped
+// exactly like the content/PUT routes; the owning row must already exist (so a
+// forged fileId can't write into someone else's prefix). Tiny size cap — a
+// 384px WebP is tens of KB; this just bounds abuse.
+const MAX_USER_FILE_THUMB_BYTES = 512 * 1024;
+app.put("/v1/me/files/:fileId/thumb", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email || !(isAdminish(c.get("role")) || isInternalEmail(email))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const row = await c.env.DB.prepare(
+    `SELECT id FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+  )
+    .bind(fileId, email)
+    .first<{ id: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (body.byteLength > MAX_USER_FILE_THUMB_BYTES) {
+    return c.json({ error: "thumb too large" }, 413);
+  }
+  const thumbKey = userFileThumbKey(email, fileId);
+  await c.env.BUCKET.put(thumbKey, body, {
+    httpMetadata: { contentType: "image/webp" },
+  });
+  await c.env.DB.prepare(
+    `UPDATE user_file SET thumb_r2_key = ?1 WHERE id = ?2 AND owner_email = ?3`,
+  )
+    .bind(thumbKey, fileId, email)
+    .run();
+  return c.json({ ok: true });
+});
+
+// Serve the small stored thumbnail. Owner-gated via the row (mirrors the
+// content route). 404 when no thumb yet (non-image, or legacy image not yet
+// backfilled) so the client falls back to backfill/icon. Cached HARD: a file's
+// bytes never change in place (a re-upload is a new id), so the thumb is
+// content-stable — private (JWT-gated, per-user) + immutable + 1y so repeat
+// dashboard opens hit the browser disk cache with no revalidation round-trip.
+app.get("/v1/me/files/:fileId/thumb", async (c) => {
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT thumb_r2_key FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+  )
+    .bind(c.req.param("fileId"), email)
+    .first<{ thumb_r2_key: string | null }>();
+  if (!row || !row.thumb_r2_key) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.thumb_r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type": obj.httpMetadata?.contentType ?? "image/webp",
+      etag: obj.httpEtag,
+      "cache-control": "private, max-age=31536000, immutable",
+    },
+  });
+});
+
 app.delete("/v1/me/files/:fileId", async (c) => {
   const email = c.get("email")?.toLowerCase();
   if (!email) {
     return c.json({ error: "forbidden" }, 403);
   }
   const row = await c.env.DB.prepare(
-    `SELECT r2_key FROM user_file WHERE id = ?1 AND owner_email = ?2`,
+    `SELECT r2_key, thumb_r2_key FROM user_file WHERE id = ?1 AND owner_email = ?2`,
   )
     .bind(c.req.param("fileId"), email)
-    .first<{ r2_key: string }>();
+    .first<{ r2_key: string; thumb_r2_key: string | null }>();
   if (!row) {
     return c.json({ error: "not found" }, 404);
   }
   await c.env.BUCKET.delete(row.r2_key);
+  // Don't orphan the thumb blob when the file is deleted.
+  if (row.thumb_r2_key) {
+    await c.env.BUCKET.delete(row.thumb_r2_key);
+  }
   await c.env.DB.prepare(`DELETE FROM user_file WHERE id = ?1`)
     .bind(c.req.param("fileId"))
     .run();

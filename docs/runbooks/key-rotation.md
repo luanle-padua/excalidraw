@@ -6,10 +6,9 @@ chạy được, **rồi mới revoke key cũ** (tránh downtime).
 
 Nơi secret sống:
 - **Worker (`mcm-storage`)** — set bằng `npx wrangler secret put NAME` (chạy trong `worker/`).
-  Đã set là lưu trong Cloudflare, không nằm trong file.
+  Đã set là lưu trong Cloudflare, không nằm trong file. **Mọi secret (gồm AI/STT) giờ ở đây
+  — room server đã retire 06-17.**
 - **Local dev Worker** — `worker/.dev.vars` (gitignored).
-- **Room server (host)** — file `.env.production` trên host → sửa rồi restart PM2/Docker.
-- **Local dev Room** — `room/.env.development` (gitignored; mẫu `room/.env.development.example`).
 
 ---
 
@@ -20,8 +19,8 @@ Nơi secret sống:
 | `RESEND_API_KEY` | Worker (gửi email mời khách) | resend.com → API Keys → Create | Worker: `npx wrangler secret put RESEND_API_KEY` (trong `worker/`). Local: `worker/.dev.vars` | Resend → API Keys → xoá key cũ |
 | `DAILY_API_KEY` | Worker (screen share) | dashboard.daily.co → Developers → API keys | Worker: `npx wrangler secret put DAILY_API_KEY`. Local: `worker/.dev.vars` | Daily → revoke/delete key cũ |
 | `SUPABASE_SERVICE_API_KEY` | Worker (admin user mgmt — service role) | Supabase → Project → Settings → API → service_role (Reset/Rotate) | Worker: `npx wrangler secret put SUPABASE_SERVICE_API_KEY`. Local: `worker/.dev.vars` | Supabase → Settings → API → rotate (key cũ tự vô hiệu khi rotate) |
-| `GEMINI_API_KEY` | Room server (dịch chat) | Google AI Studio (aistudio.google.com → API keys) hoặc Google Cloud Console | Host: sửa `room/.env.production` → restart. Local: `room/.env.development` | AI Studio / Cloud Console → xoá key cũ |
-| `DEEPGRAM_API_KEY` | Room server (STT live) | console.deepgram.com → API Keys → Create | Host: sửa `room/.env.production` → restart. Local: `room/.env.development` | Deepgram → API Keys → xoá key cũ |
+| `GEMINI_API_KEY` | Worker (dịch chat / summary) | Google AI Studio (aistudio.google.com → API keys) hoặc Google Cloud Console | Worker: `npx wrangler secret put GEMINI_API_KEY` (trong `worker/`). Local: `worker/.dev.vars` | AI Studio / Cloud Console → xoá key cũ |
+| `DEEPGRAM_API_KEY` | Worker (STT live) | console.deepgram.com → API Keys → Create | Worker: `npx wrangler secret put DEEPGRAM_API_KEY`. Local: `worker/.dev.vars` | Deepgram → API Keys → xoá key cũ |
 
 > `SUPABASE_ANON_KEY` (dùng ở app, public) KHÔNG phải secret — nó công khai theo thiết kế.
 > Khi rotate service_role, anon key có thể đổi tuỳ thao tác → kiểm tra lại
@@ -41,6 +40,8 @@ cd worker
 npx wrangler secret put RESEND_API_KEY            # dán key mới khi được hỏi
 npx wrangler secret put DAILY_API_KEY
 npx wrangler secret put SUPABASE_SERVICE_API_KEY
+npx wrangler secret put GEMINI_API_KEY            # AI/STT giờ ở Worker (room đã retire)
+npx wrangler secret put DEEPGRAM_API_KEY
 
 # xem danh sách secret đang set (không lộ giá trị)
 npx wrangler secret list
@@ -56,24 +57,6 @@ ví dụ:
 RESEND_API_KEY=...
 DAILY_API_KEY=...
 SUPABASE_SERVICE_API_KEY=...
-```
-
-### Room server (trên host)
-
-```bash
-cd room
-# sửa .env.production: GEMINI_API_KEY=... , DEEPGRAM_API_KEY=...
-
-# PM2:
-pm2 restart excalidraw-collab
-
-# hoặc Docker:
-docker restart mcm-room
-```
-
-Cập nhật `room/.env.development` cho dev local (theo mẫu `room/.env.development.example`):
-
-```
 GEMINI_API_KEY=...
 DEEPGRAM_API_KEY=...
 ```

@@ -140,5 +140,5 @@ Anchors live in `scripts/demo/scene-fast-forward.ts` (TBD — written alongside 
 | **Stamps** | Chibi-animals — `/decorations/stamps/01.png` → `12.png` (built-in) |
 | **Avatars** | Luân `lib:48.png` · Dojin `lib:27.png` · Elon `lib:71.png` |
 | **Layout** | 2 Chrome windows side-by-side, ~960×1080 each. Window L = Luân (fixed). Window R = Dojin or Elon, swapped by Alt+Tab between beats. |
-| **Translation** | `GEMINI_API_KEY` configured in `room/.env` — `/translate` + `/translate-batch` live. |
+| **Translation** | `GEMINI_API_KEY` set as a Worker secret on `mcm-storage` (`wrangler secret put`; local `worker/.dev.vars`) — `/v1/translate` + `/v1/translate-batch` live. |
 | **Recording** | OBS or OS recorder captures the full screen with both windows visible. |

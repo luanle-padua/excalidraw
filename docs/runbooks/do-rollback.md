@@ -1,11 +1,13 @@
-# Runbook — Rollback realtime DO → socket.io
+# Runbook — Rollback realtime DO → socket.io [HISTORICAL — RETIRED 06-17]
 
-Lưới an toàn cho **cửa sổ cutover**: nếu DO lỗi sau khi bật, lật `realtime_backend` về
-`socketio` để phòng họp về Fly/socket.io. **Mục tiêu < 5 phút**, không mất dữ liệu.
+> **⛔ KHÔNG CÒN ÁP DỤNG (06-17):** socket.io + thư mục `room/` **ĐÃ BỊ GỠ HẲN**.
+> Realtime hiện 100% Durable Objects (RoomDO trong worker mcm-storage). Rollback target
+> (Fly/socket.io room-server) **không còn tồn tại** → lật cờ về `socketio` sẽ KHÔNG nối
+> được. Runbook này giữ lại CHỈ để tham chiếu lịch sử của cửa sổ cutover. Sự cố realtime
+> bây giờ xử lý theo DO/Worker: xem `incident.md` (a) + `wrangler tail mcm-storage`.
 
-> **Lưu ý vòng đời:** lưới rollback này **CHỈ cho cửa sổ cutover**. Đích dài hạn là **bỏ
-> hẳn socket.io + `room/`** (plan §1, chốt 06-17). Khi DO ổn định ≥ vài tuần sau August →
-> retire socket.io, gỡ runbook này.
+Lưới an toàn (LỊCH SỬ) cho **cửa sổ cutover**: nếu DO lỗi sau khi bật, lật `realtime_backend`
+về `socketio` để phòng họp về Fly/socket.io. **Mục tiêu < 5 phút**, không mất dữ liệu.
 
 Cutover: [`do-cutover.md`](./do-cutover.md). Plan: `docs/plans/durable-objects-migration.md` §7.4.
 
@@ -21,9 +23,9 @@ Cutover: [`do-cutover.md`](./do-cutover.md). Plan: `docs/plans/durable-objects-m
 
 ## Prerequisite (phải đúng TRƯỚC khi cần rollback)
 
-- [ ] **Fly socket.io room-server còn chạy + reachable** suốt cửa sổ rollback. Probe:
-      `curl http://<host>/health` → `{ "ok": true, ... }` (xem `incident.md` (a)).
-      Nếu đã tắt Fly thì rollback bằng cờ **vô tác dụng** — client sẽ không có server để nối.
+- [ ] ~~**Fly socket.io room-server còn chạy + reachable**~~ **(RETIRED 06-17 — Fly đã tắt,
+      `room/` đã gỡ).** Trước đây: probe `curl http://<host>/health` → `{ "ok": true, ... }`.
+      Nay rollback bằng cờ **vô tác dụng** vĩnh viễn — không còn server socket.io để nối.
 - [ ] `VITE_APP_WS_SERVER_URL` (Pages) vẫn trỏ đúng room-server socket.io.
 - [ ] `socket.io-client` còn trong bundle production (chưa tree-shake bỏ).
 

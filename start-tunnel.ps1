@@ -2,8 +2,8 @@
 # Chay sau khi room va app da start o 2 terminal khac.
 #
 # Yeu cau (tat ca path tinh tu repo root):
-#   - Terminal 1: cd room && yarn start:dev          (lang nghe :3002)
-#   - Terminal 2: cd excalidraw-app && yarn start    (lang nghe :3001)
+#   - Terminal 1: cd excalidraw-app && yarn start            (lang nghe :3001)
+#   - Terminal 2: cd worker && npx wrangler dev --port 8787  (storage :8787)
 #   - Terminal 3 (cua script nay): chay script de tao tunnel
 #
 # Script in URL https cong khai cho ban share team.
@@ -25,13 +25,6 @@ $portCheck = Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction Sil
 if (-not $portCheck) {
     Write-Host "WARN: Khong thay process nao listen tren port 3001." -ForegroundColor Yellow
     Write-Host "      Hay chay 'yarn start' trong excalidraw-app/ truoc." -ForegroundColor Yellow
-    Write-Host ""
-}
-
-$portCheck2 = Get-NetTCPConnection -LocalPort 3002 -State Listen -ErrorAction SilentlyContinue
-if (-not $portCheck2) {
-    Write-Host "WARN: Khong thay process nao listen tren port 3002 (room)." -ForegroundColor Yellow
-    Write-Host "      Hay chay 'yarn start:dev' trong room/ truoc." -ForegroundColor Yellow
     Write-Host ""
 }
 

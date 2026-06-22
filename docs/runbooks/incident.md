@@ -4,26 +4,37 @@ Mỗi mục: dấu hiệu → việc làm ngay → kiểm tra lại. Ngắn, là
 
 ---
 
-## (a) Room server chết giữa buổi họp
+## (a) Realtime chết giữa buổi họp
+
+> **CẬP NHẬT 06-17:** realtime hiện 100% **Durable Objects** (RoomDO trong worker
+> **mcm-storage**). Fly/socket.io room-server + thư mục `room/` **ĐÃ GỠ** — KHÔNG còn pm2 /
+> docker để restart. Chẩn đoán + xử lý theo Worker bên dưới. Khối pm2/docker cũ giữ lại
+> CHỈ làm lịch sử.
 
 **Dấu hiệu:** con trỏ người khác đứng im, không sync; chat dịch / STT báo lỗi;
 người mới không vào được phòng live.
 
-1. Probe room server:
+1. Probe Worker (mcm-storage) + xem log realtime trực tiếp:
    ```bash
-   curl http://<host>/health
+   curl https://<worker-host>/health      # mong đợi 200 / { ok: true }
+   wrangler tail mcm-storage              # log RoomDO (WS connect/close, lỗi)
    ```
-   Mong đợi `{ "ok": true, "uptime": <giây> }` (HTTP 200). Không trả lời = server down.
-   (Route gốc `GET /` cũng trả `Excalidraw collaboration server is up :)` nếu muốn kiểm nhanh.)
-2. Restart:
-   ```bash
-   pm2 restart excalidraw-collab     # hoặc: docker restart mcm-room
-   pm2 logs excalidraw-collab        # xem vì sao chết (OOM? crash?)
-   ```
-3. Báo người trong phòng **refresh trình duyệt** để reconnect socket — canvas đã lưu trên
-   Worker (R2/D1) nên không mất nội dung, chỉ mất kết nối realtime.
-4. Nếu chết lặp lại do hết RAM: `pm2.production.json` đã có `max_memory_restart: 4G` +
-   autorestart; cân nhắc VM RAM lớn hơn.
+   Worker không trả lời = storage/realtime down → kiểm tra dashboard Cloudflare
+   (Workers + Durable Objects) cho error rate / exceptions.
+2. Báo người trong phòng **refresh trình duyệt** để reconnect WebSocket DO — canvas đã lưu
+   trên Worker (R2/D1) nên không mất nội dung, chỉ mất kết nối realtime.
+3. Nếu lỗi do deploy mới: rollback bản deploy worker (`wrangler rollback` hoặc redeploy
+   commit trước) thay vì restart process.
+
+<details>
+<summary>LỊCH SỬ (Fly/socket.io — đã retire 06-17, không còn áp dụng)</summary>
+
+1. Probe room server: `curl http://<host>/health` → `{ "ok": true, "uptime": <giây> }`.
+2. Restart: `pm2 restart excalidraw-collab` (hoặc `docker restart mcm-room`);
+   `pm2 logs excalidraw-collab` xem vì sao chết.
+3. Nếu chết lặp lại do hết RAM: `pm2.production.json` có `max_memory_restart: 4G`.
+
+</details>
 
 ---
 
