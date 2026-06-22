@@ -1,0 +1,372 @@
+{
+  "number": 32,
+  "blocks": [
+    {
+      "id": "ch32-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch19-mental",
+      "type": "prose",
+      "layout": "prose"
+    },
+    {
+      "id": "ch19-create",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch19-fields",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch19-detail",
+      "type": "plate",
+      "layout": "plate",
+      "figure": "ch19-detail"
+    },
+    {
+      "id": "ch19-edit",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch19-members",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch19-roles",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch19-cosmetic",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch19-delete",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch19-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
+  ],
+  "strings": {
+    "ch32-open": {
+      "eyebrow": "Chapter 32",
+      "title": "Projects",
+      "standfirst": "A project is the folder every meeting lives in. Create one with full metadata, build its member roster, delegate authority with roles, dress it with a colour and icon, and retire it when its work is done."
+    },
+    "ch19-mental": {
+      "eyebrow": "How it fits together",
+      "heading": "Two doors into one project",
+      "lead": "A project name appears in two places in the left sidebar, and they do different things. Knowing which is which saves a lot of hunting for controls that aren't where you expect.",
+      "body": "Clicking a project under the <b>Projects</b> heading in the sidebar takes you to that project's <em>meeting list</em> — a clean view of its cards, with a small ⚙ shortcut in the title row. That view holds <em>no</em> administration. All of it — create, edit metadata, members, guests, delete — lives on the separate <b>Manage projects</b> page, reached from the <b>Manage projects</b> sidebar item. The rule of thumb: the sidebar project link means “go to its meetings”; the Manage projects page means “administer it.” Creating a project just opens a personal folder where you become its leader and owner — it grants no power over anyone else's projects.",
+      "note": {
+        "tag": "Internal-only",
+        "html": "<b>Manage projects</b>, <b>Guest manager</b> and <b>My Files</b> appear in the sidebar only for internal staff accounts. A guest never sees them. The server enforces the same gate, so the page is genuinely staff-only, not merely hidden."
+      }
+    },
+    "ch19-create": {
+      "eyebrow": "Starting a project",
+      "heading": "Create a project with full metadata",
+      "steps": [
+        "Click <b>New project</b> — at the top of the Manage projects page, in the empty state, or in the sidebar footer. All three open the same modal, titled <b>Create new project</b>.",
+        "Fill in the <b>Name</b> (required) and optionally a cover image, project code, client, location, branch/office, phase, project type and description.",
+        "Click <b>Save</b>. The app first creates the project by name, then saves the extra fields in a second step.",
+        "On success the modal closes and you land in the new project's detail — ready to add members, the natural next step.",
+        "If the create call itself fails, the modal stays open with everything you typed so you can retry; the toast reads <b>“Couldn't create the project — check your network and try again.”</b>"
+      ],
+      "outcome": "The new project is created with you as its leader and owner. There is only one create path — full metadata in one modal — so no half-configured folders.",
+      "note": "If the name saves but the extra details don't, you still land in the project, with the toast <b>“Project created, but saving extra details failed — press Edit to retry.”</b> Nothing you typed for the name is lost; re-enter the rest via <b>Edit project</b>.",
+      "host": {
+        "tag": "Who can create",
+        "html": "Any internal (non-guest) account may create a project. Creating one grants no cross-project power — it simply opens your own folder."
+      }
+    },
+    "ch19-fields": {
+      "eyebrow": "Reference",
+      "heading": "Project metadata fields",
+      "cols": [
+        "Field",
+        "Label",
+        "Required",
+        "Notes"
+      ],
+      "rows": [
+        [
+          "Name",
+          "Name",
+          "Yes",
+          "The only required field. Shown everywhere the project appears."
+        ],
+        [
+          "Cover",
+          "Cover image",
+          "No",
+          "Upload an image; it becomes the tile cover and the detail hero, with the name laid over it."
+        ],
+        [
+          "Code",
+          "Project code",
+          "No",
+          "Placeholder “e.g. MAP-2026-014”. Searchable."
+        ],
+        [
+          "Client",
+          "Client",
+          "No",
+          "Placeholder “Client / owner”. Searchable; shown in the detail's Details grid."
+        ],
+        [
+          "Location",
+          "Location",
+          "No",
+          "Placeholder “City, country”. Searchable."
+        ],
+        [
+          "Branch",
+          "Branch / office",
+          "No",
+          "Placeholder “Studio / office”. Shown as Branch / office in the detail."
+        ],
+        [
+          "Phase",
+          "Phase",
+          "No",
+          "Dropdown: Concept · Schematic design · Design development · Construction docs · Construction · Handover. Shown as the stage pill."
+        ],
+        [
+          "Type",
+          "Project type",
+          "No",
+          "Dropdown: Residential · Commercial · Mixed-use · Public · Industrial · Other."
+        ],
+        [
+          "Description",
+          "Description",
+          "No",
+          "Free text (multiline). Falls back to “No description” where meta is shown."
+        ]
+      ],
+      "note": "The Phase and Type dropdowns keep any older free-text value selectable, so a legacy stage like a hand-typed phase isn't lost when you edit. The leading department is set automatically to the department of whoever created the project and is read-only — it isn't a field you fill in.",
+      "host": {
+        "tag": "Search",
+        "html": "The <b>Search projects…</b> box matches against the <b>name</b>, <b>code</b>, <b>client</b> and <b>location</b> — so a project code or client name finds the folder fast."
+      }
+    },
+    "ch19-detail": {
+      "eyebrow": "Reading the detail page",
+      "legend": [
+        {
+          "n": "1",
+          "text": "<b>All projects</b> — the back link (chevron-left) that returns you to the grouped list."
+        },
+        {
+          "n": "2",
+          "text": "<b>Hero</b> — the cover image (or a letter initial), the project name with its icon, the <b>stage</b> pill and the <b>code</b>."
+        },
+        {
+          "n": "3",
+          "text": "<b>Cosmetic accents</b> — a palette (<b>“Đổi màu dự án”</b> / change project colour) and a smiley (<b>“Gán biểu tượng dự án”</b> / assign project icon). Any member may set these; hidden for invitee-only folders."
+        },
+        {
+          "n": "4",
+          "text": "<b>Edit project</b> and <b>View meetings →</b> — edit metadata (managers only) and jump to this project's meeting list."
+        },
+        {
+          "n": "5",
+          "text": "<b>Details</b> section — Client, Location, Branch / office, Project type, Created, Leader, the description, and the read-only <b>Leading department</b>."
+        },
+        {
+          "n": "6",
+          "text": "<b>Members</b>, <b>Project guests</b> and the collapsible <b>Danger zone</b> follow — each a native expand/collapse section."
+        }
+      ]
+    },
+    "ch19-edit": {
+      "eyebrow": "Changing the details",
+      "heading": "Edit a project's metadata",
+      "steps": [
+        "Open the project on the Manage projects page so its detail is showing.",
+        "In the hero, click <b>Edit project</b> (pencil). It appears only for managers, and never on an invitee-only folder.",
+        "The same field modal opens, now titled <b>Edit project</b>, pre-filled with the current values.",
+        "Adjust any field and click <b>Save</b>.",
+        "On success the modal closes and the detail refreshes."
+      ],
+      "outcome": "Your changes are saved in one call (unlike create, which is two steps). The stage pill, code and Details grid update to match.",
+      "note": "If the save fails, the modal stays open — your edits aren't silently lost — and an alert reads <b>“Save failed — …”</b>. Fix the cause (usually network or permission) and Save again.",
+      "host": {
+        "tag": "Read-only banner",
+        "html": "If you were only <em>invited</em> into a project for one meeting, its detail shows the banner <b>“You're invited to this project — view only”</b> and no edit, members or guest controls appear."
+      }
+    },
+    "ch19-members": {
+      "eyebrow": "The people",
+      "heading": "Build the member roster",
+      "steps": [
+        "In the project detail, expand the <b>Members</b> section. Members are grouped by department, each as a full row: avatar, name, title chip and role badge.",
+        "Click <b>Add member</b> to open the staff picker, select one or more internal colleagues, and confirm. The roster reloads with them added.",
+        "To remove someone, click the <b>✕</b> on their row and confirm <b>“Remove {name} from the project?”</b>. The leader (owner) can't be removed — their row has no remove action.",
+        "Leadership can promote a participant with <b>Make co-operator</b> (shield), or demote one with <b>Remove co-operator</b>.",
+        "The leading-division head (or an admin) can hand over leadership with <b>Assign project leader</b> (crown), confirming <b>“Make {name} the new project leader?”</b>.",
+        "Use <b>Add guest</b> (next to Add member) to jump straight to the Project guests section's issue form."
+      ],
+      "outcome": "The roster reflects exactly who may see the whole folder. Roles drive what each person can do; the next table spells them out.",
+      "note": "Only internal colleagues can be added — the picker is drawn from the staff directory. If a member add is rejected, the alert reads <b>“Couldn't add member (internal emails only).”</b>",
+      "host": {
+        "tag": "Host-only",
+        "html": "A plain participant sees the roster <em>read-only</em>: no Add, no Remove, no promote/demote. The promote and assign-leader buttons appear only for the relevant authority tier."
+      }
+    },
+    "ch19-roles": {
+      "eyebrow": "Reference",
+      "heading": "Project roles & who can do what",
+      "cols": [
+        "Role / tier",
+        "Badge label",
+        "Can manage (members, guests, edit, delete meetings)?",
+        "Can delegate / lead?"
+      ],
+      "rows": [
+        [
+          "Leader",
+          "Leader",
+          "Yes — full management of the project.",
+          "Yes — delete the project, promote/demote co-operators (delegation). Defaults to the creator."
+        ],
+        [
+          "Co-operator",
+          "Co-operator",
+          "Yes — add/remove members, edit metadata, organise meetings.",
+          "No — a co-operator can't delete the project or change other roles."
+        ],
+        [
+          "Participant",
+          "Participant",
+          "No — sees the roster read-only and may join meetings.",
+          "No."
+        ],
+        [
+          "Division admin",
+          "Division admin",
+          "Yes, on every project of their department — the head is the supreme authority tier.",
+          "Yes — may assign/replace the project leader and delegate co-operators."
+        ],
+        [
+          "Title chip",
+          "(the person's job title)",
+          "n/a — purely informational.",
+          "n/a — a title never grants or locks any project action."
+        ]
+      ],
+      "note": "The role badge (Leader / Co-operator / Participant), the org-authority badge (Division admin) and the title chip are three separate things. A title or being a department head never locks the Make co-operator or Assign project leader buttons — authority and project role are independent axes. Only the current leader's row is fixed: the system refuses to re-role the owner.",
+      "host": {
+        "tag": "Server-enforced",
+        "html": "Every one of these checks is enforced by the server, not just hidden in the UI. The buttons you see reflect what the server will actually allow for your account."
+      }
+    },
+    "ch19-cosmetic": {
+      "eyebrow": "Dressing the folder",
+      "heading": "Set a project colour & icon",
+      "steps": [
+        "On a project tile (or in the detail hero), click the palette button — tooltip <b>“Đổi màu dự án”</b> (change project colour).",
+        "Pick a colour from the menu; choose <b>Default</b> to clear it. The tile and its sidebar dot tint immediately, with no list flash.",
+        "Click the smiley button — tooltip <b>“Gán biểu tượng dự án”</b> (assign project icon) — to pick an emoji from the project presets; choose the clear option to remove it.",
+        "The colour and icon appear on the project's tile, its sidebar entry, and on every meeting card inside it."
+      ],
+      "outcome": "The folder gets a glanceable accent that flows through to its meeting cards. Any member may set these — they're cosmetic, exempt from the owner-only guard.",
+      "note": "If a cosmetic save fails, the toast reads <b>“Không lưu được màu/biểu tượng dự án”</b> (couldn't save the project's colour/icon). The accent simply isn't applied; nothing else changes.",
+      "host": {
+        "tag": "Not for invitees",
+        "html": "The palette and emoji buttons are hidden on an invitee-only folder — there's nothing there for a guest department to restyle."
+      }
+    },
+    "ch19-delete": {
+      "eyebrow": "Closing it out",
+      "heading": "Delete a project",
+      "steps": [
+        "Open the project detail and expand the <b>Danger zone</b> section (collapsed by default). It appears only for leadership — leader, leading-division head, or admin.",
+        "Read the hint: <b>“Can only be deleted when it has no meetings.”</b>",
+        "Click <b>Delete project</b> (trash icon) and confirm <b>“Delete project \"{name}\"? This cannot be undone.”</b>.",
+        "On success the detail closes and a toast reads <b>“Project \"{name}\" deleted.”</b>",
+        "If the project still has meetings, the deletion is refused with the alert <b>“Delete all meetings in the project before deleting it.”</b> — use <b>View meetings →</b> to go clean them up first."
+      ],
+      "outcome": "A project can only be deleted once it's empty, so its meeting history is never silently destroyed. The action is permanent.",
+      "note": "A co-operator never sees the Danger zone — only true leadership (leader / head / admin) can delete. An invitee-only folder never shows it either.",
+      "host": {
+        "tag": "If it won't delete",
+        "html": "Any other failure shows <b>“Couldn't delete the project.”</b> — usually a network blip; try again."
+      }
+    },
+    "ch19-trouble": {
+      "eyebrow": "When something's off",
+      "heading": "Project administration fixes",
+      "rows": [
+        {
+          "sym": "No Manage projects item in the sidebar",
+          "cause": "You're signed in as a guest (external) account.",
+          "fix": "Project administration is internal-staff only. Sign in with your staff account.",
+          "ref": "19.2"
+        },
+        {
+          "sym": "Can see a project but no Edit / Add member buttons",
+          "cause": "You're a plain participant, or only invited into the folder for one meeting.",
+          "fix": "Ask the project leader or a co-operator to grant you a managing role. Invitee folders are always view-only.",
+          "ref": "19.6"
+        },
+        {
+          "sym": "Read-only banner on a project's detail",
+          "cause": "Another department invited you in for a single meeting.",
+          "fix": "“You're invited to this project — view only.” You can see it but not administer it; that's expected.",
+          "ref": "19.6"
+        },
+        {
+          "sym": "Can't make someone a co-operator",
+          "cause": "You're a co-operator, not leadership.",
+          "fix": "Only the leader, leading-division head or admin can delegate roles. Ask one of them.",
+          "ref": "19.7"
+        },
+        {
+          "sym": "Add member rejected",
+          "cause": "You tried to add a non-internal email.",
+          "fix": "“Couldn't add member (internal emails only).” Only staff accounts can be project members; issue a guest ID for external people instead.",
+          "ref": "19.6"
+        },
+        {
+          "sym": "Delete refused",
+          "cause": "The project still contains meetings.",
+          "fix": "“Delete all meetings in the project before deleting it.” Open View meetings →, remove them, then delete.",
+          "ref": "19.10"
+        },
+        {
+          "sym": "Project list empty slot says couldn't load",
+          "cause": "The list fetch failed (network / server).",
+          "fix": "“Couldn't load — check your network connection.” Click Retry; your existing list is kept, not blanked.",
+          "ref": "19.9"
+        },
+        {
+          "sym": "Extra details didn't save after create",
+          "cause": "The metadata save (second step) failed.",
+          "fix": "“Project created, but saving extra details failed — press Edit to retry.” Open Edit project and re-enter the rest.",
+          "ref": "19.4"
+        }
+      ],
+      "note": "Cosmetic colour/icon changes and member edits each refresh just the one item in place — the list never flashes. If an action seems to do nothing, check for a toast at the bottom of the screen; that's where these messages appear."
+    }
+  },
+  "figures": {
+    "ch19-detail": {
+      "ref": "19.2",
+      "placeholder": "Project detail: back link, cover hero with name and stage, palette/emoji accents, Edit project and View meetings buttons, Details grid, Members, Guests and Danger zone sections",
+      "shot": "03-projects/project-detail"
+    }
+  }
+}

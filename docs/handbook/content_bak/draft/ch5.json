@@ -1,0 +1,148 @@
+{
+  "number": 5,
+  "blocks": [
+    { "id": "ch5-open", "type": "opener", "layout": "opener" },
+    { "id": "ch5-focus-model", "type": "prose", "layout": "prose", "diagram": "ch5-focus-diagram" },
+    { "id": "ch5-raise-hand", "type": "steps", "layout": "steps", "figure": "ch5-hand-fig" },
+    { "id": "ch5-reactions", "type": "steps", "layout": "steps", "figure": "ch5-react-fig" },
+    { "id": "ch5-follow", "type": "steps", "layout": "steps", "figure": "ch5-follow-fig" },
+    { "id": "ch5-pin", "type": "prose", "layout": "prose" },
+    { "id": "ch5-surfaces", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch5-surface-minimal", "ch5-surface-filmstrip", "ch5-surface-gallery"] },
+    { "id": "ch5-floating", "type": "steps", "layout": "steps", "figure": "ch5-float-fig" },
+    { "id": "ch5-states", "type": "reference-table", "layout": "table" },
+    { "id": "ch5-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch5-open": {
+      "eyebrow": "Chapter 5",
+      "title": "Presence & focus",
+      "standfirst": "Who is in the room, who is speaking, and where everyone is looking. This chapter covers the participant strip, raising your hand, sending reactions, following another person's view, pinning a face, and the three video surfaces plus the floating presenter window — all the quiet signals that keep a meeting in sync without anyone saying a word."
+    },
+    "ch5-focus-model": {
+      "eyebrow": "Mental model",
+      "heading": "One focused person, many surfaces",
+      "lead": "Canvas M always resolves a single <b>focused person</b> — the presenter the room is built around. Every video surface agrees on who that is, so the big tile in Gallery, the ring in the filmstrip and the floating window never disagree.",
+      "body": "The focus is computed, not stored. Canvas M walks a strict order of precedence and picks the first match that is still in the room: your manual <b>pin</b> first, then whoever is <b>sharing their screen</b>, then the <b>active speaker</b>, then the <b>host</b>, and finally — if nothing else applies — the first tile. Because it is a pure derivation, focus updates the instant someone starts talking, starts sharing, or leaves; there is nothing to clean up.",
+      "pull": "Pin beats screen-share beats speaker beats host beats first.",
+      "diagram": { "label": "Focus precedence", "cap": "The single focused person resolves top-down; the first rule that matches a present participant wins." },
+      "note": { "tag": "Note", "html": "Focus is <em>per-viewer</em>. The person you pin, the surface you choose and the view you follow are all yours alone — they are never broadcast, so picking a different face does not change what anyone else sees." }
+    },
+    "ch5-raise-hand": {
+      "eyebrow": "Raise hand",
+      "heading": "Ask to speak without interrupting",
+      "steps": [
+        "Join the call so the live controls appear in the meeting header (see Chapter 4).",
+        "Click the <b>hand</b> button. Its tooltip reads <b>Raise hand</b>.",
+        "The button turns amber and the tooltip flips to <b>Lower hand</b> — you are now raised.",
+        "A sticky <b>✋</b> badge appears on the top of your avatar tile, visible to everyone in the room.",
+        "Click the hand button again to lower it; the badge clears for all participants."
+      ],
+      "outcome": "Your raised hand is broadcast to the whole room and stays up until you lower it — there is no auto-timeout.",
+      "note": "Leaving the call clears your raised hand automatically, so you never leave a hand stuck up after you go.",
+      "host": { "tag": "Host-only", "html": "There is no participant control to lower someone else's hand. Hosts mute and remove people from the participant panel, but the hand itself is owned by the person who raised it." },
+      "figcap": "The hand button in its raised (amber) state with the ✋ badge on the avatar."
+    },
+    "ch5-reactions": {
+      "eyebrow": "Reactions",
+      "heading": "Send a quick emoji",
+      "steps": [
+        "In the live header controls, click the <b>smiley</b> button — its tooltip reads <b>Reactions</b>.",
+        "A small popover opens with six emoji: <b>👍 ❤️ 😂 🎉 👏 😮</b>.",
+        "Click one to send it; the popover closes and the emoji floats up over your avatar for about three seconds.",
+        "Everyone in the room sees the same emoji animate over your tile, then it fades on its own.",
+        "Press <kbd>Esc</kbd> or click anywhere outside the popover to close it without sending."
+      ],
+      "outcome": "Reactions are transient — they animate for roughly three seconds and then expire by themselves. Nothing is logged and nothing stays on screen.",
+      "note": "Each emoji button is labelled \"Send {emoji}\" on hover. Reactions float from your own avatar's position, so the room can tell at a glance who reacted.",
+      "figcap": "The reactions popover with its six quick-react emoji."
+    },
+    "ch5-follow": {
+      "eyebrow": "Follow a view",
+      "heading": "Lock your viewport to someone else's",
+      "steps": [
+        "In the participant strip along the bottom, hover any tile that is <em>not</em> your own; the tooltip reads <b>Click to follow their view</b>.",
+        "Click the tile. Your viewport zooms and pans to match theirs and stays locked as they move around the canvas.",
+        "An <b>👁</b> eye badge appears on that person's tile to show you are following them; the tooltip now reads <b>Following — click to stop</b>.",
+        "Click the same tile again to stop following — or press <kbd>Esc</kbd> anywhere to release the lock instantly.",
+        "Following someone else, or having them leave, also ends the follow."
+      ],
+      "outcome": "While following, your canvas tracks the other person's visible region automatically — useful when someone is walking the room through a drawing.",
+      "note": "Clicking your <em>own</em> tile does not follow anything; it opens your profile editor (display name, company, avatar) instead. The tooltip for your tile reads <b>Your profile</b>.",
+      "host": { "tag": "Host-only", "html": "Following is a personal, local action — you choose to follow, and only your view moves. No one can force you to follow them, and following someone never moves <em>their</em> view." },
+      "figcap": "A followed tile showing the 👁 eye badge."
+    },
+    "ch5-pin": {
+      "eyebrow": "Pin",
+      "heading": "Lock the focus onto one face",
+      "lead": "A <b>pin</b> is your manual override of the focus order. When you pin someone, their face becomes the focused person on every surface — the big Gallery tile, the filmstrip ring and the floating window — regardless of who is speaking or sharing.",
+      "body": "To pin, click any tile in the filmstrip or the gallery. The tooltip reads <b>Click to pin as focus</b>. Click the pinned tile again to unpin — the affordance switches to <b>Unpin</b> — and focus falls back down the precedence chain to the screen-sharer, speaker, or host. A pin is ephemeral and local: it is never sent to other people and a reload clears it. If the person you pinned leaves the room, the pin quietly stops applying and focus moves on.",
+      "note": { "tag": "Gotcha", "html": "Pin and follow are different tools. <b>Pin</b> changes whose <em>face</em> is featured in the video surfaces; <b>follow</b> changes where your <em>canvas</em> is looking. You can do both at once, to the same person or to different people." }
+    },
+    "ch5-surfaces": {
+      "eyebrow": "Video surfaces",
+      "heading": "Three ways to see the room",
+      "tiles": [
+        { "state": "Minimal", "cap": "Just the bottom participant strip — avatars (or live camera thumbnails), names, mic dots and badges. The canvas stays fully clear. This is the default." },
+        { "state": "Filmstrip", "cap": "An opaque rail of camera tiles docked across the bottom (~140px tall). The canvas is pushed up, not covered; the focused person gets a ring. Click a tile to pin it." },
+        { "state": "Gallery", "cap": "A full-screen grid of everyone's camera. A <b>Grid</b> / <b>Speaker</b> toggle switches between an even grid and one big focused tile with the rest in a strip. Close with <b>Close</b>." }
+      ],
+      "useWhen": "Pick a surface from the <b>Video layout</b> button in the meeting header. The menu lists <b>Minimal</b>, <b>Filmstrip</b> and <b>Gallery</b> as a single choice, with a checkmark on the active one. Your choice is remembered per device across reloads."
+    },
+    "ch5-floating": {
+      "eyebrow": "Floating presenter",
+      "heading": "Keep watching while you work",
+      "steps": [
+        "Open the <b>Video layout</b> menu in the header and toggle <b>Floating presenter</b> on (it sits below the surface choices with its own checkmark).",
+        "A small picture-in-picture card of the focused person appears over the canvas, showing their live camera or avatar with their name.",
+        "Drag the card by its header (the pin grip); on release it snaps to the nearest of the four corners, and that corner is remembered.",
+        "Click <b>−</b> (tooltip <b>Minimise</b>) to shrink it to a small circular puck; click the puck to restore it.",
+        "Click <b>×</b> (tooltip <b>Hide</b>) to dismiss the window; reopen it from the same Video layout toggle.",
+        "When minimised, the puck's tooltip reads <b>Reopen presenter window</b>."
+      ],
+      "outcome": "The floating window always shows the same focused person as the other surfaces, and it follows your pin. It is meant for watching someone else while you draw, so it never shows your own face when there is anyone else to watch.",
+      "note": "The floating window only appears over the Minimal and Filmstrip surfaces. In Gallery it is hidden automatically, because the gallery already shows everyone full-screen.",
+      "figcap": "The floating presenter card docked to a corner, with its minimise and hide buttons."
+    },
+    "ch5-states": {
+      "eyebrow": "Reference",
+      "heading": "Tile badges & indicators",
+      "cols": ["Indicator", "What it means"],
+      "rows": [
+        ["Green dot (bottom-right)", "In the call with mic on."],
+        ["Red mic-strikethrough", "In the call but muted; tile tooltip <b>Muted</b>."],
+        ["Dimmed / no indicator", "In the room but has not joined the audio call yet."],
+        ["✋ badge (top)", "Hand raised; tooltip <b>Hand raised</b>."],
+        ["📺 badge", "Sharing their screen; tooltip <b>Sharing screen</b>."],
+        ["👁 eye badge", "You are following this person's view."],
+        ["Crown pill", "The elected host; labelled <b>Host</b>."],
+        ["Half-crown pill", "A designated <b>Co-host</b>."],
+        ["Green ring", "Active speaker — the same ring used across all surfaces."]
+      ],
+      "note": "Only your own tile and the current speaker show a name on the strip by default; everyone else shows their name in a hover tooltip. The left-hand count chip reads <b>Joined / Invited</b> and opens the full participant panel when clicked.",
+      "host": { "tag": "Host-only", "html": "Hover a peer's tile as host to reveal <b>Mute this participant</b> and <b>Remove from meeting</b> buttons; the same actions live in the participant panel under each person. Guests never see these, even if host election briefly lands on them." }
+    },
+    "ch5-trouble": {
+      "eyebrow": "Troubleshoot",
+      "heading": "When presence misbehaves",
+      "rows": [
+        { "sym": "Following stopped on its own", "cause": "You pressed Esc, clicked another tile, or the person you followed left the room.", "fix": "Click their tile again to re-follow once they are back. Esc always releases the lock.", "ref": "5.4" },
+        { "sym": "The floating presenter vanished", "cause": "You switched to the Gallery surface, where the floating window is hidden by design.", "fix": "Switch back to Minimal or Filmstrip, or use the full-screen gallery instead.", "ref": "5.8" },
+        { "sym": "My pin disappeared after reload", "cause": "Pins are ephemeral and per-viewer — a reload always clears them.", "fix": "Click the tile to pin again. Use it for in-the-moment focus, not a permanent setting.", "ref": "5.6" },
+        { "sym": "The floating window shows the wrong face", "cause": "With no pin, it tracks the resolved focus (screen-sharer, then speaker, then host).", "fix": "Click a tile in the filmstrip or gallery to pin the face you want.", "ref": "5.8" },
+        { "sym": "I can't lower someone else's raised hand", "cause": "A raised hand is owned by the person who raised it; there is no override.", "fix": "Ask them to lower it, or mute them from the host controls if you are the host.", "ref": "5.3" },
+        { "sym": "My reaction didn't stay on screen", "cause": "Reactions are transient and expire after about three seconds.", "fix": "This is expected — send another if you need to signal again.", "ref": "5.4" }
+      ],
+      "note": "If your own tile looks dimmed with no mic indicator, you are in the room but have not joined the audio call. Join from the header door button (Chapter 4)."
+    }
+  },
+  "figures": {
+    "ch5-focus-diagram": { "ref": "5.1", "placeholder": "Precedence ladder: pin → screen-share → active speaker → host → first tile" },
+    "ch5-hand-fig": { "ref": "5.2", "placeholder": "Header hand button (amber, raised) and the ✋ badge on an avatar tile" },
+    "ch5-react-fig": { "ref": "5.3", "placeholder": "Reactions popover open with the six emoji 👍 ❤️ 😂 🎉 👏 😮" },
+    "ch5-follow-fig": { "ref": "5.4", "placeholder": "A participant tile with the 👁 follow badge and 'Following — click to stop' tooltip" },
+    "ch5-surface-minimal": { "ref": "5.5", "placeholder": "Minimal: clean canvas with just the bottom participant strip" },
+    "ch5-surface-filmstrip": { "ref": "5.6", "placeholder": "Filmstrip: opaque camera rail docked across the bottom edge" },
+    "ch5-surface-gallery": { "ref": "5.7", "placeholder": "Gallery: full-screen grid with the Grid/Speaker toggle" },
+    "ch5-float-fig": { "ref": "5.8", "placeholder": "Floating presenter card in a corner with minimise (−) and hide (×) buttons" }
+  }
+}

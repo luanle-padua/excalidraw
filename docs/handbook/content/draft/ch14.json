@@ -1,116 +1,225 @@
 {
   "number": 14,
   "blocks": [
-    { "id": "ch14-open", "type": "opener", "layout": "opener" },
-    { "id": "ch14-concept", "type": "prose", "layout": "prose", "diagram": "ch14-twolayers" },
-    { "id": "ch14-panel-open", "type": "steps", "layout": "steps", "figure": "ch14-transcript" },
-    { "id": "ch14-controls", "type": "reference-table", "layout": "table" },
-    { "id": "ch14-status", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch14-st-live", "ch14-st-noaudio", "ch14-st-paused"] },
-    { "id": "ch14-dock", "type": "prose", "layout": "prose", "diagram": "ch14-dock-anatomy" },
-    { "id": "ch14-recording", "type": "steps", "layout": "steps" },
-    { "id": "ch14-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch14-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch12-mental-model",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch12-anchor-diagram"
+    },
+    {
+      "id": "ch12-dxf-canvas",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch12-dxf-canvas-fig"
+    },
+    {
+      "id": "ch12-cad-open",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch12-cad-view"
+    },
+    {
+      "id": "ch12-cad-tools",
+      "type": "plate",
+      "layout": "plate",
+      "figure": "ch12-cad-view"
+    },
+    {
+      "id": "ch12-dxf-reference",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch12-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch14-open": {
       "eyebrow": "Chapter 14",
-      "title": "Captions &amp; transcript",
-      "standfirst": "Canvas M can listen to the room and write it down. A live <b>caption strip</b> floats subtitles at the bottom of a shared screen; a draggable <b>Live transcript</b> panel keeps the full, scrollable history. Both can translate into the language you prefer, line by line. This chapter covers every toggle, state and error you will meet as a participant, and gently points out where the host holds the controls."
+      "title": "CAD drawings (DXF)",
+      "standfirst": "Open a DXF drawing two ways — read it in place on the canvas, or open it in the docked CAD viewer with layers, fit and lock."
     },
-    "ch14-concept": {
-      "eyebrow": "How it fits together",
-      "heading": "Two views of one stream",
-      "lead": "<b>Speech-to-text</b> (STT) turns spoken audio into text in real time. Canvas M shows that text in two places, and both read the same underlying stream — turning a knob in one is reflected in the other.",
-      "body": "The <b>Live transcript</b> panel is the full record: every finalised line, oldest at the top, with a speaker name, a timestamp and (optionally) a translation beneath. It is a scrollable history you can drag, resize and leave open. The <b>caption strip</b> is a glance-only layer: a slim glass band pinned to the bottom of whatever is being shared, showing only the newest one to three lines of whoever is speaking right now, then auto-hiding after a few seconds of silence.",
-      "pull": "The panel is the record. The strip is the glance. Same words, two windows.",
-      "diagram": { "label": "STT feeds both the transcript panel and the caption strip", "cap": "One recognition stream, two surfaces: the scrollable panel keeps everything; the strip shows only the freshest lines and collapses to a small <b>CC</b> puck when no one is talking." },
-      "note": { "tag": "Good to know", "html": "Two kinds of line exist. An <b>interim</b> line is a still-changing guess — it appears dimmed and italic, and is never translated (it would flicker word by word). A <b>final</b> line is locked in; only finals get a translation." }
+    "ch12-mental-model": {
+      "eyebrow": "How documents live on the canvas",
+      "heading": "Anchors, panes, and what your peers see",
+      "lead": "Every document you open started life as an upload in the room library — the bar on the right where files are grouped under <b>PDF documents</b>, <b>CAD drawings</b>, and <b>IFC models</b>. Dropping one onto the canvas creates an <em>anchor</em>: a tile that shows the document in place, sized and positioned like any other element.",
+      "body": "There are two ways to look at a document, and they behave differently. A <b>PDF</b> shows its page directly on the canvas inside the anchor — you read it where it sits. A <b>DXF</b> drawing or an <b>IFC</b> model can be explored right on the anchor too, or opened in a dedicated <em>pane</em> that docks to the right edge of the screen for a full interactive viewer with its own toolbar. The canvas anchor is the shared object; the pane is your personal workspace for inspecting it.",
+      "pull": "What you leave on the canvas — the page, the layers left showing, the angle you parked a model at — is shared with the room. The orbiting, slicing and measuring you do while exploring stays on your screen.",
+      "diagram": {
+        "label": "Library file → canvas anchor → docked viewer pane",
+        "cap": "An uploaded file becomes a canvas anchor; DXF and IFC anchors can additionally open in a right-docked pane."
+      },
+      "note": {
+        "tag": "Good to know",
+        "html": "Canvas M accepts only four kinds of file. If someone tries to add anything else, the room reports <em>“Only images, DXF, PDF and IFC are supported for now.”</em> and skips it."
+      }
     },
-    "ch14-panel-open": {
-      "eyebrow": "Opening the transcript",
-      "heading": "Show the Live transcript panel",
+    "ch12-dxf-canvas": {
+      "eyebrow": "DXF on the canvas",
+      "heading": "Read a DXF without opening a pane",
       "steps": [
-        "Find the floating <b>Live transcript</b> pill near the bottom-left of the canvas. A small number badge on it counts the segments captured so far.",
-        "Click it. The panel opens already scrolled to the newest line.",
-        "To start capturing your own voice, click <b>STT: off</b> so it becomes <b>STT: on</b> — your mic is now transcribed live.",
-        "To read everyone in your own language, click <b>Translate: off</b> so it becomes <b>Translate: on</b>; each finalised line gains an italic translation beneath it.",
-        "Drag the panel by its header to reposition it; drag the bottom-right corner to resize. Double-click the header to snap it back to the default size and place.",
-        "Click <b>×</b> (titled <b>Hide (still logging in background)</b>) to tuck the panel away. Recognition keeps running while it is hidden."
+        "<b>Right-click</b> a DXF anchor and choose <b>Edit DXF (pan / zoom)</b>. The drawing comes alive in place — drag to pan, scroll to zoom.",
+        "Click <b>📋 Layers</b> to open <em>Layers (N)</em>. Every row carries the layer's own colour swatch; tick or untick to show or hide it, or use <b>All</b> and <b>None</b> to switch the lot.",
+        "<b>↻ Fit</b> reframes the whole drawing; <b>× Exit</b> (or <kbd>Esc</kbd>) leaves edit mode. Right-clicking also offers <b>Reset fit (back to full view)</b>."
       ],
-      "outcome": "The panel lists finalised lines with a speaker name, a clock time and — when translation is on and the language differs — a translated line beneath. Your own in-progress speech appears at the bottom marked <b>speaking…</b>.",
-      "note": "Toggling <b>STT</b> or <b>Translate</b> here is the <em>same</em> switch the caption strip obeys. Turn translation on once and both surfaces speak your language.",
-      "host": { "tag": "Host-only", "html": "Whether STT starts on for everyone by default is part of the host's meeting setup; as a participant you can always flip your own <b>STT</b> and <b>Translate</b> from this panel." },
-      "figcap": "The Live transcript panel, opened from the floating pill, with finalised lines and a live interim row."
+      "outcome": "Unlike the CAD pane, a DXF edited here on the canvas is the <em>shared</em> object: the layers you hide and the view you leave are saved to the anchor and seen by everyone in the room.",
+      "note": {
+        "tag": "Two viewers, on purpose",
+        "html": "Edit a DXF on the canvas when the whole room should see the change. Open the same drawing in the <b>CAD view</b> pane (next) when you want a big, private workspace — pane changes stay with you."
+      },
+      "figcap": "A DXF anchor in focus mode with the Layers panel, colour swatches, and the Fit / Exit toolbar."
     },
-    "ch14-controls": {
-      "eyebrow": "Every control on the panel",
-      "heading": "Transcript panel reference",
-      "cols": ["Control", "Label / states", "What it does"],
-      "rows": [
-        ["Show button", "<b>Live transcript</b> (with a count badge)", "Opens the panel. The badge shows how many segments exist."],
-        ["STT toggle", "<b>STT: on</b> / <b>STT: off</b>", "Turns speech recognition of <em>your</em> mic on or off. Tooltip: <em>Turn on/off speech recognition</em>. Hidden in review (read-only) mode."],
-        ["Translate toggle", "<b>Translate: on</b> / <b>Translate: off</b>", "Translates each finalised segment into your preferred language. Tooltip: <em>Translate transcript to preferred language</em>."],
-        ["STT model", "<b>STT model</b> dropdown (default <em>Deepgram Nova-3</em>)", "Picks the recognition model; each option shows its per-minute price. Changing it restarts the live session. Hidden in review mode."],
-        ["Language I speak", "<b>English</b> · <b>한국어</b> · <b>Tiếng Việt</b>", "The language Deepgram transcribes <em>your</em> mic in — independent of the app's interface language. Changing it restarts your session."],
-        ["Density toggle", "<b>Full</b> / <b>Compact</b>", "Full shows the whole scrollable history; Compact shows only the 3 newest lines with trimmed chrome and hides the configuration row."],
-        ["Test file", "<b>Test file</b> / <b>Testing…</b>", "A testing aid: plays an audio file through the recognition pipeline. Hidden in review mode."],
-        ["Hide", "<b>×</b> — <em>Hide (still logging in background)</em>", "Closes the panel without stopping recognition."],
-        ["Resize handle", "bottom-right corner", "Drag to resize; the panel remembers its size and position on this device."]
-      ],
-      "note": "Your spoken-language, model, density and translate choices are saved per device, so they survive a reload. In <b>Compact</b> mode the whole settings row is hidden — switch back to <b>Full</b> to reach the model, language and test controls.",
-      "host": null
-    },
-    "ch14-status": {
-      "eyebrow": "Reading the status pill",
-      "heading": "What the status badge is telling you",
-      "tiles": [
-        { "state": "Live", "cap": "STT is on and your mic audio is genuinely flowing into recognition — a pulsing dot and three rippling level bars. This is the only state that proves the mic is actually being heard." },
-        { "state": "No audio", "cap": "STT is on but nothing has reached it for a couple of seconds — a hollow amber ring. Usually a muted mic or a sound system that needs a tap to wake (common on iPad). Captions cannot appear until audio flows." },
-        { "state": "PAUSED", "cap": "STT is off. Click <b>STT: off</b> to turn it on. The transcript body reads <em>Turn on STT to start speech recognition.</em>" }
-      ],
-      "useWhen": "Glance at the pill in the panel header whenever captions or transcript lines are not appearing — it separates \"off\" from \"on but silent\" from \"genuinely live.\" Two more pills appear during the testing flow: <b>TEST</b> (an audio file is playing through the pipeline) and <b>ERROR</b> (the test failed). When STT is on and waiting, the body shows <em>Waiting for someone to speak…</em>."
-    },
-    "ch14-dock": {
-      "eyebrow": "The caption strip",
-      "heading": "Live captions over a shared screen",
-      "lead": "When someone shares a screen, a thin glass <b>caption strip</b> appears along the bottom of the shared view and shows the newest lines of whoever is speaking. It is on by default, so captions light up automatically — no hunting for a toggle.",
-      "body": "Each line carries the speaker's name in their personal colour, with a pulsing dot while they are still talking. After about four seconds of silence the strip collapses to a small <b>CC</b> puck and reappears on the next utterance. The strip rides whichever surface owns the view: the in-app viewer pane, the gallery, the presenter's picture-in-picture, or a plain overlay on the canvas. When you pop a shared screen out into its own window, the captions follow it there.",
-      "diagram": { "label": "Caption strip controls", "cap": "On the strip: the <b>CC</b> button toggles captions; the <b>1 / 2 / 3</b> group sets how many lines show; the <b>A / A / A</b> group sets Small / Medium / Large text; the <b>×</b> hides the current strip until the next line. When CC is off, only a small <b>CC</b> puck remains so you can turn it back on." },
-      "note": { "tag": "Two different hides", "html": "The <b>×</b> on the strip is titled <em>Hide captions for now</em> — it dismisses the current strip but leaves captions on, so they return on the next sentence. The <b>CC</b> button actually turns the feature off. Captions follow the <em>same</em> translation toggle as the transcript panel: with <b>Translate</b> on you read everyone in your language; with it off you see their original words verbatim, never a blank line." }
-    },
-    "ch14-recording": {
-      "eyebrow": "Recording the meeting",
-      "heading": "Who can record, and what you see",
+    "ch12-cad-open": {
+      "eyebrow": "CAD drawings",
+      "heading": "Open a DXF in the CAD view",
       "steps": [
-        "Look in the bottom call-controls bar for a small red record-dot. If you are a participant (not the host) it is greyed out.",
-        "Hover it: the tooltip reads <em>Only the host (Name) can record</em> — this tells you who holds the control.",
-        "When the host starts recording, an inline pill appears in everyone's call bar: a pulsing red dot and a ticking timer such as <b>0:05</b>.",
-        "Hover the pill as a participant to see <em>Name is recording the meeting · 0:05</em>. Your pill is read-only — it has no stop button.",
-        "When the host stops, the pill disappears for everyone. The recording file downloads to the host's device only."
+        "Click the <b>CAD view</b> button in the canvas toolbar (the blueprint icon, tooltip <em>“CAD view — open DXF in a pane”</em>).",
+        "A popover titled <b>DXF in library</b> lists every drawing in the room. Pick one to open it as a tab in the right-docked pane.",
+        "Alternatively, <b>right-click a DXF anchor</b> on the canvas and choose <b>Open in CAD view</b>.",
+        "Each file opens in its own tab marked <b>📐</b>; click a tab to switch, click its <b>×</b> to close just that drawing.",
+        "Drag the left edge of the pane (the resize handle) to make the viewer wider or narrower.",
+        "Close the whole pane with the <b>×</b> in the top-right corner."
       ],
-      "outcome": "Recording state lives entirely in the call bar — there is no banner across the canvas. The same pill is shown to host and participants, so you always know when the meeting is being captured.",
-      "host": { "tag": "Host-only", "html": "Only the host can start and stop recording, and the file saves to the host's machine. Recording captures audio (your mic plus peers) — it is separate from the text transcript, which any participant can keep with <b>STT</b> on." }
+      "outcome": "The DXF loads into an interactive viewer. Pan by dragging, zoom with the scroll wheel. Re-opening a drawing that is already a tab simply switches to it rather than duplicating.",
+      "note": "If the popover says <em>“No DXF files in the library yet.”</em> with the hint <em>“Upload .dxf via the library bar on the right.”</em>, there is simply nothing to open yet.",
+      "figcap": "A DXF open in the right-docked CAD view with the Layers, Fit, and Lock toolbar."
     },
-    "ch14-trouble": {
-      "eyebrow": "When captions misbehave",
-      "heading": "Captions &amp; transcript troubleshooting",
-      "rows": [
-        { "sym": "No lines appear, status reads <b>No audio</b>", "cause": "Mic muted, or the audio context is suspended (common on iPad after switching tabs).", "fix": "Unmute your mic and speak; tap the page if needed to wake audio. The pill turns to <b>Live</b> with rippling bars once audio flows.", "ref": "14.5" },
-        { "sym": "Transcript body says <em>Turn on STT to start speech recognition.</em>", "cause": "STT is off (status pill reads <b>PAUSED</b>).", "fix": "Click <b>STT: off</b> in the panel so it reads <b>STT: on</b>.", "ref": "14.4" },
-        { "sym": "Lines stay in another language", "cause": "Translation is off, or the line is still an interim guess.", "fix": "Click <b>Translate: off</b> so it reads <b>Translate: on</b>; interim (dimmed, italic) lines are never translated — wait for the final line.", "ref": "14.3" },
-        { "sym": "Captions never appear over a shared screen", "cause": "The <b>CC</b> button was switched off, leaving only the small CC puck.", "fix": "Click the <b>CC</b> puck on the shared view to turn captions back on.", "ref": "14.6" },
-        { "sym": "Captions vanish mid-conversation", "cause": "Normal behaviour — the strip auto-hides after ~4 seconds of silence.", "fix": "Nothing to do; the strip returns on the next utterance. Use the line-count and text-size controls if it feels too small.", "ref": "14.6" },
-        { "sym": "I can't find a record button", "cause": "Only the host can record; a participant's record-dot is disabled.", "fix": "Ask the host to start recording. Hover the greyed dot to confirm who the host is.", "ref": "14.7" },
-        { "sym": "<em>STT WebSocket error</em> / <em>STT error</em> in the panel footer", "cause": "The recognition connection dropped or failed to configure.", "fix": "Toggle <b>STT</b> off and on to restart the session; check your network. The footer surfaces these errors so a silent failure stays visible.", "ref": "14.4" }
+    "ch12-cad-tools": {
+      "eyebrow": "CAD view toolbar",
+      "legend": [
+        {
+          "n": 1,
+          "text": "<b>Layers</b> — opens the <em>Layers (N)</em> panel. Tick or untick each layer to show or hide it; the colour swatch matches the DXF layer colour. <b>All</b> turns everything on, <b>None</b> turns everything off."
+        },
+        {
+          "n": 2,
+          "text": "<b>Fit</b> — resets the view to frame the whole drawing (tooltip <em>“Fit DXF to pane (reset the view)”</em>)."
+        },
+        {
+          "n": 3,
+          "text": "<b>Lock</b> / <b>Locked</b> — freezes pan and zoom so you cannot nudge the drawing by accident. Click again to unlock; the tooltip reads <em>“View is locked — click to unlock pan/zoom”</em> when active."
+        },
+        {
+          "n": 4,
+          "text": "Tab strip — one tab per open drawing, each with a <b>×</b> to close it; the pane <b>×</b> at top-right closes the entire CAD view."
+        }
+      ]
+    },
+    "ch12-dxf-reference": {
+      "eyebrow": "Reference",
+      "heading": "Every CAD-view control at a glance",
+      "cols": [
+        "Control",
+        "What it does",
+        "Label / tooltip"
       ],
-      "note": "The <b>No audio</b> heartbeat exists precisely because \"STT is on\" never proved your mic was reaching recognition. When in doubt, trust the pulsing <b>Live</b> meter, not the toggle."
+      "rows": [
+        [
+          "Edit DXF",
+          "Pan and zoom the drawing right on the canvas anchor",
+          "Edit DXF (pan / zoom)"
+        ],
+        [
+          "Open in CAD view",
+          "Open the drawing in the right-docked pane",
+          "CAD view — open DXF in a pane"
+        ],
+        [
+          "Layers",
+          "Show or hide individual layers; the swatch matches the layer colour",
+          "{count} layers — click to show/hide"
+        ],
+        [
+          "Fit",
+          "Reframe the whole drawing",
+          "Fit DXF to pane (reset the view)"
+        ],
+        [
+          "Lock / Locked",
+          "Freeze pan and zoom so the view can't be nudged",
+          "View is locked — click to unlock pan/zoom"
+        ],
+        [
+          "Tabs",
+          "One tab per drawing; × closes a tab, the pane × closes the viewer",
+          "Close tab"
+        ]
+      ],
+      "note": "The CAD view is a 2D drawing viewer — it has no measure, snap, or unit tools (those belong to the 3D model view). And mind where a change lives: layers toggled in the <em>pane</em> are yours alone, while layers toggled on the canvas <em>anchor</em> are shared with the room."
+    },
+    "ch12-trouble": {
+      "eyebrow": "When something looks off",
+      "heading": "Document viewing — troubleshooting",
+      "rows": [
+        {
+          "sym": "A PDF / DXF / IFC tile shows “Waiting for … file from peer…”",
+          "cause": "The file bytes have not reached you yet — the person who added it is still syncing it across.",
+          "fix": "Wait a moment; it fills in automatically once the file arrives. No action needed.",
+          "ref": "12.1"
+        },
+        {
+          "sym": "A model sits in the library a few seconds before it will open",
+          "cause": "An IFC is converted to a lightweight 3D model when you upload it; bigger buildings take a little longer.",
+          "fix": "Wait for the conversion to finish — it only happens once, at upload.",
+          "ref": "12.2"
+        },
+        {
+          "sym": "“Maximum DXF files already open” (or “Maximum 3D models already open”)",
+          "cause": "Every live viewer slot is in use — heavy 3D models run at most two at once, DXF drawings up to four.",
+          "fix": "Close another open file or tab, then try opening this one again.",
+          "ref": "12.7"
+        },
+        {
+          "sym": "“Couldn't read DXF: …” or “Couldn't read IFC model: …”",
+          "cause": "The file is corrupt or in an unsupported variant; the message after the colon is the underlying reason.",
+          "fix": "Ask the owner to re-export and re-upload the file. (A .dwg won't open at all — it must be exported to .dxf.)",
+          "ref": "12.5"
+        },
+        {
+          "sym": "A DXF opens but all its text and dimensions are missing",
+          "cause": "The drawing relies on fonts the viewer doesn't have, so labels are dropped while the geometry still draws.",
+          "fix": "The lines are accurate; this is a display limit, not lost data. Re-export with standard fonts if the labels matter.",
+          "ref": "12.5"
+        },
+        {
+          "sym": "A DXF tab shows “DXF file not found”",
+          "cause": "The tab is left over from a different meeting; its file is not in this room's library.",
+          "fix": "Close the phantom tab — Canvas M also prunes these automatically once the library loads.",
+          "ref": "12.5"
+        },
+        {
+          "sym": "The 3D toolbar buttons are all greyed out",
+          "cause": "The model is still loading (“Loading 3D model…”) or has no storeys / objects to show.",
+          "fix": "Wait for the model to finish; tooltips like “No storeys” / “No objects” mean that data simply isn't in the file.",
+          "ref": "12.7"
+        },
+        {
+          "sym": "Page turns on a PDF have no effect",
+          "cause": "You are reviewing a finished meeting in read-only mode, where page changes are blocked.",
+          "fix": "This is expected — read-only review keeps the page fixed.",
+          "ref": "12.3"
+        }
+      ],
+      "note": "Pan, zoom, and orbit happen inside the viewer pane only — they never move the underlying canvas, so you can explore freely without disturbing the shared layout."
     }
   },
   "figures": {
-    "ch14-twolayers": { "ref": "14.1", "placeholder": "Diagram: one STT stream branching to the scrollable transcript panel and the bottom caption strip" },
-    "ch14-transcript": { "ref": "14.2", "placeholder": "Live transcript panel with finalised lines, speaker colours, timestamps and a live interim row", "shot": "06-meeting/transcript" },
-    "ch14-st-live": { "ref": "14.3", "placeholder": "Status pill in the Live state: pulsing dot and three rippling level bars" },
-    "ch14-st-noaudio": { "ref": "14.4", "placeholder": "Status pill in the No audio state: hollow amber ring" },
-    "ch14-st-paused": { "ref": "14.5", "placeholder": "Status pill in the PAUSED state with STT off" },
-    "ch14-dock-anatomy": { "ref": "14.6", "placeholder": "Caption strip anatomy: CC toggle, 1/2/3 line count, A/A/A text size, and the × quick-hide" }
+    "ch12-dxf-canvas-fig": {
+      "ref": "12.4",
+      "placeholder": "DXF anchor in focus mode — Layers panel with colour swatches, Fit and Exit"
+    },
+    "ch12-cad-view": {
+      "ref": "12.5",
+      "placeholder": "DXF open in the CAD view pane with Layers panel",
+      "shot": "07-canvas/cad-view"
+    }
   }
 }

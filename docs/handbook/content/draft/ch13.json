@@ -1,137 +1,29 @@
 {
   "number": 13,
   "blocks": [
-    { "id": "ch13-open", "type": "opener", "layout": "opener" },
-    { "id": "ch13-anatomy", "type": "plate", "layout": "plate", "figure": "ch13-panel" },
-    { "id": "ch13-send", "type": "steps", "layout": "steps" },
-    { "id": "ch13-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch13-empty-room", "ch13-empty-msgs", "ch13-readonly"] },
-    { "id": "ch13-mention", "type": "steps", "layout": "steps" },
-    { "id": "ch13-bot", "type": "ai", "layout": "prose", "diagram": "ch13-bot-flow" },
-    { "id": "ch13-react", "type": "steps", "layout": "steps" },
-    { "id": "ch13-translate", "type": "prose", "layout": "prose" },
-    { "id": "ch13-ref", "type": "reference-table", "layout": "table" },
-    { "id": "ch13-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch13-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c13-graph",
+      "type": "prose",
+      "layout": "prose"
+    }
   ],
   "strings": {
     "ch13-open": {
       "eyebrow": "Chapter 13",
-      "title": "Chat",
-      "standfirst": "The <b>Conversation</b> panel is the room's running text channel. Type a line, mention a file, summon the AI, react with a tap, quote a reply, and read every message in your own language — all from one quiet, two-row composer beside the canvas."
+      "title": "Graph",
+      "standfirst": "A chart and graphing tool for the canvas."
     },
-    "ch13-anatomy": {
-      "eyebrow": "The panel at a glance",
-      "legend": [
-        { "n": 1, "text": "<b>Header</b> — the title <b>Conversation</b> on the left, and on the right the auto-translate toggle." },
-        { "n": 2, "text": "<b>Auto-translate toggle</b> — the globe button. Its tooltip reads <b>Auto-translate (on)</b> or <b>Auto-translate (off)</b> depending on state; it tints when active." },
-        { "n": 3, "text": "<b>Message stream</b> — messages grouped by author. The first message in a group carries the avatar, name and time; later messages from the same person within three minutes are bare bubbles indented beneath." },
-        { "n": 4, "text": "<b>Your own messages</b> — labelled <b>You</b> and styled distinctly from peers' bubbles." },
-        { "n": 5, "text": "<b>Composer</b> — a two-row card: a one-line text area on top that grows as you type, and an action row below." },
-        { "n": 6, "text": "<b>Action row</b> — left to right: the emoji (smiley) button, the <b>Mention file / bot</b> (@) button, the <b>Attach image</b> (paperclip) button, then the <b>Send</b> button on the right." }
-      ]
-    },
-    "ch13-send": {
-      "eyebrow": "The basics",
-      "heading": "Send a message",
-      "steps": [
-        "Click the text area — its placeholder reads <b>Type a message…</b>.",
-        "Type your line. The card highlights once there is non-blank text, and the <b>Send</b> button enables.",
-        "Press <kbd>Enter</kbd> to send. Use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a line break without sending.",
-        "Or click the <b>Send</b> (paper-plane) button on the right of the action row."
-      ],
-      "outcome": "Your message appears at the bottom of the stream under your avatar and the label <b>You</b>, and the panel scrolls to it. Empty or whitespace-only drafts are ignored — <b>Send</b> stays disabled until you type something.",
-      "note": "Messages are sent end-to-end encrypted with the room key. The stream auto-scrolls to the newest message whenever the count changes, so you always land on the latest line."
-    },
-    "ch13-states": {
-      "eyebrow": "Empty and read-only states",
-      "heading": "When the panel is quiet",
-      "tiles": [
-        { "state": "Not in a session", "cap": "Before you join a live collaboration the panel shows a chat icon, the title <b>Start a live collaboration session</b>, and the subtitle <b>Messages are end-to-end encrypted with the room key.</b> There is no composer yet." },
-        { "state": "No messages yet", "cap": "In a live room with an empty history you see <b>No messages yet</b> and the hint <b>Type @ to mention a file, @bot to ask AI</b>. The composer is ready below." },
-        { "state": "Reviewing a finished meeting", "cap": "Open a finished meeting for review and the history is visible but frozen. The composer is replaced by the notice <b>Reviewing a finished meeting — chat is read-only</b>. Reactions and replies are disabled too." }
-      ],
-      "useWhen": "Read these states as signals: an encryption subtitle means you haven't started collaborating yet; the read-only notice means the meeting is closed and extract-only."
-    },
-    "ch13-mention": {
-      "eyebrow": "Mentioning files",
-      "heading": "Reference a file from the library",
-      "steps": [
-        "Type <kbd>@</kbd> anywhere in your draft, or click the <b>Mention file / bot</b> (@) button to insert one and open the picker.",
-        "Keep typing to filter — the picker lists up to eight matching library files by name, plus the <b>MCM Bot</b> option at the top.",
-        "Use <kbd>↑</kbd> / <kbd>↓</kbd> to move the highlight, then <kbd>Enter</kbd> or <kbd>Tab</kbd> to insert; or click an entry. Press <kbd>Esc</kbd> to dismiss the picker.",
-        "The file is inserted as a coloured mention chip in your message.",
-        "In the sent message, click the mention chip — its tooltip reads <b>Click to scroll to file on canvas</b> — to fly the canvas to that image."
-      ],
-      "outcome": "Recipients see the same chip. Clicking it scrolls and zooms to the matching image on the canvas.",
-      "note": "If the picker finds nothing it shows <b>No files in this room's library yet.</b> when the library is empty, or <b>No files match \"…\"</b> with your query when none match. If you click a mention whose image isn't placed yet, an alert explains: <b>This file isn't on the canvas yet. Open the library and click it to place first.</b>"
-    },
-    "ch13-bot": {
-      "eyebrow": "Ask the AI",
-      "heading": "@bot — the in-chat assistant",
-      "lead": "Type <kbd>@bot</kbd> followed by a question to ask the room's AI assistant, <b>MCM Bot</b>. Pick it from the @ picker — labelled <b>MCM Bot</b> with the note <b>Ask AI about the design / project</b> — or just type <code>@bot</code> by hand.",
-      "body": "When you send a line containing <b>@bot</b>, your message posts as normal and the assistant starts working. A bot bubble with an animated three-dot thinking indicator appears while it composes. The bot reads context from the room — the last several chat lines, the full voice transcript so far, text written on the canvas, who is present, and the library file names — then replies in your preferred language. Its answer lands as a distinct robot-avatar bubble from <b>MCM Bot</b>.",
-      "pull": "Ask in plain language: <em>@bot summarise the open questions</em> or <em>@bot what did we decide about the logo?</em>",
-      "diagram": { "label": "How @bot answers", "cap": "Your @bot line → thinking dots → MCM Bot gathers room context → reply bubble in your language." },
-      "note": { "tag": "If it can't answer", "html": "If the assistant has nothing useful it replies <b>Sorry, I couldn't answer. Try again later.</b> If the connection or AI service fails it replies <b>I can't reply right now (connection or API problem).</b> Either way the thinking indicator clears." }
-    },
-    "ch13-react": {
-      "eyebrow": "React and reply",
-      "heading": "Tapback reactions and quoted replies",
-      "steps": [
-        "Hover any message (your own or a peer's) to reveal a floating reaction bar above the bubble.",
-        "Click an emoji — the set is <b>👍 ❤️ 😂 😮 🎉 🔥 👀 🙏 💯 ✅ 🤔 😢</b> — to attach it. Clicking the same emoji again removes your reaction.",
-        "Reactions appear as a pill under the bubble with a running count; the tooltip reads <b>{n} people</b>. Your own reactions are highlighted.",
-        "To reply, click the curved-arrow <b>Reply</b> button at the right end of that same hover bar (tooltip <b>Reply to this message</b>).",
-        "A quote banner appears above the composer showing the author and a snippet; type your answer and send. Press <kbd>Esc</kbd> or the <b>×</b> to cancel the reply.",
-        "Sent replies show the quoted snippet above the bubble — click it (tooltip <b>Scroll to original message</b>) to jump to and briefly flash the original."
-      ],
-      "outcome": "Reactions and replies broadcast to everyone in the room in real time.",
-      "note": "The bot's messages can't be reacted to, and the whole hover bar is hidden while you're reviewing a finished meeting."
-    },
-    "ch13-translate": {
-      "eyebrow": "Read in your language",
-      "heading": "Auto-translate",
-      "lead": "Canvas M speaks three languages — <b>Tiếng Việt</b>, <b>English</b> and <b>한국어</b> — and the chat can translate every message into yours automatically.",
-      "body": "Your preferred language follows the app's own language picker, so there's no separate language selector in chat. The globe button in the header toggles translation on and off; its tooltip reads <b>Auto-translate (on)</b> or <b>Auto-translate (off)</b>, and the button tints when active. With translation on, any message not already in your language shows the translated text on a second line beneath the original; while it's being fetched you briefly see <b>Translating…</b>. Senders pre-translate their messages on send, so in the common case the translation appears instantly with no extra wait. The toggle is remembered between sessions.",
-      "note": { "tag": "Note", "html": "Turn it off if you'd rather read everyone's original wording, or to avoid the small translation latency. Messages already in your language never show a second line." }
-    },
-    "ch13-ref": {
-      "eyebrow": "Quick reference",
-      "heading": "Composer controls and shortcuts",
-      "cols": ["Control / key", "What it does"],
-      "rows": [
-        ["Smiley button", "Opens a quick-emoji palette; clicking an emoji inserts it into your draft at the cursor."],
-        ["@ button (<b>Mention file / bot</b>)", "Inserts an @ and opens the mention picker for files and the bot."],
-        ["Paperclip (<b>Attach image</b>)", "Opens the image picker; selected images upload to the room library and are inserted as mention chips."],
-        ["<b>Send</b> button", "Sends the current draft (disabled when the draft is blank)."],
-        ["<kbd>Enter</kbd>", "Send the message."],
-        ["<kbd>Shift</kbd>+<kbd>Enter</kbd>", "Insert a line break instead of sending."],
-        ["<kbd>↑</kbd> / <kbd>↓</kbd>", "Move the highlight in the open mention picker."],
-        ["<kbd>Enter</kbd> / <kbd>Tab</kbd>", "Insert the highlighted mention picker entry."],
-        ["<kbd>Esc</kbd>", "Close the mention picker, or cancel a pending reply."],
-        ["Globe toggle", "Turn auto-translate on or off (remembered between sessions)."]
-      ],
-      "note": "Only images are accepted as attachments. The action row spaces the emoji, mention and attach buttons on the left and the Send button on the right.",
-      "host": { "tag": "Host-only", "html": "There is no participant control to clear, delete or moderate chat history. The transcript and library content the bot draws on are governed by the meeting's lifecycle, not by individual participants." }
-    },
-    "ch13-trouble": {
-      "eyebrow": "When something's off",
-      "heading": "Chat troubleshooting",
-      "rows": [
-        { "sym": "No composer, just an encryption message", "cause": "You haven't started a live collaboration session yet", "fix": "Start or join a live session; the composer appears once you're in the room", "ref": "13.2" },
-        { "sym": "Composer replaced by a read-only notice", "cause": "You opened a finished meeting for review", "fix": "Finished meetings are immutable — history is extract-only, no new messages, reactions or replies", "ref": "13.2" },
-        { "sym": "Attach skipped my file", "cause": "Only image files are supported", "fix": "An alert reads \"Only images are supported. Skipped: …\". Re-attach an image (PNG/JPG/etc.)", "ref": "13.ref" },
-        { "sym": "Mention chip does nothing / shows an alert", "cause": "The referenced image isn't placed on the canvas yet", "fix": "\"This file isn't on the canvas yet. Open the library and click it to place first.\"", "ref": "13.3" },
-        { "sym": "@bot apologised instead of answering", "cause": "The AI had no useful answer, or the service/connection failed", "fix": "Try again later; check your connection. Make sure your question is clear and follows @bot", "ref": "13.bot" },
-        { "sym": "Messages still in another language", "cause": "Auto-translate is off, or the message is already in your language", "fix": "Click the globe toggle until its tooltip reads \"Auto-translate (on)\"", "ref": "13.translate" }
-      ],
-      "note": "If a translation seems stuck on \"Translating…\", it's fetching in the background — it resolves once the result returns or falls back to the original."
+    "c13-graph": {
+      "eyebrow": "Coming soon",
+      "heading": "Graphs are on the way",
+      "lead": "A dedicated <b>graph / chart</b> tool for the canvas is planned but not yet available in Canvas M.",
+      "body": "Until it ships, paste a chart as an image, or sketch one with the drawing tools."
     }
   },
-  "figures": {
-    "ch13-panel": { "ref": "13.1", "placeholder": "The Conversation panel with header, grouped message stream, and the two-row composer" },
-    "ch13-empty-room": { "ref": "13.2", "placeholder": "Not-in-session empty state: 'Start a live collaboration session'" },
-    "ch13-empty-msgs": { "ref": "13.3", "placeholder": "Empty live room: 'No messages yet' with the @ / @bot hint" },
-    "ch13-readonly": { "ref": "13.4", "placeholder": "Read-only review notice replacing the composer" },
-    "ch13-bot-flow": { "ref": "13.5", "placeholder": "Diagram: @bot question → thinking dots → context gathering → reply bubble" }
-  }
+  "figures": {}
 }

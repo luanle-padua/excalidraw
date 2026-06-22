@@ -1,111 +1,29 @@
 {
   "number": 17,
   "blocks": [
-    { "id": "ch17-open", "type": "opener", "layout": "opener" },
-    { "id": "ch17-three-exits", "type": "prose", "layout": "prose", "diagram": "ch17-exit-glyphs" },
-    { "id": "ch17-leave", "type": "steps", "layout": "steps" },
-    { "id": "ch17-ended", "type": "prose", "layout": "prose" },
-    { "id": "ch17-review-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch17-banner", "ch17-chat-ro", "ch17-upload-ro"] },
-    { "id": "ch17-log", "type": "steps", "layout": "steps", "figure": "ch17-log-modal" },
-    { "id": "ch17-log-ref", "type": "reference-table", "layout": "table" },
-    { "id": "ch17-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch17-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c17-images",
+      "type": "prose",
+      "layout": "prose"
+    }
   ],
   "strings": {
     "ch17-open": {
       "eyebrow": "Chapter 17",
-      "title": "Leaving & review",
-      "standfirst": "Every meeting has a way out, and most have an afterlife. This chapter covers the difference between hanging up your call, walking out of the room, and the moment a host ends the meeting for everyone — and what a finished meeting lets you do when you open it again to read the record."
+      "title": "Images",
+      "standfirst": "Drop an image onto the canvas like any element — the simplest thing you can bring into a meeting."
     },
-    "ch17-three-exits": {
-      "eyebrow": "Mental model",
-      "heading": "Three ways to step out — and they are not the same",
-      "lead": "Canvas M deliberately gives leaving three distinct verbs, each with its own glyph in the header, so you never confuse a small step back with shutting the whole room down.",
-      "body": "<b>Leave call</b> (a hang-up handset in the media group) only drops you out of the live audio/video — you stay in the meeting, the canvas is still live, and you can rejoin the call with <b>Join</b>. <b>Leave</b> (an arrow-out-of-box icon, far right) exits the meeting room entirely: your canvas is saved, the room is cleared from the URL so you won't auto-rejoin on reload, and you land back on your project home. Everyone else stays. <b>End meeting</b> (a red power icon) is the host-only kill switch — it finishes the meeting for <em>everyone</em> at once.",
-      "pull": "Leave call = hang up. Leave = walk out. End meeting = power off the room.",
-      "diagram": { "label": "The three exit glyphs", "cap": "Left to right: hang-up (Leave call), arrow-out (Leave), red power (End meeting)." },
-      "note": { "tag": "Host-only", "html": "The red <b>End meeting</b> button only appears for the host, organiser, co-host, or a project authority. If you don't see it, you can't end the meeting for everyone — and that's by design. The server enforces the same rule, so the button's absence is not the only guard." }
-    },
-    "ch17-leave": {
-      "eyebrow": "Click-path",
-      "heading": "Leaving the meeting",
-      "steps": [
-        "Find the <b>Leave</b> button at the far-right edge of the header (the arrow-out-of-box icon).",
-        "Click it. There's no confirmation prompt — leaving is a safe, reversible action.",
-        "Your canvas is saved automatically before the connection closes.",
-        "The room is removed from the address bar, so a reload won't pull you back in.",
-        "You return to your project home, where the meeting may still be offered as <b>Resume meeting</b> if it's still running."
-      ],
-      "outcome": "You're out of the room. The meeting carries on for everyone who stayed, and you can re-open it any time it's still live.",
-      "note": "If the host removes you from the meeting, you'll see a notice and then be taken out the same way — you don't have to click Leave yourself.",
-      "figcap": "The Leave button sits in the header's exit group, away from the live media controls so it's never hit by accident."
-    },
-    "ch17-ended": {
-      "eyebrow": "What happens",
-      "heading": "When the host ends the meeting",
-      "lead": "Ending is the host's call, and it's final. When the host clicks <b>End meeting</b>, they first confirm the prompt <em>“End the meeting for EVERYONE? All participants switch to read-only review.”</em> — and that's exactly what happens to you.",
-      "body": "Within a second or two, your meeting flips into <b>review</b> mode without dropping you. The canvas becomes read-only, a banner appears across the top, and the meeting is marked finished. You don't get kicked out — you can stay and read the record, download the transcript, or step out with <b>Leave</b> whenever you're ready. Behind the scenes the meeting is recorded as finished so that re-opening it later always lands you back in this same read-only review.",
-      "note": { "tag": "Good to know", "html": "Ending also kicks off an automatic AI recap from the transcript and chat — it runs in the background and never delays the meeting from ending. You'll find that recap surfaced later in the meeting's detail view." }
-    },
-    "ch17-review-states": {
-      "eyebrow": "Read-only states",
-      "heading": "What review mode locks — and what it leaves open",
-      "tiles": [
-        { "state": "Review banner", "cap": "A status banner reads <b>“Reviewing (read-only) · meeting finished — extract only”</b> with an eye icon, pinned to the canvas so you always know the meeting is frozen." },
-        { "state": "Chat is read-only", "cap": "The conversation panel shows <b>“Reviewing a finished meeting — chat is read-only”</b>. You can read every message but can't send new ones." },
-        { "state": "Library is read-only", "cap": "Uploads are disabled: <b>“The meeting has finished — the library is read-only, uploads are disabled.”</b> Existing files stay viewable." }
-      ],
-      "useWhen": "You'll see all three together the moment a meeting finishes — whether the host ended it live, or you opened a finished meeting from your portal or project list. Content-creating tools (stickers, the canvas bot, text translation) are hidden, and you can't present or edit the meeting's title."
-    },
-    "ch17-log": {
-      "eyebrow": "Click-path",
-      "heading": "Reading the transcript & generating a summary",
-      "steps": [
-        "Open the log from the header's <b>Transcript</b> button (the document icon — it shows a count badge when there's a transcript).",
-        "The log opens on the <b>Transcript</b> tab: the full conversation, grouped by speaker with avatars, timestamps, and a per-line language tag.",
-        "Switch to the <b>Summary</b> tab. If none exists yet, click <b>Generate summary</b> — Gemini reads the full transcript and returns an overview, participants, key topics, decisions, and action items.",
-        "Watch for <b>“Generating summary… (~5-15s for long meetings)”</b>; a dot appears on the Summary tab once it's ready.",
-        "Click <b>Download .md</b> to save the current tab (transcript or summary) as a Markdown file.",
-        "Press <kbd>Esc</kbd> or click outside the modal to close it."
-      ],
-      "outcome": "You've read the record and, if you wanted, pulled a structured recap and a downloadable copy — without changing anything in the finished meeting.",
-      "host": { "tag": "Host-only", "html": "In a <em>live</em> meeting the footer also offers <b>Clear log</b> (wipes the transcript and summary for the room after a confirm) and <b>Regenerate summary</b>. Both are hidden in review — a finished meeting is extract-only, so you can read and download but never rewrite the record." },
-      "figcap": "The meeting log modal: Transcript and Summary tabs, with download in the footer."
-    },
-    "ch17-log-ref": {
-      "eyebrow": "Reference",
-      "heading": "Every button in the meeting log",
-      "cols": ["Control", "Where", "What it does", "In review?"],
-      "rows": [
-        ["<b>Transcript</b> tab", "Header of modal", "Full chronological transcript, grouped by speaker", "Yes"],
-        ["<b>Summary</b> tab", "Header of modal", "AI overview, topics, decisions, action items", "Yes"],
-        ["<b>Generate summary</b>", "Footer", "Asks Gemini for a recap of the transcript", "No — hidden"],
-        ["<b>Regenerate summary</b>", "Footer", "Replaces an existing summary with a fresh one", "No — hidden"],
-        ["<b>Download .md</b>", "Footer", "Saves the active tab as a Markdown file", "Yes"],
-        ["<b>Clear log</b>", "Footer", "Wipes transcript + summary for the room (confirm)", "No — hidden"]
-      ],
-      "note": "The transcript only fills up while someone has speech-to-text turned on during the call. An empty log reads <em>“No transcript yet. Join a call + turn on STT to start recording.”</em>",
-      "host": { "tag": "Host-only", "html": "Clearing a log empties what you see immediately, but the stored transcript blob still exists — rejoining the room re-hydrates it." }
-    },
-    "ch17-trouble": {
-      "eyebrow": "If something's off",
-      "heading": "Leaving & review troubleshooting",
-      "rows": [
-        { "sym": "No red End meeting button", "cause": "You're not the host, organiser, co-host, or project authority", "fix": "Only those roles can end a meeting for everyone. Use <b>Leave</b> to exit yourself; ask the host to end it.", "ref": "17.1" },
-        { "sym": "Meeting suddenly went read-only", "cause": "The host ended the meeting", "fix": "Expected. You're now in review — read the transcript, download it, or click <b>Leave</b>. Nothing you do can edit it.", "ref": "17.4" },
-        { "sym": "Can't type in chat", "cause": "The meeting is finished (review mode)", "fix": "Chat is read-only in a finished meeting by design. You can still read every message.", "ref": "17.5" },
-        { "sym": "Can't upload a file", "cause": "Review mode disables the library", "fix": "Uploads are off in a finished meeting — the library is read-only. Open existing files to view them.", "ref": "17.5" },
-        { "sym": "Summary tab is empty", "cause": "No summary generated yet", "fix": "Click <b>Generate summary</b> on the Summary tab. Hidden in review — read or download instead.", "ref": "17.6" },
-        { "sym": "“Couldn't end the meeting — check your network and try again.”", "cause": "The finish write to the server failed (host action)", "fix": "Nothing changed; the host can simply retry End meeting.", "ref": "17.4" },
-        { "sym": "Re-opened a meeting and it's read-only", "cause": "The meeting is finished — it always opens for review", "fix": "Expected. A finished meeting is immutable and extract-only every time you open it.", "ref": "17.4" }
-      ],
-      "note": "Leaving never loses work — your canvas is saved before the room closes. Ending is the only irreversible exit, and only a host can do it."
+    "c17-images": {
+      "eyebrow": "Pictures on the board",
+      "heading": "Add an image to the canvas",
+      "lead": "An image — a photo, a screenshot, an exported render — goes onto the canvas the same way as any file: drag it straight onto the board, or upload it to the room library and click to place it. Canvas M accepts standard picture formats (PNG, JPG and the like).",
+      "body": "Once placed, an image is a normal canvas element: move, resize, lock it, or draw and stamp on top. To brand an image with a stamp so the mark stays attached, see <em>Stickers & stamps</em>."
     }
   },
-  "figures": {
-    "ch17-exit-glyphs": { "ref": "17.1", "placeholder": "Three header exit icons side by side: hang-up handset, arrow-out-of-box, red power button" },
-    "ch17-banner": { "ref": "17.2", "placeholder": "Review banner across the canvas top: eye icon + 'Reviewing (read-only) · meeting finished — extract only'" },
-    "ch17-chat-ro": { "ref": "17.3", "placeholder": "Chat panel with the read-only notice in place of the compose box" },
-    "ch17-upload-ro": { "ref": "17.3b", "placeholder": "Library panel showing the uploads-disabled review message" },
-    "ch17-log-modal": { "ref": "17.6", "placeholder": "Meeting log modal: Transcript / Summary tabs, speaker-grouped lines, download footer" }
-  }
+  "figures": {}
 }

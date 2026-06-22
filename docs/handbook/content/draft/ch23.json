@@ -1,0 +1,177 @@
+{
+  "number": 23,
+  "blocks": [
+    {
+      "id": "ch23-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch9-translate-concept",
+      "type": "ai",
+      "layout": "prose",
+      "diagram": "ch9-translate-flow"
+    },
+    {
+      "id": "ch9-translate-steps",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch9-translate-pill"
+    },
+    {
+      "id": "ch9-translate-states",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch9-state-translate",
+        "ch9-state-busy",
+        "ch9-state-stale"
+      ]
+    },
+    {
+      "id": "ch9-translate-ref",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch13-translate",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch23-open": {
+      "eyebrow": "Chapter 23",
+      "title": "Realtime translation",
+      "standfirst": "Translate any text on the canvas, and auto-translate the chat, into Vietnamese, English or Korean — the result is shared, not a private pop-up."
+    },
+    "ch9-translate-concept": {
+      "eyebrow": "How translation works",
+      "heading": "A translation is a real element, not a tooltip",
+      "lead": "<b>Canvas M</b> does not show you a private, hover-only translation. When you translate a text element, it creates a <em>new child text element</em> placed just below the original. Because it is a genuine canvas element, it rides the normal collaboration pipeline &mdash; every peer in the room sees the same translated line, with no extra setup.",
+      "body": "The child stays linked to its source. Move or resize the original and the translation follows by the same offset, keeping the pair together. Delete the original and its translations are swept away with it. The translation is drawn in a muted grey so it reads as secondary text beneath the source.",
+      "pull": "Translate once, and the whole room reads it &mdash; the result is a shared canvas line, not a personal pop-up.",
+      "diagram": {
+        "label": "Source text &rarr; linked translation child",
+        "cap": "Picking a language adds a grey, linked line directly under the original."
+      },
+      "note": {
+        "tag": "Good to know",
+        "html": "The three languages share one round-trip. Picking <b>Tiếng Việt</b> also warms the cache for <b>English</b> and <b>한국어</b>, so your next language choice on the same text is instant."
+      }
+    },
+    "ch9-translate-steps": {
+      "eyebrow": "Translate selected text",
+      "heading": "Turn a note into another language",
+      "steps": [
+        "Click a single <b>text element</b> on the canvas to select it. The pill appears only when exactly one item is selected.",
+        "A small <b>Translate</b> pill floats just above the text's top-left corner. It carries a language icon and follows the text as you pan or zoom.",
+        "Click <b>Translate</b> to translate into your current app language straight away &mdash; its tooltip reads <em>Translate to {lang}</em> for whichever language that is.",
+        "To pick a different target, click the <b>▾</b> caret (tooltip <em>Choose another language</em>) and choose <b>🇻🇳 Tiếng Việt</b>, <b>🇬🇧 English</b> or <b>🇰🇷 한국어</b>.",
+        "The button shows <em>Translating…</em> while it works, then a grey translated line appears below your text."
+      ],
+      "outcome": "The translated line sits under the source, visible to everyone in the room. Translate again into a second language and the new line stacks neatly below the first.",
+      "note": "Pick the same language twice and Canvas M rewrites the existing line in place &mdash; it never piles up duplicate translations of the same pair.",
+      "figcap": "The Translate pill anchored above a selected text note."
+    },
+    "ch9-translate-states": {
+      "eyebrow": "Pill states",
+      "heading": "Every face of the Translate pill",
+      "tiles": [
+        {
+          "state": "Translate",
+          "cap": "Default. The <b>Translate</b> label plus a <b>▾</b> caret. Clicking the label uses your app language; the caret opens the three-language menu."
+        },
+        {
+          "state": "Translating…",
+          "cap": "While the request is in flight the label reads <em>Translating…</em> and every button is disabled so you can't fire a second call."
+        },
+        {
+          "state": "Refresh translation",
+          "cap": "Shown after you edit the source. A refresh icon and the label <b>Refresh translation</b> replace the normal pill; the stale lines fade to signal they're out of date."
+        }
+      ],
+      "useWhen": "Watch the pill swap to <b>Refresh translation</b> whenever you change the source text after translating &mdash; that's your cue the lines below no longer match."
+    },
+    "ch9-translate-ref": {
+      "eyebrow": "Reference",
+      "heading": "Translate controls and behaviours",
+      "cols": [
+        "Control / behaviour",
+        "Exact text",
+        "What it does"
+      ],
+      "rows": [
+        [
+          "Translate button",
+          "Translate",
+          "Translates into your current app language in one click."
+        ],
+        [
+          "Translate tooltip",
+          "Translate to {lang}",
+          "Names the target language the one-click button will use."
+        ],
+        [
+          "Language caret",
+          "Choose another language",
+          "Opens the menu: Tiếng Việt, English, 한국어."
+        ],
+        [
+          "In-progress label",
+          "Translating…",
+          "Shown on the button during the request; all buttons disabled."
+        ],
+        [
+          "Refresh button",
+          "Refresh translation",
+          "Re-translates every out-of-date line against the edited source."
+        ],
+        [
+          "Refresh tooltip",
+          "Translation is out of date — click to refresh",
+          "Explains why the pill changed to the refresh state."
+        ],
+        [
+          "Accessible name",
+          "Translate text",
+          "The pill's aria-label for screen readers."
+        ]
+      ],
+      "note": "If the translation provider is unavailable, or returns the same text it was given, no line is added &mdash; the canvas is left untouched rather than cluttered with a duplicate.",
+      "host": {
+        "tag": "Host-only",
+        "html": "There is no host-side switch for the on-canvas Translate pill &mdash; any participant who selects a text element can use it. (The separate <b>chat</b> translation toggle lives in the AI Tools panel; see the chat chapter.)"
+      }
+    },
+    "ch13-translate": {
+      "eyebrow": "Read in your language",
+      "heading": "Auto-translate",
+      "lead": "Canvas M speaks three languages — <b>Tiếng Việt</b>, <b>English</b> and <b>한국어</b> — and the chat can translate every message into yours automatically.",
+      "body": "Your preferred language follows the app's own language picker, so there's no separate language selector in chat. The globe button in the header toggles translation on and off; its tooltip reads <b>Auto-translate (on)</b> or <b>Auto-translate (off)</b>, and the button tints when active. With translation on, any message not already in your language shows the translated text on a second line beneath the original; while it's being fetched you briefly see <b>Translating…</b>. Senders pre-translate their messages on send, so in the common case the translation appears instantly with no extra wait. The toggle is remembered between sessions.",
+      "note": {
+        "tag": "Note",
+        "html": "Turn it off if you'd rather read everyone's original wording, or to avoid the small translation latency. Messages already in your language never show a second line."
+      }
+    }
+  },
+  "figures": {
+    "ch9-translate-pill": {
+      "ref": "9.2",
+      "placeholder": "Translate pill floating above a selected canvas text note, with the language icon and ▾ caret"
+    },
+    "ch9-state-translate": {
+      "ref": "9.3a",
+      "placeholder": "Translate pill in default state: Translate label + ▾ caret"
+    },
+    "ch9-state-busy": {
+      "ref": "9.3b",
+      "placeholder": "Translate pill showing 'Translating…' with buttons disabled"
+    },
+    "ch9-state-stale": {
+      "ref": "9.3c",
+      "placeholder": "Refresh state: refresh icon + 'Refresh translation' over faded, out-of-date lines"
+    }
+  }
+}

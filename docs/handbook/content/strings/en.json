@@ -52,8 +52,8 @@
   },
   "ch1-open": {
     "eyebrow": "Chapter 1",
-    "title": "Signing in",
-    "standfirst": "Every visit to Canvas M starts at the same door. This chapter walks through the three ways in &mdash; an email and password, a one-time link by email, or a meeting invite &mdash; plus the language and theme controls that live on the card, and the exact words the screen shows when something goes wrong."
+    "title": "Login",
+    "standfirst": "Canvas M has one front door: sign in with your email and password. If someone sent you a meeting link, paste it first and it carries you straight into the room once you've signed in."
   },
   "ch1-paths": {
     "eyebrow": "Task · 1 min",
@@ -72,7 +72,7 @@
   },
   "ch2-open": {
     "eyebrow": "Chapter 2",
-    "title": "Joining a meeting",
+    "title": "Join a meeting",
     "standfirst": "Every meeting in Canvas M is reached the same way: you sign in, you pick the meeting from your list, and the app routes you to whichever door is open for you. This chapter walks the whole path — from the meeting list, through the waiting screens, to the moment your microphone goes live."
   },
   "ch2-concept": {
@@ -129,8 +129,8 @@
   },
   "ch3-open": {
     "eyebrow": "Chapter 3",
-    "title": "Be seen & heard",
-    "standfirst": "Joining a Canvas M meeting never forces your microphone on. You enter as a quiet listener, then choose — one button at a time — when to speak, when to show your camera, when to raise your hand, and when to react. This chapter walks every one of those controls, exactly as they appear in the meeting header, and every state they can show."
+    "title": "The interface",
+    "standfirst": "The controls that follow you everywhere — your language, the light/dark theme, moving around the canvas, and your per-device preferences."
   },
   "ch3-mic": {
     "eyebrow": "Your voice",
@@ -150,8 +150,8 @@
   },
   "ch4-open": {
     "eyebrow": "Chapter 4",
-    "title": "Video layouts",
-    "standfirst": "Canvas M lets you choose how everyone's camera tiles sit around your shared canvas. Pick a quiet strip, a docked rail, or a full-screen grid — and pin the one face you want to keep watching. This chapter walks every surface, every toggle, and the gentle rules behind who lands centre stage."
+    "title": "The basics",
+    "standfirst": "A one-page tour of everything you do in a meeting — so you know what's possible before the detailed chapters. Each capability links onward."
   },
   "ch4-layouts": {
     "eyebrow": "Chapter 4 · Video layouts",
@@ -174,8 +174,8 @@
   },
   "ch5-open": {
     "eyebrow": "Chapter 5",
-    "title": "Presence & focus",
-    "standfirst": "Who is in the room, who is speaking, and where everyone is looking. This chapter covers the participant strip, raising your hand, sending reactions, following another person's view, pinning a face, and the three video surfaces plus the floating presenter window — all the quiet signals that keep a meeting in sync without anyone saying a word."
+    "title": "Be seen & heard",
+    "standfirst": "Joining a Canvas M meeting never forces your microphone on. You enter as a quiet listener, then choose — one button at a time — when to speak, when to show your camera, when to raise your hand, and when to react. This chapter walks every one of those controls, exactly as they appear in the meeting header, and every state they can show."
   },
   "ch5-present": {
     "eyebrow": "The mental model · Presence",
@@ -209,8 +209,8 @@
   },
   "ch6-open": {
     "eyebrow": "Chapter 6",
-    "title": "Backgrounds & quality",
-    "standfirst": "Two different backgrounds live in Canvas M, and they are easy to confuse. One dresses your <b>dashboard desk</b> with a wallpaper; the other replaces or blurs what sits <b>behind you on camera</b> during a meeting. This chapter walks through both, plus the video-quality ceiling that decides how sharp your camera looks to everyone else. Every setting here is a <em>per-browser</em> cosmetic choice: it lives on this device, survives a reload, and is never synced to your account."
+    "title": "Video layouts",
+    "standfirst": "Canvas M lets you choose how everyone's camera tiles sit around your shared canvas. Pick a quiet strip, a docked rail, or a full-screen grid — and pin the one face you want to keep watching. This chapter walks every surface, every toggle, and the gentle rules behind who lands centre stage."
   },
   "ch6-set": {
     "eyebrow": "Task · 1 min",
@@ -250,8 +250,8 @@
   },
   "ch7-open": {
     "eyebrow": "Chapter 7",
-    "title": "Canvas basics",
-    "standfirst": "The shared canvas is where the meeting actually happens. This chapter walks the toolbar tool by tool, shows the Canvas&nbsp;M extras tucked beside it, and explains how to place things, move the camera, and read the mini-map &mdash; all from a participant's seat."
+    "title": "Presence & focus",
+    "standfirst": "Who is in the room, who is speaking, and where everyone is looking. This chapter covers the participant strip, raising your hand, sending reactions, following another person's view, pinning a face, and the three video surfaces plus the floating presenter window — all the quiet signals that keep a meeting in sync without anyone saying a word."
   },
   "ch7-draw": {
     "eyebrow": "Task · 2 min",
@@ -299,8 +299,8 @@
   },
   "ch8-open": {
     "eyebrow": "Chapter 8",
-    "title": "Decorate & annotate",
-    "standfirst": "Stickers, stamps, revision clouds, and author badges turn a working canvas into a marked-up one. This chapter covers every decoration tool a participant can reach — where the buttons live, how placing mode behaves, and what each one leaves behind on the shared scene."
+    "title": "Camera background & video quality",
+    "standfirst": "Blur or replace what's behind you on camera, and set how much bandwidth your video spends. (Your dashboard wallpaper lives in the User dashboard part.)"
   },
   "ch8-decor": {
     "eyebrow": "Chapter 8 · Decorate & annotate",
@@ -323,8 +323,8 @@
   },
   "ch9-open": {
     "eyebrow": "Chapter 9",
-    "title": "Translate &amp; the Canvas Bot",
-    "standfirst": "Two pieces of on-canvas intelligence live side by side: a <b>Translate</b> pill that turns any text you select into Vietnamese, English or Korean, and the <b>MCM Bot</b> you drop anywhere on the board to summarise, list decisions, or answer a question about the meeting. Both write real canvas elements, so everyone in the room sees the result."
+    "title": "Drawing & the canvas",
+    "standfirst": "The shared canvas is where the meeting actually happens. This chapter walks the toolbar tool by tool, shows the Canvas&nbsp;M extras tucked beside it, and explains how to place things, move the camera, and read the mini-map &mdash; all from a participant's seat."
   },
   "ch9-translate": {
     "eyebrow": "Chapter 9 · On the canvas",
@@ -353,8 +353,8 @@
   },
   "ch10-open": {
     "eyebrow": "Chapter 10",
-    "title": "Screen sharing",
-    "standfirst": "One presenter at a time, broadcast live to the whole room. Share your screen with a single click, or watch someone else's in a floating viewer you can pop onto a second monitor. This chapter covers presenting, watching, audio, and every state the button can be in."
+    "title": "Stickers & stamps",
+    "standfirst": "Two playful marks: stickers that drop a character on the board, and stamps that brand an uploaded image so the mark travels with it."
   },
   "ch10-share": {
     "eyebrow": "Task · 1 min",
@@ -389,8 +389,8 @@
   },
   "ch11-open": {
     "eyebrow": "Chapter 11",
-    "title": "The meeting library",
-    "standfirst": "Every image, drawing, document and 3D model the room shares lives in one shelf. This chapter shows you how to add a file, find it again, place it on the canvas, and keep it from being deleted out from under you."
+    "title": "Revision cloud",
+    "standfirst": "Ring an area to flag it for change — the classic redline revision cloud — and attach a note that says what needs doing."
   },
   "ch11-place": {
     "eyebrow": "Using files",
@@ -448,8 +448,8 @@
   },
   "ch12-open": {
     "eyebrow": "Chapter 12",
-    "title": "Viewing documents",
-    "standfirst": "A PDF spec, a DXF floor plan, an IFC building model — Canvas M opens all three right on the shared canvas. Turn pages, toggle layers, orbit a 3D model, slice it, measure it. Everyone in the room sees the page you land on; the rest of the controls are yours to explore at your own pace."
+    "title": "Laser pointer",
+    "standfirst": "Point without leaving a mark. The laser is a temporary dot every participant sees, ideal for walking the room through a drawing."
   },
   "ch12-pdf": {
     "eyebrow": "Anatomy · PDF viewer",
@@ -508,8 +508,8 @@
   },
   "ch13-open": {
     "eyebrow": "Chapter 13",
-    "title": "Chat",
-    "standfirst": "The <b>Conversation</b> panel is the room's running text channel. Type a line, mention a file, summon the AI, react with a tap, quote a reply, and read every message in your own language — all from one quiet, two-row composer beside the canvas."
+    "title": "Graph",
+    "standfirst": "A chart and graphing tool for the canvas."
   },
   "ch13-send": {
     "eyebrow": "The basics",
@@ -536,8 +536,8 @@
   },
   "ch14-open": {
     "eyebrow": "Chapter 14",
-    "title": "Captions &amp; transcript",
-    "standfirst": "Canvas M can listen to the room and write it down. A live <b>caption strip</b> floats subtitles at the bottom of a shared screen; a draggable <b>Live transcript</b> panel keeps the full, scrollable history. Both can translate into the language you prefer, line by line. This chapter covers every toggle, state and error you will meet as a participant, and gently points out where the host holds the controls."
+    "title": "CAD drawings (DXF)",
+    "standfirst": "Open a DXF drawing two ways — read it in place on the canvas, or open it in the docked CAD viewer with layers, fit and lock."
   },
   "ch14-concept": {
     "eyebrow": "How it fits together",
@@ -575,8 +575,8 @@
   },
   "ch15-open": {
     "eyebrow": "Chapter 15",
-    "title": "Your dashboard",
-    "standfirst": "Every time you sign in to Canvas M and you are not inside a meeting, the dashboard takes over the whole screen. It is the home base where your meetings, your projects and your calendar all live side by side. This chapter walks every button, panel and badge you will meet there."
+    "title": "IFC building models",
+    "standfirst": "Bring a BIM model onto the board and spin it up — in place on the canvas, or in the full 3D view with storeys, sections, measure and render styles."
   },
   "ch15-tour": {
     "eyebrow": "Task · 1 min",
@@ -636,8 +636,8 @@
   },
   "ch16-open": {
     "eyebrow": "Chapter 16",
-    "title": "Settings & profile",
-    "standfirst": "One window holds everything you can change about your own account and this device: your display name and avatar, your read-only organisation details, your password, every meeting preference, the data we keep, and your microphone consent. Open it from the meeting header gear or the dashboard account menu, and every control here behaves exactly like its inline twin."
+    "title": "PDF documents",
+    "standfirst": "Read a PDF where it sits on the canvas and turn its pages — the page you land on is shared with the whole room."
   },
   "ch16-shell": {
     "eyebrow": "Anatomy · Account settings",
@@ -680,8 +680,8 @@
   },
   "ch17-open": {
     "eyebrow": "Chapter 17",
-    "title": "Leaving & review",
-    "standfirst": "Every meeting has a way out, and most have an afterlife. This chapter covers the difference between hanging up your call, walking out of the room, and the moment a host ends the meeting for everyone — and what a finished meeting lets you do when you open it again to read the record."
+    "title": "Images",
+    "standfirst": "Drop an image onto the canvas like any element — the simplest thing you can bring into a meeting."
   },
   "ch17-leave": {
     "eyebrow": "Click-path",
@@ -699,8 +699,8 @@
   },
   "ch18-open": {
     "eyebrow": "Chapter 18",
-    "title": "When something goes wrong",
-    "standfirst": "A mic that won't unmute, a camera that won't start, a waiting room that won't let you in. Most snags in Canvas M show their own fix right on the button. This chapter reads the exact words the app shows you, names the cause, and gives you the one move that clears it."
+    "title": "Project-based materials",
+    "standfirst": "Files you keep across meetings — your personal “My Files” shelf — versus the files that belong to a single meeting's library."
   },
   "ch18-mic": {
     "eyebrow": "Mic",
@@ -787,8 +787,8 @@
   },
   "ch19-open": {
     "eyebrow": "Chapter 19",
-    "title": "Projects",
-    "standfirst": "A project is the folder every meeting lives in. It carries the client, the code, the phase and — most importantly — the people who may organise inside it. This chapter covers the dedicated <b>Manage projects</b> page: creating a project with full metadata, editing it, building the member roster, delegating authority, dressing it with a colour and icon, and deleting it when its work is done. Everything here is a host or manager action."
+    "title": "Meeting materials (the library)",
+    "standfirst": "Every image, drawing, document and 3D model the room shares lives in one shelf. This chapter shows you how to add a file, find it again, place it on the canvas, and keep it from being deleted out from under you."
   },
   "ch19-concept": {
     "eyebrow": "The mental model · Projects",
@@ -820,8 +820,8 @@
   },
   "ch20-open": {
     "eyebrow": "Chapter 20",
-    "title": "Scheduling a meeting",
-    "standfirst": "One form does two jobs. It can spin up a room and drop you straight into it, or it can plant a meeting on a future date, stamp it with an agenda, name a host, and quietly invite everyone who needs to be there. This chapter walks the whole form, field by field, exactly as the app draws it."
+    "title": "Chat",
+    "standfirst": "The <b>Conversation</b> panel is the room's running text channel. Type a line, mention a file, summon the AI, react with a tap, quote a reply, and read every message in your own language — all from one quiet, two-row composer beside the canvas."
   },
   "ch20-create": {
     "eyebrow": "Task · 2 min",
@@ -882,8 +882,8 @@
   },
   "ch21-open": {
     "eyebrow": "Chapter 21",
-    "title": "Inviting clients",
-    "standfirst": "Clients and outside guests don't get an account — they get a guest ID: a synthetic login and a one-time password you issue, scoped to a single project. Each guest is also a small contact card — representative, email, company, phone, address, country, and a logo — that you keep alongside the credentials. This chapter covers issuing, copying, editing, resetting, and retiring guests, both from inside a project and from the all-projects Guest manager."
+    "title": "On-canvas attribution",
+    "standfirst": "Canvas M has no separate comment threads — you discuss on the canvas itself. Every piece of text carries an author badge so the room always knows who wrote what."
   },
   "ch21-concept": {
     "eyebrow": "The mental model · Guests",
@@ -916,9 +916,9 @@
     "figcap": "The issue form: project picker, the Guest details grid, and Issue guest ID."
   },
   "ch22-open": {
-    "eyebrow": "Chapter 22 · Host & Manager",
-    "title": "Hosting the meeting",
-    "standfirst": "From the moment you press <b>Start meeting</b> to the moment you press <b>End meeting</b>, you hold the room. This chapter walks the host's powers in order — starting a scheduled meeting, inviting the right people, letting guests in from the waiting room, moderating who speaks and who stays, and ending cleanly so an AI recap is waiting for everyone afterwards. Every label here is the one you will see on screen."
+    "eyebrow": "Chapter 22",
+    "title": "Realtime transcription",
+    "standfirst": "Canvas M can listen to the room and write it down — a live caption strip over a shared screen, and a scrollable transcript panel that keeps the full history."
   },
   "ch22-controls": {
     "eyebrow": "Task · in the meeting",
@@ -941,42 +941,39 @@
     "legend": [
       {
         "n": "1",
-        "text": "The <b>Canvas M</b> wordmark. On first arrival it plays a brief cinematic reveal centre-screen, then dissolves to hand off to the card. If your device is set to reduce motion, the intro is skipped and the card appears at once."
+        "text": "<b>Login</b> — the card heading, with <em>“Sign in to your account.”</em> beneath it and the <em>“Architectural collaboration platform”</em> tagline above."
       },
       {
         "n": "2",
-        "text": "The language and theme switcher (<b>VI</b> / <b>EN</b> / <b>KO</b> and a light/dark toggle), tucked into the top bar of the form pane."
+        "text": "<b>Email</b> and <b>Password</b> fields — placeholders <em>you@company.com</em> and <em>Enter your password</em>."
       },
       {
         "n": "3",
-        "text": "The strapline <em>&ldquo;Architectural collaboration platform&rdquo;</em>, the <b>Login</b> heading, and the subtitle <em>&ldquo;Sign in to your account&rdquo;</em>."
+        "text": "<b>Sign In</b> — the submit button. It stays disabled until both fields have something, and reads <em>Signing in…</em> while it works."
       },
       {
         "n": "4",
-        "text": "The sign-in form. By default this is the email and password form; two link buttons below it switch to the other two ways in."
+        "text": "<b>Have a meeting link?</b> — a small toggle below the form for pasting a room link before you sign in."
       },
       {
         "n": "5",
-        "text": "The brand panel on the right &mdash; <b>&ldquo;Design reviews, in real time&rdquo;</b> &mdash; listing what waits inside: realtime collaboration, BIM &amp; CAD viewers, AI meeting intelligence, and multilingual support. It is decorative; there is nothing to click here."
-      },
-      {
-        "n": "6",
-        "text": "At the foot of the form: <em>&ldquo;Need help? Contact your administrator.&rdquo;</em>"
+        "text": "<b>Need help? Contact your administrator.</b> — the footer. There's no self-service sign-up or password reset."
       }
-    ]
+    ],
+    "cap": "The Canvas M login card — email, password, Sign In, and the meeting-link toggle.",
+    "figcap": "The Canvas M login card — email, password, Sign In, and the meeting-link toggle."
   },
   "ch1-password": {
-    "eyebrow": "The usual way",
+    "eyebrow": "Signing in",
     "heading": "Sign in with email and password",
     "steps": [
-      "In the <b>Email</b> field, type your work address &mdash; the placeholder shows the expected shape, <kbd>you@company.com</kbd>.",
-      "In the <b>Password</b> field, type your password. The characters stay hidden.",
-      "Click <b>Sign In</b>. While it works, the button reads <b>Signing in&hellip;</b> and is disabled so you can't submit twice.",
-      "On success the card simply disappears and your project home opens."
+      "Type your work email in the <b>Email</b> field (placeholder <em>you@company.com</em>).",
+      "Type your password in the <b>Password</b> field (placeholder <em>Enter your password</em>). Everyone signs in this way — internal staff and invited clients alike.",
+      "Click <b>Sign In</b>. While it checks, the button reads <em>Signing in…</em>; on success the card disappears and your dashboard loads.",
+      "There's no “sign up” — your administrator creates the account and gives you the password. The footer reads <em>“Need help? Contact your administrator.”</em>"
     ],
-    "outcome": "You land signed in, ready to open or join a project.",
-    "note": "The <b>Sign In</b> button stays greyed out until <em>both</em> the email and password fields have something in them. If the email isn't a plausible address (no <kbd>@</kbd> or no domain), you'll see <em>&ldquo;That email looks invalid.&rdquo;</em> before any sign-in is even attempted.",
-    "figcap": "The email and password form is what the card shows by default."
+    "outcome": "Your session is remembered on this device until you sign out, so you won't retype your password every visit.",
+    "note": "Password is the only way in right now. A one-time login link by email exists in the product but is switched off until it works reliably on every network — so don't look for an email-link option on the card."
   },
   "ch1-modes": {
     "eyebrow": "Three ways in",
@@ -1013,18 +1010,16 @@
     "figcap": "The guest form asks only for an email."
   },
   "ch1-link": {
-    "eyebrow": "Arriving from an invite",
-    "heading": "Start from a meeting link",
+    "eyebrow": "Joining by link",
+    "heading": "Came in on a meeting link?",
     "steps": [
-      "On the password form, click <b>Have a meeting link?</b>.",
-      "Paste your invite into the <b>Meeting link</b> field &mdash; a full link, a <kbd>#room=&hellip;</kbd> fragment, or a bare <kbd>ID,KEY</kbd> all work; the placeholder reads <em>&ldquo;Paste meeting link or ID,KEY&rdquo;</em>.",
-      "Click <b>Continue</b>. The button is disabled until the field has text.",
-      "Canvas M saves the meeting and confirms: <em>&ldquo;Meeting link saved &mdash; sign in to join.&rdquo;</em>, then returns you to the password form.",
-      "Sign in with your password (or switch to the guest link). Once you're in, Canvas M joins the saved meeting automatically."
+      "If a host sent you a meeting link, click <b>Have a meeting link?</b> under the sign-in form.",
+      "Paste the link — or its bare <em>ID,KEY</em> — into the <b>Meeting link</b> field (placeholder <em>Paste meeting link or ID,KEY</em>) and click <b>Continue</b>.",
+      "Canvas M saves it and shows <em>“Meeting link saved — sign in to join.”</em>, then returns you to the password form.",
+      "Sign in with your email and password as usual; you drop straight into that meeting once you're in."
     ],
-    "outcome": "You are dropped straight into the meeting the invite pointed at, no extra navigation.",
-    "note": "Pasting a meeting link does <em>not</em> skip signing in &mdash; it only remembers <em>where</em> you're headed. Everyone signs in first. If what you paste isn't a recognisable link, you'll see <em>&ldquo;That meeting link looks invalid.&rdquo;</em>",
-    "figcap": "The meeting-link form accepts a link, a fragment, or a bare ID,KEY."
+    "outcome": "The meeting link only carries you to the room — it doesn't replace signing in. Everyone still authenticates with a password first.",
+    "note": "If the link is malformed you'll see <em>“That meeting link looks invalid.”</em> — re-copy the whole link (or the ID,KEY) from your invitation."
   },
   "ch1-langtheme": {
     "eyebrow": "Before you sign in",
@@ -1038,41 +1033,41 @@
     }
   },
   "ch1-errors": {
-    "eyebrow": "When it doesn't go through",
+    "eyebrow": "Reference",
     "heading": "Sign-in messages and what they mean",
-    "rows": [
-      {
-        "sym": "&ldquo;Wrong email or password.&rdquo;",
-        "cause": "The email and password didn't match an account.",
-        "fix": "Re-check both, mind capital letters in the password, and try again. If it persists, contact your administrator.",
-        "ref": "1.2"
-      },
-      {
-        "sym": "&ldquo;That email looks invalid.&rdquo;",
-        "cause": "What you typed isn't a valid email shape (missing <kbd>@</kbd> or domain). Shown before any sign-in attempt.",
-        "fix": "Correct the address &mdash; it should look like <kbd>you@company.com</kbd>.",
-        "ref": "1.2"
-      },
-      {
-        "sym": "&ldquo;Can't reach the sign-in server. Check your internet connection (or try mobile data).&rdquo;",
-        "cause": "Your device couldn't reach the authentication server &mdash; often a Wi-Fi or network block, not a wrong password.",
-        "fix": "Check your connection. A telling sign: it fails on office Wi-Fi but works on mobile data.",
-        "ref": "1.2"
-      },
-      {
-        "sym": "&ldquo;Too many attempts. Please wait a minute and try again.&rdquo;",
-        "cause": "Sign-in was rate-limited after several rapid tries.",
-        "fix": "Wait about a minute, then try once more.",
-        "ref": "1.2"
-      },
-      {
-        "sym": "&ldquo;That meeting link looks invalid.&rdquo;",
-        "cause": "The text pasted into the meeting-link field couldn't be read as a link or <kbd>ID,KEY</kbd>.",
-        "fix": "Re-copy the whole invite from the source and paste it again.",
-        "ref": "1.6"
-      }
+    "cols": [
+      "Message",
+      "What happened",
+      "What to do"
     ],
-    "note": "Notice the difference between a credential problem and a network one. <em>&ldquo;Wrong email or password&rdquo;</em> means try different details; the connection message means your details are probably fine but your device can't reach the server &mdash; don't keep retyping a good password."
+    "rows": [
+      [
+        "Wrong email or password.",
+        "The email and password didn't match an account.",
+        "Re-check both — mind capitals. If it persists, contact your administrator."
+      ],
+      [
+        "That email looks invalid.",
+        "What you typed isn't a valid email shape (no @ or no domain).",
+        "Correct the address — it should look like you@company.com."
+      ],
+      [
+        "Can't reach the sign-in server. Check your internet connection (or try mobile data).",
+        "Your network can't reach the sign-in server — often Wi-Fi blocking it.",
+        "Switch network — mobile data is the quick test. This is not a wrong-password problem."
+      ],
+      [
+        "Too many attempts. Please wait a minute and try again.",
+        "Too many sign-in tries in a short window.",
+        "Wait about a minute, then try again."
+      ],
+      [
+        "That meeting link looks invalid.",
+        "The pasted meeting link couldn't be read.",
+        "Re-copy the full link, or the ID,KEY, from your invite."
+      ]
+    ],
+    "note": "There's no “attempts remaining” counter and no self-service reset — your administrator manages passwords."
   },
   "ch2-paths": {
     "eyebrow": "How joining works",
@@ -3069,8 +3064,8 @@
     "eyebrow": "How documents live on the canvas",
     "heading": "Anchors, panes, and what your peers see",
     "lead": "Every document you open started life as an upload in the room library — the bar on the right where files are grouped under <b>PDF documents</b>, <b>CAD drawings</b>, and <b>IFC models</b>. Dropping one onto the canvas creates an <em>anchor</em>: a tile that shows the document in place, sized and positioned like any other element.",
-    "body": "There are two ways to look at a document, and they behave differently. A <b>PDF</b> shows its page directly on the canvas inside the anchor — you read it where it sits. A <b>DXF</b> drawing or an <b>IFC</b> model can also be opened in a dedicated <em>pane</em> that docks to the right edge of the screen, giving you a full interactive viewer with its own toolbar. The canvas anchor is the shared object; the pane is your personal workspace for inspecting it.",
-    "pull": "The page you turn to is shared. The layers you toggle, the model you orbit, the slice you cut — those stay on your screen.",
+    "body": "There are two ways to look at a document, and they behave differently. A <b>PDF</b> shows its page directly on the canvas inside the anchor — you read it where it sits. A <b>DXF</b> drawing or an <b>IFC</b> model can be explored right on the anchor too, or opened in a dedicated <em>pane</em> that docks to the right edge of the screen for a full interactive viewer with its own toolbar. The canvas anchor is the shared object; the pane is your personal workspace for inspecting it.",
+    "pull": "What you leave on the canvas — the page, the layers left showing, the angle you parked a model at — is shared with the room. The orbiting, slicing and measuring you do while exploring stays on your screen.",
     "diagram": {
       "label": "Library file → canvas anchor → docked viewer pane",
       "cap": "An uploaded file becomes a canvas anchor; DXF and IFC anchors can additionally open in a right-docked pane."
@@ -3102,10 +3097,10 @@
     "eyebrow": "CAD drawings",
     "heading": "Open a DXF in the CAD view",
     "steps": [
-      "Click the <b>CAD view</b> button in the canvas toolbar (the floor-plan icon, tooltip <em>“CAD view — open DXF in a pane”</em>).",
+      "Click the <b>CAD view</b> button in the canvas toolbar (the blueprint icon, tooltip <em>“CAD view — open DXF in a pane”</em>).",
       "A popover titled <b>DXF in library</b> lists every drawing in the room. Pick one to open it as a tab in the right-docked pane.",
       "Alternatively, <b>right-click a DXF anchor</b> on the canvas and choose <b>Open in CAD view</b>.",
-      "Each file opens in its own tab marked <b>📍</b>; click a tab to switch, click its <b>×</b> to close just that drawing.",
+      "Each file opens in its own tab marked <b>📐</b>; click a tab to switch, click its <b>×</b> to close just that drawing.",
       "Drag the left edge of the pane (the resize handle) to make the viewer wider or narrower.",
       "Close the whole pane with the <b>×</b> in the top-right corner."
     ],
@@ -3118,7 +3113,7 @@
     "legend": [
       {
         "n": 1,
-        "text": "<b>Layers</b> — opens the <em>Layers ({count})</em> panel. Tick or untick each layer to show or hide it; the colour swatch matches the DXF layer colour. <b>All</b> turns everything on, <b>None</b> turns everything off."
+        "text": "<b>Layers</b> — opens the <em>Layers (N)</em> panel. Tick or untick each layer to show or hide it; the colour swatch matches the DXF layer colour. <b>All</b> turns everything on, <b>None</b> turns everything off."
       },
       {
         "n": 2,
@@ -3269,34 +3264,46 @@
         "ref": "12.1"
       },
       {
+        "sym": "A model sits in the library a few seconds before it will open",
+        "cause": "An IFC is converted to a lightweight 3D model when you upload it; bigger buildings take a little longer.",
+        "fix": "Wait for the conversion to finish — it only happens once, at upload.",
+        "ref": "12.2"
+      },
+      {
         "sym": "“Maximum DXF files already open” (or “Maximum 3D models already open”)",
-        "cause": "Every viewer slot is in use — the renderer caps how many heavy models run at once.",
+        "cause": "Every live viewer slot is in use — heavy 3D models run at most two at once, DXF drawings up to four.",
         "fix": "Close another open file or tab, then try opening this one again.",
-        "ref": "12.3"
+        "ref": "12.7"
       },
       {
         "sym": "“Couldn't read DXF: …” or “Couldn't read IFC model: …”",
         "cause": "The file is corrupt or in an unsupported variant; the message after the colon is the underlying reason.",
-        "fix": "Ask the owner to re-export and re-upload the file.",
-        "ref": "12.4"
+        "fix": "Ask the owner to re-export and re-upload the file. (A .dwg won't open at all — it must be exported to .dxf.)",
+        "ref": "12.5"
+      },
+      {
+        "sym": "A DXF opens but all its text and dimensions are missing",
+        "cause": "The drawing relies on fonts the viewer doesn't have, so labels are dropped while the geometry still draws.",
+        "fix": "The lines are accurate; this is a display limit, not lost data. Re-export with standard fonts if the labels matter.",
+        "ref": "12.5"
       },
       {
         "sym": "A DXF tab shows “DXF file not found”",
         "cause": "The tab is left over from a different meeting; its file is not in this room's library.",
         "fix": "Close the phantom tab — Canvas M also prunes these automatically once the library loads.",
-        "ref": "12.3"
+        "ref": "12.5"
       },
       {
         "sym": "The 3D toolbar buttons are all greyed out",
         "cause": "The model is still loading (“Loading 3D model…”) or has no storeys / objects to show.",
         "fix": "Wait for the model to finish; tooltips like “No storeys” / “No objects” mean that data simply isn't in the file.",
-        "ref": "12.6"
+        "ref": "12.7"
       },
       {
         "sym": "Page turns on a PDF have no effect",
         "cause": "You are reviewing a finished meeting in read-only mode, where page changes are blocked.",
         "fix": "This is expected — read-only review keeps the page fixed.",
-        "ref": "12.2"
+        "ref": "12.3"
       }
     ],
     "note": "Pan, zoom, and orbit happen inside the viewer pane only — they never move the underlying canvas, so you can explore freely without disturbing the shared layout."
@@ -5613,5 +5620,325 @@
       }
     ],
     "note": "Most hidden host controls are also blocked at the server, so a missing button is a real permission boundary, not a UI glitch — check your role first."
+  },
+  "ch12-add-files": {
+    "eyebrow": "Bringing files in",
+    "heading": "Add a drawing or model to the room",
+    "steps": [
+      "Open the room library — the bar down the right-hand side. At the bottom sits <b>+ Upload image / DXF / PDF / IFC · or drag &amp; drop</b>; click it, or drag files straight onto the bar.",
+      "Pick a <b>.dxf</b> drawing or a <b>.ifc</b> model (images and <b>.pdf</b> work here too). Anything else is skipped with <em>“Only images, DXF, PDF and IFC are supported for now.”</em>",
+      "A DXF appears almost at once under the <b>CAD drawings</b> heading. An IFC is first converted into a lightweight 3D model — a large building can take several seconds, which is normal — then lands under <b>IFC models</b>.",
+      "Click a tile to drop the file at the centre of the canvas, or drag the tile exactly where you want it. If that file is already on the canvas, Canvas M jumps to it instead of making a copy.",
+      "The file becomes an <em>anchor</em> you can move, resize and lock like any other element."
+    ],
+    "outcome": "Anyone in the meeting can add files — everyone shares the same library and sees the same anchors appear.",
+    "note": {
+      "tag": "Good to know",
+      "html": "Files added from your personal shelf are capped at <b>50 MB</b>, and <b>.dwg</b> drawings aren't read — export to <b>.dxf</b> first. Once a meeting has finished and is reopened for review, the library turns read-only and uploads are switched off."
+    },
+    "figcap": "The room library bar — the Upload button, with CAD drawings and IFC models listed below."
+  },
+  "ch12-dxf-canvas": {
+    "eyebrow": "DXF on the canvas",
+    "heading": "Read a DXF without opening a pane",
+    "steps": [
+      "<b>Right-click</b> a DXF anchor and choose <b>Edit DXF (pan / zoom)</b>. The drawing comes alive in place — drag to pan, scroll to zoom.",
+      "Click <b>📋 Layers</b> to open <em>Layers (N)</em>. Every row carries the layer's own colour swatch; tick or untick to show or hide it, or use <b>All</b> and <b>None</b> to switch the lot.",
+      "<b>↻ Fit</b> reframes the whole drawing; <b>× Exit</b> (or <kbd>Esc</kbd>) leaves edit mode. Right-clicking also offers <b>Reset fit (back to full view)</b>."
+    ],
+    "outcome": "Unlike the CAD pane, a DXF edited here on the canvas is the <em>shared</em> object: the layers you hide and the view you leave are saved to the anchor and seen by everyone in the room.",
+    "note": {
+      "tag": "Two viewers, on purpose",
+      "html": "Edit a DXF on the canvas when the whole room should see the change. Open the same drawing in the <b>CAD view</b> pane (next) when you want a big, private workspace — pane changes stay with you."
+    },
+    "figcap": "A DXF anchor in focus mode with the Layers panel, colour swatches, and the Fit / Exit toolbar."
+  },
+  "ch12-dxf-reference": {
+    "eyebrow": "Reference",
+    "heading": "Every CAD-view control at a glance",
+    "cols": [
+      "Control",
+      "What it does",
+      "Label / tooltip"
+    ],
+    "rows": [
+      [
+        "Edit DXF",
+        "Pan and zoom the drawing right on the canvas anchor",
+        "Edit DXF (pan / zoom)"
+      ],
+      [
+        "Open in CAD view",
+        "Open the drawing in the right-docked pane",
+        "CAD view — open DXF in a pane"
+      ],
+      [
+        "Layers",
+        "Show or hide individual layers; the swatch matches the layer colour",
+        "{count} layers — click to show/hide"
+      ],
+      [
+        "Fit",
+        "Reframe the whole drawing",
+        "Fit DXF to pane (reset the view)"
+      ],
+      [
+        "Lock / Locked",
+        "Freeze pan and zoom so the view can't be nudged",
+        "View is locked — click to unlock pan/zoom"
+      ],
+      [
+        "Tabs",
+        "One tab per drawing; × closes a tab, the pane × closes the viewer",
+        "Close tab"
+      ]
+    ],
+    "note": "The CAD view is a 2D drawing viewer — it has no measure, snap, or unit tools (those belong to the 3D model view). And mind where a change lives: layers toggled in the <em>pane</em> are yours alone, while layers toggled on the canvas <em>anchor</em> are shared with the room."
+  },
+  "ch12-ifc-canvas": {
+    "eyebrow": "IFC on the canvas",
+    "heading": "Spin a model up without leaving the canvas",
+    "steps": [
+      "<b>Right-click</b> an IFC anchor and choose <b>Edit 3D (rotate / zoom)</b> to make it live where it sits — drag to orbit, scroll to zoom, click an element to select it. (Choose <b>Open in 3D view</b> for the full pane instead — next.)",
+      "The inline toolbar carries the same essentials as the pane: <b>↻ Fit</b>, <b>🏢 Storeys</b>, <b>✂️ Section</b>, <b>📏 Measure</b>, <b>👻 Ghost</b> and <b>🎨 Style</b>.",
+      "<b>↻ Refresh</b> re-renders the angle you are on in high resolution and re-syncs it (tooltip <em>“Re-render this view in high resolution and re-sync it”</em>).",
+      "<b>× Exit</b> (or <kbd>Esc</kbd>) bakes the viewpoint you leave into the anchor and shares it, so the whole room sees the model from the same angle."
+    ],
+    "outcome": "The camera angle and the picture on the canvas are shared; your live orbiting, sections, measurements and any elements you hide stay on your screen until you exit.",
+    "note": {
+      "tag": "Browsing every object",
+      "html": "The object tree — where you hide and show individual elements — lives in the full <b>3D view</b> pane. The inline canvas editor gives you the camera, section and measure tools, but not the tree."
+    },
+    "figcap": "An IFC anchor in inline 3D edit mode — Fit, Storeys, Section, Measure, Ghost and Style, with Refresh and Exit."
+  },
+  "ch22-ai-recap": {
+    "eyebrow": "The AI recap",
+    "heading": "Read, regenerate and export the AI summary",
+    "steps": [
+      "When a host ends the meeting, Canvas M sends its <b>voice transcript</b> and <b>chat</b> to the AI and writes the result back as the meeting's <b>AI summary</b> — in the background, so ending is never held up. It reads what was said and typed, not the canvas drawing itself.",
+      "Read the short version on the meeting's <b>detail panel</b>: open the finished meeting from your project or dashboard and the recap sits in an <b>AI summary</b> card under the hero, with <b>Show more</b> / <b>Show less</b> for long ones.",
+      "For the full structured version, open the meeting log (the <b>Transcript</b> icon in the header) and switch to the <b>Summary</b> tab. It lays the recap out as <b>Overview</b>, <b>Participants</b>, <b>Key topics</b>, <b>Decisions</b> and <b>Action items</b> — each action item with an owner and a deadline.",
+      "Need a fresh pass, or summarising a meeting that's still running? Press <b>Generate summary</b> (or <b>Regenerate summary</b>). It re-reads the whole transcript and takes roughly <em>5–15 seconds</em> for a long meeting; you can run it about once a minute.",
+      "Press <b>Download .md</b> to save the whole recap as a Markdown file — ready to paste into minutes or an email."
+    ],
+    "outcome": "The end-of-meeting card is written once and kept with the meeting; the Summary tab can be regenerated whenever you need. In read-only review you can read the recap, but the regenerate and clear buttons are hidden.",
+    "note": {
+      "tag": "Not emailed",
+      "html": "Canvas M doesn't email recaps. A guest of a finished meeting is told <em>“The organizer will share a recap with you separately.”</em> — so download the <b>.md</b> (or copy the card) and send it on yourself."
+    },
+    "host": {
+      "tag": "Host-only",
+      "html": "The recap is generated only when a host ends the meeting, and only if something was said or typed — an empty meeting produces no card. Anyone who can see the meeting can read the summary and open the log; regenerating is rate-limited to roughly once a minute per person."
+    },
+    "figcap": "The meeting log's Summary tab — Overview, Participants, Key topics, Decisions and Action items, with Generate summary and Download .md."
+  },
+  "c3-prefs-xref": {
+    "eyebrow": "Preferences",
+    "heading": "Your per-device preferences live in Settings",
+    "lead": "Language and theme aside, the rest of what you can tune — microphone, camera, video quality, notifications — lives under <b>Settings → Preferences</b>. It's covered in full in the User dashboard part; this is just the signpost.",
+    "body": "Anything you set there is remembered on <em>this</em> device, not your account, so each computer or tablet keeps its own preferences."
+  },
+  "c4-basics": {
+    "eyebrow": "Orientation",
+    "heading": "Everything you can do, in one breath",
+    "lead": "A Canvas M meeting is one shared, infinite canvas. You <b>write and draw</b> with the toolbar, drop <b>notes, stickers and stamps</b>, and <b>chat</b> down the side. You <b>upload files</b> — images, PDFs, DXF drawings and IFC models — and place them on the board for everyone. You turn on your <b>microphone and camera</b>, <b>share your screen</b>, and let live <b>transcription and translation</b> keep a record in your language.",
+    "body": "Nothing here is one-way: every mark, page and model is shared live, and an AI can summarise the whole meeting when it ends. The chapters ahead take each of these in turn."
+  },
+  "c12-laser": {
+    "eyebrow": "Presenting",
+    "heading": "Point at the canvas without drawing on it",
+    "lead": "Pick the <b>laser pointer</b> from the toolbar and your cursor becomes a glowing dot that everyone in the room sees in real time. It's perfect for “look here” — walking people through a plan or a model without adding anything permanent.",
+    "body": "Unlike a pen stroke, the laser leaves <em>nothing</em> behind: the trail fades as you move and disappears when you switch tools, so the canvas stays clean."
+  },
+  "c13-graph": {
+    "eyebrow": "Coming soon",
+    "heading": "Graphs are on the way",
+    "lead": "A dedicated <b>graph / chart</b> tool for the canvas is planned but not yet available in Canvas M.",
+    "body": "Until it ships, paste a chart as an image, or sketch one with the drawing tools."
+  },
+  "c17-images": {
+    "eyebrow": "Pictures on the board",
+    "heading": "Add an image to the canvas",
+    "lead": "An image — a photo, a screenshot, an exported render — goes onto the canvas the same way as any file: drag it straight onto the board, or upload it to the room library and click to place it. Canvas M accepts standard picture formats (PNG, JPG and the like).",
+    "body": "Once placed, an image is a normal canvas element: move, resize, lock it, or draw and stamp on top. To brand an image with a stamp so the mark stays attached, see <em>Stickers & stamps</em>."
+  },
+  "c18-proj-materials": {
+    "eyebrow": "Two homes for files",
+    "heading": "Personal shelf vs. the meeting library",
+    "lead": "Canvas M keeps materials in two places. Your <b>My Files</b> shelf is personal and persistent — upload a drawing once and reuse it in any meeting you're in. The <b>meeting library</b> (next chapter) is shared and scoped to one meeting: whatever's on the shelf there, everyone in that room can see and place.",
+    "body": "Bringing a file from your shelf into a meeting copies it into that meeting's library — so editing it in the meeting never touches your personal original."
+  },
+  "ch23-open": {
+    "eyebrow": "Chapter 23",
+    "title": "Realtime translation",
+    "standfirst": "Translate any text on the canvas, and auto-translate the chat, into Vietnamese, English or Korean — the result is shared, not a private pop-up."
+  },
+  "ch24-open": {
+    "eyebrow": "Chapter 24",
+    "title": "The MCM chat bot",
+    "standfirst": "Drop the MCM Bot anywhere on the canvas, or call @bot in chat, and ask it to summarise, list decisions, or answer a question about the meeting."
+  },
+  "ch25-open": {
+    "eyebrow": "Chapter 25",
+    "title": "Canvas AI",
+    "standfirst": "What the AI actually is in Canvas M — and what it does and doesn't do on your board."
+  },
+  "c25-canvas-ai": {
+    "eyebrow": "Meeting intelligence",
+    "heading": "The AI reads the meeting and writes back text",
+    "lead": "Canvas M's on-canvas intelligence is the <b>MCM Bot</b>. It reads the live meeting — the chat, the transcript and the text on the canvas — and writes its answer back as a real, shared canvas element everyone can see and move.",
+    "body": "It is a <em>text</em> assistant: it summarises, lists decisions, and answers questions. It does not draw shapes, arrange your layout, or generate models — so treat it as a smart note-taker on the board, not an auto-designer."
+  },
+  "ch26-open": {
+    "eyebrow": "Chapter 26",
+    "title": "Transcription & translation AI",
+    "standfirst": "The same AI that powers the live transcript and the translation tools — how it works, and where to control it."
+  },
+  "c26-tt-ai": {
+    "eyebrow": "Behind the captions",
+    "heading": "Speech to text, and text to your language",
+    "lead": "The live transcript and the translate tools are AI-powered. Speech in the call is transcribed in real time into the transcript panel and the caption strip; selected text and chat messages are translated on demand into Vietnamese, English or Korean.",
+    "body": "You drive both from the places they live — the transcript panel and the Translate controls in <em>Communication</em>. This chapter is just the explanation of what's doing the work."
+  },
+  "ch27-open": {
+    "eyebrow": "Chapter 27",
+    "title": "Meeting summary AI",
+    "standfirst": "When a host ends the meeting, an AI recap is written from the transcript and chat — an overview, decisions and action items you can read, regenerate and export."
+  },
+  "ch28-open": {
+    "eyebrow": "Chapter 28",
+    "title": "Screen sharing",
+    "standfirst": "One presenter at a time, broadcast live to the whole room. Share your screen with a single click, or watch someone else's in a floating viewer you can pop onto a second monitor. This chapter covers presenting, watching, audio, and every state the button can be in."
+  },
+  "ch29-open": {
+    "eyebrow": "Chapter 29",
+    "title": "Follow the presenter",
+    "standfirst": "Lock your viewport to someone else's, and keep their video in a floating window while you work — so the room can move together."
+  },
+  "ch30-open": {
+    "eyebrow": "Chapter 30",
+    "title": "Advanced interface",
+    "standfirst": "Power-user touches: pop a shared screen into its own window for a second monitor, the floating presenter, and the navigation widget."
+  },
+  "c30-power": {
+    "eyebrow": "Getting more from the UI",
+    "heading": "Second monitors, floating windows and quick moves",
+    "lead": "A few touches make Canvas M feel roomier. <b>Pop-out</b> a shared screen into its own window and drag it to a second monitor while you keep drawing on the canvas. Keep a speaker in the <b>floating presenter</b> window so you never lose a face. Use the <b>navigation widget</b> (bottom-right) to zoom, reset and open the mini-map.",
+    "body": "These are all optional — the meeting works without them — but on a big screen or a two-monitor desk they turn the room into a proper workspace."
+  },
+  "ch31-open": {
+    "eyebrow": "Chapter 31",
+    "title": "Division admin & staff",
+    "standfirst": "How authority works above a single project: department heads (“Division admin”) and the internal staff directory that project membership is drawn from."
+  },
+  "c31-division": {
+    "eyebrow": "Authority tiers",
+    "heading": "Department heads and the staff directory",
+    "lead": "Above per-project roles sits the organisation. A department (“division”) <b>head</b> is the <b>Division admin</b> — the supreme authority on every project of their department. They can assign a project's leader and delegate co-operators, even on projects they aren't a member of. It's an org-level role read from the directory, separate from the per-project Leader / Co-operator / Participant roles.",
+    "body": "Project membership itself is drawn only from <b>internal staff</b> accounts — the company directory. External people never become members; they're handled as clients (see the Clients part)."
+  },
+  "ch32-open": {
+    "eyebrow": "Chapter 32",
+    "title": "Projects",
+    "standfirst": "A project is the folder every meeting lives in. Create one with full metadata, build its member roster, delegate authority with roles, dress it with a colour and icon, and retire it when its work is done."
+  },
+  "ch33-open": {
+    "eyebrow": "Chapter 33",
+    "title": "Create a meeting",
+    "standfirst": "One form, two modes: start a meeting right now, or schedule one for later and invite the room — with a title, agenda, host and co-host."
+  },
+  "ch34-open": {
+    "eyebrow": "Chapter 34",
+    "title": "Host a meeting",
+    "standfirst": "From Start to the moment before End, you hold the room: start a scheduled meeting, invite the right people, let guests in from the waiting room, and moderate who speaks and stays."
+  },
+  "ch35-open": {
+    "eyebrow": "Chapter 35",
+    "title": "End & review a finished meeting",
+    "standfirst": "Stepping out and closing down: the three ways to leave, ending the meeting for everyone, and what read-only review keeps open afterwards."
+  },
+  "ch36-open": {
+    "eyebrow": "Chapter 36",
+    "title": "Client credentials",
+    "standfirst": "A client is a project-scoped guest, not a staff account. Issue a guest ID, copy the one-time login and password, set a company logo, and manage access across the project's life."
+  },
+  "ch37-open": {
+    "eyebrow": "Chapter 37",
+    "title": "Client waiting room",
+    "standfirst": "What a client sees when they join a live meeting, and how a host lets them in — the knock-to-join waiting room."
+  },
+  "c37-waiting": {
+    "eyebrow": "Knock to join",
+    "heading": "Letting a client into the room",
+    "lead": "A client who opens a live meeting they haven't been admitted to lands in a <b>waiting room</b> — “Waiting for the host to let you in…” — rather than walking straight in. A host admits or denies each knock from the Participants panel (covered in <em>Host a meeting</em>).",
+    "body": "If a host denies the knock, the client sees “Not admitted” and can <b>knock again</b> after a short cooldown. Internal staff skip the waiting room and join directly."
+  },
+  "ch38-open": {
+    "eyebrow": "Chapter 38",
+    "title": "My meetings & Invited/Upcoming",
+    "standfirst": "Your home base: the cards for meetings you own and meetings you're invited to, what their colours mean, and how to pick up where you left off."
+  },
+  "ch39-open": {
+    "eyebrow": "Chapter 39",
+    "title": "Guest manager",
+    "standfirst": "The all-projects view for managing the clients you've issued — a shortcut into the credential tools covered in the Clients part."
+  },
+  "c39-guestmgr": {
+    "eyebrow": "Managing clients in one place",
+    "heading": "Every project's guests, together",
+    "lead": "The sidebar's <b>Guest manager</b> gathers the clients you've issued across all your projects into one list, so you can find, edit, reset or revoke a guest without opening each project. It's the same toolset described in <em>Client credentials</em> — just the central door to it.",
+    "body": "Each guest stays scoped to its own project; the manager only saves you hunting for the right folder."
+  },
+  "ch40-open": {
+    "eyebrow": "Chapter 40",
+    "title": "Manage projects",
+    "standfirst": "The project browser on your dashboard — finding, grouping and opening the projects you belong to. Full administration lives in the Project management part."
+  },
+  "ch41-open": {
+    "eyebrow": "Chapter 41",
+    "title": "Calendar",
+    "standfirst": "The month calendar on your dashboard, with Korean and Vietnamese public holidays painted in."
+  },
+  "c41-calendar": {
+    "eyebrow": "Your month at a glance",
+    "heading": "A calendar that knows the holidays",
+    "lead": "The dashboard <b>calendar</b> lays your meetings out across the month and lets you create one on any day. It also paints the working week: <b>Sundays and public holidays in red, Saturdays in blue</b>, with <b>Korean and Vietnamese</b> public holidays fetched automatically for each year.",
+    "body": "Country-aware <em>timing</em> — showing a meeting in each attendee's own timezone — is planned but not yet available; for now times show in your own local time."
+  },
+  "ch42-open": {
+    "eyebrow": "Chapter 42",
+    "title": "Backgrounds & avatar",
+    "standfirst": "Make the dashboard yours: pick a wallpaper for your lobby, and choose or upload the avatar that represents you in meetings."
+  },
+  "ch43-open": {
+    "eyebrow": "Chapter 43",
+    "title": "Your account",
+    "standfirst": "The settings window: your profile and organisation details, and how to change your password or sign out."
+  },
+  "ch44-open": {
+    "eyebrow": "Chapter 44",
+    "title": "My activities",
+    "standfirst": "A personal log of what you've done in Canvas M — meetings created, invitations answered, joins, and files uploaded."
+  },
+  "c44-activities": {
+    "eyebrow": "Your history",
+    "heading": "Everything you've done, in one list",
+    "lead": "The <b>My activities</b> view (the History icon) keeps a running record of your own actions: meetings you created, invitations you received and how you replied, meetings you joined, and files you uploaded.",
+    "body": "It's built from your existing data rather than a separate log, so it's always an honest reflection of what happened — handy for retracing “when did I last open that project?”"
+  },
+  "ch45-open": {
+    "eyebrow": "Chapter 45",
+    "title": "Notifications",
+    "standfirst": "The bell in the top bar, where invitations that need your answer and other alerts collect."
+  },
+  "ch46-open": {
+    "eyebrow": "Chapter 46",
+    "title": "Preferences — data & privacy",
+    "standfirst": "Your per-device preferences, what data Canvas M keeps, and your microphone-consent and privacy controls."
+  },
+  "ch47-open": {
+    "eyebrow": "Chapter 47",
+    "title": "Troubleshooting",
+    "standfirst": "A mic that won't unmute, a camera that won't start, a waiting room that won't let you in. Most snags in Canvas M show their own fix right on the button. This chapter reads the exact words the app shows you, names the cause, and gives you the one move that clears it."
   }
 }

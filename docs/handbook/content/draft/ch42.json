@@ -1,0 +1,152 @@
+{
+  "number": 42,
+  "blocks": [
+    {
+      "id": "ch42-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch6-wallpaper",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch6-wallp"
+    },
+    {
+      "id": "ch6-wallpaper-tiles",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": []
+    },
+    {
+      "id": "ch16-profile",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch16-profile-fig"
+    },
+    {
+      "id": "ch16-avatars",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch16-av-lib",
+        "ch16-av-upload",
+        "ch16-av-none"
+      ]
+    }
+  ],
+  "strings": {
+    "ch42-open": {
+      "eyebrow": "Chapter 42",
+      "title": "Backgrounds & avatar",
+      "standfirst": "Make the dashboard yours: pick a wallpaper for your lobby, and choose or upload the avatar that represents you in meetings."
+    },
+    "ch6-wallpaper": {
+      "eyebrow": "Dashboard",
+      "heading": "Set your lobby wallpaper",
+      "steps": [
+        "On your dashboard, find the small picture icon in the lobby header (next to the notification bell). Its label is <b>Hình nền</b> (“Wallpaper”).",
+        "Click it. A small glass popover titled <b>Hình nền</b> opens with a grid of tiles.",
+        "Click any tile to apply it <em>instantly</em> — the desk repaints behind the panes as you click. The active tile shows a highlighted border.",
+        "To use your own picture, click the last tile, <b>Tải ảnh lên</b> (“Upload image”), and choose an image file. Canvas M resizes and compresses it before saving.",
+        "To go back to the plain glass desk, click the <b>Mặc định</b> (“Default”) tile, or click the small <b>×</b> on your uploaded tile.",
+        "Click anywhere outside the popover to close it."
+      ],
+      "outcome": "Your chosen wallpaper paints behind the glass and is remembered on this browser. The image renders sharp — the frosted look comes from the glass panes in front of it, not from blurring the photo.",
+      "note": "Labels in this picker are in Vietnamese regardless of your interface language — this small lobby control is not yet translated.",
+      "figcap": "The Hình nền popover: five preset tiles plus an upload tile."
+    },
+    "ch6-wallpaper-tiles": {
+      "eyebrow": "Dashboard",
+      "heading": "The wallpaper choices",
+      "tiles": [
+        {
+          "state": "Mặc định",
+          "cap": "Default — the plain Glass-Desk gradient, no image."
+        },
+        {
+          "state": "Rừng sương",
+          "cap": "Forest mist — a soft photographic preset."
+        },
+        {
+          "state": "Lá pha lê",
+          "cap": "Crystal leaves — a photographic preset."
+        },
+        {
+          "state": "Olive sâm panh",
+          "cap": "Olive champagne — a dark low-chroma gradient."
+        },
+        {
+          "state": "Pastel sáng",
+          "cap": "Pastel day — a bright low-chroma gradient."
+        },
+        {
+          "state": "Tải ảnh lên / Ảnh của bạn",
+          "cap": "Upload your own — becomes “Ảnh của bạn” (Your image) once set, with an × to remove."
+        }
+      ],
+      "useWhen": "Pick a photographic preset for warmth, a gradient for a calm low-distraction desk, or upload a company image. The two gradients are tuned so the glass panes stay readable on top."
+    },
+    "ch16-profile": {
+      "eyebrow": "Profile tab",
+      "heading": "Set your name, company, and avatar",
+      "steps": [
+        "Open <b>Account settings</b> and select the <b>Profile</b> tab (you usually land here).",
+        "Type into <b>Display name</b> — placeholder <em>e.g. Luan Le</em>, up to 48 characters. The live preview and the <b>Save</b> button enable as soon as it is non-blank.",
+        "Optionally fill <b>Company</b> — placeholder <em>e.g. MAP Architects</em>, also up to 48 characters.",
+        "Pick a built-in tile from the <b>Avatar</b> gallery, or press <b>⬆ Upload image</b> to choose your own picture.",
+        "Press <b>Save</b>. The window stays open; there is no Cancel button here — the header <b>Close</b> is the dismiss."
+      ],
+      "outcome": "Your new name, company, and avatar save to this device and broadcast to everyone in the meeting — your participant tile, cursor label, and the built-in avatar list all update at once. A library avatar (a <em>lib:</em> pick) also syncs to your account, so it follows your login to other browsers; an uploaded image stays on this device only.",
+      "note": "<b>Display name</b> is required: with the field blank the preview shows the placeholder and <b>Save</b> stays disabled. Leading and trailing spaces are trimmed before saving.",
+      "host": {
+        "tag": "Host-only",
+        "html": "Nothing here renames or removes <em>other</em> people — this tab only ever edits your own identity. Host controls for moderating participants live in the meeting, not in Settings."
+      },
+      "figcap": "The Profile tab — name, company, avatar gallery, and the live preview."
+    },
+    "ch16-avatars": {
+      "eyebrow": "Profile tab · avatar",
+      "heading": "Three ways to set your avatar",
+      "tiles": [
+        {
+          "state": "Pick from the gallery",
+          "cap": "Eight built-in tiles. Click one to select it (a selected ring appears); it is stored as a <em>lib:</em> reference and syncs to your account across devices."
+        },
+        {
+          "state": "Upload your own",
+          "cap": "<b>⬆ Upload image</b> opens a file picker (images only). The picture is auto-resized to 256 px on its longest edge and kept on this device. A <b>Remove</b> button appears once an avatar is set."
+        },
+        {
+          "state": "No avatar",
+          "cap": "With no avatar chosen — or after pressing <b>Remove</b> — your tile falls back to a generated avatar built from your name and email."
+        }
+      ],
+      "useWhen": "Use a gallery tile if you want the same face on every device you sign in from; upload an image when you want your real photo, accepting that it stays local to this browser."
+    }
+  },
+  "figures": {
+    "ch6-wallp": {
+      "ref": "6.2",
+      "placeholder": "The Hình nền wallpaper popover with preset tiles and the upload tile"
+    },
+    "ch16-profile-fig": {
+      "ref": "16.2",
+      "placeholder": "Profile tab: name, company, avatar gallery, live preview"
+    },
+    "ch16-av-lib": {
+      "ref": "16.3",
+      "placeholder": "Avatar gallery with a selected tile"
+    },
+    "ch16-av-upload": {
+      "ref": "16.4",
+      "placeholder": "Upload image button and Remove action"
+    },
+    "ch16-av-none": {
+      "ref": "16.5",
+      "placeholder": "Generated fallback avatar from name and email"
+    }
+  }
+}

@@ -1,0 +1,1507 @@
+{
+  "meta": {
+    "title": "Canvas M",
+    "subtitle": "Participant Handbook",
+    "tagline": "The meeting, drawn together.",
+    "owner": "MAP-GROUP",
+    "edition": "English edition",
+    "rev": "2026.06",
+    "audience": "Participant"
+  },
+  "parts": [
+    {
+      "id": "p1",
+      "label": "Part One",
+      "title": "Get In",
+      "chapters": [
+        "ch1",
+        "ch2",
+        "ch3"
+      ]
+    },
+    {
+      "id": "p2",
+      "label": "Part Two",
+      "title": "See Everyone",
+      "chapters": [
+        "ch4",
+        "ch5",
+        "ch6"
+      ]
+    },
+    {
+      "id": "p3",
+      "label": "Part Three",
+      "title": "Work on the Canvas",
+      "chapters": [
+        "ch7",
+        "ch8",
+        "ch9"
+      ]
+    },
+    {
+      "id": "p4",
+      "label": "Part Four",
+      "title": "Documents & Screens",
+      "chapters": [
+        "ch10",
+        "ch11",
+        "ch12"
+      ]
+    },
+    {
+      "id": "p5",
+      "label": "Part Five",
+      "title": "Talk, Caption & Record",
+      "chapters": [
+        "ch13",
+        "ch14"
+      ]
+    },
+    {
+      "id": "p6",
+      "label": "Part Six",
+      "title": "Around the Meeting",
+      "chapters": [
+        "ch15",
+        "ch16",
+        "ch17",
+        "ch18"
+      ]
+    },
+    {
+      "id": "p7",
+      "label": "Part Seven",
+      "title": "Run the Room",
+      "chapters": [
+        "ch19",
+        "ch20",
+        "ch21",
+        "ch22"
+      ]
+    }
+  ],
+  "frontmatter": [
+    {
+      "id": "cover",
+      "type": "cover",
+      "layout": "plate"
+    },
+    {
+      "id": "toc",
+      "type": "toc",
+      "layout": "table"
+    },
+    {
+      "id": "sixty",
+      "type": "card",
+      "layout": "card",
+      "cells": 3
+    }
+  ],
+  "chapters": {
+    "ch1": {
+      "number": 1,
+      "part": "p1",
+      "blocks": [
+        {
+          "id": "ch1-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch1-card",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch1-login"
+        },
+        {
+          "id": "ch1-password",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch1-modes",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch1-mode-password",
+            "ch1-mode-magic",
+            "ch1-mode-link"
+          ]
+        },
+        {
+          "id": "ch1-guest",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch1-link",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch1-langtheme",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch1-errors",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch2": {
+      "number": 2,
+      "part": "p1",
+      "blocks": [
+        {
+          "id": "ch2-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch2-paths",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch2-flow"
+        },
+        {
+          "id": "ch2-find",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch2-portal"
+        },
+        {
+          "id": "ch2-gate",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch2-gate-wait",
+            "ch2-gate-cancelled",
+            "ch2-gate-finished"
+          ]
+        },
+        {
+          "id": "ch2-knock",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch2-waiting"
+        },
+        {
+          "id": "ch2-shell",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch2-shell"
+        },
+        {
+          "id": "ch2-call",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch2-call-idle",
+            "ch2-call-live",
+            "ch2-call-error"
+          ]
+        },
+        {
+          "id": "ch2-refs",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch2-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch3": {
+      "number": 3,
+      "part": "p1",
+      "blocks": [
+        {
+          "id": "ch3-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch3-join",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch3-shell"
+        },
+        {
+          "id": "ch3-mental",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch3-mic",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch3-micstates",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch3-mic-listen",
+            "ch3-mic-live",
+            "ch3-mic-muted"
+          ]
+        },
+        {
+          "id": "ch3-camera",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch3-handreact",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch3-tiles",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch3-shell-plate"
+        },
+        {
+          "id": "ch3-controls-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch3-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch4": {
+      "number": 4,
+      "part": "p2",
+      "blocks": [
+        {
+          "id": "ch4-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch4-concept",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch4-surfaces"
+        },
+        {
+          "id": "ch4-switch",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch4-switcher"
+        },
+        {
+          "id": "ch4-modes",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch4-minimal",
+            "ch4-filmstrip",
+            "ch4-gallery"
+          ]
+        },
+        {
+          "id": "ch4-gallery-stage",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch4-stage"
+        },
+        {
+          "id": "ch4-focus",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch4-focus-chain"
+        },
+        {
+          "id": "ch4-floating",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch4-pip"
+        },
+        {
+          "id": "ch4-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch4-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch5": {
+      "number": 5,
+      "part": "p2",
+      "blocks": [
+        {
+          "id": "ch5-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch5-focus-model",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch5-focus-diagram"
+        },
+        {
+          "id": "ch5-raise-hand",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch5-hand-fig"
+        },
+        {
+          "id": "ch5-reactions",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch5-react-fig"
+        },
+        {
+          "id": "ch5-follow",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch5-follow-fig"
+        },
+        {
+          "id": "ch5-pin",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch5-surfaces",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch5-surface-minimal",
+            "ch5-surface-filmstrip",
+            "ch5-surface-gallery"
+          ]
+        },
+        {
+          "id": "ch5-floating",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch5-float-fig"
+        },
+        {
+          "id": "ch5-states",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch5-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch6": {
+      "number": 6,
+      "part": "p2",
+      "blocks": [
+        {
+          "id": "ch6-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch6-two-backgrounds",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch6-map"
+        },
+        {
+          "id": "ch6-wallpaper",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch6-wallp"
+        },
+        {
+          "id": "ch6-wallpaper-tiles",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": []
+        },
+        {
+          "id": "ch6-camera-bg",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch6-settings"
+        },
+        {
+          "id": "ch6-bg-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": []
+        },
+        {
+          "id": "ch6-quality",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch6-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch7": {
+      "number": 7,
+      "part": "p3",
+      "blocks": [
+        {
+          "id": "ch7-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch7-toolbar",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch7-toolbar-shot"
+        },
+        {
+          "id": "ch7-tools",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch7-extras",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch7-sticker",
+            "ch7-bot",
+            "ch7-openers"
+          ]
+        },
+        {
+          "id": "ch7-place",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch7-place-ghost"
+        },
+        {
+          "id": "ch7-nav",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch7-nav-widget"
+        },
+        {
+          "id": "ch7-mental",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch7-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch8": {
+      "number": 8,
+      "part": "p3",
+      "blocks": [
+        {
+          "id": "ch8-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch8-where",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch8-toolbar"
+        },
+        {
+          "id": "ch8-stickers",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch8-stickers-shot"
+        },
+        {
+          "id": "ch8-sizing",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch8-ghost-small",
+            "ch8-ghost-mid",
+            "ch8-ghost-big"
+          ]
+        },
+        {
+          "id": "ch8-stamps",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch8-stamps-shot"
+        },
+        {
+          "id": "ch8-revcloud",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch8-revcloud"
+        },
+        {
+          "id": "ch8-authors",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch8-badge"
+        },
+        {
+          "id": "ch8-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch8-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch9": {
+      "number": 9,
+      "part": "p3",
+      "blocks": [
+        {
+          "id": "ch9-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch9-translate-concept",
+          "type": "ai",
+          "layout": "prose",
+          "diagram": "ch9-translate-flow"
+        },
+        {
+          "id": "ch9-translate-steps",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch9-translate-pill"
+        },
+        {
+          "id": "ch9-translate-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch9-state-translate",
+            "ch9-state-busy",
+            "ch9-state-stale"
+          ]
+        },
+        {
+          "id": "ch9-translate-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch9-bot-steps",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch9-bot"
+        },
+        {
+          "id": "ch9-bot-plate",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch9-bot-frame"
+        },
+        {
+          "id": "ch9-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch10": {
+      "number": 10,
+      "part": "p4",
+      "blocks": [
+        {
+          "id": "ch10-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch10-model",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch10-flow"
+        },
+        {
+          "id": "ch10-present",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch10-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch10-st-idle",
+            "ch10-st-active",
+            "ch10-st-locked",
+            "ch10-st-unsupported",
+            "ch10-st-viewonly",
+            "ch10-st-badge"
+          ]
+        },
+        {
+          "id": "ch10-watch",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch10-pane"
+        },
+        {
+          "id": "ch10-popout",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch10-pip"
+        },
+        {
+          "id": "ch10-audio",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch10-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch10-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch11": {
+      "number": 11,
+      "part": "p4",
+      "blocks": [
+        {
+          "id": "ch11-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch11-model",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch11-flow"
+        },
+        {
+          "id": "ch11-upload",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch11-myfiles"
+        },
+        {
+          "id": "ch11-shelf",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch11-place",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch11-toolbar",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch11-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch11-state-empty",
+            "ch11-state-nomatch",
+            "ch11-state-readonly"
+          ]
+        },
+        {
+          "id": "ch11-lock",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch11-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch12": {
+      "number": 12,
+      "part": "p4",
+      "blocks": [
+        {
+          "id": "ch12-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch12-mental-model",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch12-anchor-diagram"
+        },
+        {
+          "id": "ch12-add-files",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-library-upload"
+        },
+        {
+          "id": "ch12-pdf-pages",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-pdf-focus"
+        },
+        {
+          "id": "ch12-dxf-canvas",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-dxf-canvas-fig"
+        },
+        {
+          "id": "ch12-cad-open",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-cad-view"
+        },
+        {
+          "id": "ch12-cad-tools",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch12-cad-view"
+        },
+        {
+          "id": "ch12-dxf-reference",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch12-ifc-canvas",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-ifc-canvas-fig"
+        },
+        {
+          "id": "ch12-3d-open",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch12-3d-view"
+        },
+        {
+          "id": "ch12-3d-tools",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch12-3d-view"
+        },
+        {
+          "id": "ch12-3d-styles",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch12-style-shaded",
+            "ch12-style-clay",
+            "ch12-style-wireframe"
+          ]
+        },
+        {
+          "id": "ch12-3d-reference",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch12-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch13": {
+      "number": 13,
+      "part": "p5",
+      "blocks": [
+        {
+          "id": "ch13-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch13-anatomy",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch13-panel"
+        },
+        {
+          "id": "ch13-send",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch13-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch13-empty-room",
+            "ch13-empty-msgs",
+            "ch13-readonly"
+          ]
+        },
+        {
+          "id": "ch13-mention",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch13-bot",
+          "type": "ai",
+          "layout": "prose",
+          "diagram": "ch13-bot-flow"
+        },
+        {
+          "id": "ch13-react",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch13-translate",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch13-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch13-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch14": {
+      "number": 14,
+      "part": "p5",
+      "blocks": [
+        {
+          "id": "ch14-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch14-concept",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch14-twolayers"
+        },
+        {
+          "id": "ch14-panel-open",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch14-transcript"
+        },
+        {
+          "id": "ch14-controls",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch14-status",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch14-st-live",
+            "ch14-st-noaudio",
+            "ch14-st-paused"
+          ]
+        },
+        {
+          "id": "ch14-dock",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch14-dock-anatomy"
+        },
+        {
+          "id": "ch14-recording",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch14-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch15": {
+      "number": 15,
+      "part": "p6",
+      "blocks": [
+        {
+          "id": "ch15-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch15-anatomy",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch15-home"
+        },
+        {
+          "id": "ch15-topbar",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch15-sidebar",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch15-cards",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch15-invited"
+        },
+        {
+          "id": "ch15-cardstates",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch15-state-live",
+            "ch15-state-upcoming",
+            "ch15-state-done"
+          ]
+        },
+        {
+          "id": "ch15-bell",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch15-resume",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch15-statuses",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch15-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch16": {
+      "number": 16,
+      "part": "p6",
+      "blocks": [
+        {
+          "id": "ch16-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch16-overview",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch16-plate"
+        },
+        {
+          "id": "ch16-plate",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch16-plate"
+        },
+        {
+          "id": "ch16-profile",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch16-profile-fig"
+        },
+        {
+          "id": "ch16-avatars",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch16-av-lib",
+            "ch16-av-upload",
+            "ch16-av-none"
+          ]
+        },
+        {
+          "id": "ch16-account",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch16-security",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch16-preferences",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch16-privacy",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch16-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch17": {
+      "number": 17,
+      "part": "p6",
+      "blocks": [
+        {
+          "id": "ch17-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch17-three-exits",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch17-exit-glyphs"
+        },
+        {
+          "id": "ch17-leave",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch17-ended",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch17-review-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch17-banner",
+            "ch17-chat-ro",
+            "ch17-upload-ro"
+          ]
+        },
+        {
+          "id": "ch17-log",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch17-log-modal"
+        },
+        {
+          "id": "ch17-log-ref",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch17-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch18": {
+      "number": 18,
+      "part": "p6",
+      "blocks": [
+        {
+          "id": "ch18-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch18-mindset",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch18-tooltip"
+        },
+        {
+          "id": "ch18-mic",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-micstates",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch18-st-join",
+            "ch18-st-live",
+            "ch18-st-listen",
+            "ch18-st-error",
+            "ch18-st-connecting",
+            "ch18-st-denied"
+          ]
+        },
+        {
+          "id": "ch18-camera",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-join",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-share",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-files",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-captions",
+          "type": "troubleshoot",
+          "layout": "table"
+        },
+        {
+          "id": "ch18-statusref",
+          "type": "reference-table",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch19": {
+      "number": 19,
+      "part": "p7",
+      "audience": "Host",
+      "blocks": [
+        {
+          "id": "ch19-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch19-mental",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch19-find",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch19-manage"
+        },
+        {
+          "id": "ch19-create",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch19-fields",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch19-detail",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch19-detail"
+        },
+        {
+          "id": "ch19-edit",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch19-members",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch19-roles",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch19-cosmetic",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch19-states",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch19-state-mine",
+            "ch19-state-invited",
+            "ch19-state-empty"
+          ]
+        },
+        {
+          "id": "ch19-delete",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch19-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch20": {
+      "number": 20,
+      "part": "p7",
+      "audience": "Host",
+      "blocks": [
+        {
+          "id": "ch20-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch20-two-modes",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch20-modes-dia"
+        },
+        {
+          "id": "ch20-open-form",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch20-new-meeting"
+        },
+        {
+          "id": "ch20-essentials",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch20-agenda",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch20-roles",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch20-people",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch20-submit",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 2,
+          "figures": [
+            "ch20-state-now",
+            "ch20-state-sched"
+          ]
+        },
+        {
+          "id": "ch20-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch21": {
+      "number": 21,
+      "part": "p7",
+      "audience": "Host",
+      "blocks": [
+        {
+          "id": "ch21-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch21-model",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch21-where",
+          "type": "prose",
+          "layout": "prose"
+        },
+        {
+          "id": "ch21-plate",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch21-plate"
+        },
+        {
+          "id": "ch21-issue",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch21-plate"
+        },
+        {
+          "id": "ch21-fields",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch21-creds",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch21-card",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch21-logo",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch21-logo-none",
+            "ch21-logo-set",
+            "ch21-logo-replace"
+          ]
+        },
+        {
+          "id": "ch21-lifecycle",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch21-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    },
+    "ch22": {
+      "number": 22,
+      "part": "p7",
+      "audience": "Host",
+      "blocks": [
+        {
+          "id": "ch22-open",
+          "type": "opener",
+          "layout": "opener"
+        },
+        {
+          "id": "ch22-lifecycle",
+          "type": "prose",
+          "layout": "prose",
+          "diagram": "ch22-lifecycle-dia"
+        },
+        {
+          "id": "ch22-start",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch22-gate-fig"
+        },
+        {
+          "id": "ch22-shell",
+          "type": "plate",
+          "layout": "plate",
+          "figure": "ch22-shell-fig"
+        },
+        {
+          "id": "ch22-invite",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch22-invite-fig"
+        },
+        {
+          "id": "ch22-waiting",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch22-waiting-fig"
+        },
+        {
+          "id": "ch22-moderate",
+          "type": "gallery",
+          "layout": "gallery",
+          "cols": 3,
+          "figures": [
+            "ch22-mod-host",
+            "ch22-mod-cohost",
+            "ch22-mod-guest"
+          ]
+        },
+        {
+          "id": "ch22-end",
+          "type": "steps",
+          "layout": "steps"
+        },
+        {
+          "id": "ch22-ai-recap",
+          "type": "steps",
+          "layout": "steps",
+          "figure": "ch22-recap-fig"
+        },
+        {
+          "id": "ch22-reschedule",
+          "type": "reference-table",
+          "layout": "table"
+        },
+        {
+          "id": "ch22-trouble",
+          "type": "troubleshoot",
+          "layout": "table"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "number": 4,
+  "blocks": [
+    { "id": "ch4-open", "type": "opener", "layout": "opener" },
+    { "id": "ch4-concept", "type": "prose", "layout": "prose", "diagram": "ch4-surfaces" },
+    { "id": "ch4-switch", "type": "steps", "layout": "steps", "figure": "ch4-switcher" },
+    { "id": "ch4-modes", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch4-minimal", "ch4-filmstrip", "ch4-gallery"] },
+    { "id": "ch4-gallery-stage", "type": "plate", "layout": "plate", "figure": "ch4-stage" },
+    { "id": "ch4-focus", "type": "prose", "layout": "prose", "diagram": "ch4-focus-chain" },
+    { "id": "ch4-floating", "type": "steps", "layout": "steps", "figure": "ch4-pip" },
+    { "id": "ch4-ref", "type": "reference-table", "layout": "table" },
+    { "id": "ch4-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch4-open": {
+      "eyebrow": "Chapter 4",
+      "title": "Video layouts",
+      "standfirst": "Canvas M lets you choose how everyone's camera tiles sit around your shared canvas. Pick a quiet strip, a docked rail, or a full-screen grid — and pin the one face you want to keep watching. This chapter walks every surface, every toggle, and the gentle rules behind who lands centre stage."
+    },
+    "ch4-concept": {
+      "eyebrow": "The mental model",
+      "heading": "One canvas, three surfaces",
+      "lead": "Your meeting always has a <b>video surface</b> — the way camera tiles are arranged around the drawing canvas. Canvas M ships three: <b>Minimal</b>, <b>Filmstrip</b>, and <b>Gallery</b>. They are mutually exclusive: you are always in exactly one.",
+      "body": "The choice is <em>yours alone</em>. It is a per-user preference, not synced to the room, so switching layouts changes only your screen — never anyone else's. The same tiles power every surface: each person shows their live camera when it is on, or their avatar when it is off, with a name label and a muted badge. Switching surfaces never rebuilds presence; it only re-arranges the same faces.",
+      "pull": "Your layout is yours. Switching never touches anyone else's screen.",
+      "diagram": { "label": "Minimal · Filmstrip · Gallery share one set of tiles", "cap": "The same per-person tile renders in all three surfaces — the layout only changes where they sit." },
+      "note": { "tag": "Persisted", "html": "Your chosen layout is remembered across reloads (saved locally on this device). A new device or browser starts back at <b>Minimal</b>." }
+    },
+    "ch4-switch": {
+      "eyebrow": "Click-path",
+      "heading": "Switch your video layout",
+      "steps": [
+        "Find the <b>Video layout</b> button in the meeting header — the small icon whose glyph changes to match your current surface.",
+        "Click it to open the popover menu.",
+        "Pick a surface: <b>Minimal</b>, <b>Filmstrip</b>, or <b>Gallery</b>. A check mark sits beside the one in use.",
+        "The menu closes and your canvas re-arranges instantly."
+      ],
+      "outcome": "Your video surface changes for you only. The header button's icon updates to reflect the new mode.",
+      "note": "Below the three surfaces sits a separator and a fourth row — <b>Floating presenter</b> — covered later in this chapter. It is an overlay, not a surface, so it has its own check mark you can turn on or off independently.",
+      "figcap": "The Video layout popover: three radio surfaces plus the Floating presenter toggle."
+    },
+    "ch4-modes": {
+      "eyebrow": "The three surfaces",
+      "heading": "Minimal, Filmstrip, Gallery",
+      "tiles": [
+        { "state": "Minimal", "cap": "Just the avatar strip along the bottom. The canvas stays as large as possible — the default, and the choice when drawing is the point." },
+        { "state": "Filmstrip", "cap": "A full-width rail of camera tiles docked to the bottom (~140px tall). The canvas is pushed up, not covered, so it stays clean and usable above the faces." },
+        { "state": "Gallery", "cap": "A full-screen grid of everyone's camera, like Zoom or Meet. Opens over the canvas as a dialog; close it to return." }
+      ],
+      "useWhen": "Reach for <b>Minimal</b> while you sketch, <b>Filmstrip</b> when you want faces visible without leaving the canvas, and <b>Gallery</b> for a faces-first moment — a round of intros, a vote, a discussion where the drawing waits."
+    },
+    "ch4-gallery-stage": {
+      "eyebrow": "Anatomy of the gallery",
+      "legend": [
+        { "n": "1", "text": "Title bar — reads <b>Meeting</b> followed by a count of how many people are shown (e.g. <em>Meeting · 6</em>)." },
+        { "n": "2", "text": "<b>Grid</b> / <b>Speaker</b> sub-mode toggle. <b>Grid</b> tiles everyone equally; <b>Speaker</b> promotes one face to a big stage with the rest in a rail below." },
+        { "n": "3", "text": "<b>Close</b> button (✕ Close), top-right — exits the gallery and drops you back to the Minimal strip." },
+        { "n": "4", "text": "A camera tile — live video, or the avatar when the camera is off. A green ring marks whoever is speaking." },
+        { "n": "5", "text": "Tile label — the person's name, a <b>(You)</b> tag on your own tile, a <b>Host</b> badge for the host, and a 🔇 icon when they are muted." },
+        { "n": "6", "text": "Pin affordance — a quiet pin glyph on the auto-focused tile, or an <b>Unpin</b> chip on a tile you pinned yourself." }
+      ]
+    },
+    "ch4-focus": {
+      "eyebrow": "Who lands centre stage",
+      "heading": "Focus and pinning",
+      "lead": "Across Filmstrip, the Gallery speaker stage, and the floating window, Canvas M always highlights <b>one focused person</b> — the presenter of the moment. You never have to set this; it resolves automatically, and you can override it with a pin.",
+      "body": "The focus follows a strict order of precedence, highest wins: <b>your pin</b> → the <b>person sharing their screen</b> → the <b>active speaker</b> → the <b>host</b> → the <b>first tile</b>. So if nobody is pinned or sharing, the focus simply follows whoever is talking. <b>To pin</b>, click any tile (in the gallery or filmstrip) — it is promoted to focus and shows an <b>Unpin</b> chip. Click it again, or pin someone else, to release it. Pins are local and ephemeral: they affect only your view and clear on reload. If the person you pinned leaves the room, the focus quietly falls back down the chain.",
+      "pull": "Pin = your pick. Screen-share, then speaker, then host fill in when you haven't pinned anyone.",
+      "diagram": { "label": "Pin › screen-share › active speaker › host › first", "cap": "Focus precedence — the highest rule that matches a present person wins." },
+      "note": { "tag": "Host-only", "html": "Pinning is per-viewer — there is no way to force a focus for the whole room from here. Each person chooses their own pin. Host moderation (mute, remove, admit) lives in the <b>Participants</b> panel, not in the video layout controls." }
+    },
+    "ch4-floating": {
+      "eyebrow": "Keep watching while you draw",
+      "heading": "The floating presenter window",
+      "steps": [
+        "Open the <b>Video layout</b> popover and turn on <b>Floating presenter</b> (the row below the three surfaces).",
+        "A small picture-in-picture card appears over the canvas, showing the focused person's camera (or avatar) with their name.",
+        "Drag the card by its header to move it — on release it <b>snaps to the nearest corner</b>, and that corner is remembered.",
+        "Click <b>Minimise</b> to shrink it to a small circular puck; click the puck to bring the card back.",
+        "Click <b>Hide</b> (×) to dismiss it entirely."
+      ],
+      "outcome": "You keep watching the presenter in a corner while the canvas stays fully usable. The window shows the same focused person every other surface agrees on.",
+      "note": "The floating window only ever shows <em>someone else</em> — never your own face — and it is hidden automatically in <b>Gallery</b> mode, where everyone is already full-screen. The minimise tooltip reads <b>Reopen presenter window</b> on the puck.",
+      "figcap": "The floating presenter PiP, snapped to a corner with Minimise and Hide controls."
+    },
+    "ch4-ref": {
+      "eyebrow": "Quick reference",
+      "heading": "Every layout control",
+      "cols": ["Control", "Where", "What it does"],
+      "rows": [
+        ["Video layout (header button)", "Meeting header", "Opens the surface popover; its icon mirrors your current surface."],
+        ["Minimal", "Layout popover", "Avatar strip only — canvas stays maximal. The default."],
+        ["Filmstrip", "Layout popover", "Bottom rail of camera tiles that pushes the canvas up (~140px)."],
+        ["Gallery", "Layout popover", "Full-screen grid of everyone's cameras."],
+        ["Floating presenter", "Layout popover (toggle)", "PiP of the focused person over the canvas; off by default."],
+        ["Grid", "Gallery title bar", "Tiles everyone equally inside the gallery."],
+        ["Speaker", "Gallery title bar", "One big focused tile, the rest in a rail below."],
+        ["Click a tile", "Filmstrip / Gallery", "Pin that person as focus; click again to Unpin."],
+        ["✕ Close", "Gallery title bar", "Exits the gallery back to the Minimal strip."]
+      ],
+      "note": "Surface (Minimal/Filmstrip/Gallery) and the Grid/Speaker sub-mode are both per-user preferences and both survive a reload. Pins and the Floating-presenter toggle are per-session and clear on reload.",
+      "host": { "tag": "Host-only", "html": "None of these controls are host-gated — every participant has the full set. They change only your own view." }
+    },
+    "ch4-trouble": {
+      "eyebrow": "When it looks off",
+      "heading": "Video layout gotchas",
+      "rows": [
+        { "sym": "A tile shows an avatar, not video", "cause": "That person's camera is off (or hasn't started). Tiles only show live video while a camera is actually publishing.", "fix": "Nothing to fix — it's expected. Their face appears the moment they turn the camera on.", "ref": "4.4" },
+        { "sym": "My own tile looks mirrored", "cause": "Self-view is mirrored on purpose — a front camera reads more naturally that way.", "fix": "This is intended and affects only your local view; others see you un-mirrored.", "ref": "4.5" },
+        { "sym": "The face I pinned jumped to someone else", "cause": "The pinned person left the room, so focus fell back down the chain (screen-share › speaker › host › first).", "fix": "Click the tile of the person you want and pin them again.", "ref": "4.6" },
+        { "sym": "Floating presenter won't appear", "cause": "It is hidden in Gallery mode by design, and it never shows your own face when you're the only person.", "fix": "Switch to Minimal or Filmstrip, and make sure another participant is present.", "ref": "4.7" },
+        { "sym": "My layout reset to Minimal on a new device", "cause": "The preference is saved per-device; a different browser or machine has no saved choice.", "fix": "Re-pick your surface from the Video layout popover — it'll stick on that device.", "ref": "4.1" },
+        { "sym": "The green ring keeps moving between tiles", "cause": "The ring marks the active speaker, which naturally shifts as people talk.", "fix": "Pin the person you want fixed in focus to stop the ring driving the stage.", "ref": "4.6" }
+      ],
+      "note": "A camera tile never goes black on a stream error — if a video track fails to attach, the tile quietly falls back to the avatar instead."
+    }
+  },
+  "figures": {
+    "ch4-surfaces": { "ref": "4.1", "placeholder": "Diagram: one tile set feeding Minimal, Filmstrip and Gallery" },
+    "ch4-switcher": { "ref": "4.2", "placeholder": "The Video layout popover open in the header", "shot": "06-meeting/video-layout" },
+    "ch4-minimal": { "ref": "4.3a", "placeholder": "Minimal: bottom avatar strip, canvas maximal" },
+    "ch4-filmstrip": { "ref": "4.3b", "placeholder": "Filmstrip: full-width camera rail docked to the bottom" },
+    "ch4-gallery": { "ref": "4.3c", "placeholder": "Gallery: full-screen grid of cameras" },
+    "ch4-stage": { "ref": "4.4", "placeholder": "Gallery in Speaker sub-mode with numbered legend" },
+    "ch4-focus-chain": { "ref": "4.5", "placeholder": "Diagram: focus precedence chain" },
+    "ch4-pip": { "ref": "4.6", "placeholder": "Floating presenter card snapped to a corner" }
+  }
+}

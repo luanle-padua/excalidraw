@@ -1,0 +1,192 @@
+/* ============================================================
+   grid.css — the load-bearing Müller-Brockmann modular grid.
+   The content column IS a 12-column grid; the overlay reads the SAME
+   :root variables and lives in the SAME box, so its columns ARE the
+   content columns at every width. Toggle with the button or the G key.
+   ============================================================ */
+
+/* The content column = the "spread" wrap (positioning context for overlay) */
+.content-inner {
+  position: relative;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: var(--pad) var(--margin);
+}
+
+/* 12-column grid; row gap = leading so rows land on the baseline */
+.doc {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  column-gap: var(--gutter);
+  row-gap: var(--lh);
+}
+
+/* A band spans all columns and re-exposes them as a subgrid, so every
+   child snaps to the SAME column lines as everything else on the page. */
+.band {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: subgrid;
+  column-gap: var(--gutter);
+  row-gap: var(--bl);
+  align-items: start;
+}
+@supports not (grid-template-columns: subgrid) {
+  .band {
+    grid-template-columns: repeat(var(--cols), 1fr);
+  }
+}
+
+/* Default placements — body text in an 8-column measure, rail on the right */
+.col-main {
+  grid-column: 1 / 9;
+  min-width: 0;
+}
+.col-rail {
+  grid-column: 9 / 13;
+  min-width: 0;
+}
+.col-wide {
+  grid-column: 1 / 13;
+  min-width: 0;
+} /* figures / tables break wide */
+.col-figure {
+  grid-column: 1 / 10;
+  min-width: 0;
+} /* inline figures */
+
+.col-main > :first-child,
+.col-rail > :first-child,
+.col-wide > :first-child {
+  margin-top: 0;
+}
+
+/* ---- The grid OVERLAY (same content box → columns match exactly) ---- */
+.guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity 0.26s ease;
+}
+body.grid-on .guides {
+  opacity: 1;
+}
+.guides .cols {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--margin);
+  right: var(--margin);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  column-gap: var(--gutter);
+}
+.guides .col {
+  background: var(--g-col);
+  box-shadow: inset 1px 0 0 var(--g-edge), inset -1px 0 0 var(--g-edge);
+  position: relative;
+}
+.guides .col span {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  color: var(--accent);
+}
+.guides .rows {
+  position: absolute;
+  left: var(--margin);
+  right: var(--margin);
+  top: var(--pad);
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+      to bottom,
+      var(--g-base) 0 1px,
+      transparent 1px var(--lh)
+    ),
+    repeating-linear-gradient(
+      to bottom,
+      var(--g-base-min) 0 1px,
+      transparent 1px var(--bl)
+    );
+}
+.guides .mline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--g-edge);
+}
+.guides .mline.l {
+  left: var(--margin);
+}
+.guides .mline.r {
+  right: var(--margin);
+}
+
+/* ---- Grid toggle (injected by app.js) ---- */
+.grid-toggle {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 10px 13px;
+}
+.grid-toggle .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #777;
+}
+body.grid-on .grid-toggle {
+  background: var(--accent);
+  color: #fff;
+}
+body.grid-on .grid-toggle .dot {
+  background: #fff;
+}
+
+/* ---- Responsive: collapse columns to a single measure ----
+   At 1200px the 8-col measure beside the 300px sidebar would get cramped, so
+   the measure goes full-width here — BEFORE the sidebar itself collapses (940px,
+   layout.css). Below 940px the sidebar is off-canvas and content fills the page. */
+@media (max-width: 1200px) {
+  :root {
+    --margin: 40px;
+    --pad: 56px;
+  }
+  /* rail content drops below the main measure */
+  .col-main {
+    grid-column: 1 / 13;
+  }
+  .col-rail {
+    grid-column: 1 / 13;
+  }
+  .col-figure {
+    grid-column: 1 / 13;
+  }
+}
+@media (max-width: 640px) {
+  :root {
+    --margin: 20px;
+    --pad: 40px;
+    --gutter: 16px;
+  }
+}

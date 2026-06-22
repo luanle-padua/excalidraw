@@ -1,0 +1,49 @@
+{
+  "number": 45,
+  "blocks": [
+    {
+      "id": "ch45-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch15-topbar",
+      "type": "prose",
+      "layout": "prose"
+    },
+    {
+      "id": "ch15-bell",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch45-open": {
+      "eyebrow": "Chapter 45",
+      "title": "Notifications",
+      "standfirst": "The bell in the top bar, where invitations that need your answer and other alerts collect."
+    },
+    "ch15-topbar": {
+      "eyebrow": "The top bar",
+      "heading": "Notifications, history, and your account",
+      "lead": "<span>The</span> top bar carries the controls that belong to <em>you</em>, not to any single meeting. From left to right it reads as four clusters: a row of round icon buttons, the language capsule, the <b>Use the canvas solo</b> button, and finally your account chip.",
+      "body": "The icon buttons are, in order: the <b>bell</b> (pending invitations, covered below), the <b>history</b> clock (<b>My activity</b>), the <b>image</b> tile (wallpaper), and the <b>moon</b> (light / dark theme). The history panel is a reverse-chronological log of what you did — it lists <b>Created meeting</b>, <b>Invited to</b>, <b>Joined meeting</b> and <b>Uploaded to My Files</b> rows, with an <b>Accepted</b> or <b>Declined</b> chip next to invitations you answered. When you have done nothing yet it simply reads <b>No activity yet</b>.",
+      "pull": "The clock is your past; the bell is your to-do list. They are deliberately kept apart.",
+      "note": {
+        "tag": "Wallpaper",
+        "html": "The wallpaper picker dresses the desk behind the glass panels. Pick any preset tile, or choose <b>Tải ảnh lên</b> (Upload image) to use your own photo — it applies instantly and is remembered on this browser. The small <b>x</b> on your uploaded tile returns you to the default. Wallpaper is purely cosmetic and only you see it."
+      }
+    },
+    "ch15-bell": {
+      "eyebrow": "The notification bell",
+      "heading": "Invitations that need your answer",
+      "lead": "<span>The</span> bell collects every meeting invitation still waiting on <em>your</em> reply, so none slip past. A small numbered badge shows how many are pending; click it to open the <b>Notifications & invitations</b> panel.",
+      "body": "Each row shows the meeting title, when it is (or a red <b>LIVE NOW</b> tag if it is already running), and the project name. Two buttons sit on the right: <b>Accept</b> and <b>Decline</b>. Accepting a meeting that is live counts as \"I'm coming\" and joins you on the spot; accepting a scheduled one simply confirms your seat. Declining removes the row and quietly confirms with <b>Invitation declined</b>. When nothing is pending the panel reads <b>No notifications</b>.",
+      "note": {
+        "tag": "Good to know",
+        "html": "An invitation grants access but sends no email or push — the bell <em>is</em> the notification channel, refreshed automatically about once a minute. The bell only ever lists things you can still act on; finished and cancelled meetings drop off by themselves."
+      }
+    }
+  },
+  "figures": {}
+}

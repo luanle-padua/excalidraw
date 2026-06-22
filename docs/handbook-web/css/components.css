@@ -28,6 +28,13 @@ html[data-theme="light"] .hero h1 .accent { color: var(--accent); }
     radial-gradient(circle at 50% 40%, var(--accent-soft), transparent 70%);
   color: var(--text-faint);
 }
+/* Real screenshots (captures are 2880×1800 = 16:10) — show at the true aspect,
+   never clipped to the 16:9 placeholder box. */
+.frame-stage.shot { aspect-ratio: 16 / 10; background: var(--panel-solid); }
+.frame-stage.shot img { width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+/* Cropped figures: the stage IS the cropped region (aspect-ratio + background-*
+   are set inline per figure), zoomed to the relevant area and legible. */
+.frame-stage.crop { background-repeat: no-repeat; background-color: var(--panel-solid); }
 .frame-stage .ph-label {
   display: flex; flex-direction: column; align-items: center; gap: 0.6rem; text-align: center; padding: 1rem;
 }

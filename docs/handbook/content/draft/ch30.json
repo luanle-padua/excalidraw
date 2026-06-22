@@ -1,0 +1,50 @@
+{
+  "number": 30,
+  "blocks": [
+    {
+      "id": "ch30-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch10-popout",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch10-pip"
+    },
+    {
+      "id": "c30-power",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch30-open": {
+      "eyebrow": "Chapter 30",
+      "title": "Advanced interface",
+      "standfirst": "Power-user touches: pop a shared screen into its own window for a second monitor, the floating presenter, and the navigation widget."
+    },
+    "ch10-popout": {
+      "eyebrow": "Second monitor",
+      "heading": "Pop the share into its own window",
+      "lead": "The <b>⧉</b> button — tooltip <b>\"Open in a separate window to drag to another screen\"</b> — lifts the live screen out of the in-app viewer and into a standalone, always-on-top window you can drag onto a second monitor. The drawing canvas keeps the rest of your first screen to yourself.",
+      "body": "While popped out, the in-app viewer shows the note <b>\"Watching in a separate window\"</b> in place of the picture, and live captions travel <em>with</em> the share into the pop-out window. Closing the pop-out window — or clicking back in the app — returns the picture to the in-app viewer and brings the captions home. The viewer also re-homes itself automatically if the presenter stops while you're popped out.",
+      "note": {
+        "tag": "Browser support",
+        "html": "Pop out uses the browser's Document Picture-in-Picture feature, which today is <b>Chromium-only</b> (Chrome, Edge, and similar). On Firefox and Safari the <b>⧉</b> button simply doesn't appear, and the in-app viewer remains your way to watch.",
+        "variant": "warn"
+      },
+      "diagram": {
+        "label": "In-app viewer → pop-out window on monitor 2",
+        "cap": "Pop out moves the live video into its own OS window without re-loading the feed, so the picture never flickers as it leaves the app."
+      }
+    },
+    "c30-power": {
+      "eyebrow": "Getting more from the UI",
+      "heading": "Second monitors, floating windows and quick moves",
+      "lead": "A few touches make Canvas M feel roomier. <b>Pop-out</b> a shared screen into its own window and drag it to a second monitor while you keep drawing on the canvas. Keep a speaker in the <b>floating presenter</b> window so you never lose a face. Use the <b>navigation widget</b> (bottom-right) to zoom, reset and open the mini-map.",
+      "body": "These are all optional — the meeting works without them — but on a big screen or a two-monitor desk they turn the room into a proper workspace."
+    }
+  },
+  "figures": {}
+}

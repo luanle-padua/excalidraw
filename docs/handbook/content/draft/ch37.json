@@ -1,0 +1,29 @@
+{
+  "number": 37,
+  "blocks": [
+    {
+      "id": "ch37-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c37-waiting",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch37-open": {
+      "eyebrow": "Chapter 37",
+      "title": "Client waiting room",
+      "standfirst": "What a client sees when they join a live meeting, and how a host lets them in — the knock-to-join waiting room."
+    },
+    "c37-waiting": {
+      "eyebrow": "Knock to join",
+      "heading": "Letting a client into the room",
+      "lead": "A client who opens a live meeting they haven't been admitted to lands in a <b>waiting room</b> — “Waiting for the host to let you in…” — rather than walking straight in. A host admits or denies each knock from the Participants panel (covered in <em>Host a meeting</em>).",
+      "body": "If a host denies the knock, the client sees “Not admitted” and can <b>knock again</b> after a short cooldown. Internal staff skip the waiting room and join directly."
+    }
+  },
+  "figures": {}
+}

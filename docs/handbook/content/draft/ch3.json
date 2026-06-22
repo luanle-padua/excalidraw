@@ -1,142 +1,72 @@
 {
   "number": 3,
   "blocks": [
-    { "id": "ch3-open", "type": "opener", "layout": "opener" },
-    { "id": "ch3-join", "type": "steps", "layout": "steps", "figure": "ch3-shell" },
-    { "id": "ch3-mental", "type": "prose", "layout": "prose" },
-    { "id": "ch3-mic", "type": "steps", "layout": "steps" },
-    { "id": "ch3-micstates", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch3-mic-listen", "ch3-mic-live", "ch3-mic-muted"] },
-    { "id": "ch3-camera", "type": "steps", "layout": "steps" },
-    { "id": "ch3-handreact", "type": "steps", "layout": "steps" },
-    { "id": "ch3-tiles", "type": "plate", "layout": "plate", "figure": "ch3-shell-plate" },
-    { "id": "ch3-controls-ref", "type": "reference-table", "layout": "table" },
-    { "id": "ch3-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch3-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch1-langtheme",
+      "type": "prose",
+      "layout": "prose"
+    },
+    {
+      "id": "ch7-nav",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch7-nav-widget"
+    },
+    {
+      "id": "c3-prefs-xref",
+      "type": "prose",
+      "layout": "prose"
+    }
   ],
   "strings": {
     "ch3-open": {
       "eyebrow": "Chapter 3",
-      "title": "Be seen & heard",
-      "standfirst": "Joining a Canvas M meeting never forces your microphone on. You enter as a quiet listener, then choose — one button at a time — when to speak, when to show your camera, when to raise your hand, and when to react. This chapter walks every one of those controls, exactly as they appear in the meeting header, and every state they can show."
+      "title": "The interface",
+      "standfirst": "The controls that follow you everywhere — your language, the light/dark theme, moving around the canvas, and your per-device preferences."
     },
-    "ch3-join": {
-      "eyebrow": "First move",
-      "heading": "Join the call (listener-first)",
+    "ch1-langtheme": {
+      "eyebrow": "Before you sign in",
+      "heading": "Set the language and theme",
+      "lead": "The login card carries the same compact control you'll see throughout the app, sitting in the top bar of the form pane &mdash; so you can pick the language and the light or dark look before you've even signed in.",
+      "body": "<b>Language.</b> Three segments &mdash; <b>VI</b>, <b>EN</b>, and <b>KO</b> &mdash; switch the whole interface between Vietnamese, English, and Korean. The active one is highlighted. The choice applies immediately and is remembered on this device for next time.<br><br><b>Theme.</b> The sun / moon button toggles between light and dark; its tooltip reads <em>&ldquo;Toggle light / dark&rdquo;</em>. A sun icon means you're in light mode, a moon means dark. Like the language, your choice sticks on this device.",
+      "pull": "Set your language and theme on the way in &mdash; the choices travel with you into the app.",
+      "note": {
+        "tag": "Note",
+        "html": "Language and theme are stored on the device you're using, not on your account. Switch computers and you may need to set them again."
+      }
+    },
+    "ch7-nav": {
+      "eyebrow": "Moving the camera",
+      "heading": "Zoom, reset, and the mini-map",
       "steps": [
-        "Open the meeting. The media controls live in the <b>meeting header</b>, not on the canvas, so the drawing surface stays clear.",
-        "Find the open-door icon labelled <b>Join</b>. This is the only call button visible before you connect.",
-        "Click <b>Join</b>. No microphone prompt appears — you join <em>listening-only</em>.",
-        "The button becomes a spinner with the tooltip <b>“Requesting mic permission…”</b> while it connects.",
-        "Once connected, the spinner is replaced by the full live cluster: mic, camera, raise-hand, reactions, recording, and a red <b>Leave call</b> button."
+        "Find the navigation widget in the <b>bottom-right corner</b> of the canvas &mdash; it is always there.",
+        "Click <b>+</b> (<b>Zoom in</b>) or <b>&minus;</b> (<b>Zoom out</b>). The buttons grey out at the maximum and minimum zoom.",
+        "Read the live zoom percentage in the middle; click it to <b>Reset zoom (100%)</b>.",
+        "Click the map icon to toggle the mini-map &mdash; its tooltip flips between <b>Show navigation map</b> and <b>Hide navigation map</b>.",
+        "On the mini-map, <b>click or drag to move the camera</b>; the bright rectangle is your current view."
       ],
-      "outcome": "You are now in the audio/video call as a listener. Your microphone has <em>not</em> been touched yet, and your camera is off. Nothing you do is broadcast until you flip a control on.",
-      "note": "Joining the call is separate from joining the meeting. You can sit on the canvas without ever clicking <b>Join</b> — you simply won't hear or be heard until you do.",
-      "figcap": "The header media cluster the moment the call goes live."
+      "outcome": "You can reach any corner of a large board without a scroll wheel or trackpad gestures &mdash; useful on a tablet. Your mini-map open/closed choice is remembered on this device.",
+      "note": "Moving your own camera is local: it does not move anyone else's view, and following is separate &mdash; that is the participants panel's job, covered earlier.",
+      "host": null,
+      "figcap": "The corner widget: zoom buttons, a clickable percentage, and the toggleable mini-map."
     },
-    "ch3-mental": {
-      "eyebrow": "How it fits together",
-      "heading": "Three exits, one entrance",
-      "lead": "The single most common confusion in any meeting tool is which button leaves what. Canvas M deliberately gives every exit a distinct glyph so they never collide.",
-      "body": "The red phone-down <b>Leave call</b> button (in the media cluster) hangs up only the audio/video call — you stay in the meeting and on the canvas, and can re-<b>Join</b> at any time. Walking out of the meeting entirely is a separate door icon (<b>Leave</b>) further along the header. Ending the meeting for everyone is a third, host-only control (<b>End meeting</b>). Three actions, three icons, no overlap. The open <em>door</em> you click to enter is intentionally not a microphone icon, because entering no longer promises that your mic turns on.",
-      "note": { "tag": "Host-only", "html": "<b>End meeting</b> closes the room for <em>all</em> participants and switches everyone to read-only review. As a participant you will never see it — only the host does." }
-    },
-    "ch3-mic": {
-      "eyebrow": "Your voice",
-      "heading": "Speak when you're ready",
-      "steps": [
-        "In the live cluster, find the microphone icon. Right after you join it shows <b>“Unmute”</b> on hover — you are connected but silent.",
-        "Click it once. The browser asks for microphone permission <em>now</em> (this first click is what acquires the mic), then your audio goes live and the tooltip flips to <b>“Mute”</b>.",
-        "Click again to mute. The icon switches to a struck-through mic, turns red, and the tooltip reads <b>“Unmute”</b>.",
-        "Watch your own avatar tile in the people strip: a green dot means your mic is live; a red mic-off badge means you're muted."
-      ],
-      "outcome": "Your mic toggles between live and muted with a single click. The permission prompt only ever fires on the very first unmute — a deliberate user gesture — never on join.",
-      "note": "If your device has no microphone at all, the mic button is disabled and its tooltip reads <b>“This device has no microphone — listen only”</b>. You can still hear everyone; you simply can't transmit.",
-      "host": { "tag": "Host-only", "html": "A host can mute you from the participants panel. If that happens your mic button shows muted and you'll need to unmute yourself again to speak." }
-    },
-    "ch3-micstates": {
-      "eyebrow": "Every mic state",
-      "heading": "Reading the microphone button",
-      "tiles": [
-        { "state": "Listen-only", "cap": "No mic on this device. Button disabled, struck-through mic, tooltip <b>“This device has no microphone — listen only”</b>. You hear everyone." },
-        { "state": "Live", "cap": "Solid mic icon, tooltip <b>“Mute”</b>. You're transmitting; your tile shows a green live dot." },
-        { "state": "Muted", "cap": "Struck-through mic painted red, tooltip <b>“Unmute”</b>. Your tile shows a red mic-off badge." }
-      ],
-      "useWhen": "Glance here whenever you're unsure whether you're being heard — the icon shape, its colour, and the tooltip together tell you the exact state."
-    },
-    "ch3-camera": {
-      "eyebrow": "Your camera",
-      "heading": "Turn on your camera",
-      "steps": [
-        "Find the camera icon next to the mic. It starts <em>off</em> — a struck-through camera with the tooltip <b>“Turn on camera”</b>.",
-        "Click it. While the camera spins up, the icon becomes a brief spinner.",
-        "Once live, the icon becomes a solid camera (highlighted as active) and the tooltip reads <b>“Turn off camera”</b>. Your avatar tile is replaced by your live video, mirrored for a natural self-view.",
-        "Click again to turn the camera off and return to your avatar."
-      ],
-      "outcome": "Your camera is opt-in and defaults to off. If your video fails to attach, your tile falls back to your avatar rather than showing a black box.",
-      "note": "If this device has no camera, the button is disabled with the tooltip <b>“No camera detected on this device”</b>. If the camera can't start (permissions or busy), the tooltip reads <b>“Couldn't start the camera — check permissions and retry.”</b> and you stay on your avatar.",
-      "host": { "tag": "Good to know", "html": "Virtual / blurred backgrounds aren't on the call bar — they live in <b>Settings → Preferences</b>. Your saved choice auto-applies whenever your camera turns on." }
-    },
-    "ch3-handreact": {
-      "eyebrow": "Without interrupting",
-      "heading": "Raise your hand & react",
-      "steps": [
-        "To raise your hand, click the hand icon — tooltip <b>“Raise hand”</b>. It highlights, and a ✋ badge appears on your avatar for everyone to see.",
-        "Click it again (now <b>“Lower hand”</b>) to put it down. Leaving the call lowers it automatically.",
-        "To react, click the smiley icon — tooltip <b>“Reactions”</b> — to open the emoji popover.",
-        "Pick from 👍 ❤️ 😂 🎉 👏 😮. The emoji floats up over your avatar for everyone and fades after a few seconds.",
-        "Press <kbd>Esc</kbd> or click outside to close the popover without sending anything."
-      ],
-      "outcome": "Your raised hand is sticky and visible to all peers; a reaction is a brief, animated burst. Both broadcast in real time without you having to unmute.",
-      "note": "Raise-hand and reactions are participant gestures — there is no separate host approval. Reactions never make sound; they're purely visual."
-    },
-    "ch3-tiles": {
-      "eyebrow": "Reading the room",
-      "legend": [
-        { "n": "1", "text": "<b>People strip</b> — every participant as an avatar (or live video) tile. The chip on the left shows <b>joined / invited</b> and how many are <b>in call</b>." },
-        { "n": "2", "text": "<b>Your own tile</b> (“You”) is highlighted. Click it to open <b>Your profile</b> (name, company, avatar)." },
-        { "n": "3", "text": "<b>Mic dot / badge</b> — green dot = live, red struck-mic = muted, dimmed tile = not in the call yet." },
-        { "n": "4", "text": "<b>Crown</b> marks the host; a quieter half-crown marks a <b>Co-host</b>. A 📺 badge means that person is sharing their screen." },
-        { "n": "5", "text": "<b>✋ raised-hand</b> and floating reaction emojis appear over the relevant avatar." },
-        { "n": "6", "text": "Click any <em>other</em> person's tile to <b>follow their view</b> (your viewport tracks theirs); press <kbd>Esc</kbd> to stop." }
-      ]
-    },
-    "ch3-controls-ref": {
-      "eyebrow": "Quick reference",
-      "heading": "Every live-call control",
-      "cols": ["Control", "Icon", "Tooltip / label", "What it does"],
-      "rows": [
-        ["Join", "Open door", "Join", "Connect to the call as a listener — no mic prompt."],
-        ["Connecting", "Spinner", "Requesting mic permission…", "Disabled while the call connects."],
-        ["Microphone", "Mic / struck mic", "Mute · Unmute · This device has no microphone — listen only", "Toggle your audio. First unmute triggers the mic permission prompt."],
-        ["Camera", "Camera / struck camera", "Turn on camera · Turn off camera", "Toggle your video. Off by default; falls back to your avatar."],
-        ["Raise hand", "Hand", "Raise hand · Lower hand", "Sticky ✋ on your avatar, visible to all. Cleared on leave."],
-        ["Reactions", "Smiley", "Reactions · Pick emoji", "Send 👍 ❤️ 😂 🎉 👏 😮 — floats over your avatar, fades quickly."],
-        ["Recording", "Red dot / pill", "host varies", "Host-only start/stop. You see a live timer pill naming the host."],
-        ["Leave call", "Phone-down", "Leave call", "Hang up audio/video only — you stay in the meeting."],
-        ["Video layout", "Grid", "Video layout", "Switch surface: Minimal, Filmstrip, Gallery, plus Floating presenter."]
-      ],
-      "note": "Tooltips are the exact strings the app shows on hover. When you're reviewing a finished meeting (read-only), the entire mic/join/leave cluster is hidden — there is no live call to join.",
-      "host": { "tag": "Host-only", "html": "The red record dot is active only for the host. As a participant it appears disabled with a tooltip naming who can record: <b>“Only the host ({host}) can record”</b>. While recording is live you see a status pill: <b>“{host} is recording the meeting · {time}”</b>." }
-    },
-    "ch3-trouble": {
-      "eyebrow": "When something's off",
-      "heading": "Microphone & camera fixes",
-      "rows": [
-        { "sym": "Mic button is greyed out, tooltip says “listen only”", "cause": "No microphone on this device, so you joined listener-only.", "fix": "You can still hear everyone. Plug in a mic / headset and rejoin to speak.", "ref": "3.4" },
-        { "sym": "Error icon on the call bar after Join", "cause": "Mic permission denied.", "fix": "Tooltip reads “Microphone denied — enable it in browser settings and retry.” Allow the mic in your browser, then click the icon to retry.", "ref": "3.4" },
-        { "sym": "Can't unmute — error tooltip mentions another app", "cause": "Your mic is held by Teams / Zoom or similar.", "fix": "“Microphone is in use by another app (Teams / Zoom). Quit it and retry.” Close the other app and click to retry.", "ref": "3.4" },
-        { "sym": "Camera button disabled", "cause": "No camera detected on this device.", "fix": "Tooltip: “No camera detected on this device.” Connect a webcam, then rejoin.", "ref": "3.6" },
-        { "sym": "Camera won't turn on", "cause": "Permission blocked or device busy.", "fix": "“Couldn't start the camera — check permissions and retry.” Grant camera access in the browser and click again; your avatar shows meanwhile.", "ref": "3.6" },
-        { "sym": "Whole call bar is missing", "cause": "You're reviewing a finished meeting (read-only).", "fix": "There's no live call here. Open the live meeting link to join a call.", "ref": "3.9" },
-        { "sym": "Couldn't join — network message", "cause": "The call failed to connect.", "fix": "“Couldn't join the call — check your network and try again.” Click the error icon to retry.", "ref": "3.2" }
-      ],
-      "note": "After any failed join the call button becomes a single red error icon — clicking it retries. The plain-English headline rides the hover tooltip; the raw technical detail is on the native title for support."
+    "c3-prefs-xref": {
+      "eyebrow": "Preferences",
+      "heading": "Your per-device preferences live in Settings",
+      "lead": "Language and theme aside, the rest of what you can tune — microphone, camera, video quality, notifications — lives under <b>Settings → Preferences</b>. It's covered in full in the User dashboard part; this is just the signpost.",
+      "body": "Anything you set there is remembered on <em>this</em> device, not your account, so each computer or tablet keeps its own preferences."
     }
   },
   "figures": {
-    "ch3-shell": { "ref": "3.1", "placeholder": "Meeting header with the live call cluster: mic, camera, raise-hand, reactions, recording, leave-call", "shot": "06-meeting/shell" },
-    "ch3-mic-listen": { "ref": "3.2", "placeholder": "Disabled struck-mic button, tooltip 'This device has no microphone — listen only'" },
-    "ch3-mic-live": { "ref": "3.3", "placeholder": "Solid mic icon, live, tooltip 'Mute'" },
-    "ch3-mic-muted": { "ref": "3.4", "placeholder": "Red struck-through mic, tooltip 'Unmute'" },
-    "ch3-shell-plate": { "ref": "3.5", "placeholder": "People strip with count chip, self tile, mic dots, host crown, raised hand and reaction emoji", "shot": "06-meeting/shell" }
+    "ch7-nav-widget": {
+      "ref": "7.6",
+      "placeholder": "Bottom-right navigation widget with mini-map expanded",
+      "shot": "06-meeting/shell"
+    }
   }
 }

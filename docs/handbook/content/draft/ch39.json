@@ -1,0 +1,29 @@
+{
+  "number": 39,
+  "blocks": [
+    {
+      "id": "ch39-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c39-guestmgr",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch39-open": {
+      "eyebrow": "Chapter 39",
+      "title": "Guest manager",
+      "standfirst": "The all-projects view for managing the clients you've issued — a shortcut into the credential tools covered in the Clients part."
+    },
+    "c39-guestmgr": {
+      "eyebrow": "Managing clients in one place",
+      "heading": "Every project's guests, together",
+      "lead": "The sidebar's <b>Guest manager</b> gathers the clients you've issued across all your projects into one list, so you can find, edit, reset or revoke a guest without opening each project. It's the same toolset described in <em>Client credentials</em> — just the central door to it.",
+      "body": "Each guest stays scoped to its own project; the manager only saves you hunting for the right folder."
+    }
+  },
+  "figures": {}
+}

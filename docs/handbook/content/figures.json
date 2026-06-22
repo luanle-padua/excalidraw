@@ -1,7 +1,7 @@
 {
   "ch1-login": {
     "ref": "1.1",
-    "placeholder": "The Canvas M login card",
+    "placeholder": "The Canvas M login card with email, password, Sign In and the meeting-link toggle",
     "shot": "01-auth/login"
   },
   "ch2-flow": {
@@ -580,29 +580,29 @@
     "placeholder": "Flow: library file -> canvas anchor -> right-docked pane"
   },
   "ch12-pdf-focus": {
-    "ref": "12.2",
+    "ref": "12.3",
     "placeholder": "PDF anchor in focus mode with prev / page-count / next / exit toolbar"
   },
   "ch12-cad-view": {
-    "ref": "12.3",
+    "ref": "12.5",
     "placeholder": "DXF open in the CAD view pane with Layers panel",
     "shot": "07-canvas/cad-view"
   },
   "ch12-3d-view": {
-    "ref": "12.4",
+    "ref": "12.7",
     "placeholder": "IFC model in 3D view with full toolbar and properties panel",
     "shot": "07-canvas/3d-view"
   },
   "ch12-style-shaded": {
-    "ref": "12.5",
+    "ref": "12.8",
     "placeholder": "Model rendered Shaded (original colours)"
   },
   "ch12-style-clay": {
-    "ref": "12.6",
+    "ref": "12.9",
     "placeholder": "Model rendered Clay (uniform grey)"
   },
   "ch12-style-wireframe": {
-    "ref": "12.7",
+    "ref": "12.10",
     "placeholder": "Model rendered Wireframe (edge lines only)"
   },
   "ch13-panel": {
@@ -992,5 +992,21 @@
   "ch22-end-img": {
     "ref": "22.1",
     "placeholder": "Ending the meeting for everyone"
+  },
+  "ch12-library-upload": {
+    "ref": "12.2",
+    "placeholder": "Room library bar — Upload button with CAD drawings and IFC models sections"
+  },
+  "ch12-dxf-canvas-fig": {
+    "ref": "12.4",
+    "placeholder": "DXF anchor in focus mode — Layers panel with colour swatches, Fit and Exit"
+  },
+  "ch12-ifc-canvas-fig": {
+    "ref": "12.6",
+    "placeholder": "IFC anchor in inline 3D edit — Fit / Storeys / Section / Measure / Ghost / Style with Refresh and Exit"
+  },
+  "ch22-recap-fig": {
+    "ref": "22.9",
+    "placeholder": "Meeting log Summary tab — Overview / Participants / Key topics / Decisions / Action items, with Generate summary and Download .md"
   }
 }

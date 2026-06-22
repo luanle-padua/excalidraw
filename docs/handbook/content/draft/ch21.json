@@ -1,179 +1,35 @@
 {
   "number": 21,
   "blocks": [
-    { "id": "ch21-open", "type": "opener", "layout": "opener" },
-    { "id": "ch21-model", "type": "prose", "layout": "prose" },
-    { "id": "ch21-where", "type": "prose", "layout": "prose" },
-    { "id": "ch21-plate", "type": "plate", "layout": "plate", "figure": "ch21-plate" },
-    { "id": "ch21-issue", "type": "steps", "layout": "steps", "figure": "ch21-plate" },
-    { "id": "ch21-fields", "type": "reference-table", "layout": "table" },
-    { "id": "ch21-creds", "type": "steps", "layout": "steps" },
-    { "id": "ch21-card", "type": "steps", "layout": "steps" },
-    { "id": "ch21-logo", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch21-logo-none", "ch21-logo-set", "ch21-logo-replace"] },
-    { "id": "ch21-lifecycle", "type": "reference-table", "layout": "table" },
-    { "id": "ch21-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch21-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch8-authors",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch8-badge"
+    }
   ],
   "strings": {
     "ch21-open": {
       "eyebrow": "Chapter 21",
-      "title": "Inviting clients",
-      "standfirst": "Clients and outside guests don't get an account — they get a guest ID: a synthetic login and a one-time password you issue, scoped to a single project. Each guest is also a small contact card — representative, email, company, phone, address, country, and a logo — that you keep alongside the credentials. This chapter covers issuing, copying, editing, resetting, and retiring guests, both from inside a project and from the all-projects Guest manager."
+      "title": "On-canvas attribution",
+      "standfirst": "Canvas M has no separate comment threads — you discuss on the canvas itself. Every piece of text carries an author badge so the room always knows who wrote what."
     },
-    "ch21-model": {
-      "eyebrow": "The mental model",
-      "heading": "A guest is a contact, not an account",
-      "lead": "A guest never signs in with their real email. Instead you <b>issue a guest ID</b> — the app mints a <em>synthetic</em> login and a temporary password that exist only for one project. You hand those credentials to the client; they use them to enter every meeting in that project, and nowhere else.",
-      "body": "Guest access is <b>independent per project</b>. The hint above each issue form says it plainly: <em>Issue a guest ID scoped to THIS project. The guest follows the project across every meeting. Each project is independent — other departments can't see it.</em> A client invited into one project is invisible to every other project, which is how confidentiality between departments is kept. Around the synthetic login the app stores a contact card — representative name, real email, company, phone, address, country, and a company logo. Those are reference details only; they are never part of the sign-in identity.",
+    "ch8-authors": {
+      "eyebrow": "Author badges",
+      "heading": "See who wrote each piece of text",
+      "lead": "Canvas M stamps the creator's name onto every text element they add. An author badge — a small avatar plus a short name — floats above the top-left corner of authored text so you can tell at a glance who left it.",
+      "body": "By default badges are quiet: one appears only over the text you have <b>selected</b> or are <b>hovering</b>. To reveal every author at once, click the people-shaped <b>Show authors</b> button in the toolbar; its tooltip flips to <b>Hide authors</b> while active. Click again to go back to the calm, selection-only view. Badges are deliberately text-only — shapes, images, stickers, and stamps don't get them, which keeps the canvas readable.",
+      "pull": "Bot answers carry a fixed identity: a 🤖 avatar and the MCM Bot name, so AI-generated text is always distinguishable from a person's.",
       "note": {
-        "tag": "Confidentiality",
-        "html": "The real email you record on the card is for your reference. The client signs in with the synthetic <b>Login</b> the app generates, never with their email — so the same person can be a guest of two projects under two unrelated logins, and neither project sees the other."
+        "tag": "Good to know",
+        "html": "A badge survives its author leaving the room — the name is snapshotted onto the element, so it keeps showing even after that person disconnects. If a name can't be resolved, the badge falls back to <b>Guest</b>. Badges never appear on text bound inside a container (like the bot frame's own label), because the frame already shows who it belongs to."
       }
-    },
-    "ch21-where": {
-      "eyebrow": "Two ways in",
-      "heading": "Per-project, or the all-projects manager",
-      "lead": "You can manage a project's guests from two places, and they share the same controls. <b>Inside a project</b>, open the project's detail page and expand the <b>Project guests</b> section; the <b>Add guest</b> shortcut next to <b>Add member</b> jumps you straight to its issue form. This view is scoped to that one project.",
-      "body": "The second place is the centralised <b>Guest manager</b> — its own item in the left nav of the dashboard, labelled <b>Guest manager</b>, opening a page titled <b>Guest manager (all projects)</b>. Here every guest you can manage is listed grouped by project, and a project picker at the top of the issue form lets you issue into any project you run without leaving the page. Its hint reads: <em>Manage guests across the projects you run. Each project is independent — pick a project to issue a guest ID.</em>",
-      "note": {
-        "tag": "Who can manage guests",
-        "html": "Issuing and managing guests is for the people who run a project — admin, leader, co-operator, or division head. A plain participant sees the project roster read-only with no <b>Add guest</b> shortcut, and an invitee never sees the guests section at all. The <b>Guest manager</b> nav item only appears for internal staff, and its list is scoped server-side to the projects you actually belong to."
-      }
-    },
-    "ch21-plate": {
-      "eyebrow": "Anatomy",
-      "legend": [
-        { "n": "1", "text": "Page hint — <em>Manage guests across the projects you run…</em>" },
-        { "n": "2", "text": "<b>Project</b> picker (Guest manager only) — choose which project to issue into; lists only projects you run." },
-        { "n": "3", "text": "<b>Guest details</b> grid — <b>Representative</b>, <b>Email (optional)</b>, <b>Company</b>, <b>Phone</b>, <b>Address</b>, and the <b>Country (picks backdrop)</b> select." },
-        { "n": "4", "text": "<b>Issue guest ID</b> button — disabled until a project is chosen and Representative is filled." },
-        { "n": "5", "text": "Credentials panel — appears once after issuing, with <b>Login</b>, <b>Password</b>, and <b>Copy login + password</b>." },
-        { "n": "6", "text": "Guests grouped by project, each group headed by its name, a count, and a <b>Retire all guests</b> button." },
-        { "n": "7", "text": "A guest row — logo, name, company, country, login, contact lines, and the action buttons (logo, edit, reset, revoke)." }
-      ]
-    },
-    "ch21-issue": {
-      "eyebrow": "Issuing a guest",
-      "heading": "Issue a guest ID",
-      "steps": [
-        "Open the issue form — expand <b>Project guests</b> on a project's detail page (or use <b>Add guest</b>), or open <b>Guest manager</b> from the dashboard nav.",
-        "In the Guest manager only: open the <b>Project</b> picker and choose the project to issue into. It defaults to your first manageable project.",
-        "Type the client's <b>Representative</b> name (placeholder <em>e.g. Nam</em>). This is the only required field.",
-        "Optionally fill <b>Email (optional)</b>, <b>Company</b>, <b>Phone</b>, and <b>Address</b> — reference details for your records.",
-        "Optionally pick a <b>Country</b> from the flag list to set the client's entry-page backdrop; leave it on <em>Country (picks backdrop)</em> for the default.",
-        "Press <b>Issue guest ID</b>. The button reads <em>Issuing…</em> while it works."
-      ],
-      "outcome": "A new guest ID is minted for the chosen project and the credentials panel appears below the form, headed <b>Guest ID issued</b>. The form clears, and the guest now appears in the list grouped under its project.",
-      "note": "<b>Issue guest ID</b> stays disabled until both a project is selected and <b>Representative</b> has real (non-space) text — leading and trailing spaces are trimmed before the name is saved. If the server rejects the request you get a toast: <em>Couldn't issue the guest ID.</em>",
-      "host": {
-        "tag": "Host-only",
-        "html": "There is no self-service join link for clients here — guests don't request access, you issue it. If a client says they can't get in, check that you've sent them the synthetic <b>Login</b> from the credentials panel, not their email address."
-      },
-      "figcap": "The issue form: project picker, the Guest details grid, and Issue guest ID."
-    },
-    "ch21-fields": {
-      "eyebrow": "The contact card",
-      "heading": "Every field on a guest",
-      "cols": ["Field", "Label / placeholder", "Required?", "What it's for"],
-      "rows": [
-        ["Project", "<b>Project</b> — <em>Pick a project</em>", "Yes (manager only)", "Which project the guest ID is scoped to. Only projects you run are listed; in the per-project view it's fixed."],
-        ["Representative", "<b>Representative</b> — <em>e.g. Nam</em>", "Yes", "The contact person's name. Shown as the guest's name; falls back to the login if left blank on an old record."],
-        ["Email", "<b>Email (optional)</b> — <em>nam@abcconsulting.com</em>", "No", "The client's real email, for your reference only. Never used to sign in."],
-        ["Company", "<b>Company</b> — <em>e.g. ABC Consulting</em>", "No", "Client's company; shown beside the name in the roster."],
-        ["Phone", "<b>Phone</b> — <em>e.g. +84 901 234 567</em>", "No", "Reference contact number, shown on the guest row."],
-        ["Address", "<b>Address</b> — <em>e.g. 12 Nguyen Hue, District 1, HCMC</em>", "No", "Reference address, shown on the guest row."],
-        ["Country", "<b>Country</b> — <em>Country (picks backdrop)</em>", "No", "ISO country with flag; sets the client's entry-page backdrop. Empty = the global default backdrop."],
-        ["Logo", "image button on the guest row", "No", "Company logo thumbnail (set after issuing, see below)."]
-      ],
-      "note": "Email, company, phone, address, and country are all free-text reference fields stored next to the synthetic login — they are never part of the auth identity. Country is the one with a visible side-effect: it chooses the backdrop the client sees on their entry page.",
-      "host": {
-        "tag": "Host-only",
-        "html": "You can't choose the guest's login name or password — both are generated. The <b>Reset password</b> action mints a fresh password but keeps the same login, so a returning client keeps their identity."
-      }
-    },
-    "ch21-creds": {
-      "eyebrow": "Handing over credentials",
-      "heading": "Copy the login + password (shown once)",
-      "steps": [
-        "After issuing, read the <b>Guest ID issued</b> panel. It shows <b>Login</b> and <b>Password</b> on two lines.",
-        "Note the warning: <em>Send this login + password to the guest. Shown only once — copy now.</em>",
-        "Press <b>Copy login + password</b>. The button flips to <em>Copied ✓</em> for two seconds.",
-        "Paste the credentials into your message to the client and send them on.",
-        "Move on — the panel does not reappear, and the password is never recoverable."
-      ],
-      "outcome": "The client now has a login and password that admit them to every meeting in this project. They enter on the client portal — no account, no email verification.",
-      "note": "The password is displayed <b>only once</b>. There is no \"show again\". If clipboard access is blocked, the copy action falls back to a prompt box you can copy from by hand, so you never lose the credentials. If you miss the copy, use <b>Reset password</b> later to mint and copy a fresh one — the login stays the same.",
-      "host": {
-        "tag": "Host-only",
-        "html": "Don't email the password before you've copied it from this panel — once you issue the next guest or reload, the panel is gone. <b>Reset password</b> is your recovery path, and it produces the same <b>Guest's new password</b> panel with a fresh <b>Copy login + password</b> button."
-      }
-    },
-    "ch21-card": {
-      "eyebrow": "Maintaining a guest",
-      "heading": "Edit details, reset, or revoke",
-      "steps": [
-        "Find the guest in the list. Each row carries four action buttons on the right.",
-        "Press the pencil (<b>Edit details</b>) to open the card inline; change any field and press <b>Save</b>, or <b>Cancel</b> to drop the edit.",
-        "Press the key (<b>Reset password</b>) to mint a new password for the same login; the <b>Guest's new password</b> panel appears to copy.",
-        "Press the trash (<b>Revoke</b>) to cut off one guest; confirm the prompt to proceed.",
-        "Use <b>Retire all guests</b> in a project's group header to revoke every guest of that project at once."
-      ],
-      "outcome": "Edits save immediately (toast <em>Guest details saved</em>). A reset gives the client a new password without changing who they are. A revoke removes their access while keeping their card and history.",
-      "note": "<b>Save</b> stays disabled while <b>Representative</b> is blank — the name is required on edit too. Revoke asks: <em>Revoke {label}'s access? They lose access — their details &amp; history are KEPT (not deleted).</em> <b>Retire all guests</b> asks: <em>Revoke access for ALL guests of this project? They lose access — no data/history is deleted.</em> and afterwards toasts <em>Revoked {count} guests</em>. Failures toast <em>Couldn't save the guest's details.</em>, <em>Couldn't reset the password.</em>, or <em>Couldn't revoke the guest.</em>",
-      "host": {
-        "tag": "Host-only",
-        "html": "Revoking is reversible only by issuing a fresh guest ID — there is no \"un-revoke\". Because the card and history are kept, retiring guests at the end of a project is safe: you lose nobody's record, only their live access. In the per-project view the <b>Retire all guests</b> button sits at the bottom of the list; in the Guest manager it sits in each project group's header."
-      }
-    },
-    "ch21-logo": {
-      "eyebrow": "Company logo",
-      "heading": "The three logo states",
-      "tiles": [
-        { "state": "No logo", "cap": "A placeholder image icon shows in the row's logo slot. The action button reads <b>Upload logo</b> — press it to pick an image file." },
-        { "state": "Logo set", "cap": "The uploaded logo renders as a thumbnail. A second button appears — <b>Remove logo</b> (the X) — to clear it. The toast <em>Logo saved</em> confirms an upload." },
-        { "state": "Replacing", "cap": "With a logo already set, the upload button's tooltip becomes <b>Replace logo</b>. Picking a new image swaps it in place." }
-      ],
-      "useWhen": "Add a logo when you want the client's brand to show on their guest row. Files must be images and are capped at 2 MB by the server; a non-image or oversize file toasts <em>Couldn't save the logo (image up to 2MB).</em>"
-    },
-    "ch21-lifecycle": {
-      "eyebrow": "Reference",
-      "heading": "Guest actions at a glance",
-      "cols": ["Action", "Button / icon", "Effect", "Confirms?"],
-      "rows": [
-        ["Issue", "<b>Issue guest ID</b>", "Mints a synthetic login + one-time password scoped to the project; shows the credentials panel once.", "No"],
-        ["Copy credentials", "<b>Copy login + password</b>", "Copies <em>login / password</em> to the clipboard (or a prompt box if blocked); button shows <em>Copied ✓</em>.", "No"],
-        ["Edit details", "pencil — <b>Edit details</b>", "Opens the contact card inline; <b>Save</b> writes, <b>Cancel</b> discards. Never touches the login.", "No"],
-        ["Reset password", "key — <b>Reset password</b>", "Mints a new password for the same login; shows the <b>Guest's new password</b> panel to copy.", "No"],
-        ["Upload / Replace logo", "image — <b>Upload logo</b> / <b>Replace logo</b>", "Sets or swaps the company logo (image, up to 2 MB).", "No"],
-        ["Remove logo", "X — <b>Remove logo</b>", "Clears the logo back to the placeholder.", "No"],
-        ["Revoke", "trash — <b>Revoke</b>", "Removes one guest's access; their card and history are kept.", "Yes"],
-        ["Retire all guests", "<b>Retire all guests</b>", "Revokes every guest of one project at once; no data deleted.", "Yes"]
-      ],
-      "note": "Every action on a single guest is mutually exclusive while it runs — pressing one disables that row's other buttons until it finishes, so a reset and a revoke can't collide.",
-      "host": {
-        "tag": "Host-only",
-        "html": "Edit, reset, upload, and remove never prompt — they apply at once. Only the two destructive actions (<b>Revoke</b> and <b>Retire all guests</b>) ask first, and both spell out that history is kept."
-      }
-    },
-    "ch21-trouble": {
-      "eyebrow": "When something looks off",
-      "heading": "Guest troubleshooting",
-      "rows": [
-        { "sym": "<b>Issue guest ID</b> is greyed out", "cause": "No project is selected, or <b>Representative</b> is blank (or only spaces).", "fix": "Pick a project and type a real name; the button enables once both are set.", "ref": "21.5" },
-        { "sym": "No <b>Guest manager</b> item in the dashboard nav", "cause": "The all-projects manager is internal-staff only.", "fix": "Use the per-project <b>Project guests</b> section instead, or ask an admin.", "ref": "21.3" },
-        { "sym": "No <b>Project guests</b> section on a project page", "cause": "You're a plain participant or invitee, who can't manage guests.", "fix": "Only admin, leader, co-operator, or head see it. Ask the project's manager.", "ref": "21.3" },
-        { "sym": "Project picker shows <em>No guests across your projects yet.</em> / no options", "cause": "You don't run any project the manager can issue into.", "fix": "Become a member/owner of a project first; invitee access can't issue guests.", "ref": "21.3" },
-        { "sym": "I lost the password before sending it", "cause": "Credentials show only once and aren't recoverable.", "fix": "Press <b>Reset password</b> on the guest to mint and copy a fresh one; the login is unchanged.", "ref": "21.7" },
-        { "sym": "Client can't sign in with their email", "cause": "Guests sign in with the synthetic <b>Login</b>, not their email.", "fix": "Send them the <b>Login</b> string from the credentials panel, not the email on the card.", "ref": "21.7" },
-        { "sym": "<em>Couldn't save the logo (image up to 2MB).</em>", "cause": "The file wasn't an image, or exceeded 2 MB.", "fix": "Pick an image file under 2 MB (PNG, JPG, etc.).", "ref": "21.9" },
-        { "sym": "Toast <em>Couldn't issue the guest ID.</em> / <em>…revoke the guest.</em>", "cause": "The server rejected the request (network or permission).", "fix": "Retry; if it persists confirm you still manage the project.", "ref": "21.5" }
-      ],
-      "note": "Revoking and retiring keep every guest's contact card and meeting history — they only remove live access. There is no permanent delete of a guest's record from these screens."
     }
   },
-  "figures": {
-    "ch21-plate": { "ref": "21.1", "placeholder": "Guest manager page: project picker, Guest details grid, credentials panel, and guests grouped by project — numbered", "shot": "05-client/guest-manager" },
-    "ch21-logo-none": { "ref": "21.2", "placeholder": "Guest row with placeholder logo icon and Upload logo button" },
-    "ch21-logo-set": { "ref": "21.3", "placeholder": "Guest row showing a company logo thumbnail with Remove logo X" },
-    "ch21-logo-replace": { "ref": "21.4", "placeholder": "Upload button tooltip reading Replace logo over a set logo" }
-  }
+  "figures": {}
 }

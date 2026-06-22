@@ -1,0 +1,109 @@
+{
+  "number": 1,
+  "blocks": [
+    { "id": "ch1-open", "type": "opener", "layout": "opener" },
+    { "id": "ch1-card", "type": "plate", "layout": "plate", "figure": "ch1-login" },
+    { "id": "ch1-password", "type": "steps", "layout": "steps" },
+    { "id": "ch1-modes", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch1-mode-password", "ch1-mode-magic", "ch1-mode-link"] },
+    { "id": "ch1-guest", "type": "steps", "layout": "steps" },
+    { "id": "ch1-link", "type": "steps", "layout": "steps" },
+    { "id": "ch1-langtheme", "type": "prose", "layout": "prose" },
+    { "id": "ch1-errors", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch1-open": {
+      "eyebrow": "Chapter 1",
+      "title": "Signing in",
+      "standfirst": "Every visit to Canvas M starts at the same door. This chapter walks through the three ways in &mdash; an email and password, a one-time link by email, or a meeting invite &mdash; plus the language and theme controls that live on the card, and the exact words the screen shows when something goes wrong."
+    },
+    "ch1-card": {
+      "eyebrow": "The login card",
+      "legend": [
+        { "n": "1", "text": "The <b>Canvas M</b> wordmark. On first arrival it plays a brief cinematic reveal centre-screen, then dissolves to hand off to the card. If your device is set to reduce motion, the intro is skipped and the card appears at once." },
+        { "n": "2", "text": "The language and theme switcher (<b>VI</b> / <b>EN</b> / <b>KO</b> and a light/dark toggle), tucked into the top bar of the form pane." },
+        { "n": "3", "text": "The strapline <em>&ldquo;Architectural collaboration platform&rdquo;</em>, the <b>Login</b> heading, and the subtitle <em>&ldquo;Sign in to your account&rdquo;</em>." },
+        { "n": "4", "text": "The sign-in form. By default this is the email and password form; two link buttons below it switch to the other two ways in." },
+        { "n": "5", "text": "The brand panel on the right &mdash; <b>&ldquo;Design reviews, in real time&rdquo;</b> &mdash; listing what waits inside: realtime collaboration, BIM &amp; CAD viewers, AI meeting intelligence, and multilingual support. It is decorative; there is nothing to click here." },
+        { "n": "6", "text": "At the foot of the form: <em>&ldquo;Need help? Contact your administrator.&rdquo;</em>" }
+      ]
+    },
+    "ch1-password": {
+      "eyebrow": "The usual way",
+      "heading": "Sign in with email and password",
+      "steps": [
+        "In the <b>Email</b> field, type your work address &mdash; the placeholder shows the expected shape, <kbd>you@company.com</kbd>.",
+        "In the <b>Password</b> field, type your password. The characters stay hidden.",
+        "Click <b>Sign In</b>. While it works, the button reads <b>Signing in&hellip;</b> and is disabled so you can't submit twice.",
+        "On success the card simply disappears and your project home opens."
+      ],
+      "outcome": "You land signed in, ready to open or join a project.",
+      "note": "The <b>Sign In</b> button stays greyed out until <em>both</em> the email and password fields have something in them. If the email isn't a plausible address (no <kbd>@</kbd> or no domain), you'll see <em>&ldquo;That email looks invalid.&rdquo;</em> before any sign-in is even attempted.",
+      "figcap": "The email and password form is what the card shows by default."
+    },
+    "ch1-modes": {
+      "eyebrow": "Three ways in",
+      "heading": "Pick the form that fits you",
+      "tiles": [
+        { "state": "Password", "cap": "The default. <b>Email</b> + <b>Password</b>, then <b>Sign In</b>. Two links sit underneath to switch to the other two modes." },
+        { "state": "Login link (guest)", "cap": "For guests with no password. Enter just your <b>Email</b>, click <b>Send login link</b>, and Canvas M emails you a one-time link to click." },
+        { "state": "Meeting link", "cap": "For when someone sent you an invite. Paste the link or <kbd>ID,KEY</kbd>, click <b>Continue</b>, then sign in &mdash; you'll be carried straight into that meeting." }
+      ],
+      "useWhen": "Staff use <b>Password</b>; outside guests use the <b>Login link</b>; anyone holding an invite can start from <b>Meeting link</b>. You can switch between them freely &mdash; the links below each form toggle modes and clear any error as they do."
+    },
+    "ch1-guest": {
+      "eyebrow": "No password? No problem",
+      "heading": "Get a one-time login link by email",
+      "steps": [
+        "On the password form, click <b>Guest? Get a login link by email</b>.",
+        "Type your <b>Email</b>. (No password field appears &mdash; this way in doesn't use one.)",
+        "Click <b>Send login link</b>; while it sends, the button reads <b>Signing in&hellip;</b>.",
+        "Read the confirmation: <em>&ldquo;Login link sent to <b>[your email]</b>. Open the email to join.&rdquo;</em>",
+        "Switch to your inbox and click the link in the email Canvas M just sent.",
+        "To go back without sending, click <b>&larr; Sign in with a password</b>."
+      ],
+      "outcome": "Clicking the emailed link returns you to Canvas M already signed in &mdash; no password required.",
+      "note": "The link is one-time and tied to that email address. If it doesn't arrive within a minute, check spam, then send it again. If you originally arrived from a meeting invite, the link still carries you into that meeting once you return.",
+      "figcap": "The guest form asks only for an email."
+    },
+    "ch1-link": {
+      "eyebrow": "Arriving from an invite",
+      "heading": "Start from a meeting link",
+      "steps": [
+        "On the password form, click <b>Have a meeting link?</b>.",
+        "Paste your invite into the <b>Meeting link</b> field &mdash; a full link, a <kbd>#room=&hellip;</kbd> fragment, or a bare <kbd>ID,KEY</kbd> all work; the placeholder reads <em>&ldquo;Paste meeting link or ID,KEY&rdquo;</em>.",
+        "Click <b>Continue</b>. The button is disabled until the field has text.",
+        "Canvas M saves the meeting and confirms: <em>&ldquo;Meeting link saved &mdash; sign in to join.&rdquo;</em>, then returns you to the password form.",
+        "Sign in with your password (or switch to the guest link). Once you're in, Canvas M joins the saved meeting automatically."
+      ],
+      "outcome": "You are dropped straight into the meeting the invite pointed at, no extra navigation.",
+      "note": "Pasting a meeting link does <em>not</em> skip signing in &mdash; it only remembers <em>where</em> you're headed. Everyone signs in first. If what you paste isn't a recognisable link, you'll see <em>&ldquo;That meeting link looks invalid.&rdquo;</em>",
+      "figcap": "The meeting-link form accepts a link, a fragment, or a bare ID,KEY."
+    },
+    "ch1-langtheme": {
+      "eyebrow": "Before you sign in",
+      "heading": "Set the language and theme",
+      "lead": "The login card carries the same compact control you'll see throughout the app, sitting in the top bar of the form pane &mdash; so you can pick the language and the light or dark look before you've even signed in.",
+      "body": "<b>Language.</b> Three segments &mdash; <b>VI</b>, <b>EN</b>, and <b>KO</b> &mdash; switch the whole interface between Vietnamese, English, and Korean. The active one is highlighted. The choice applies immediately and is remembered on this device for next time.<br><br><b>Theme.</b> The sun / moon button toggles between light and dark; its tooltip reads <em>&ldquo;Toggle light / dark&rdquo;</em>. A sun icon means you're in light mode, a moon means dark. Like the language, your choice sticks on this device.",
+      "pull": "Set your language and theme on the way in &mdash; the choices travel with you into the app.",
+      "note": { "tag": "Note", "html": "Language and theme are stored on the device you're using, not on your account. Switch computers and you may need to set them again." }
+    },
+    "ch1-errors": {
+      "eyebrow": "When it doesn't go through",
+      "heading": "Sign-in messages and what they mean",
+      "rows": [
+        { "sym": "&ldquo;Wrong email or password.&rdquo;", "cause": "The email and password didn't match an account.", "fix": "Re-check both, mind capital letters in the password, and try again. If it persists, contact your administrator.", "ref": "1.2" },
+        { "sym": "&ldquo;That email looks invalid.&rdquo;", "cause": "What you typed isn't a valid email shape (missing <kbd>@</kbd> or domain). Shown before any sign-in attempt.", "fix": "Correct the address &mdash; it should look like <kbd>you@company.com</kbd>.", "ref": "1.2" },
+        { "sym": "&ldquo;Can't reach the sign-in server. Check your internet connection (or try mobile data).&rdquo;", "cause": "Your device couldn't reach the authentication server &mdash; often a Wi-Fi or network block, not a wrong password.", "fix": "Check your connection. A telling sign: it fails on office Wi-Fi but works on mobile data.", "ref": "1.2" },
+        { "sym": "&ldquo;Too many attempts. Please wait a minute and try again.&rdquo;", "cause": "Sign-in was rate-limited after several rapid tries.", "fix": "Wait about a minute, then try once more.", "ref": "1.2" },
+        { "sym": "&ldquo;That meeting link looks invalid.&rdquo;", "cause": "The text pasted into the meeting-link field couldn't be read as a link or <kbd>ID,KEY</kbd>.", "fix": "Re-copy the whole invite from the source and paste it again.", "ref": "1.6" }
+      ],
+      "note": "Notice the difference between a credential problem and a network one. <em>&ldquo;Wrong email or password&rdquo;</em> means try different details; the connection message means your details are probably fine but your device can't reach the server &mdash; don't keep retyping a good password."
+    }
+  },
+  "figures": {
+    "ch1-login": { "ref": "1.1", "placeholder": "The Canvas M login card", "shot": "01-auth/login" },
+    "ch1-mode-password": { "ref": "1.2", "placeholder": "Password form" },
+    "ch1-mode-magic": { "ref": "1.3", "placeholder": "Login-link (guest) form" },
+    "ch1-mode-link": { "ref": "1.4", "placeholder": "Meeting-link form" }
+  }
+}

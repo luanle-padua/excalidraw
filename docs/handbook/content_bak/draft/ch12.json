@@ -1,0 +1,208 @@
+{
+  "number": 12,
+  "blocks": [
+    { "id": "ch12-open", "type": "opener", "layout": "opener" },
+    { "id": "ch12-mental-model", "type": "prose", "layout": "prose", "diagram": "ch12-anchor-diagram" },
+    { "id": "ch12-add-files", "type": "steps", "layout": "steps", "figure": "ch12-library-upload" },
+    { "id": "ch12-pdf-pages", "type": "steps", "layout": "steps", "figure": "ch12-pdf-focus" },
+    { "id": "ch12-dxf-canvas", "type": "steps", "layout": "steps", "figure": "ch12-dxf-canvas-fig" },
+    { "id": "ch12-cad-open", "type": "steps", "layout": "steps", "figure": "ch12-cad-view" },
+    { "id": "ch12-cad-tools", "type": "plate", "layout": "plate", "figure": "ch12-cad-view" },
+    { "id": "ch12-dxf-reference", "type": "reference-table", "layout": "table" },
+    { "id": "ch12-ifc-canvas", "type": "steps", "layout": "steps", "figure": "ch12-ifc-canvas-fig" },
+    { "id": "ch12-3d-open", "type": "steps", "layout": "steps", "figure": "ch12-3d-view" },
+    { "id": "ch12-3d-tools", "type": "plate", "layout": "plate", "figure": "ch12-3d-view" },
+    { "id": "ch12-3d-styles", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch12-style-shaded", "ch12-style-clay", "ch12-style-wireframe"] },
+    { "id": "ch12-3d-reference", "type": "reference-table", "layout": "table" },
+    { "id": "ch12-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch12-open": {
+      "eyebrow": "Chapter 12",
+      "title": "Viewing documents",
+      "standfirst": "A PDF spec, a DXF floor plan, an IFC building model — Canvas M opens all three right on the shared canvas. Add them from the room library, turn pages, toggle layers, orbit a 3D model, slice it, measure it. Everyone sees the page you land on; the rest of the controls are yours to explore at your own pace."
+    },
+    "ch12-mental-model": {
+      "eyebrow": "How documents live on the canvas",
+      "heading": "Anchors, panes, and what your peers see",
+      "lead": "Every document you open started life as an upload in the room library — the bar on the right where files are grouped under <b>PDF documents</b>, <b>CAD drawings</b>, and <b>IFC models</b>. Dropping one onto the canvas creates an <em>anchor</em>: a tile that shows the document in place, sized and positioned like any other element.",
+      "body": "There are two ways to look at a document, and they behave differently. A <b>PDF</b> shows its page directly on the canvas inside the anchor — you read it where it sits. A <b>DXF</b> drawing or an <b>IFC</b> model can be explored right on the anchor too, or opened in a dedicated <em>pane</em> that docks to the right edge of the screen for a full interactive viewer with its own toolbar. The canvas anchor is the shared object; the pane is your personal workspace for inspecting it.",
+      "pull": "What you leave on the canvas — the page, the layers left showing, the angle you parked a model at — is shared with the room. The orbiting, slicing and measuring you do while exploring stays on your screen.",
+      "diagram": { "label": "Library file → canvas anchor → docked viewer pane", "cap": "An uploaded file becomes a canvas anchor; DXF and IFC anchors can additionally open in a right-docked pane." },
+      "note": { "tag": "Good to know", "html": "Canvas M accepts only four kinds of file. If someone tries to add anything else, the room reports <em>“Only images, DXF, PDF and IFC are supported for now.”</em> and skips it." }
+    },
+    "ch12-add-files": {
+      "eyebrow": "Bringing files in",
+      "heading": "Add a drawing or model to the room",
+      "steps": [
+        "Open the room library — the bar down the right-hand side. At the bottom sits <b>+ Upload image / DXF / PDF / IFC · or drag &amp; drop</b>; click it, or drag files straight onto the bar.",
+        "Pick a <b>.dxf</b> drawing or a <b>.ifc</b> model (images and <b>.pdf</b> work here too). Anything else is skipped with <em>“Only images, DXF, PDF and IFC are supported for now.”</em>",
+        "A DXF appears almost at once under the <b>CAD drawings</b> heading. An IFC is first converted into a lightweight 3D model — a large building can take several seconds, which is normal — then lands under <b>IFC models</b>.",
+        "Click a tile to drop the file at the centre of the canvas, or drag the tile exactly where you want it. If that file is already on the canvas, Canvas M jumps to it instead of making a copy.",
+        "The file becomes an <em>anchor</em> you can move, resize and lock like any other element."
+      ],
+      "outcome": "Anyone in the meeting can add files — everyone shares the same library and sees the same anchors appear.",
+      "note": { "tag": "Good to know", "html": "Files added from your personal shelf are capped at <b>50 MB</b>, and <b>.dwg</b> drawings aren't read — export to <b>.dxf</b> first. Once a meeting has finished and is reopened for review, the library turns read-only and uploads are switched off." },
+      "figcap": "The room library bar — the Upload button, with CAD drawings and IFC models listed below."
+    },
+    "ch12-pdf-pages": {
+      "eyebrow": "PDF documents",
+      "heading": "Read a PDF and turn its pages",
+      "steps": [
+        "Find the PDF anchor on the canvas — it carries a <b>📄</b> label with the file name and, once loaded, a page counter like <em>3 / 24</em>.",
+        "To change the page, <b>right-click</b> the anchor. A small menu appears with <b>Edit PDF (change page)</b> and <b>Cancel</b>.",
+        "Choose <b>Edit PDF (change page)</b> to drop the anchor into focus mode. A toolbar appears across the bottom of the tile.",
+        "Use <b>←</b> (<em>Previous page</em>) and <b>→</b> (<em>Next page</em>) to move through the document; the indicator in the middle shows the current page and total.",
+        "When you are done, click <b>× Exit</b> or press <kbd>Esc</kbd> to leave focus mode."
+      ],
+      "outcome": "The page you land on is saved to the anchor and pushed to everyone in the room, so the whole meeting is looking at the same figure. The arrows grey out at the first and last page.",
+      "note": "Double-clicking a PDF anchor does nothing on purpose — it will not drop you into Excalidraw's text editor the way a plain rectangle would.",
+      "host": { "tag": "Host-only", "html": "When you are reviewing a finished meeting in read-only mode, page changes are blocked — the anchor stays on whatever page the live meeting ended on." },
+      "figcap": "A PDF anchor in focus mode, showing the page navigation toolbar."
+    },
+    "ch12-dxf-canvas": {
+      "eyebrow": "DXF on the canvas",
+      "heading": "Read a DXF without opening a pane",
+      "steps": [
+        "<b>Right-click</b> a DXF anchor and choose <b>Edit DXF (pan / zoom)</b>. The drawing comes alive in place — drag to pan, scroll to zoom.",
+        "Click <b>📋 Layers</b> to open <em>Layers (N)</em>. Every row carries the layer's own colour swatch; tick or untick to show or hide it, or use <b>All</b> and <b>None</b> to switch the lot.",
+        "<b>↻ Fit</b> reframes the whole drawing; <b>× Exit</b> (or <kbd>Esc</kbd>) leaves edit mode. Right-clicking also offers <b>Reset fit (back to full view)</b>."
+      ],
+      "outcome": "Unlike the CAD pane, a DXF edited here on the canvas is the <em>shared</em> object: the layers you hide and the view you leave are saved to the anchor and seen by everyone in the room.",
+      "note": { "tag": "Two viewers, on purpose", "html": "Edit a DXF on the canvas when the whole room should see the change. Open the same drawing in the <b>CAD view</b> pane (next) when you want a big, private workspace — pane changes stay with you." },
+      "figcap": "A DXF anchor in focus mode with the Layers panel, colour swatches, and the Fit / Exit toolbar."
+    },
+    "ch12-cad-open": {
+      "eyebrow": "CAD drawings",
+      "heading": "Open a DXF in the CAD view",
+      "steps": [
+        "Click the <b>CAD view</b> button in the canvas toolbar (the blueprint icon, tooltip <em>“CAD view — open DXF in a pane”</em>).",
+        "A popover titled <b>DXF in library</b> lists every drawing in the room. Pick one to open it as a tab in the right-docked pane.",
+        "Alternatively, <b>right-click a DXF anchor</b> on the canvas and choose <b>Open in CAD view</b>.",
+        "Each file opens in its own tab marked <b>📐</b>; click a tab to switch, click its <b>×</b> to close just that drawing.",
+        "Drag the left edge of the pane (the resize handle) to make the viewer wider or narrower.",
+        "Close the whole pane with the <b>×</b> in the top-right corner."
+      ],
+      "outcome": "The DXF loads into an interactive viewer. Pan by dragging, zoom with the scroll wheel. Re-opening a drawing that is already a tab simply switches to it rather than duplicating.",
+      "note": "If the popover says <em>“No DXF files in the library yet.”</em> with the hint <em>“Upload .dxf via the library bar on the right.”</em>, there is simply nothing to open yet.",
+      "figcap": "A DXF open in the right-docked CAD view with the Layers, Fit, and Lock toolbar."
+    },
+    "ch12-cad-tools": {
+      "eyebrow": "CAD view toolbar",
+      "legend": [
+        { "n": 1, "text": "<b>Layers</b> — opens the <em>Layers (N)</em> panel. Tick or untick each layer to show or hide it; the colour swatch matches the DXF layer colour. <b>All</b> turns everything on, <b>None</b> turns everything off." },
+        { "n": 2, "text": "<b>Fit</b> — resets the view to frame the whole drawing (tooltip <em>“Fit DXF to pane (reset the view)”</em>)." },
+        { "n": 3, "text": "<b>Lock</b> / <b>Locked</b> — freezes pan and zoom so you cannot nudge the drawing by accident. Click again to unlock; the tooltip reads <em>“View is locked — click to unlock pan/zoom”</em> when active." },
+        { "n": 4, "text": "Tab strip — one tab per open drawing, each with a <b>×</b> to close it; the pane <b>×</b> at top-right closes the entire CAD view." }
+      ]
+    },
+    "ch12-dxf-reference": {
+      "eyebrow": "Reference",
+      "heading": "Every CAD-view control at a glance",
+      "cols": ["Control", "What it does", "Label / tooltip"],
+      "rows": [
+        ["Edit DXF", "Pan and zoom the drawing right on the canvas anchor", "Edit DXF (pan / zoom)"],
+        ["Open in CAD view", "Open the drawing in the right-docked pane", "CAD view — open DXF in a pane"],
+        ["Layers", "Show or hide individual layers; the swatch matches the layer colour", "{count} layers — click to show/hide"],
+        ["Fit", "Reframe the whole drawing", "Fit DXF to pane (reset the view)"],
+        ["Lock / Locked", "Freeze pan and zoom so the view can't be nudged", "View is locked — click to unlock pan/zoom"],
+        ["Tabs", "One tab per drawing; × closes a tab, the pane × closes the viewer", "Close tab"]
+      ],
+      "note": "The CAD view is a 2D drawing viewer — it has no measure, snap, or unit tools (those belong to the 3D model view). And mind where a change lives: layers toggled in the <em>pane</em> are yours alone, while layers toggled on the canvas <em>anchor</em> are shared with the room."
+    },
+    "ch12-ifc-canvas": {
+      "eyebrow": "IFC on the canvas",
+      "heading": "Spin a model up without leaving the canvas",
+      "steps": [
+        "<b>Right-click</b> an IFC anchor and choose <b>Edit 3D (rotate / zoom)</b> to make it live where it sits — drag to orbit, scroll to zoom, click an element to select it. (Choose <b>Open in 3D view</b> for the full pane instead — next.)",
+        "The inline toolbar carries the same essentials as the pane: <b>↻ Fit</b>, <b>🏢 Storeys</b>, <b>✂️ Section</b>, <b>📏 Measure</b>, <b>👻 Ghost</b> and <b>🎨 Style</b>.",
+        "<b>↻ Refresh</b> re-renders the angle you are on in high resolution and re-syncs it (tooltip <em>“Re-render this view in high resolution and re-sync it”</em>).",
+        "<b>× Exit</b> (or <kbd>Esc</kbd>) bakes the viewpoint you leave into the anchor and shares it, so the whole room sees the model from the same angle."
+      ],
+      "outcome": "The camera angle and the picture on the canvas are shared; your live orbiting, sections, measurements and any elements you hide stay on your screen until you exit.",
+      "note": { "tag": "Browsing every object", "html": "The object tree — where you hide and show individual elements — lives in the full <b>3D view</b> pane. The inline canvas editor gives you the camera, section and measure tools, but not the tree." },
+      "figcap": "An IFC anchor in inline 3D edit mode — Fit, Storeys, Section, Measure, Ghost and Style, with Refresh and Exit."
+    },
+    "ch12-3d-open": {
+      "eyebrow": "IFC models",
+      "heading": "Open a building model in 3D view",
+      "steps": [
+        "Click the <b>3D view</b> button in the canvas toolbar (the cube icon, tooltip <em>“3D view — open IFC model in a pane”</em>).",
+        "The popover <b>IFC in library</b> lists every model; pick one to open it as a tab marked <b>🧊</b> in the right-docked pane.",
+        "Or <b>right-click an IFC anchor</b> on the canvas and choose <b>Open in 3D view</b>.",
+        "Once it loads, <b>drag to orbit</b>, scroll to zoom, and <b>click any element</b> to select it and open its properties.",
+        "Use <b>Fit</b> to reframe the whole model whenever you lose your bearings.",
+        "Resize the pane from its left edge, switch models via the tabs, and close with the tab <b>×</b> or the pane <b>×</b>."
+      ],
+      "outcome": "Clicking an element opens a properties panel listing its <b>Name</b>, <b>Type</b>, <b>Category</b>, <b>Family</b>, and <b>Type name</b>, plus any extra <b>Properties</b> the model carries. Close it with its <b>×</b> (<em>Deselect</em>).",
+      "note": "While the model is still loading you will see <em>“Loading 3D model…”</em>. Every toolbar button stays greyed out until the model is ready.",
+      "figcap": "An IFC model open in 3D view with the storeys, objects, section, measure, and ghost toolbar."
+    },
+    "ch12-3d-tools": {
+      "eyebrow": "3D view toolbar",
+      "legend": [
+        { "n": 1, "text": "<b>Fit</b> — frames the whole model and resets the camera (<em>“Fit model to pane”</em>)." },
+        { "n": 2, "text": "<b>Storeys</b> — lists the building's floors by elevation. Click one to isolate it; click <b>All</b> to show every storey again. The badge shows the floor count." },
+        { "n": 3, "text": "<b>Objects</b> — the object tree, grouped storey → category → element. Expand a branch, click an element to select and frame it, or use the eye toggle (<b>👁</b> / <b>🚫</b>) to hide and show it. <b>Show all storeys</b> clears any isolation." },
+        { "n": 4, "text": "View style — a three-way switch: <b>Shaded</b>, <b>Clay</b>, <b>Wireframe</b> (see the gallery below)." },
+        { "n": 5, "text": "Section — the scissors group with <b>X</b>, <b>Y</b>, <b>Z</b> cut axes. Pick an axis, drag the plane in the 3D frame to slice; <b>Flip</b> swaps which half is kept, and the eye button hides or shows the cut plane while keeping the slice. Click the active axis again to turn the section off." },
+        { "n": 6, "text": "<b>Measure</b> — click two points on the model to read the distance; the result appears as <b>📏</b> with two decimals. Click <b>Measure</b> again to stop." },
+        { "n": 7, "text": "<b>Ghost</b> — fades everything except your current selection so a single element stands out." }
+      ]
+    },
+    "ch12-3d-styles": {
+      "eyebrow": "View styles",
+      "heading": "Three ways to render the model",
+      "tiles": [
+        { "state": "Shaded", "cap": "Shows each element's original colour — the realistic default." },
+        { "state": "Clay", "cap": "Overrides everything with a uniform grey, so form reads without colour noise." },
+        { "state": "Wireframe", "cap": "Shows edge lines only — useful for seeing through the model." }
+      ],
+      "useWhen": "Switch to Clay for clean massing discussions, Wireframe to inspect structure behind a facade, and back to Shaded when colour matters."
+    },
+    "ch12-3d-reference": {
+      "eyebrow": "Reference",
+      "heading": "Every 3D-view control at a glance",
+      "cols": ["Control", "What it does", "Label / tooltip"],
+      "rows": [
+        ["Fit", "Reframe the whole model and reset the camera", "Fit model to pane (reset the view)"],
+        ["Storeys", "Isolate one floor; All shows every floor", "{count} storeys — click to isolate"],
+        ["Objects", "Browse the storey / category / element tree; select, show, hide", "Object tree — browse, select, show/hide"],
+        ["Shaded / Clay / Wireframe", "Switch render style", "View style: {label}"],
+        ["Section X / Y / Z", "Cut the model along an axis; drag the plane to move it", "{axis}-axis section — drag the plane in the 3D frame to move it"],
+        ["Flip", "Swap which half of the section is kept", "Flip — swap which half is kept"],
+        ["Plane (eye)", "Hide the cut plane but keep the slice", "Hide the cut plane (keep the slice)"],
+        ["Measure", "Click two points to read the distance", "Measure distance — click 2 points on the model"],
+        ["Ghost", "Fade everything except the selection", "Ghost — fade everything except the selection"]
+      ],
+      "note": "Section, Flip, and the plane toggle stay disabled until you have picked a cut axis. While a section is active the hint <em>“Drag the cut plane in the 3D frame to move it.”</em> sits beside the toolbar."
+    },
+    "ch12-trouble": {
+      "eyebrow": "When something looks off",
+      "heading": "Document viewing — troubleshooting",
+      "rows": [
+        { "sym": "A PDF / DXF / IFC tile shows “Waiting for … file from peer…”", "cause": "The file bytes have not reached you yet — the person who added it is still syncing it across.", "fix": "Wait a moment; it fills in automatically once the file arrives. No action needed.", "ref": "12.1" },
+        { "sym": "A model sits in the library a few seconds before it will open", "cause": "An IFC is converted to a lightweight 3D model when you upload it; bigger buildings take a little longer.", "fix": "Wait for the conversion to finish — it only happens once, at upload.", "ref": "12.2" },
+        { "sym": "“Maximum DXF files already open” (or “Maximum 3D models already open”)", "cause": "Every live viewer slot is in use — heavy 3D models run at most two at once, DXF drawings up to four.", "fix": "Close another open file or tab, then try opening this one again.", "ref": "12.7" },
+        { "sym": "“Couldn't read DXF: …” or “Couldn't read IFC model: …”", "cause": "The file is corrupt or in an unsupported variant; the message after the colon is the underlying reason.", "fix": "Ask the owner to re-export and re-upload the file. (A .dwg won't open at all — it must be exported to .dxf.)", "ref": "12.5" },
+        { "sym": "A DXF opens but all its text and dimensions are missing", "cause": "The drawing relies on fonts the viewer doesn't have, so labels are dropped while the geometry still draws.", "fix": "The lines are accurate; this is a display limit, not lost data. Re-export with standard fonts if the labels matter.", "ref": "12.5" },
+        { "sym": "A DXF tab shows “DXF file not found”", "cause": "The tab is left over from a different meeting; its file is not in this room's library.", "fix": "Close the phantom tab — Canvas M also prunes these automatically once the library loads.", "ref": "12.5" },
+        { "sym": "The 3D toolbar buttons are all greyed out", "cause": "The model is still loading (“Loading 3D model…”) or has no storeys / objects to show.", "fix": "Wait for the model to finish; tooltips like “No storeys” / “No objects” mean that data simply isn't in the file.", "ref": "12.7" },
+        { "sym": "Page turns on a PDF have no effect", "cause": "You are reviewing a finished meeting in read-only mode, where page changes are blocked.", "fix": "This is expected — read-only review keeps the page fixed.", "ref": "12.3" }
+      ],
+      "note": "Pan, zoom, and orbit happen inside the viewer pane only — they never move the underlying canvas, so you can explore freely without disturbing the shared layout."
+    }
+  },
+  "figures": {
+    "ch12-anchor-diagram": { "ref": "12.1", "placeholder": "Flow: library file -> canvas anchor -> right-docked pane" },
+    "ch12-library-upload": { "ref": "12.2", "placeholder": "Room library bar — Upload button with CAD drawings and IFC models sections" },
+    "ch12-pdf-focus": { "ref": "12.3", "placeholder": "PDF anchor in focus mode with prev / page-count / next / exit toolbar" },
+    "ch12-dxf-canvas-fig": { "ref": "12.4", "placeholder": "DXF anchor in focus mode — Layers panel with colour swatches, Fit and Exit" },
+    "ch12-cad-view": { "ref": "12.5", "placeholder": "DXF open in the CAD view pane with Layers panel", "shot": "07-canvas/cad-view" },
+    "ch12-ifc-canvas-fig": { "ref": "12.6", "placeholder": "IFC anchor in inline 3D edit — Fit / Storeys / Section / Measure / Ghost / Style with Refresh and Exit" },
+    "ch12-3d-view": { "ref": "12.7", "placeholder": "IFC model in 3D view with full toolbar and properties panel", "shot": "07-canvas/3d-view" },
+    "ch12-style-shaded": { "ref": "12.8", "placeholder": "Model rendered Shaded (original colours)" },
+    "ch12-style-clay": { "ref": "12.9", "placeholder": "Model rendered Clay (uniform grey)" },
+    "ch12-style-wireframe": { "ref": "12.10", "placeholder": "Model rendered Wireframe (edge lines only)" }
+  }
+}

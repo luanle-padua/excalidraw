@@ -4,10 +4,11 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 import { readFile } from "fs/promises";
-import { extname } from "path";
+import { extname, dirname, resolve } from "path";
+import { fileURLToPath } from "url";
 import http from "http";
 
-const ROOT = "C:/LUAN/19.CanvasMeet/docs/handbook";
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // handbook dir, portable
 mkdirSync(`${ROOT}/dist`, { recursive: true });
 
 const MIME = { ".html": "text/html", ".css": "text/css", ".js": "text/javascript", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".woff2": "font/woff2" };
@@ -38,7 +39,7 @@ const count = await page.evaluate(() => document.querySelectorAll(".pagedjs_page
 console.log("paged pages:", count);
 const leaves = await page.$$(".pagedjs_page");
 for (let i = 0; i < Math.min(leaves.length, 14); i++)
-  await leaves[i].screenshot({ path: `C:/LUAN/19.CanvasMeet/_pg-${String(i).padStart(2, "0")}.png` }).catch(() => {});
+  await leaves[i].screenshot({ path: `${ROOT}/dist/_pg-${String(i).padStart(2, "0")}.png` }).catch(() => {});
 
 try {
   await page.pdf({ path: `${ROOT}/dist/CanvasM-Handbook.pdf`, preferCSSPageSize: true, printBackground: true });

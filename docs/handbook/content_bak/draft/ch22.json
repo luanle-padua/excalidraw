@@ -1,0 +1,160 @@
+{
+  "number": 22,
+  "blocks": [
+    { "id": "ch22-open", "type": "opener", "layout": "opener" },
+    { "id": "ch22-lifecycle", "type": "prose", "layout": "prose", "diagram": "ch22-lifecycle-dia" },
+    { "id": "ch22-start", "type": "steps", "layout": "steps", "figure": "ch22-gate-fig" },
+    { "id": "ch22-shell", "type": "plate", "layout": "plate", "figure": "ch22-shell-fig" },
+    { "id": "ch22-invite", "type": "steps", "layout": "steps", "figure": "ch22-invite-fig" },
+    { "id": "ch22-waiting", "type": "steps", "layout": "steps", "figure": "ch22-waiting-fig" },
+    { "id": "ch22-moderate", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch22-mod-host", "ch22-mod-cohost", "ch22-mod-guest"] },
+    { "id": "ch22-end", "type": "steps", "layout": "steps" },
+    { "id": "ch22-ai-recap", "type": "steps", "layout": "steps", "figure": "ch22-recap-fig" },
+    { "id": "ch22-reschedule", "type": "reference-table", "layout": "table" },
+    { "id": "ch22-trouble", "type": "troubleshoot", "layout": "table" }
+  ],
+  "strings": {
+    "ch22-open": {
+      "eyebrow": "Chapter 22 · Host & Manager",
+      "title": "Hosting the meeting",
+      "standfirst": "From the moment you press <b>Start meeting</b> to the moment you press <b>End meeting</b>, you hold the room. This chapter walks the host's powers in order — starting a scheduled meeting, inviting the right people, letting guests in from the waiting room, moderating who speaks and who stays, and ending cleanly so an AI recap is waiting for everyone afterwards. Every label here is the one you will see on screen."
+    },
+    "ch22-lifecycle": {
+      "eyebrow": "Mental model",
+      "heading": "A meeting moves through four states — and only actions move it",
+      "lead": "A meeting is never edited into a new state; it is <em>acted</em> into one. Canvas M tracks exactly four canonical statuses — <b>Scheduled</b>, <b>Live</b>, <b>Finished</b> and <b>Cancelled</b> — and each transition has its own button. There is no status dropdown anywhere in the editor, by design.",
+      "body": "<b>Scheduled → Live</b> happens when someone with start rights presses <b>Start meeting</b>. <b>Live → Finished</b> happens when a host presses <b>End meeting</b> (the red power button). <b>Scheduled → Cancelled</b> happens from the meeting's detail panel via <b>Cancel meeting</b>. The one way back out of cancelled is <b>Restore meeting</b>, which returns it to Scheduled; a cancelled meeting can also be disposed of permanently with <b>Delete forever</b>. <b>Finished is immutable</b> — you cannot edit, reschedule, or reopen it as live again; reopening a finished room lands everyone in read-only review.",
+      "pull": "Finished is the one-way door. End the meeting only when you mean it.",
+      "diagram": { "label": "Status flow: Scheduled ↔ Cancelled, Scheduled → Live → Finished", "cap": "The server enforces the same transitions the buttons offer — there is no other path between states." },
+      "note": { "tag": "Who can manage", "html": "Lifecycle controls appear for the <b>organizer</b>, the meeting <b>host</b>, a designated <b>co-host</b>, or a <b>project authority</b> (division head / project leader). Everyone else sees the meeting but none of the management buttons — the worker re-checks the same rule, so a hidden button is also a blocked request." }
+    },
+    "ch22-start": {
+      "eyebrow": "Going live",
+      "heading": "Starting a scheduled meeting",
+      "steps": [
+        "Open the meeting link or pick the meeting from your project. If it is still <b>Scheduled</b>, the full-screen start gate appears with the meeting title and, when set, <b>Scheduled for …</b>.",
+        "If you belong to the owning department, you see a <b>Start meeting</b> button. Press it. While it works the label reads <b>Starting…</b>.",
+        "If you are <em>not</em> allowed to start (a cross-department invitee), you instead see a spinner and <b>Waiting for the host to start the meeting…</b> — the gate polls every five seconds and drops you straight into the room the instant any host starts it.",
+        "Once live, you land in the meeting shell: canvas in the centre, the header across the top, the people strip along the bottom."
+      ],
+      "outcome": "The meeting flips to <b>Live</b> in the registry, which is what releases every other person still waiting on the gate. Your own join is identical to any other live join.",
+      "host": { "tag": "Host-only", "html": "The <b>Start meeting</b> button is gated by the server-computed <em>owning-department scope</em> (organizer / host / co-host / project authority / same-division member). A guest or outside invitee never sees it — they wait. If the meeting was cancelled or finished while you were parked on the gate, pressing Start re-reads the truth and routes you to the cancelled notice or read-only review instead of barging in." },
+      "figcap": "The start gate, before the host presses Start."
+    },
+    "ch22-shell": {
+      "eyebrow": "The host's console",
+      "legend": [
+        { "n": 1, "text": "<b>Project · meeting title</b> — click to edit name / topic / metadata (organizer-only; a <kbd>⌄</kbd> chevron shows when editable). Tooltip: <em>Click to edit meeting name / topic</em>." },
+        { "n": 2, "text": "<b>Meeting clock</b> — an objective timer counting from when the host started, so late joiners see the same elapsed time. Tooltip: <em>Meeting time elapsed</em>." },
+        { "n": 3, "text": "<b>People count</b> — reads <em>joined / invited</em>; click to open the Participants panel. A small mic sub-badge shows how many are in the audio call." },
+        { "n": 4, "text": "<b>Media group</b> — mic, camera and leave-call (from the call controls) framed with <b>Present</b> (screen share). Present locks while someone else is sharing." },
+        { "n": 5, "text": "<b>Captions (CC)</b> and <b>Transcript</b> — toggle live captions from any view; the transcript icon carries a count badge of logged segments." },
+        { "n": 6, "text": "<b>Meeting group</b> — layout switcher, <b>Invite</b> (accent, organizer/host/co-host only), and <b>Projects</b> (host-only folder)." },
+        { "n": 7, "text": "<b>End meeting</b> — the red <em>Power</em> button at the far right. Host / co-host / organizer / authority only. Ends the room for everyone." }
+      ]
+    },
+    "ch22-invite": {
+      "eyebrow": "Bringing people in",
+      "heading": "Inviting colleagues and project guests",
+      "steps": [
+        "In the header's Meeting group, press the accent <b>Invite</b> button (a person-plus icon). The <b>Invite people</b> panel slides in.",
+        "Pick <b>Internal</b> colleagues from the staff directory — type in <em>Search by name / department…</em> and click a name to add a chip. Each pick shows their title and division.",
+        "Add this project's issued <b>guests</b> from the second list (search field <em>placeholder</em> below the Briefcase label). Guests must already be issued in the project — there is no free-typed external email here, by design (per-department confidentiality).",
+        "When at least one internal person is selected, the <b>Also grant project access (internal only)</b> checkbox appears (on by default) — leave it on to give them whole-folder access, not just this one meeting.",
+        "Press <b>Grant access</b> (the button shows a live count, e.g. <em>Grant access (3)</em>). On success it reads <b>Access granted ✓ — remember to send guests the link</b> and copies the room link to your clipboard."
+      ],
+      "outcome": "Invitees get an access grant (a login plus a meeting_invitee row). There are no automatic invite emails — Canvas M deliberately does not share by raw room URL, so paste the copied link to the people you just granted. Use <b>Copy invite link</b> at the top of the panel any time to grab it again.",
+      "host": { "tag": "Host-only", "html": "Invite is visible only to the organizer, host, co-host, or project authority, and only while the meeting still takes edits — it disappears in a finished meeting and in read-only review. If the worker refuses, the panel shows the exact reason: <em>You don't have permission to invite people to this meeting.</em> (403) or <em>The meeting has ended or was cancelled — no more invites.</em> (409)." },
+      "figcap": "The Invite people panel with internal and guest pickers."
+    },
+    "ch22-waiting": {
+      "eyebrow": "The waiting room",
+      "heading": "Letting guests in — admit or deny",
+      "steps": [
+        "External guests who join a live meeting they haven't been admitted to are parked in a waiting room — they see <b>Waiting to be let in</b> and <b>Waiting for the host to let you in…</b>. Internal staff auto-admit and never appear here.",
+        "On your side, open the Participants panel (click the people count). When guests are knocking, the people strip shows an <em>N waiting</em> badge and the panel grows a <b>Waiting to join (N)</b> section.",
+        "For each knocker, press <b>Admit</b> (a check icon) to let them in, or <b>Deny</b> (red) to refuse. The row drops immediately; a failed call re-fetches so a knock is never silently lost.",
+        "A denied guest sees <b>Not admitted</b> with <em>The host hasn't let you in right now. You can knock again in a moment.</em> and a <b>Knock again</b> button — the re-knock is rate-limited to once every 30 seconds, server-side."
+      ],
+      "outcome": "Admitted guests connect immediately, entering muted (the room starts with audio off). If you end the meeting while a guest is mid-admit, their client re-reads the meeting and quietly backs out rather than barging into a finished room.",
+      "host": { "tag": "Host-only", "html": "The knock list polls every five seconds and is gated on <em>server-confirmed authority</em>, not the local acting-host election — so only the organizer / host / co-host / project authority ever sees people waiting. A plain internal participant, even one the room briefly elected as acting host, sees no waiting section." },
+      "figcap": "The Waiting to join section with Admit / Deny per guest."
+    },
+    "ch22-moderate": {
+      "eyebrow": "Moderation",
+      "heading": "Who can mute, remove, and end",
+      "tiles": [
+        { "state": "Host", "cap": "The host (and a project authority) sees per-person <b>Mute</b> / <b>Unmute</b> and <b>Remove</b> on every other tile — both as hover buttons on the avatar strip and as full buttons in the Participants panel. The mute button reads the real broadcast state, so it offers <em>Unmute</em> when the person is already muted. A removed person sees <em>The host removed you from the meeting.</em>" },
+        { "state": "Co-host", "cap": "A designated co-host carries a half-crown <b>Co-host</b> badge and can <b>End meeting</b> for everyone. In-room kick/mute follow the acting-host rule; the co-host role specifically authorises ending and inviting, which a random participant cannot do." },
+        { "state": "Guest", "cap": "A project-scoped guest is never a moderator. Even if the socket host-election momentarily lands on them, mute / remove / end stay hidden — and the worker also refuses the host command server-side. Guests keep leave, transcript, present, and their own profile." }
+      ],
+      "useWhen": "Reach for moderation when a line is open and feeding back (mute), when someone joined the wrong room (remove), or to hand the ending to a co-host. The crown badge over an avatar always tells the room who is host without anyone having to ask."
+    },
+    "ch22-end": {
+      "eyebrow": "Closing the room",
+      "heading": "Ending the meeting for everyone",
+      "steps": [
+        "Press the red <b>End meeting</b> (Power) button at the far right of the header. Confirm the prompt: <em>End the meeting for EVERYONE? All participants switch to read-only review.</em>",
+        "Canvas M marks the meeting <b>Finished</b> in the registry first. If that write fails it aborts and toasts <em>Couldn't end the meeting — check your network and try again.</em> — nothing changes, so you can simply retry.",
+        "On success, an AI recap is generated in the background from the transcript and chat (never blocking the ending) and stored on the meeting as its <b>AI summary</b>.",
+        "Everyone in the room is broadcast into read-only review, your own resume pointer is cleared so the meeting is never offered for resume again, and your own view switches to review."
+      ],
+      "outcome": "The meeting is now <b>Finished</b> and immutable. Reopening it lands in review showing the banner <em>Reviewing (read-only) · meeting finished — extract only</em>. The auto-recap appears as a clamped <b>AI summary</b> card in the meeting's detail panel, with <b>Show more</b> / <b>Show less</b> for long recaps.",
+      "host": { "tag": "Host-only", "html": "End is gated by <em>designated role</em>, not the socket election: only the host, co-host, organizer, or a division head / project leader sees the button. If nothing was said or typed, no recap is generated — the summary card simply stays absent. Generation is fire-and-forget, so a model hiccup never delays the meeting ending." }
+    },
+    "ch22-ai-recap": {
+      "eyebrow": "The AI recap",
+      "heading": "Read, regenerate and export the AI summary",
+      "steps": [
+        "When a host ends the meeting, Canvas M sends its <b>voice transcript</b> and <b>chat</b> to the AI and writes the result back as the meeting's <b>AI summary</b> — in the background, so ending is never held up. It reads what was said and typed, not the canvas drawing itself.",
+        "Read the short version on the meeting's <b>detail panel</b>: open the finished meeting from your project or dashboard and the recap sits in an <b>AI summary</b> card under the hero, with <b>Show more</b> / <b>Show less</b> for long ones.",
+        "For the full structured version, open the meeting log (the <b>Transcript</b> icon in the header) and switch to the <b>Summary</b> tab. It lays the recap out as <b>Overview</b>, <b>Participants</b>, <b>Key topics</b>, <b>Decisions</b> and <b>Action items</b> — each action item with an owner and a deadline.",
+        "Need a fresh pass, or summarising a meeting that's still running? Press <b>Generate summary</b> (or <b>Regenerate summary</b>). It re-reads the whole transcript and takes roughly <em>5–15 seconds</em> for a long meeting; you can run it about once a minute.",
+        "Press <b>Download .md</b> to save the whole recap as a Markdown file — ready to paste into minutes or an email."
+      ],
+      "outcome": "The end-of-meeting card is written once and kept with the meeting; the Summary tab can be regenerated whenever you need. In read-only review you can read the recap, but the regenerate and clear buttons are hidden.",
+      "note": { "tag": "Not emailed", "html": "Canvas M doesn't email recaps. A guest of a finished meeting is told <em>“The organizer will share a recap with you separately.”</em> — so download the <b>.md</b> (or copy the card) and send it on yourself." },
+      "host": { "tag": "Host-only", "html": "The recap is generated only when a host ends the meeting, and only if something was said or typed — an empty meeting produces no card. Anyone who can see the meeting can read the summary and open the log; regenerating is rate-limited to roughly once a minute per person." },
+      "figcap": "The meeting log's Summary tab — Overview, Participants, Key topics, Decisions and Action items, with Generate summary and Download .md."
+    },
+    "ch22-reschedule": {
+      "eyebrow": "From the detail panel",
+      "heading": "Reschedule, cancel, restore, delete",
+      "cols": ["Action", "Button label", "When it shows", "What happens"],
+      "rows": [
+        ["Reschedule", "<b>Reschedule</b> → <b>Save new time</b>", "Status is <b>Scheduled</b> and you can manage it", "Reveals date / time (30-min slots) / duration fields; saving writes the new schedule. Save is disabled until a date is chosen. Once a meeting is Live the time can no longer change (<em>Meeting has started — date & time can no longer change.</em>)."],
+        ["Cancel", "<b>Cancel meeting</b>", "Status is <b>Scheduled</b> and you can manage it", "Confirms <em>Cancel this meeting? Invitees will see it as cancelled.</em> then moves it to <b>Cancelled</b>; invitees see the cancelled notice."],
+        ["Restore", "<b>Restore meeting</b>", "Status is <b>Cancelled</b> and you can manage it", "Returns the meeting to <b>Scheduled</b> — the one transition the server allows out of cancelled."],
+        ["Delete", "<b>Delete forever</b>", "Status is <b>Cancelled</b> and you can manage it", "Confirms <em>PERMANENTLY delete this meeting? Canvas, files and all history will be erased — this cannot be undone.</em> then removes it and closes the panel. Canvas, files and every related row cascade away."],
+        ["Edit", "Pencil icon · <b>Edit meeting</b>", "You can manage it and the meeting still takes edits (Scheduled or Live)", "Opens the metadata editor for title, topic, agenda and fields. Finished is immutable; a cancelled meeting must be restored first."]
+      ],
+      "note": "Open these from the meeting's detail panel: select the meeting in your project to load its hero card, where the lifecycle buttons sit beneath the schedule line.",
+      "host": { "tag": "Host-only", "html": "All five actions are organizer / authority gated and disabled while a save is in flight. A refused save surfaces <em>Save failed — check your permission (organizer only) or the meeting state.</em>" }
+    },
+    "ch22-trouble": {
+      "eyebrow": "When something is off",
+      "heading": "Host troubleshooting",
+      "rows": [
+        { "sym": "No <b>Start meeting</b> button on the gate", "cause": "You are not in the owning department — only organizer / host / co-host / authority / same-division members may start.", "fix": "Wait for the spinner <em>Waiting for the host to start the meeting…</em>; the gate auto-joins you the instant a host starts. Or ask the organizer to start.", "ref": "22.3" },
+        { "sym": "<b>Invite</b> button is missing from the header", "cause": "You are a plain participant or guest, or the meeting has finished / is in read-only review.", "fix": "Inviting needs organizer / host / co-host / authority on a still-editable meeting. A finished meeting can't be invited into.", "ref": "22.5" },
+        { "sym": "Guest stuck — no <b>Waiting to join</b> section appears for you", "cause": "The knock poll runs only for server-confirmed authority; an acting-host who isn't the organizer doesn't see knocks.", "fix": "Have the organizer, host, co-host or division head open the Participants panel to admit. Guests can press <b>Knock again</b> after the 30s cooldown.", "ref": "22.6" },
+        { "sym": "<b>Mute</b> / <b>Remove</b> not on a participant's tile", "cause": "You aren't the host / authority, or the tile is yourself or the host (you can't moderate those).", "fix": "Moderation appears only on OTHER participants and only for the host or a project authority.", "ref": "22.7" },
+        { "sym": "Ending the meeting toasts a failure", "cause": "The registry write to mark it Finished didn't go through (network).", "fix": "<em>Couldn't end the meeting — check your network and try again.</em> Nothing changed — press <b>End meeting</b> again.", "ref": "22.8" },
+        { "sym": "No <b>AI summary</b> card after a meeting", "cause": "Nothing was said or typed, so there was no transcript or chat to recap; or the summariser hiccuped (non-blocking).", "fix": "Expected when a meeting had no audio or chat. Recaps are best-effort and never block ending — the card simply stays absent.", "ref": "22.8" },
+        { "sym": "Can't change the date — fields say it's locked", "cause": "The meeting is already Live; only Scheduled meetings can be rescheduled.", "fix": "<em>Meeting has started — date & time can no longer change.</em> Reschedule before starting, or end and create a new one.", "ref": "22.9" }
+      ],
+      "note": "Most hidden host controls are also blocked at the server, so a missing button is a real permission boundary, not a UI glitch — check your role first."
+    }
+  },
+  "figures": {
+    "ch22-lifecycle-dia": { "ref": "22.1", "placeholder": "Lifecycle state diagram: Scheduled ↔ Cancelled, Scheduled → Live → Finished" },
+    "ch22-gate-fig": { "ref": "22.2", "placeholder": "Start gate card with Start meeting button and Scheduled-for line" },
+    "ch22-shell-fig": { "ref": "22.3", "placeholder": "Meeting shell with numbered header callouts", "shot": "06-meeting/shell" },
+    "ch22-invite-fig": { "ref": "22.4", "placeholder": "Invite people panel: internal directory + project guest pickers + Grant access" },
+    "ch22-waiting-fig": { "ref": "22.5", "placeholder": "Participants panel Waiting to join section with Admit / Deny" },
+    "ch22-mod-host": { "ref": "22.6", "placeholder": "Host tile with Mute and Remove hover buttons" },
+    "ch22-mod-cohost": { "ref": "22.7", "placeholder": "Co-host avatar with half-crown badge" },
+    "ch22-mod-guest": { "ref": "22.8", "placeholder": "Guest tile with no moderation controls" },
+    "ch22-recap-fig": { "ref": "22.9", "placeholder": "Meeting log Summary tab — Overview / Participants / Key topics / Decisions / Action items, with Generate summary and Download .md" }
+  }
+}

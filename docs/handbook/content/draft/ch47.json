@@ -1,0 +1,481 @@
+{
+  "number": 47,
+  "blocks": [
+    {
+      "id": "ch47-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch18-mindset",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch18-tooltip"
+    },
+    {
+      "id": "ch18-mic",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-micstates",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch18-st-join",
+        "ch18-st-live",
+        "ch18-st-listen",
+        "ch18-st-error",
+        "ch18-st-connecting",
+        "ch18-st-denied"
+      ]
+    },
+    {
+      "id": "ch18-camera",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-join",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-share",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-files",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-captions",
+      "type": "troubleshoot",
+      "layout": "table"
+    },
+    {
+      "id": "ch18-statusref",
+      "type": "reference-table",
+      "layout": "table"
+    }
+  ],
+  "strings": {
+    "ch47-open": {
+      "eyebrow": "Chapter 47",
+      "title": "Troubleshooting",
+      "standfirst": "A mic that won't unmute, a camera that won't start, a waiting room that won't let you in. Most snags in Canvas M show their own fix right on the button. This chapter reads the exact words the app shows you, names the cause, and gives you the one move that clears it."
+    },
+    "ch18-mindset": {
+      "eyebrow": "How to read a problem",
+      "heading": "The app tells you what's wrong",
+      "lead": "<em>Canvas M rarely fails silently.</em> When a control can't do its job, it changes shape, turns colour, or carries a short message you can read by resting your pointer on it. Before you reach for a reload, read what the button is already telling you.",
+      "body": "Three places carry the truth. <b>Tooltips</b> appear when you hover an icon in the meeting header — the mic, camera, and call buttons all describe their current state and what a click will do. <b>Toasts</b> slide in briefly for one-off failures, such as a screen-share that wouldn't start. <b>Full-screen cards</b> take over when you can't enter a room at all — the start gate and the waiting room each explain why and offer the next step. Match the wording you see to the tables in this chapter; the exact text is the key.",
+      "pull": "Read the button before you reload it.",
+      "diagram": {
+        "label": "Where messages surface",
+        "cap": "Header tooltips for live controls, toasts for transient errors, and full-screen gate cards for entry blocks."
+      },
+      "note": {
+        "tag": "Note",
+        "html": "Many controls that look broken are simply <b>Host-only</b>. If a button is greyed with a tooltip naming someone else — for example <em>“{host} is recording the meeting”</em> or <em>“{name} is presenting — wait for them to finish”</em> — nothing is wrong; that action belongs to the host or the current presenter."
+      }
+    },
+    "ch18-mic": {
+      "eyebrow": "Mic",
+      "heading": "Microphone won't work",
+      "rows": [
+        {
+          "sym": "Mic icon is red and tooltip reads <b>“This device has no microphone — listen only”</b>",
+          "cause": "No microphone exists on this device, so you joined in listen-only mode. You can hear everyone but can't speak.",
+          "fix": "Plug in or enable a microphone, then leave and rejoin the call. On a phone, check that a headset is connected.",
+          "ref": "callControls.listenOnlyTitle"
+        },
+        {
+          "sym": "Tooltip reads <b>“Microphone denied — enable it in browser settings and retry.”</b>",
+          "cause": "You blocked the mic permission, so the browser refused access (a <em>NotAllowedError</em>).",
+          "fix": "Open your browser's site settings, allow the microphone for this site, then click the red mic button to <b>Retry</b>.",
+          "ref": "callControls.micDenied"
+        },
+        {
+          "sym": "Tooltip reads <b>“Microphone is in use by another app (Teams / Zoom). Quit it and retry.”</b>",
+          "cause": "Another program has grabbed the mic exclusively (a <em>NotReadableError</em>).",
+          "fix": "Close Teams, Zoom, or any other call app, then click the mic button to <b>Retry</b>.",
+          "ref": "callControls.micBusy"
+        },
+        {
+          "sym": "Tooltip reads <b>“Requesting mic permission…”</b> and the button shows a spinner",
+          "cause": "The browser's permission prompt is open. Canvas M only asks for the mic the first time you unmute or turn on speech-to-text — not when you join.",
+          "fix": "Answer the browser prompt with <b>Allow</b>. The spinner clears as soon as you respond.",
+          "ref": "callControls.requestingMic"
+        },
+        {
+          "sym": "Tooltip reads <b>“Could not start microphone”</b> with a click-to-retry hint",
+          "cause": "A generic mic error the browser didn't classify. The raw detail rides the native tooltip.",
+          "fix": "Click the red mic button to <b>Retry</b>. If it persists, reload the page and rejoin.",
+          "ref": "callControls.cannotStartMic"
+        },
+        {
+          "sym": "Live transcript shows <b>“No local mic stream — this device is in listen-only mode.”</b>",
+          "cause": "You turned on speech-to-text but have no working mic, so there is nothing to transcribe.",
+          "fix": "Give the mic permission (or attach a mic) and unmute. Speech-to-text follows your live mic once it's flowing.",
+          "ref": "stt.micErrorNoStream"
+        }
+      ],
+      "note": "Joining is deliberately mic-free: clicking <b>Join</b> enters listening-only and the browser asks for the mic only on your first unmute. That later click is itself the gesture the browser needs to show its prompt."
+    },
+    "ch18-micstates": {
+      "eyebrow": "Reference",
+      "heading": "Every call-button state, at a glance",
+      "tiles": [
+        {
+          "state": "Join",
+          "cap": "Open-door icon. You're in the room but not in the audio/video call yet. Click to join listening-only."
+        },
+        {
+          "state": "Live · mic",
+          "cap": "Accent mic = you can speak; click to <b>Mute</b>. Red <b>MicOff</b> = muted or listen-only."
+        },
+        {
+          "state": "Listening",
+          "cap": "No mic on this device. The mic button is disabled and labelled listen-only; you still hear everyone."
+        },
+        {
+          "state": "Error",
+          "cap": "Single red <b>MicOff</b> button. The tooltip names the cause; clicking it retries the join."
+        },
+        {
+          "state": "Connecting",
+          "cap": "A disabled spinner button while the call hooks up or the mic prompt is open."
+        },
+        {
+          "state": "Camera off / on",
+          "cap": "<b>VideoOff</b> by default; click to turn the camera on. A spinner shows while it starts."
+        }
+      ],
+      "useWhen": "Use this to identify which state your call button is in before matching a row in the tables — the icon and colour tell you as much as the tooltip."
+    },
+    "ch18-camera": {
+      "eyebrow": "Camera",
+      "heading": "Camera won't turn on",
+      "rows": [
+        {
+          "sym": "Camera button is greyed and tooltip reads <b>“No camera detected on this device”</b>",
+          "cause": "Canvas M probed for a camera when the call went live and found none, so the toggle is disabled.",
+          "fix": "Connect a webcam, then leave and rejoin the call so the device is re-probed. The audio call keeps working without a camera.",
+          "ref": "callControls.noCameraTitle"
+        },
+        {
+          "sym": "Tooltip reads <b>“Couldn't start the camera — check permissions and retry.”</b>",
+          "cause": "The camera exists but failed to start — usually a denied permission or another app holding it.",
+          "fix": "Allow the camera in your browser's site settings (or close the other app), then click the camera button again.",
+          "ref": "callControls.cameraError"
+        },
+        {
+          "sym": "Camera button shows a spinner and won't respond",
+          "cause": "The camera is in its <em>starting</em> state. The toggle is disabled until it resolves to on or off.",
+          "fix": "Wait a moment. If it never settles, leave and rejoin the call.",
+          "ref": "videoState.CameraStatus"
+        },
+        {
+          "sym": "Background blur or image options are missing or greyed",
+          "cause": "Background effects are <b>desktop-only</b>. The tooltip reads <em>“Background effects are only supported on desktop”</em>.",
+          "fix": "Use a laptop or desktop to change or blur your camera background. Your saved choice auto-applies when the camera turns on.",
+          "ref": "videoBg.desktopOnlyTitle"
+        }
+      ],
+      "note": "Turning the camera on never disturbs your audio: it opts in on the same call, defaulting to off. If permission is denied the tile simply keeps showing your avatar."
+    },
+    "ch18-join": {
+      "eyebrow": "Join · Waiting",
+      "heading": "Can't get into the meeting",
+      "rows": [
+        {
+          "sym": "Lobby shows <b>“That link or room code isn't valid.”</b>",
+          "cause": "The link or code you pasted into <b>Paste a link or room code to join</b> didn't parse as a meeting.",
+          "fix": "Re-copy the full invite link and paste it again. Ask the host to resend if it still fails.",
+          "ref": "lobby.joinError"
+        },
+        {
+          "sym": "Full-screen card: <b>“Meeting hasn't started yet”</b> with a spinner and <em>“Waiting for the host to start the meeting…”</em>",
+          "cause": "You opened a scheduled meeting before the host pressed start. Canvas M polls and joins you automatically the moment it goes live.",
+          "fix": "Leave the card open and wait — you'll be pulled in as soon as it starts. Use <b>Back to home</b> if you'd rather wait elsewhere.",
+          "ref": "gate.waitingHost"
+        },
+        {
+          "sym": "Card: <b>“Waiting to be let in”</b> with <em>“Waiting for the host to let you in…”</em>",
+          "cause": "As an external guest, you knocked on a live meeting with a waiting room. Internal staff skip this; guests wait to be admitted.",
+          "fix": "Wait — Canvas M polls your knock and admits you automatically once the host accepts. It shows who you're <em>“Joining as”</em> while you wait.",
+          "ref": "gate.waitingAdmit"
+        },
+        {
+          "sym": "Card: <b>“Not admitted”</b> with <em>“The host hasn't let you in right now. You can knock again in a moment.”</em>",
+          "cause": "The host denied your knock, or you're inside the 30-second re-knock cooldown.",
+          "fix": "Click <b>Knock again</b>. If it doesn't take, wait a few seconds for the cooldown and retry; the button reads <em>“Knocking…”</em> while it sends.",
+          "ref": "gate.deniedDesc"
+        },
+        {
+          "sym": "Card: <b>“Meeting cancelled”</b> — <em>“The organizer cancelled this meeting.”</em>",
+          "cause": "The organizer cancelled this meeting; there is nothing live to join.",
+          "fix": "Click <b>Back to home</b>. Watch your invitations for a rescheduled time.",
+          "ref": "gate.cancelledDesc"
+        },
+        {
+          "sym": "Card: <b>“Meeting has ended”</b> — <em>“This meeting has ended. The organizer will share a recap with you separately.”</em>",
+          "cause": "The meeting finished. Internal members open it read-only for review; guests see only this notice.",
+          "fix": "Nothing to do — wait for the host's recap. Internal members can reopen it from the project for read-only review.",
+          "ref": "gate.finishedDesc"
+        },
+        {
+          "sym": "Banner: <b>“The host removed you from the meeting.”</b>",
+          "cause": "The host removed you from the room.",
+          "fix": "Nothing in-app overrides this. If it was a mistake, ask the host to re-invite you.",
+          "ref": "participants.kickedMsg"
+        },
+        {
+          "sym": "Error toast: <b>“Couldn't verify the meeting state (lost connection to the server). Try again later.”</b>",
+          "cause": "Canvas M lost its connection to the server while checking whether the meeting could be joined.",
+          "fix": "Check your network and try again later. A reload re-runs the check from a clean state.",
+          "ref": "errors.joinUnverified"
+        }
+      ],
+      "note": {
+        "tag": "Host-only",
+        "html": "The <b>Start meeting</b> button and the admit / deny waiting-room controls are <b>Host-only</b> — they only appear for the owning department (organizer, host, co-host, or a same-department member). If you don't see <b>Start meeting</b>, you're not expected to; simply wait."
+      }
+    },
+    "ch18-share": {
+      "eyebrow": "Share",
+      "heading": "Screen sharing won't start",
+      "rows": [
+        {
+          "sym": "<b>Present</b> button is greyed with tooltip <em>“Screen sharing isn't supported on this device or browser (e.g. iPad / iPhone). Present from a computer instead.”</em>",
+          "cause": "Your browser doesn't offer the screen-capture API. iPad and iPhone Safari can't share a screen at all.",
+          "fix": "Present from a computer instead. Open the same meeting link on a laptop or desktop to share.",
+          "ref": "header.presentUnsupported"
+        },
+        {
+          "sym": "<b>Present</b> button is disabled while someone else is sharing",
+          "cause": "Only one person presents at a time. The presenter's tooltip reads <em>“{name} is presenting — wait for them to finish”</em>.",
+          "fix": "Wait for the current presenter to stop. The button frees up the moment they end their share.",
+          "ref": "screenShare.lockedBy"
+        },
+        {
+          "sym": "Toast: <b>“Couldn't present your screen.”</b> (with extra detail)",
+          "cause": "The browser's screen-picker was cancelled or the capture failed to start.",
+          "fix": "Click <b>Present</b> again and pick a window or screen in the browser dialog. Don't dismiss the picker.",
+          "ref": "errors.presentFailed"
+        },
+        {
+          "sym": "Toast: <b>“Couldn't share your screen”</b>",
+          "cause": "The screen track errored after it started.",
+          "fix": "Stop and restart the share. If it keeps failing, reload and rejoin the call before presenting.",
+          "ref": "screenShare.startError"
+        },
+        {
+          "sym": "Shared screen shows <b>“Connecting…”</b> and doesn't appear",
+          "cause": "The presenter's screen track is still being negotiated.",
+          "fix": "Wait a moment — it resolves on its own. If it never paints, ask the presenter to stop and re-share.",
+          "ref": "screenShare.connecting"
+        }
+      ],
+      "note": "When you do present, you'll see <b>You are presenting</b>; others see <b>{name} is presenting</b>. Use <b>Pop out</b> to drag the shared view to a second screen, or <b>Stop sharing</b> to end it."
+    },
+    "ch18-files": {
+      "eyebrow": "Files · Viewers",
+      "heading": "A file won't open or upload",
+      "rows": [
+        {
+          "sym": "Toast: <b>“Only images, DXF, PDF and IFC are supported for now. Skipped: {name}”</b>",
+          "cause": "You dropped a file type the room library doesn't handle. Unsupported files are skipped.",
+          "fix": "Convert to an image, PDF, DXF, or IFC and upload again. The upload bar lists the accepted types.",
+          "ref": "library.unsupportedType"
+        },
+        {
+          "sym": "Toast: <b>“Couldn't process IFC file: {name}”</b>",
+          "cause": "The IFC model couldn't be parsed — usually a corrupt or unsupported export.",
+          "fix": "Re-export the IFC from your BIM tool and upload again.",
+          "ref": "library.ifcProcessFailed"
+        },
+        {
+          "sym": "3D pane shows <b>“Couldn't read IFC model”</b> or CAD pane shows <b>“Couldn't read DXF”</b>",
+          "cause": "The viewer failed to load the file's geometry. The detail follows the message.",
+          "fix": "Close the pane and reopen the file. If it still fails, re-export and re-upload it.",
+          "ref": "ifc.status.loadError"
+        },
+        {
+          "sym": "Pane reads <b>“Maximum 3D models already open. Close another file to view this one.”</b> (or the DXF equivalent)",
+          "cause": "You've hit the limit of simultaneously open 3D/CAD viewers.",
+          "fix": "Close an open IFC or DXF tab, then open the new one.",
+          "ref": "ifc.status.capacity"
+        },
+        {
+          "sym": "Viewer sits on <b>“Waiting for IFC file from peer…”</b> (also for DXF / PDF)",
+          "cause": "Another participant opened the file; your copy is still streaming over from them.",
+          "fix": "Wait — it loads once the transfer completes. If it stalls, ask them to re-open it.",
+          "ref": "ifc.status.waitingPeer"
+        },
+        {
+          "sym": "Deleting a library file warns <b>“This file is locked by {lockedBy}. Ask them to unlock it first.”</b>",
+          "cause": "Someone locked the file to stop accidental deletion.",
+          "fix": "Ask the person who locked it (or the original uploader) to unlock it, then delete.",
+          "ref": "library.deleteLockedAlert"
+        },
+        {
+          "sym": "My Files: <b>“Upload failed: {name}”</b> or <b>“File too large (max 50MB): {name}”</b>",
+          "cause": "The upload to your personal shelf failed, or the file exceeds the 50MB limit.",
+          "fix": "Check your connection and retry; for oversized files, compress or split below 50MB.",
+          "ref": "myfiles.uploadFailed"
+        },
+        {
+          "sym": "Picker: <b>“Couldn't load the file from your shelf: {name}”</b>",
+          "cause": "Copying a shelf file into the meeting failed mid-transfer.",
+          "fix": "Try the file again from <b>My Files</b>. A reload of the meeting also clears a stuck copy.",
+          "ref": "myfiles.copyFailed"
+        }
+      ],
+      "note": {
+        "tag": "Note",
+        "html": "If a meeting has finished and you reopen it for review, the library turns read-only: <em>“The meeting has finished — the library is read-only, uploads are disabled.”</em> That's expected, not a fault."
+      }
+    },
+    "ch18-captions": {
+      "eyebrow": "Captions · Transcript",
+      "heading": "Captions or transcript aren't appearing",
+      "rows": [
+        {
+          "sym": "Transcript panel reads <b>“Turn on STT to start speech recognition.”</b> with a <b>PAUSED</b> badge",
+          "cause": "Speech-to-text is off. Captions and the live transcript both depend on it.",
+          "fix": "Toggle <b>STT: on</b> in the transcript panel. The badge changes from <b>PAUSED</b> to <b>LIVE</b>.",
+          "ref": "stt.paused"
+        },
+        {
+          "sym": "Badge reads <b>No audio</b> even though STT is on",
+          "cause": "STT is on but no audio is reaching it — usually a muted mic, or a suspended audio context on iPad.",
+          "fix": "Unmute your mic. On iPad, tap the page once to wake the audio context.",
+          "ref": "stt.statusNoAudio"
+        },
+        {
+          "sym": "Transcript shows <b>“Waiting for someone to speak…”</b> and never fills",
+          "cause": "STT is live but no one is speaking, or no mic audio is being captured.",
+          "fix": "If you expect captions of your own voice, confirm your mic is unmuted and the badge reads <b>Live</b>.",
+          "ref": "stt.waiting"
+        },
+        {
+          "sym": "Panel shows <b>“STT error”</b> or <b>“STT WebSocket error”</b> (badge <b>ERROR</b>)",
+          "cause": "The connection to the speech service dropped or failed to open.",
+          "fix": "Toggle STT off and on to reconnect. If it persists, reload and rejoin the call.",
+          "ref": "stt.wsError"
+        },
+        {
+          "sym": "Panel reads <b>“Failed to load STT worklet: {message}”</b>",
+          "cause": "The audio-processing module the browser needs for STT failed to load.",
+          "fix": "Reload the page so the worklet re-downloads, then turn STT on again.",
+          "ref": "stt.workletLoadFailed"
+        },
+        {
+          "sym": "Meeting log is empty: <b>“No transcript yet. Join a call + turn on STT to start recording.”</b>",
+          "cause": "No segments were captured — either no one had STT on, or the call was never joined.",
+          "fix": "Join the audio call and turn on STT so future speech is recorded into the log.",
+          "ref": "log.emptyTranscript"
+        },
+        {
+          "sym": "Captions don't show even with STT on",
+          "cause": "The caption strip can be hidden, or set to auto-show only while presenting.",
+          "fix": "Turn on <b>Captions (CC)</b> in the header (it toggles between <em>“Turn on captions (CC)”</em> and <em>“Turn off captions (CC)”</em>). Check <b>Show captions while presenting</b> in Settings → Preferences.",
+          "ref": "header.captionToggle"
+        }
+      ],
+      "note": "Speech-to-text needs your consent. In Settings → Privacy, <b>Allow mic transcription (Deepgram)</b> must be on; off means nothing from your mic is sent and you'll never see your own captions."
+    },
+    "ch18-statusref": {
+      "eyebrow": "Reference",
+      "heading": "Status badges and what they mean",
+      "cols": [
+        "Badge / label",
+        "Where it shows",
+        "What it means"
+      ],
+      "rows": [
+        [
+          "<b>LIVE</b>",
+          "Transcript panel",
+          "Speech-to-text is on and the session is connected."
+        ],
+        [
+          "<b>Live</b>",
+          "Transcript panel",
+          "Your mic audio is actively flowing into transcription right now."
+        ],
+        [
+          "<b>No audio</b>",
+          "Transcript panel",
+          "STT is on but no audio is reaching it — muted mic or suspended context."
+        ],
+        [
+          "<b>PAUSED</b>",
+          "Transcript panel",
+          "Speech-to-text is turned off; turn it on to capture speech."
+        ],
+        [
+          "<b>ERROR</b>",
+          "Transcript panel",
+          "The speech connection failed; toggle STT off and on to retry."
+        ],
+        [
+          "<b>TEST</b>",
+          "Transcript panel",
+          "You're running an audio file through STT to check accuracy, not a live mic."
+        ],
+        [
+          "<b>Listening</b>",
+          "Call controls",
+          "You're in the call with no usable mic — you hear everyone but can't speak."
+        ],
+        [
+          "<b>Preview</b> / Not in a room",
+          "Participant strip / header",
+          "You're viewing the canvas but haven't joined a live room yet."
+        ],
+        [
+          "<b>Reviewing (read-only)</b>",
+          "Meeting banner",
+          "The meeting finished; you can extract content but not edit, chat, or upload."
+        ]
+      ],
+      "note": "Badges are status, not errors — most need no action. Only <b>ERROR</b> and <b>No audio</b> ask you to do something.",
+      "host": {
+        "tag": "Host-only",
+        "html": "Recording carries its own badges: a non-host sees <em>“{host} is recording the meeting”</em> and the record button stays disabled. Starting and stopping a recording is <b>Host-only</b>."
+      }
+    }
+  },
+  "figures": {
+    "ch18-st-join": {
+      "ref": "18.2",
+      "placeholder": "Call control in the Join state — open-door icon"
+    },
+    "ch18-st-live": {
+      "ref": "18.3",
+      "placeholder": "Live mic and camera buttons — accent mic, red muted state"
+    },
+    "ch18-st-listen": {
+      "ref": "18.4",
+      "placeholder": "Disabled listen-only mic button with its tooltip"
+    },
+    "ch18-st-error": {
+      "ref": "18.5",
+      "placeholder": "Red MicOff error button with the mic-denied tooltip and retry hint"
+    },
+    "ch18-st-connecting": {
+      "ref": "18.6",
+      "placeholder": "Disabled spinner button while requesting mic permission"
+    },
+    "ch18-st-denied": {
+      "ref": "18.7",
+      "placeholder": "Waiting-room 'Not admitted' card with the Knock again button"
+    }
+  }
+}

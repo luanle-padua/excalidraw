@@ -1,20 +1,72 @@
 {
   "number": 2,
   "blocks": [
-    { "id": "ch2-open", "type": "opener", "layout": "opener" },
-    { "id": "ch2-paths", "type": "prose", "layout": "prose", "diagram": "ch2-flow" },
-    { "id": "ch2-find", "type": "steps", "layout": "steps", "figure": "ch2-portal" },
-    { "id": "ch2-gate", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch2-gate-wait", "ch2-gate-cancelled", "ch2-gate-finished"] },
-    { "id": "ch2-knock", "type": "steps", "layout": "steps", "figure": "ch2-waiting" },
-    { "id": "ch2-shell", "type": "plate", "layout": "plate", "figure": "ch2-shell" },
-    { "id": "ch2-call", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch2-call-idle", "ch2-call-live", "ch2-call-error"] },
-    { "id": "ch2-refs", "type": "reference-table", "layout": "table" },
-    { "id": "ch2-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch2-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch2-paths",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch2-flow"
+    },
+    {
+      "id": "ch2-find",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch2-portal"
+    },
+    {
+      "id": "ch2-gate",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch2-gate-wait",
+        "ch2-gate-cancelled",
+        "ch2-gate-finished"
+      ]
+    },
+    {
+      "id": "ch2-knock",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch2-waiting"
+    },
+    {
+      "id": "ch2-shell",
+      "type": "plate",
+      "layout": "plate",
+      "figure": "ch2-shell"
+    },
+    {
+      "id": "ch2-call",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch2-call-idle",
+        "ch2-call-live",
+        "ch2-call-error"
+      ]
+    },
+    {
+      "id": "ch2-refs",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch2-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch2-open": {
       "eyebrow": "Chapter 2",
-      "title": "Joining a meeting",
+      "title": "Join a meeting",
       "standfirst": "Every meeting in Canvas M is reached the same way: you sign in, you pick the meeting from your list, and the app routes you to whichever door is open for you. This chapter walks the whole path — from the meeting list, through the waiting screens, to the moment your microphone goes live."
     },
     "ch2-paths": {
@@ -23,8 +75,14 @@
       "lead": "<b>Joining is always login-first.</b> There is no anonymous room URL to paste — access is by explicit invitation, and the server checks who you are before it hands back the room key. So the journey always starts the same way: sign in, find the meeting, press <b>Join</b>. What happens next depends on the meeting's state, not on anything you click.",
       "body": "Press <b>Join</b> on a meeting and Canvas M sends you down exactly one of three paths. If the meeting is <em>live</em> and you are internal staff, you go straight onto the canvas. If it is <em>scheduled</em> and has not started, you land on a <b>“Meeting hasn't started yet”</b> waiting screen until the host presses Start. If you are an external guest, you may land in a <b>waiting room</b> and knock to be let in. You never choose the door — the app picks it from the meeting's status and your role.",
       "pull": "There is no room link to share. You join meetings you were invited to — nothing else opens.",
-      "diagram": { "label": "The join router", "cap": "Press Join, then the meeting's status decides: live → straight in; scheduled → start gate; guest into a live room → waiting room." },
-      "note": { "tag": "Good to know", "html": "Joining a call never asks for your microphone up front. You enter <em>listening-only</em>, and the browser's mic permission prompt fires later — the first time you unmute or turn on captions." }
+      "diagram": {
+        "label": "The join router",
+        "cap": "Press Join, then the meeting's status decides: live → straight in; scheduled → start gate; guest into a live room → waiting room."
+      },
+      "note": {
+        "tag": "Good to know",
+        "html": "Joining a call never asks for your microphone up front. You enter <em>listening-only</em>, and the browser's mic permission prompt fires later — the first time you unmute or turn on captions."
+      }
     },
     "ch2-find": {
       "eyebrow": "Finding your meeting",
@@ -38,16 +96,28 @@
       ],
       "outcome": "The lobby disappears and the live meeting canvas fills the screen. You are <em>in</em> the meeting — but not yet in the audio/video call (that is a separate, deliberate step covered later).",
       "note": "If your meeting isn't listed, you haven't been invited yet. Guests see the empty-state line <b>“No meetings yet — MAP will add you here.”</b> Ask the organizer to add you; there is no link you can paste to get in.",
-      "host": { "tag": "Host-only", "html": "Starting, scheduling and inviting people are organizer/host actions reached from the project view and the in-meeting <b>Invite</b> button. As a participant you only ever <b>Join</b>." },
+      "host": {
+        "tag": "Host-only",
+        "html": "Starting, scheduling and inviting people are organizer/host actions reached from the project view and the in-meeting <b>Invite</b> button. As a participant you only ever <b>Join</b>."
+      },
       "figcap": "The guest portal lists only the meetings you were invited to, split into upcoming and finished."
     },
     "ch2-gate": {
       "eyebrow": "The start gate",
       "heading": "When the meeting hasn't started",
       "tiles": [
-        { "state": "Waiting for the host", "cap": "A scheduled meeting you've opened early. You see <b>“Meeting hasn't started yet”</b>, the scheduled time, and a spinner reading <b>“Waiting for the host to start the meeting…”</b> The app polls every few seconds and drops you straight in the instant the host starts." },
-        { "state": "Meeting cancelled", "cap": "A terminal notice: <b>“Meeting cancelled”</b> with <b>“The organizer cancelled this meeting.”</b> There is no way forward — use <b>Back to home</b>." },
-        { "state": "Meeting has ended", "cap": "Shown to guests if the meeting finished before they got in: <b>“Meeting has ended”</b> and <b>“This meeting has ended. The organizer will share a recap with you separately.”</b>" }
+        {
+          "state": "Waiting for the host",
+          "cap": "A scheduled meeting you've opened early. You see <b>“Meeting hasn't started yet”</b>, the scheduled time, and a spinner reading <b>“Waiting for the host to start the meeting…”</b> The app polls every few seconds and drops you straight in the instant the host starts."
+        },
+        {
+          "state": "Meeting cancelled",
+          "cap": "A terminal notice: <b>“Meeting cancelled”</b> with <b>“The organizer cancelled this meeting.”</b> There is no way forward — use <b>Back to home</b>."
+        },
+        {
+          "state": "Meeting has ended",
+          "cap": "Shown to guests if the meeting finished before they got in: <b>“Meeting has ended”</b> and <b>“This meeting has ended. The organizer will share a recap with you separately.”</b>"
+        }
       ],
       "useWhen": "You'll see one of these whenever you open a meeting that isn't live yet. The waiting screen is patient — you can leave it open and it will auto-join you when the meeting goes live. Every state offers <b>Back to home</b> to return to your meeting list."
     },
@@ -64,74 +134,227 @@
       ],
       "outcome": "On admission you arrive in the meeting with your microphone off — nothing is broadcast until you choose to join the call and unmute.",
       "note": "Internal staff never see the waiting room — they're admitted automatically. The waiting room is only for external guests entering a live meeting. Use <b>Back to home</b> at any point to leave the queue.",
-      "host": { "tag": "Host-only", "html": "Admitting and declining knocks is a host control, shown to the host as a <b>“Waiting to join”</b> section in the participants panel with <b>Admit</b> and <b>Deny</b> buttons." },
+      "host": {
+        "tag": "Host-only",
+        "html": "Admitting and declining knocks is a host control, shown to the host as a <b>“Waiting to join”</b> section in the participants panel with <b>Admit</b> and <b>Deny</b> buttons."
+      },
       "figcap": "The guest waiting room: your name, the meeting title, and a live spinner while the host decides."
     },
     "ch2-shell": {
       "eyebrow": "You're in",
       "legend": [
-        { "n": 1, "text": "<b>Canvas M wordmark</b> — the brand mark; tells you which app you're in." },
-        { "n": 2, "text": "<b>Meeting title</b> — the project name above the meeting name (or <b>“Untitled meeting”</b>). It's static text for you; only the organizer sees an edit chevron." },
-        { "n": 3, "text": "<b>Elapsed timer</b> — the clock icon shows time since the host started; tooltip <b>“Meeting time elapsed.”</b> Late joiners see the same shared time, not their own." },
-        { "n": 4, "text": "<b>People count</b> — the head-count in the room; a small mic badge shows how many are in the audio call. Click it to open the <b>Participants</b> panel." },
-        { "n": 5, "text": "<b>Media group</b> — join/leave the call, mic, camera, raise-hand, reactions and present sit here (covered next)." },
-        { "n": 6, "text": "<b>Captions & transcript</b> — the <b>Captions (CC)</b> toggle and the <b>Transcript</b> button (with a live segment count)." },
-        { "n": 7, "text": "<b>Leave</b> — the door/arrow icon, tooltip <b>“Leave”</b>: you exit the room; everyone else stays." }
+        {
+          "n": 1,
+          "text": "<b>Canvas M wordmark</b> — the brand mark; tells you which app you're in."
+        },
+        {
+          "n": 2,
+          "text": "<b>Meeting title</b> — the project name above the meeting name (or <b>“Untitled meeting”</b>). It's static text for you; only the organizer sees an edit chevron."
+        },
+        {
+          "n": 3,
+          "text": "<b>Elapsed timer</b> — the clock icon shows time since the host started; tooltip <b>“Meeting time elapsed.”</b> Late joiners see the same shared time, not their own."
+        },
+        {
+          "n": 4,
+          "text": "<b>People count</b> — the head-count in the room; a small mic badge shows how many are in the audio call. Click it to open the <b>Participants</b> panel."
+        },
+        {
+          "n": 5,
+          "text": "<b>Media group</b> — join/leave the call, mic, camera, raise-hand, reactions and present sit here (covered next)."
+        },
+        {
+          "n": 6,
+          "text": "<b>Captions & transcript</b> — the <b>Captions (CC)</b> toggle and the <b>Transcript</b> button (with a live segment count)."
+        },
+        {
+          "n": 7,
+          "text": "<b>Leave</b> — the door/arrow icon, tooltip <b>“Leave”</b>: you exit the room; everyone else stays."
+        }
       ]
     },
     "ch2-call": {
       "eyebrow": "Joining the audio/video call",
       "heading": "Being in the meeting vs. being in the call",
       "tiles": [
-        { "state": "Before you join the call", "cap": "Being on the canvas does not put you in the call. An <b>open-door</b> button (tooltip <b>“Join”</b>) sits in the media group. Press it to enter the call — listening-only, no mic prompt yet. While it connects you see a spinner, tooltip <b>“Requesting mic permission…”</b>" },
-        { "state": "In the call", "cap": "The cluster expands: <b>Mic</b> (<b>Mute</b>/<b>Unmute</b>), <b>Camera</b> (<b>Turn on/off camera</b>, off by default), <b>Raise hand</b>, <b>Reactions</b> (👍 ❤️ 😂 🎉 👏 😮) and <b>Leave call</b> (phone-down). Your first unmute is when the browser asks for the microphone." },
-        { "state": "When something's wrong", "cap": "A red mic-off button carries the reason in its tooltip and click <em>retries</em>: <b>“Microphone denied…”</b>, <b>“Microphone is in use by another app…”</b>, or <b>“Couldn't join the call — check your network and try again.”</b> No microphone at all shows <b>“Listening”</b> / <b>“This device has no microphone — listen only.”</b>" }
+        {
+          "state": "Before you join the call",
+          "cap": "Being on the canvas does not put you in the call. An <b>open-door</b> button (tooltip <b>“Join”</b>) sits in the media group. Press it to enter the call — listening-only, no mic prompt yet. While it connects you see a spinner, tooltip <b>“Requesting mic permission…”</b>"
+        },
+        {
+          "state": "In the call",
+          "cap": "The cluster expands: <b>Mic</b> (<b>Mute</b>/<b>Unmute</b>), <b>Camera</b> (<b>Turn on/off camera</b>, off by default), <b>Raise hand</b>, <b>Reactions</b> (👍 ❤️ 😂 🎉 👏 😮) and <b>Leave call</b> (phone-down). Your first unmute is when the browser asks for the microphone."
+        },
+        {
+          "state": "When something's wrong",
+          "cap": "A red mic-off button carries the reason in its tooltip and click <em>retries</em>: <b>“Microphone denied…”</b>, <b>“Microphone is in use by another app…”</b>, or <b>“Couldn't join the call — check your network and try again.”</b> No microphone at all shows <b>“Listening”</b> / <b>“This device has no microphone — listen only.”</b>"
+        }
       ],
       "useWhen": "Join the call when you want to hear and speak. <b>Leave call</b> (phone-down) hangs up the audio/video only — you stay on the canvas. That is different from <b>Leave</b> in the header (you exit the meeting). Both are different again from the host's red <b>End meeting</b>."
     },
     "ch2-refs": {
       "eyebrow": "Reference",
       "heading": "The three “exit” verbs, and what each control says",
-      "cols": ["Control", "Where", "Label / tooltip", "What it does"],
-      "rows": [
-        ["Join (call)", "Media group, open-door icon", "Join", "Enters the audio/video call, listening-only — no mic prompt yet."],
-        ["Mic", "Media group", "Mute / Unmute", "Toggles your microphone. First unmute triggers the browser permission prompt."],
-        ["Camera", "Media group", "Turn on camera / Turn off camera", "Off by default; opt-in. Disabled with a reason if no camera is detected."],
-        ["Raise hand", "Media group", "Raise hand / Lower hand", "Signals the host; peers see your hand raised."],
-        ["Reactions", "Media group, smiley", "Reactions", "Fires a quick emoji (👍 ❤️ 😂 🎉 👏 😮) to the room."],
-        ["Leave call", "Media group, phone-down", "Leave call", "Hangs up audio/video; you stay on the canvas."],
-        ["Leave", "Far-right, door icon", "Leave", "You exit the meeting; everyone else stays in the room."],
-        ["Back to home", "Waiting screens", "Back to home", "Drops out of the waiting/start gate and returns to your meeting list."]
+      "cols": [
+        "Control",
+        "Where",
+        "Label / tooltip",
+        "What it does"
       ],
-      "host": { "tag": "Host-only", "html": "A red power icon (<b>“End meeting”</b>) appears only for the host/organizer/co-host and switches <em>everyone</em> to read-only review. As a participant you won't see it." }
+      "rows": [
+        [
+          "Join (call)",
+          "Media group, open-door icon",
+          "Join",
+          "Enters the audio/video call, listening-only — no mic prompt yet."
+        ],
+        [
+          "Mic",
+          "Media group",
+          "Mute / Unmute",
+          "Toggles your microphone. First unmute triggers the browser permission prompt."
+        ],
+        [
+          "Camera",
+          "Media group",
+          "Turn on camera / Turn off camera",
+          "Off by default; opt-in. Disabled with a reason if no camera is detected."
+        ],
+        [
+          "Raise hand",
+          "Media group",
+          "Raise hand / Lower hand",
+          "Signals the host; peers see your hand raised."
+        ],
+        [
+          "Reactions",
+          "Media group, smiley",
+          "Reactions",
+          "Fires a quick emoji (👍 ❤️ 😂 🎉 👏 😮) to the room."
+        ],
+        [
+          "Leave call",
+          "Media group, phone-down",
+          "Leave call",
+          "Hangs up audio/video; you stay on the canvas."
+        ],
+        [
+          "Leave",
+          "Far-right, door icon",
+          "Leave",
+          "You exit the meeting; everyone else stays in the room."
+        ],
+        [
+          "Back to home",
+          "Waiting screens",
+          "Back to home",
+          "Drops out of the waiting/start gate and returns to your meeting list."
+        ]
+      ],
+      "host": {
+        "tag": "Host-only",
+        "html": "A red power icon (<b>“End meeting”</b>) appears only for the host/organizer/co-host and switches <em>everyone</em> to read-only review. As a participant you won't see it."
+      }
     },
     "ch2-trouble": {
       "eyebrow": "When joining goes sideways",
       "heading": "Common snags and how to clear them",
       "rows": [
-        { "sym": "My meeting isn't in the list", "cause": "You haven't been invited, or the invite was revoked", "fix": "Ask the organizer to add you. Guests see <b>“No meetings yet — MAP will add you here.”</b> — there's no link to paste in.", "ref": "2.2" },
-        { "sym": "Stuck on “Waiting for the host to start”", "cause": "The meeting is scheduled and hasn't been started", "fix": "Leave it open — it auto-joins the moment the host starts. Or press <b>Back to home</b> and try again later.", "ref": "2.3" },
-        { "sym": "“Not admitted” after knocking", "cause": "The host declined or hasn't responded", "fix": "Press <b>Knock again</b>; wait a moment if it doesn't take — there's a short cooldown.", "ref": "2.4" },
-        { "sym": "“Meeting cancelled” / “Meeting has ended”", "cause": "The organizer cancelled or ended the meeting", "fix": "These are terminal. The organizer shares a recap separately. Use <b>Back to home</b>.", "ref": "2.3" },
-        { "sym": "Red mic button — “Microphone denied”", "cause": "Browser blocked mic access", "fix": "Enable the mic in browser settings, then click the button to retry.", "ref": "2.5" },
-        { "sym": "“Microphone is in use by another app”", "cause": "Teams / Zoom (or similar) holds the mic", "fix": "Quit the other app, then click the red button to retry.", "ref": "2.5" },
-        { "sym": "“Couldn't join the call”", "cause": "Network hiccup reaching the call server", "fix": "Check your connection and click the red button to retry.", "ref": "2.5" },
-        { "sym": "“Listening” — mic is greyed out", "cause": "No microphone on this device", "fix": "Expected — you can still hear everyone. Join from a device with a mic to speak.", "ref": "2.5" },
-        { "sym": "The host removed me", "cause": "A host removed you from the meeting", "fix": "You'll see <b>“The host removed you from the meeting.”</b> Re-join only if you're still invited.", "ref": "2.4" }
+        {
+          "sym": "My meeting isn't in the list",
+          "cause": "You haven't been invited, or the invite was revoked",
+          "fix": "Ask the organizer to add you. Guests see <b>“No meetings yet — MAP will add you here.”</b> — there's no link to paste in.",
+          "ref": "2.2"
+        },
+        {
+          "sym": "Stuck on “Waiting for the host to start”",
+          "cause": "The meeting is scheduled and hasn't been started",
+          "fix": "Leave it open — it auto-joins the moment the host starts. Or press <b>Back to home</b> and try again later.",
+          "ref": "2.3"
+        },
+        {
+          "sym": "“Not admitted” after knocking",
+          "cause": "The host declined or hasn't responded",
+          "fix": "Press <b>Knock again</b>; wait a moment if it doesn't take — there's a short cooldown.",
+          "ref": "2.4"
+        },
+        {
+          "sym": "“Meeting cancelled” / “Meeting has ended”",
+          "cause": "The organizer cancelled or ended the meeting",
+          "fix": "These are terminal. The organizer shares a recap separately. Use <b>Back to home</b>.",
+          "ref": "2.3"
+        },
+        {
+          "sym": "Red mic button — “Microphone denied”",
+          "cause": "Browser blocked mic access",
+          "fix": "Enable the mic in browser settings, then click the button to retry.",
+          "ref": "2.5"
+        },
+        {
+          "sym": "“Microphone is in use by another app”",
+          "cause": "Teams / Zoom (or similar) holds the mic",
+          "fix": "Quit the other app, then click the red button to retry.",
+          "ref": "2.5"
+        },
+        {
+          "sym": "“Couldn't join the call”",
+          "cause": "Network hiccup reaching the call server",
+          "fix": "Check your connection and click the red button to retry.",
+          "ref": "2.5"
+        },
+        {
+          "sym": "“Listening” — mic is greyed out",
+          "cause": "No microphone on this device",
+          "fix": "Expected — you can still hear everyone. Join from a device with a mic to speak.",
+          "ref": "2.5"
+        },
+        {
+          "sym": "The host removed me",
+          "cause": "A host removed you from the meeting",
+          "fix": "You'll see <b>“The host removed you from the meeting.”</b> Re-join only if you're still invited.",
+          "ref": "2.4"
+        }
       ],
       "note": "Every call error button does double duty: the tooltip explains the problem and a single click retries. You rarely need to reload."
     }
   },
   "figures": {
-    "ch2-flow": { "ref": "2.1", "placeholder": "Flow diagram: Join → (live / scheduled / guest) → canvas / start gate / waiting room" },
-    "ch2-portal": { "ref": "2.2", "placeholder": "Guest portal — “Your meetings with MAP” with Join / Review rows" },
-    "ch2-gate-wait": { "ref": "2.3a", "placeholder": "Start gate — “Meeting hasn't started yet” with spinner" },
-    "ch2-gate-cancelled": { "ref": "2.3b", "placeholder": "Start gate — “Meeting cancelled” terminal notice" },
-    "ch2-gate-finished": { "ref": "2.3c", "placeholder": "Start gate — “Meeting has ended” terminal notice" },
-    "ch2-waiting": { "ref": "2.4", "placeholder": "Waiting room — “Waiting to be let in” card with name + spinner" },
-    "ch2-shell": { "ref": "2.5", "placeholder": "Meeting shell with numbered header legend", "shot": "06-meeting/shell" },
-    "ch2-call-idle": { "ref": "2.6a", "placeholder": "Media group before joining the call — open-door Join button" },
-    "ch2-call-live": { "ref": "2.6b", "placeholder": "Live call cluster — mic / camera / hand / reactions / leave call" },
-    "ch2-call-error": { "ref": "2.6c", "placeholder": "Red mic-off error button with retry tooltip" }
+    "ch2-portal": {
+      "ref": "2.2",
+      "placeholder": "Guest portal — “Your meetings with MAP” with Join / Review rows"
+    },
+    "ch2-gate-wait": {
+      "ref": "2.3a",
+      "placeholder": "Start gate — “Meeting hasn't started yet” with spinner"
+    },
+    "ch2-gate-cancelled": {
+      "ref": "2.3b",
+      "placeholder": "Start gate — “Meeting cancelled” terminal notice"
+    },
+    "ch2-gate-finished": {
+      "ref": "2.3c",
+      "placeholder": "Start gate — “Meeting has ended” terminal notice"
+    },
+    "ch2-waiting": {
+      "ref": "2.4",
+      "placeholder": "Waiting room — “Waiting to be let in” card with name + spinner"
+    },
+    "ch2-shell": {
+      "ref": "2.5",
+      "placeholder": "Meeting shell with numbered header legend",
+      "shot": "06-meeting/shell"
+    },
+    "ch2-call-idle": {
+      "ref": "2.6a",
+      "placeholder": "Media group before joining the call — open-door Join button"
+    },
+    "ch2-call-live": {
+      "ref": "2.6b",
+      "placeholder": "Live call cluster — mic / camera / hand / reactions / leave call"
+    },
+    "ch2-call-error": {
+      "ref": "2.6c",
+      "placeholder": "Red mic-off error button with retry tooltip"
+    }
   }
 }

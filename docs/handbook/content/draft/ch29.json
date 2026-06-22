@@ -1,0 +1,71 @@
+{
+  "number": 29,
+  "blocks": [
+    {
+      "id": "ch29-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch5-follow",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch5-follow-fig"
+    },
+    {
+      "id": "ch4-floating",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch4-pip"
+    }
+  ],
+  "strings": {
+    "ch29-open": {
+      "eyebrow": "Chapter 29",
+      "title": "Follow the presenter",
+      "standfirst": "Lock your viewport to someone else's, and keep their video in a floating window while you work — so the room can move together."
+    },
+    "ch5-follow": {
+      "eyebrow": "Follow a view",
+      "heading": "Lock your viewport to someone else's",
+      "steps": [
+        "In the participant strip along the bottom, hover any tile that is <em>not</em> your own; the tooltip reads <b>Click to follow their view</b>.",
+        "Click the tile. Your viewport zooms and pans to match theirs and stays locked as they move around the canvas.",
+        "An <b>👁</b> eye badge appears on that person's tile to show you are following them; the tooltip now reads <b>Following — click to stop</b>.",
+        "Click the same tile again to stop following — or press <kbd>Esc</kbd> anywhere to release the lock instantly.",
+        "Following someone else, or having them leave, also ends the follow."
+      ],
+      "outcome": "While following, your canvas tracks the other person's visible region automatically — useful when someone is walking the room through a drawing.",
+      "note": "Clicking your <em>own</em> tile does not follow anything; it opens your profile editor (display name, company, avatar) instead. The tooltip for your tile reads <b>Your profile</b>.",
+      "host": {
+        "tag": "Host-only",
+        "html": "Following is a personal, local action — you choose to follow, and only your view moves. No one can force you to follow them, and following someone never moves <em>their</em> view."
+      },
+      "figcap": "A followed tile showing the 👁 eye badge."
+    },
+    "ch4-floating": {
+      "eyebrow": "Keep watching while you draw",
+      "heading": "The floating presenter window",
+      "steps": [
+        "Open the <b>Video layout</b> popover and turn on <b>Floating presenter</b> (the row below the three surfaces).",
+        "A small picture-in-picture card appears over the canvas, showing the focused person's camera (or avatar) with their name.",
+        "Drag the card by its header to move it — on release it <b>snaps to the nearest corner</b>, and that corner is remembered.",
+        "Click <b>Minimise</b> to shrink it to a small circular puck; click the puck to bring the card back.",
+        "Click <b>Hide</b> (×) to dismiss it entirely."
+      ],
+      "outcome": "You keep watching the presenter in a corner while the canvas stays fully usable. The window shows the same focused person every other surface agrees on.",
+      "note": "The floating window only ever shows <em>someone else</em> — never your own face — and it is hidden automatically in <b>Gallery</b> mode, where everyone is already full-screen. The minimise tooltip reads <b>Reopen presenter window</b> on the puck.",
+      "figcap": "The floating presenter PiP, snapped to a corner with Minimise and Hide controls."
+    }
+  },
+  "figures": {
+    "ch5-follow-fig": {
+      "ref": "5.4",
+      "placeholder": "A participant tile with the 👁 follow badge and 'Following — click to stop' tooltip"
+    },
+    "ch4-pip": {
+      "ref": "4.6",
+      "placeholder": "Floating presenter card snapped to a corner"
+    }
+  }
+}

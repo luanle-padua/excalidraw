@@ -27,7 +27,7 @@
           <a class="btn" href="#map">Browse all chapters</a>
         </div>
         <div class="hero-meta">
-          <span>📘 <b>18</b> chapters · <b>6</b> parts</span>
+          <span>📘 <b id="chCount">47</b> chapters · <b id="partCount">12</b> parts</span>
           <span>🎯 Written for <b>meeting participants</b></span>
           <span>🌐 EN · VI · KO ready</span>
         </div>
@@ -54,8 +54,8 @@
       <!-- Chapter map -->
       <section class="hero" id="map" style="padding-top:1rem">
         <span class="eyebrow">The whole journey</span>
-        <h2 style="margin-top:0.6rem">Six parts, in the order you'll meet them</h2>
-        <p class="lead" style="font-size:1.05rem">Chapters 1–3 are written in full. The rest are scaffolded and fill in as the product settles.</p>
+        <h2 style="margin-top:0.6rem"><span id="partCount2">12</span> parts, in the order you'll meet them</h2>
+        <p class="lead" style="font-size:1.05rem">Every chapter is written from the live product; real screenshots fill in as captures are added.</p>
         <div id="chapterMap"></div>
       </section>
     </main>
@@ -66,6 +66,11 @@
     // Render the chapter map from the shared TOC.
     (function () {
       const wrap = document.getElementById("chapterMap");
+      // keep the part/chapter counts honest, straight from the generated TOC
+      var parts = window.MCM_TOC.length;
+      var chapters = window.MCM_TOC.reduce(function (n, p) { return n + p.chapters.length; }, 0);
+      var setText = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+      setText("chCount", chapters); setText("partCount", parts); setText("partCount2", parts);
       wrap.innerHTML = window.MCM_TOC.map(function (part) {
         const items = part.chapters.map(function (c) {
           const stub = c.ready ? "" : " stub";

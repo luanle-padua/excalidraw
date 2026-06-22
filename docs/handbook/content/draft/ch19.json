@@ -1,191 +1,265 @@
 {
   "number": 19,
   "blocks": [
-    { "id": "ch19-open", "type": "opener", "layout": "opener" },
-    { "id": "ch19-mental", "type": "prose", "layout": "prose" },
-    { "id": "ch19-find", "type": "steps", "layout": "steps", "figure": "ch19-manage" },
-    { "id": "ch19-create", "type": "steps", "layout": "steps" },
-    { "id": "ch19-fields", "type": "reference-table", "layout": "table" },
-    { "id": "ch19-detail", "type": "plate", "layout": "plate", "figure": "ch19-detail" },
-    { "id": "ch19-edit", "type": "steps", "layout": "steps" },
-    { "id": "ch19-members", "type": "steps", "layout": "steps" },
-    { "id": "ch19-roles", "type": "reference-table", "layout": "table" },
-    { "id": "ch19-cosmetic", "type": "steps", "layout": "steps" },
-    { "id": "ch19-states", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch19-state-mine", "ch19-state-invited", "ch19-state-empty"] },
-    { "id": "ch19-delete", "type": "steps", "layout": "steps" },
-    { "id": "ch19-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch19-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch11-model",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch11-flow"
+    },
+    {
+      "id": "ch11-upload",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch11-myfiles"
+    },
+    {
+      "id": "ch12-add-files",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch12-library-upload"
+    },
+    {
+      "id": "ch11-place",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch11-toolbar",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch11-states",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch11-state-empty",
+        "ch11-state-nomatch",
+        "ch11-state-readonly"
+      ]
+    },
+    {
+      "id": "ch11-lock",
+      "type": "prose",
+      "layout": "prose"
+    },
+    {
+      "id": "ch11-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch19-open": {
       "eyebrow": "Chapter 19",
-      "title": "Projects",
-      "standfirst": "A project is the folder every meeting lives in. It carries the client, the code, the phase and — most importantly — the people who may organise inside it. This chapter covers the dedicated <b>Manage projects</b> page: creating a project with full metadata, editing it, building the member roster, delegating authority, dressing it with a colour and icon, and deleting it when its work is done. Everything here is a host or manager action."
+      "title": "Meeting materials (the library)",
+      "standfirst": "Every image, drawing, document and 3D model the room shares lives in one shelf. This chapter shows you how to add a file, find it again, place it on the canvas, and keep it from being deleted out from under you."
     },
-    "ch19-mental": {
-      "eyebrow": "How it fits together",
-      "heading": "Two doors into one project",
-      "lead": "A project name appears in two places in the left sidebar, and they do different things. Knowing which is which saves a lot of hunting for controls that aren't where you expect.",
-      "body": "Clicking a project under the <b>Projects</b> heading in the sidebar takes you to that project's <em>meeting list</em> — a clean view of its cards, with a small ⚙ shortcut in the title row. That view holds <em>no</em> administration. All of it — create, edit metadata, members, guests, delete — lives on the separate <b>Manage projects</b> page, reached from the <b>Manage projects</b> sidebar item. The rule of thumb: the sidebar project link means “go to its meetings”; the Manage projects page means “administer it.” Creating a project just opens a personal folder where you become its leader and owner — it grants no power over anyone else's projects.",
-      "note": { "tag": "Internal-only", "html": "<b>Manage projects</b>, <b>Guest manager</b> and <b>My Files</b> appear in the sidebar only for internal staff accounts. A guest never sees them. The server enforces the same gate, so the page is genuinely staff-only, not merely hidden." }
+    "ch11-model": {
+      "eyebrow": "Mental model",
+      "heading": "One shelf, shared by everyone",
+      "lead": "<b>The library is the room's shared shelf of files.</b> Anything you upload appears for every participant, and anything they upload appears for you. It is not your personal storage — it belongs to <em>this meeting</em>.",
+      "body": "Four kinds of file are first-class here: ordinary <b>images</b>, <b>DXF</b> CAD drawings, <b>PDF</b> documents, and <b>IFC</b> 3D building models. Each tile carries a small type badge — <kbd>IMG</kbd>, <kbd>DXF</kbd>, <kbd>PDF</kbd>, <kbd>IFC</kbd>, or <kbd>FILE</kbd> for anything else. A file in the library is just a file; it does nothing until you <b>place</b> it on the canvas by clicking or dragging its tile.",
+      "pull": "Adding a file to the library shares it with the whole room. Placing it on the canvas is a separate, second step.",
+      "diagram": {
+        "label": "Upload → shelf → canvas",
+        "cap": "A file flows from your device into the shared shelf, then onto the canvas only when you click or drag it."
+      },
+      "note": {
+        "tag": "Good to know",
+        "html": "When you paste or drop an image straight onto the canvas, Canvas M quietly adds it to the library too, so peers receive it. App-generated assets — stickers, stamps, and the snapshot images behind PDF, DXF and IFC anchors — are deliberately kept out of the shelf so it stays clean."
+      }
     },
-    "ch19-find": {
-      "eyebrow": "Getting there",
-      "heading": "Open the Manage projects page",
+    "ch11-upload": {
+      "eyebrow": "Adding files",
+      "heading": "Upload from your device",
       "steps": [
-        "In the left sidebar, look below <b>My meetings</b> and <b>Invited / Upcoming</b> for the <b>Manage projects</b> item (folder-kanban icon).",
-        "Click it. The middle column switches to the project management page, titled <b>Manage projects</b>.",
-        "At the top sits a <b>Search projects…</b> box, a grid/list <b>View</b> toggle, and a <b>New project</b> button.",
-        "Projects are grouped: <b>My projects</b> (folders you belong to) and <b>Invited</b> (folders another department invited you into for one meeting), each with a count.",
-        "Click any project tile or row to drill into its detail. Click <b>All projects</b> to come back to the list."
+        "Open the library panel in the meeting.",
+        "Click <b>+ Upload image / DXF / PDF / IFC · or drag &amp; drop</b> at the top of the panel.",
+        "Pick one or more files — the picker accepts images, <kbd>.dxf</kbd>, <kbd>.pdf</kbd> and <kbd>.ifc</kbd>. You can select several at once.",
+        "Alternatively, drag files from your desktop straight onto the panel; the button changes to <b>Drop files to upload</b> while you hover.",
+        "Wait for the tile to appear — IFC models are baked in the background and can take several seconds for large files."
       ],
-      "outcome": "You're on the dedicated admin surface. The grid (card) view is the default — covers carry the page; the list view is a denser alternative.",
-      "note": "The toolbar (search + view toggle + New project) hides entirely when you have no projects yet — the empty state carries its own create button instead.",
-      "figcap": "The Manage projects page: search, view toggle, and grouped project tiles."
+      "outcome": "Each accepted file becomes a tile in the shelf, tagged with your name as the uploader, and is shared with everyone in the room.",
+      "note": "Only images, DXF, PDF and IFC are accepted. Drop anything else and you get “Only images, DXF, PDF and IFC are supported for now. Skipped: <em>name</em>”, and that one file is skipped while the rest carry on.",
+      "figcap": "The library panel with the upload button and the My Files shelf entry."
     },
-    "ch19-create": {
-      "eyebrow": "Starting a project",
-      "heading": "Create a project with full metadata",
+    "ch12-add-files": {
+      "eyebrow": "Bringing files in",
+      "heading": "Add a drawing or model to the room",
       "steps": [
-        "Click <b>New project</b> — at the top of the Manage projects page, in the empty state, or in the sidebar footer. All three open the same modal, titled <b>Create new project</b>.",
-        "Fill in the <b>Name</b> (required) and optionally a cover image, project code, client, location, branch/office, phase, project type and description.",
-        "Click <b>Save</b>. The app first creates the project by name, then saves the extra fields in a second step.",
-        "On success the modal closes and you land in the new project's detail — ready to add members, the natural next step.",
-        "If the create call itself fails, the modal stays open with everything you typed so you can retry; the toast reads <b>“Couldn't create the project — check your network and try again.”</b>"
+        "Open the room library — the bar down the right-hand side. At the bottom sits <b>+ Upload image / DXF / PDF / IFC · or drag &amp; drop</b>; click it, or drag files straight onto the bar.",
+        "Pick a <b>.dxf</b> drawing or a <b>.ifc</b> model (images and <b>.pdf</b> work here too). Anything else is skipped with <em>“Only images, DXF, PDF and IFC are supported for now.”</em>",
+        "A DXF appears almost at once under the <b>CAD drawings</b> heading. An IFC is first converted into a lightweight 3D model — a large building can take several seconds, which is normal — then lands under <b>IFC models</b>.",
+        "Click a tile to drop the file at the centre of the canvas, or drag the tile exactly where you want it. If that file is already on the canvas, Canvas M jumps to it instead of making a copy.",
+        "The file becomes an <em>anchor</em> you can move, resize and lock like any other element."
       ],
-      "outcome": "The new project is created with you as its leader and owner. There is only one create path — full metadata in one modal — so no half-configured folders.",
-      "note": "If the name saves but the extra details don't, you still land in the project, with the toast <b>“Project created, but saving extra details failed — press Edit to retry.”</b> Nothing you typed for the name is lost; re-enter the rest via <b>Edit project</b>.",
-      "host": { "tag": "Who can create", "html": "Any internal (non-guest) account may create a project. Creating one grants no cross-project power — it simply opens your own folder." }
+      "outcome": "Anyone in the meeting can add files — everyone shares the same library and sees the same anchors appear.",
+      "note": {
+        "tag": "Good to know",
+        "html": "Files added from your personal shelf are capped at <b>50 MB</b>, and <b>.dwg</b> drawings aren't read — export to <b>.dxf</b> first. Once a meeting has finished and is reopened for review, the library turns read-only and uploads are switched off."
+      },
+      "figcap": "The room library bar — the Upload button, with CAD drawings and IFC models listed below."
     },
-    "ch19-fields": {
-      "eyebrow": "Reference",
-      "heading": "Project metadata fields",
-      "cols": ["Field", "Label", "Required", "Notes"],
+    "ch11-place": {
+      "eyebrow": "Using files",
+      "heading": "Put a file on the canvas",
+      "steps": [
+        "<b>Click a tile</b> to drop it at the centre of your current view.",
+        "Or <b>drag a tile</b> onto the canvas to place it exactly where you let go.",
+        "Images land at their natural size (capped so large pictures stay sane); DXF, PDF and IFC land at a sensible default frame you can resize with the normal selection handles.",
+        "PDFs open on page 1 — advance pages later from the focus toolbar on the placed document.",
+        "Click the tile again and Canvas M jumps to the copy already on the canvas instead of dropping a duplicate."
+      ],
+      "outcome": "The file appears as a normal canvas element that everyone in the room can see, move, and draw on top of.",
+      "note": "Pen strokes, shapes and stickers you add <em>after</em> a PDF or IFC sit on top of it via the usual “Bring to Front” ordering, because those anchors are real image elements on the canvas — not a separate overlay.",
+      "figcap": "Click to insert at centre; drag to place at the drop point."
+    },
+    "ch11-toolbar": {
+      "eyebrow": "Finding files",
+      "heading": "Search, filter, sort and view",
+      "cols": [
+        "Control",
+        "What it does",
+        "Notes"
+      ],
       "rows": [
-        ["Name", "Name", "Yes", "The only required field. Shown everywhere the project appears."],
-        ["Cover", "Cover image", "No", "Upload an image; it becomes the tile cover and the detail hero, with the name laid over it."],
-        ["Code", "Project code", "No", "Placeholder “e.g. MAP-2026-014”. Searchable."],
-        ["Client", "Client", "No", "Placeholder “Client / owner”. Searchable; shown in the detail's Details grid."],
-        ["Location", "Location", "No", "Placeholder “City, country”. Searchable."],
-        ["Branch", "Branch / office", "No", "Placeholder “Studio / office”. Shown as Branch / office in the detail."],
-        ["Phase", "Phase", "No", "Dropdown: Concept · Schematic design · Design development · Construction docs · Construction · Handover. Shown as the stage pill."],
-        ["Type", "Project type", "No", "Dropdown: Residential · Commercial · Mixed-use · Public · Industrial · Other."],
-        ["Description", "Description", "No", "Free text (multiline). Falls back to “No description” where meta is shown."]
+        [
+          "<b>Search</b> box",
+          "Filters tiles by file name or uploader",
+          "Placeholder reads “Search by name or uploader…”; matching is live as you type"
+        ],
+        [
+          "Filter chips",
+          "Show only one type: <b>All</b>, <b>DXF</b>, <b>IFC</b>, <b>PDF</b>, <b>Image</b>, <b>Other</b>",
+          "Each chip shows a count; chips with zero files are hidden, but <b>All</b> always shows"
+        ],
+        [
+          "<b>Sort</b> menu",
+          "Orders tiles",
+          "<b>Newest</b> (default), <b>Oldest</b>, <b>Name A-Z</b>, <b>Uploader</b>"
+        ],
+        [
+          "Grid button (▦)",
+          "Shows tiles as a grid",
+          "The default layout"
+        ],
+        [
+          "List button (☰)",
+          "Shows tiles as rows with a relative timestamp",
+          "Times read “just now”, “2m”, “3h”, “5d”, then a date"
+        ],
+        [
+          "Group button (⌘)",
+          "Groups files under collapsible type headings",
+          "Sections: CAD drawings, IFC models, PDF documents, Images, Other files — click a heading to collapse it"
+        ]
       ],
-      "note": "The Phase and Type dropdowns keep any older free-text value selectable, so a legacy stage like a hand-typed phase isn't lost when you edit. The leading department is set automatically to the department of whoever created the project and is read-only — it isn't a field you fill in.",
-      "host": { "tag": "Search", "html": "The <b>Search projects…</b> box matches against the <b>name</b>, <b>code</b>, <b>client</b> and <b>location</b> — so a project code or client name finds the folder fast." }
+      "note": "The search box, chips, sort and view controls only appear once the room has at least one file. None of these settings are saved — each time you open the meeting the library starts on Newest, grid view, All files."
     },
-    "ch19-detail": {
-      "eyebrow": "Reading the detail page",
-      "legend": [
-        { "n": "1", "text": "<b>All projects</b> — the back link (chevron-left) that returns you to the grouped list." },
-        { "n": "2", "text": "<b>Hero</b> — the cover image (or a letter initial), the project name with its icon, the <b>stage</b> pill and the <b>code</b>." },
-        { "n": "3", "text": "<b>Cosmetic accents</b> — a palette (<b>“Đổi màu dự án”</b> / change project colour) and a smiley (<b>“Gán biểu tượng dự án”</b> / assign project icon). Any member may set these; hidden for invitee-only folders." },
-        { "n": "4", "text": "<b>Edit project</b> and <b>View meetings →</b> — edit metadata (managers only) and jump to this project's meeting list." },
-        { "n": "5", "text": "<b>Details</b> section — Client, Location, Branch / office, Project type, Created, Leader, the description, and the read-only <b>Leading department</b>." },
-        { "n": "6", "text": "<b>Members</b>, <b>Project guests</b> and the collapsible <b>Danger zone</b> follow — each a native expand/collapse section." }
-      ]
-    },
-    "ch19-edit": {
-      "eyebrow": "Changing the details",
-      "heading": "Edit a project's metadata",
-      "steps": [
-        "Open the project on the Manage projects page so its detail is showing.",
-        "In the hero, click <b>Edit project</b> (pencil). It appears only for managers, and never on an invitee-only folder.",
-        "The same field modal opens, now titled <b>Edit project</b>, pre-filled with the current values.",
-        "Adjust any field and click <b>Save</b>.",
-        "On success the modal closes and the detail refreshes."
-      ],
-      "outcome": "Your changes are saved in one call (unlike create, which is two steps). The stage pill, code and Details grid update to match.",
-      "note": "If the save fails, the modal stays open — your edits aren't silently lost — and an alert reads <b>“Save failed — …”</b>. Fix the cause (usually network or permission) and Save again.",
-      "host": { "tag": "Read-only banner", "html": "If you were only <em>invited</em> into a project for one meeting, its detail shows the banner <b>“You're invited to this project — view only”</b> and no edit, members or guest controls appear." }
-    },
-    "ch19-members": {
-      "eyebrow": "The people",
-      "heading": "Build the member roster",
-      "steps": [
-        "In the project detail, expand the <b>Members</b> section. Members are grouped by department, each as a full row: avatar, name, title chip and role badge.",
-        "Click <b>Add member</b> to open the staff picker, select one or more internal colleagues, and confirm. The roster reloads with them added.",
-        "To remove someone, click the <b>✕</b> on their row and confirm <b>“Remove {name} from the project?”</b>. The leader (owner) can't be removed — their row has no remove action.",
-        "Leadership can promote a participant with <b>Make co-operator</b> (shield), or demote one with <b>Remove co-operator</b>.",
-        "The leading-division head (or an admin) can hand over leadership with <b>Assign project leader</b> (crown), confirming <b>“Make {name} the new project leader?”</b>.",
-        "Use <b>Add guest</b> (next to Add member) to jump straight to the Project guests section's issue form."
-      ],
-      "outcome": "The roster reflects exactly who may see the whole folder. Roles drive what each person can do; the next table spells them out.",
-      "note": "Only internal colleagues can be added — the picker is drawn from the staff directory. If a member add is rejected, the alert reads <b>“Couldn't add member (internal emails only).”</b>",
-      "host": { "tag": "Host-only", "html": "A plain participant sees the roster <em>read-only</em>: no Add, no Remove, no promote/demote. The promote and assign-leader buttons appear only for the relevant authority tier." }
-    },
-    "ch19-roles": {
-      "eyebrow": "Reference",
-      "heading": "Project roles & who can do what",
-      "cols": ["Role / tier", "Badge label", "Can manage (members, guests, edit, delete meetings)?", "Can delegate / lead?"],
-      "rows": [
-        ["Leader", "Leader", "Yes — full management of the project.", "Yes — delete the project, promote/demote co-operators (delegation). Defaults to the creator."],
-        ["Co-operator", "Co-operator", "Yes — add/remove members, edit metadata, organise meetings.", "No — a co-operator can't delete the project or change other roles."],
-        ["Participant", "Participant", "No — sees the roster read-only and may join meetings.", "No."],
-        ["Division admin", "Division admin", "Yes, on every project of their department — the head is the supreme authority tier.", "Yes — may assign/replace the project leader and delegate co-operators."],
-        ["Title chip", "(the person's job title)", "n/a — purely informational.", "n/a — a title never grants or locks any project action."]
-      ],
-      "note": "The role badge (Leader / Co-operator / Participant), the org-authority badge (Division admin) and the title chip are three separate things. A title or being a department head never locks the Make co-operator or Assign project leader buttons — authority and project role are independent axes. Only the current leader's row is fixed: the system refuses to re-role the owner.",
-      "host": { "tag": "Server-enforced", "html": "Every one of these checks is enforced by the server, not just hidden in the UI. The buttons you see reflect what the server will actually allow for your account." }
-    },
-    "ch19-cosmetic": {
-      "eyebrow": "Dressing the folder",
-      "heading": "Set a project colour & icon",
-      "steps": [
-        "On a project tile (or in the detail hero), click the palette button — tooltip <b>“Đổi màu dự án”</b> (change project colour).",
-        "Pick a colour from the menu; choose <b>Default</b> to clear it. The tile and its sidebar dot tint immediately, with no list flash.",
-        "Click the smiley button — tooltip <b>“Gán biểu tượng dự án”</b> (assign project icon) — to pick an emoji from the project presets; choose the clear option to remove it.",
-        "The colour and icon appear on the project's tile, its sidebar entry, and on every meeting card inside it."
-      ],
-      "outcome": "The folder gets a glanceable accent that flows through to its meeting cards. Any member may set these — they're cosmetic, exempt from the owner-only guard.",
-      "note": "If a cosmetic save fails, the toast reads <b>“Không lưu được màu/biểu tượng dự án”</b> (couldn't save the project's colour/icon). The accent simply isn't applied; nothing else changes.",
-      "host": { "tag": "Not for invitees", "html": "The palette and emoji buttons are hidden on an invitee-only folder — there's nothing there for a guest department to restyle." }
-    },
-    "ch19-states": {
-      "eyebrow": "Empty & grouped states",
-      "heading": "What the list shows",
+    "ch11-states": {
+      "eyebrow": "What you might see",
+      "heading": "The three resting states",
       "tiles": [
-        { "state": "My projects", "cap": "Folders you belong to, sorted by most recently updated, under the <b>My projects (n)</b> heading. Tiles show cover, name, stage pill and a code · client · location meta line." },
-        { "state": "Invited", "cap": "Folders another department invited you into for one meeting, under <b>Invited (n)</b>, each badged <b>Invited</b>. These open read-only — no admin." },
-        { "state": "No projects yet", "cap": "A folder-kanban illustration with <b>“No projects yet”</b> and the hint <b>“Create your first project to start organizing meetings.”</b>, plus a <b>New project</b> button." }
+        {
+          "state": "Empty room",
+          "cap": "“No files in this room yet.” with the hint “Drag images here or paste/drop onto the canvas to get started.” The toolbar controls stay hidden."
+        },
+        {
+          "state": "No match",
+          "cap": "“No files match the filters.” with a <b>Clear filters</b> button that resets the search box and the chip back to All."
+        },
+        {
+          "state": "Read-only",
+          "cap": "After the meeting ends the upload button is disabled with the tooltip “The meeting has finished — the library is read-only, uploads are disabled.” You can still place existing files on the canvas."
+        }
       ],
-      "useWhen": "When a search matches nothing you'll instead see <b>“No projects match \"{q}\"”</b> with a <b>Clear search</b> link. If the list itself fails to load, it reads <b>“Couldn't load — check your network connection.”</b> with a <b>Retry</b> button."
+      "useWhen": "Use these to tell apart “nothing here yet” from “your filter hid everything” — the first means upload something, the second means clear your filters."
     },
-    "ch19-delete": {
-      "eyebrow": "Closing it out",
-      "heading": "Delete a project",
-      "steps": [
-        "Open the project detail and expand the <b>Danger zone</b> section (collapsed by default). It appears only for leadership — leader, leading-division head, or admin.",
-        "Read the hint: <b>“Can only be deleted when it has no meetings.”</b>",
-        "Click <b>Delete project</b> (trash icon) and confirm <b>“Delete project \"{name}\"? This cannot be undone.”</b>.",
-        "On success the detail closes and a toast reads <b>“Project \"{name}\" deleted.”</b>",
-        "If the project still has meetings, the deletion is refused with the alert <b>“Delete all meetings in the project before deleting it.”</b> — use <b>View meetings →</b> to go clean them up first."
-      ],
-      "outcome": "A project can only be deleted once it's empty, so its meeting history is never silently destroyed. The action is permanent.",
-      "note": "A co-operator never sees the Danger zone — only true leadership (leader / head / admin) can delete. An invitee-only folder never shows it either.",
-      "host": { "tag": "If it won't delete", "html": "Any other failure shows <b>“Couldn't delete the project.”</b> — usually a network blip; try again." }
+    "ch11-lock": {
+      "eyebrow": "Protecting files",
+      "heading": "Locking, deleting, and linking",
+      "lead": "<b>Each tile carries three actions.</b> Hover a tile to reveal them: a <b>link</b> button (🔗), a <b>lock</b> toggle (🔓 unlocked, 🔒 locked), and a <b>delete</b> button (✕).",
+      "body": "<b>Lock</b> a file to stop anyone else removing it. Once locked, only the person who locked it or the original uploader can unlock it again — anyone else trying gets “Only <em>locker</em> (who locked it) or <em>uploader</em> (the uploader) can unlock it.” <b>Delete</b> removes the file from the library <em>and</em> every copy of it on the canvas, for everyone, after a confirmation. If the file is locked by someone else the delete button is disabled and reads “File is locked by <em>name</em>”; click it anyway and you're told to ask them to unlock it first. The <b>link</b> button connects the file to a text element you've selected on the canvas, so the file can be mentioned from there.",
+      "pull": "Locking protects a file from deletion; it does not stop people placing it on the canvas.",
+      "note": {
+        "tag": "Heads up",
+        "variant": "warn",
+        "html": "Deleting a file is destructive and shared — it pulls every on-canvas copy out from under every participant. The confirmation spells this out: “Every image using this file on the canvas is removed too (for everyone).” There is no undo from the library."
+      }
     },
-    "ch19-trouble": {
-      "eyebrow": "When something's off",
-      "heading": "Project administration fixes",
+    "ch11-trouble": {
+      "eyebrow": "When it doesn't work",
+      "heading": "Library troubleshooting",
       "rows": [
-        { "sym": "No Manage projects item in the sidebar", "cause": "You're signed in as a guest (external) account.", "fix": "Project administration is internal-staff only. Sign in with your staff account.", "ref": "19.2" },
-        { "sym": "Can see a project but no Edit / Add member buttons", "cause": "You're a plain participant, or only invited into the folder for one meeting.", "fix": "Ask the project leader or a co-operator to grant you a managing role. Invitee folders are always view-only.", "ref": "19.6" },
-        { "sym": "Read-only banner on a project's detail", "cause": "Another department invited you in for a single meeting.", "fix": "“You're invited to this project — view only.” You can see it but not administer it; that's expected.", "ref": "19.6" },
-        { "sym": "Can't make someone a co-operator", "cause": "You're a co-operator, not leadership.", "fix": "Only the leader, leading-division head or admin can delegate roles. Ask one of them.", "ref": "19.7" },
-        { "sym": "Add member rejected", "cause": "You tried to add a non-internal email.", "fix": "“Couldn't add member (internal emails only).” Only staff accounts can be project members; issue a guest ID for external people instead.", "ref": "19.6" },
-        { "sym": "Delete refused", "cause": "The project still contains meetings.", "fix": "“Delete all meetings in the project before deleting it.” Open View meetings →, remove them, then delete.", "ref": "19.10" },
-        { "sym": "Project list empty slot says couldn't load", "cause": "The list fetch failed (network / server).", "fix": "“Couldn't load — check your network connection.” Click Retry; your existing list is kept, not blanked.", "ref": "19.9" },
-        { "sym": "Extra details didn't save after create", "cause": "The metadata save (second step) failed.", "fix": "“Project created, but saving extra details failed — press Edit to retry.” Open Edit project and re-enter the rest.", "ref": "19.4" }
+        {
+          "sym": "My file was skipped on upload",
+          "cause": "The type isn't supported — only images, DXF, PDF and IFC are accepted",
+          "fix": "Convert it or upload a supported format; you'll see “…Skipped: name” for each rejected file",
+          "ref": "11.2"
+        },
+        {
+          "sym": "“Couldn't process IFC file”",
+          "cause": "The IFC model failed to bake (corrupt or unsupported geometry)",
+          "fix": "Re-export the IFC from your authoring tool and try again; other files in the same batch are unaffected",
+          "ref": "11.2"
+        },
+        {
+          "sym": "The upload button is greyed out",
+          "cause": "The meeting has finished — the library is read-only",
+          "fix": "You can still drag existing files onto the canvas; uploading needs a live meeting",
+          "ref": "11.7"
+        },
+        {
+          "sym": "Clicking a tile doesn't add a second copy",
+          "cause": "That file is already on the canvas; Canvas M scrolls to it instead",
+          "fix": "This is intended — drag the tile if you genuinely want it in a new spot",
+          "ref": "11.5"
+        },
+        {
+          "sym": "I can't delete a file",
+          "cause": "It's locked by someone else",
+          "fix": "Ask the person who locked it, or the original uploader, to unlock or delete it",
+          "ref": "11.8"
+        },
+        {
+          "sym": "Search controls are missing",
+          "cause": "The room has no files yet",
+          "fix": "Upload or drop a file — the toolbar appears once there's at least one",
+          "ref": "11.6"
+        }
       ],
-      "note": "Cosmetic colour/icon changes and member edits each refresh just the one item in place — the list never flashes. If an action seems to do nothing, check for a toast at the bottom of the screen; that's where these messages appear."
+      "note": "Search and filter settings reset every time you reopen the meeting — that is by design, not a fault."
     }
   },
   "figures": {
-    "ch19-manage": { "ref": "19.1", "placeholder": "Manage projects page: search box, grid/list toggle, New project button, and grouped project tiles (My projects / Invited)", "shot": "03-projects/manage" },
-    "ch19-detail": { "ref": "19.2", "placeholder": "Project detail: back link, cover hero with name and stage, palette/emoji accents, Edit project and View meetings buttons, Details grid, Members, Guests and Danger zone sections", "shot": "03-projects/project-detail" },
-    "ch19-state-mine": { "ref": "19.3", "placeholder": "My projects group of cards, each with cover, name, stage pill and code/client/location meta" },
-    "ch19-state-invited": { "ref": "19.4", "placeholder": "Invited group: project cards badged 'Invited', opening read-only" },
-    "ch19-state-empty": { "ref": "19.5", "placeholder": "Empty state: folder-kanban icon, 'No projects yet', hint and a New project button" }
+    "ch11-myfiles": {
+      "ref": "11.2",
+      "placeholder": "Library panel: upload button and From my shelf entry",
+      "shot": "04-files/my-files"
+    },
+    "ch12-library-upload": {
+      "ref": "12.2",
+      "placeholder": "Room library bar — Upload button with CAD drawings and IFC models sections"
+    },
+    "ch11-state-empty": {
+      "ref": "11.3",
+      "placeholder": "Empty library: ‘No files in this room yet.’"
+    },
+    "ch11-state-nomatch": {
+      "ref": "11.4",
+      "placeholder": "Filtered to nothing: ‘No files match the filters.’ with Clear filters"
+    },
+    "ch11-state-readonly": {
+      "ref": "11.5",
+      "placeholder": "Finished meeting: disabled upload button with read-only tooltip"
+    }
   }
 }

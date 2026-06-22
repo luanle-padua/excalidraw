@@ -3,7 +3,9 @@
 // registered placeholder in figures.json — addressable so real screenshots can
 // be dropped in later by setting `shot`.
 import { readFileSync, writeFileSync } from "fs";
-const HB = "C:/LUAN/19.CanvasMeet/docs/handbook";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+const HB = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // handbook dir, portable
 const book = JSON.parse(readFileSync(`${HB}/content/book.json`, "utf8"));
 const str = JSON.parse(readFileSync(`${HB}/content/strings/en.json`, "utf8"));
 const fig = JSON.parse(readFileSync(`${HB}/content/figures.json`, "utf8"));

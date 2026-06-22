@@ -1,125 +1,278 @@
 {
   "number": 7,
   "blocks": [
-    { "id": "ch7-open", "type": "opener", "layout": "opener" },
-    { "id": "ch7-toolbar", "type": "plate", "layout": "plate", "figure": "ch7-toolbar-shot" },
-    { "id": "ch7-tools", "type": "reference-table", "layout": "table" },
-    { "id": "ch7-extras", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch7-sticker", "ch7-bot", "ch7-openers"] },
-    { "id": "ch7-place", "type": "steps", "layout": "steps", "figure": "ch7-place-ghost" },
-    { "id": "ch7-nav", "type": "steps", "layout": "steps", "figure": "ch7-nav-widget" },
-    { "id": "ch7-mental", "type": "prose", "layout": "prose" },
-    { "id": "ch7-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch7-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch5-focus-model",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch5-focus-diagram"
+    },
+    {
+      "id": "ch5-raise-hand",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch5-hand-fig"
+    },
+    {
+      "id": "ch5-reactions",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch5-react-fig"
+    },
+    {
+      "id": "ch5-pin",
+      "type": "prose",
+      "layout": "prose"
+    },
+    {
+      "id": "ch5-surfaces",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch5-surface-minimal",
+        "ch5-surface-filmstrip",
+        "ch5-surface-gallery"
+      ]
+    },
+    {
+      "id": "ch5-floating",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch5-float-fig"
+    },
+    {
+      "id": "ch5-states",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch5-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch7-open": {
       "eyebrow": "Chapter 7",
-      "title": "Canvas basics",
-      "standfirst": "The shared canvas is where the meeting actually happens. This chapter walks the toolbar tool by tool, shows the Canvas&nbsp;M extras tucked beside it, and explains how to place things, move the camera, and read the mini-map &mdash; all from a participant's seat."
+      "title": "Presence & focus",
+      "standfirst": "Who is in the room, who is speaking, and where everyone is looking. This chapter covers the participant strip, raising your hand, sending reactions, following another person's view, pinning a face, and the three video surfaces plus the floating presenter window — all the quiet signals that keep a meeting in sync without anyone saying a word."
     },
-    "ch7-toolbar": {
-      "eyebrow": "The toolbar",
-      "legend": [
-        { "n": "1", "text": "<b>Hand</b> (<kbd>H</kbd>) &mdash; the panning tool. Hold and drag to slide the canvas without selecting or drawing anything." },
-        { "n": "2", "text": "<b>Selection</b> (<kbd>V</kbd> or <kbd>1</kbd>) &mdash; pick, move, and resize elements. The default tool. If you have the lasso preference on, this slot becomes <b>Lasso selection</b> instead." },
-        { "n": "3", "text": "Drawing shapes: <b>Rectangle</b> (<kbd>R</kbd>/<kbd>2</kbd>), <b>Diamond</b> (<kbd>D</kbd>/<kbd>3</kbd>), <b>Ellipse</b> (<kbd>O</kbd>/<kbd>4</kbd>), <b>Arrow</b> (<kbd>A</kbd>/<kbd>5</kbd>), <b>Line</b> (<kbd>L</kbd>/<kbd>6</kbd>)." },
-        { "n": "4", "text": "<b>Draw</b> (<kbd>P</kbd> or <kbd>X</kbd>, also <kbd>7</kbd>) &mdash; freehand pen. <b>Text</b> (<kbd>T</kbd>/<kbd>8</kbd>). <b>Insert image</b> (<kbd>9</kbd>)." },
-        { "n": "5", "text": "<b>Eraser</b> (<kbd>E</kbd>/<kbd>0</kbd>) and <b>Revision cloud</b> (<kbd>Q</kbd>) &mdash; the dashed markup cloud for flagging changes." },
-        { "n": "6", "text": "Canvas&nbsp;M extras strip: the <b>Stickers</b> and <b>Stamps</b> pickers, the <b>Ask&nbsp;MCM&nbsp;Bot</b> tool, and the <b>CAD&nbsp;view</b> / <b>3D&nbsp;view</b> openers &mdash; added next to the shape switcher." },
-        { "n": "7", "text": "<b>Laser pointer</b> (<kbd>K</kbd>) &mdash; a temporary dot for pointing during a walkthrough; reach it from <b>More tools</b> rather than the main strip." }
-      ]
-    },
-    "ch7-tools": {
-      "eyebrow": "Every tool",
-      "heading": "The toolbar at a glance",
-      "cols": ["Tool", "Shortcut", "What it does"],
-      "rows": [
-        ["Hand (panning tool)", "H", "Drag the canvas around without touching elements."],
-        ["Selection", "V or 1", "Click to pick; drag to marquee-select; drag a handle to resize."],
-        ["Rectangle", "R or 2", "Click-drag a rectangle. Hold to keep drawing more."],
-        ["Diamond", "D or 3", "Click-drag a diamond."],
-        ["Ellipse", "O or 4", "Click-drag a circle or oval."],
-        ["Arrow", "A or 5", "Click a start point, click an end point. Snaps to nearby shapes."],
-        ["Line", "L or 6", "Straight line; click again to add a bend, double-click to finish."],
-        ["Draw", "P, X or 7", "Freehand pen &mdash; just drag."],
-        ["Text", "T or 8", "Click to place a text cursor and type. Double-clicking with Selection also starts text."],
-        ["Insert image", "9", "Pick an image file to drop on the canvas."],
-        ["Eraser", "E or 0", "Drag over strokes to remove them."],
-        ["Revision cloud", "Q", "Draw a dashed cloud to mark up a change."],
-        ["Laser pointer", "K", "A fading dot for pointing; lives under More tools."]
-      ],
-      "note": "Number keys mirror the icons left to right (<kbd>1</kbd>&ndash;<kbd>0</kbd>). The same shortcuts work whether you are a host or a participant &mdash; the toolbar is identical for everyone with edit access.",
-      "host": null
-    },
-    "ch7-extras": {
-      "eyebrow": "Canvas M extras",
-      "heading": "The buttons beyond plain whiteboarding",
-      "tiles": [
-        { "state": "Stickers / Stamps", "cap": "Two pickers labelled <b>Stickers</b> and <b>Stamps</b>. Open one, and a grid of assets appears with the hint <em>&ldquo;Pick &rarr; scroll to resize &rarr; click to place.&rdquo;</em> An empty library reads <em>&ldquo;No Stickers in the library yet.&rdquo;</em>" },
-        { "state": "Ask MCM Bot", "cap": "The bot tool (<b>Ask MCM Bot</b>) drops a prompt box on the canvas. Type any request &mdash; <em>&ldquo;summarize the meeting, list decisions&rdquo;</em> &mdash; and the answer is written onto the canvas. It shows <em>&ldquo;🤖 Working&hellip;&rdquo;</em> while it thinks." },
-        { "state": "CAD / 3D openers", "cap": "<b>CAD view</b> opens a DXF in a pane; <b>3D view</b> opens an IFC model. If the library has none, the popover reads <em>&ldquo;No DXF files in the library yet.&rdquo;</em> / <em>&ldquo;No IFC models in the library yet.&rdquo;</em>" }
-      ],
-      "useWhen": "Reach for the extras when plain shapes aren't enough: stickers and stamps to react or approve, the bot to pull answers out of the transcript, and the CAD/3D openers to inspect drawings and models right on the board. They sit in one strip next to the shape switcher; on a narrow phone screen they collapse into a single row below the toolbar."
-    },
-    "ch7-place": {
-      "eyebrow": "Placing assets",
-      "heading": "Drop a sticker, stamp, or bot answer",
-      "steps": [
-        "Click <b>Stickers</b> or <b>Stamps</b> in the extras strip to open the picker.",
-        "Click an asset. A translucent ghost now follows your pointer &mdash; you are in <em>placing mode</em>.",
-        "<b>Scroll the wheel</b> (or pinch) to resize the ghost before you commit.",
-        "Click once on the canvas to drop the asset at that point.",
-        "For the bot, click <b>Ask MCM Bot</b>, click the canvas, then type your request in the floating box and press <b>Send</b>."
-      ],
-      "outcome": "The sticker, stamp, or bot answer lands on the canvas as a normal element that everyone in the room sees &mdash; you can then select, move, or resize it like any shape.",
-      "note": "Placing mode works the same with a mouse, an Apple Pencil, a Surface Pen, or a finger. With a pen, the ghost sits beside the tip rather than under your hand.",
-      "host": null,
-      "figcap": "Placing mode: a ghost preview tracks the pointer until you click to commit."
-    },
-    "ch7-nav": {
-      "eyebrow": "Moving the camera",
-      "heading": "Zoom, reset, and the mini-map",
-      "steps": [
-        "Find the navigation widget in the <b>bottom-right corner</b> of the canvas &mdash; it is always there.",
-        "Click <b>+</b> (<b>Zoom in</b>) or <b>&minus;</b> (<b>Zoom out</b>). The buttons grey out at the maximum and minimum zoom.",
-        "Read the live zoom percentage in the middle; click it to <b>Reset zoom (100%)</b>.",
-        "Click the map icon to toggle the mini-map &mdash; its tooltip flips between <b>Show navigation map</b> and <b>Hide navigation map</b>.",
-        "On the mini-map, <b>click or drag to move the camera</b>; the bright rectangle is your current view."
-      ],
-      "outcome": "You can reach any corner of a large board without a scroll wheel or trackpad gestures &mdash; useful on a tablet. Your mini-map open/closed choice is remembered on this device.",
-      "note": "Moving your own camera is local: it does not move anyone else's view, and following is separate &mdash; that is the participants panel's job, covered earlier.",
-      "host": null,
-      "figcap": "The corner widget: zoom buttons, a clickable percentage, and the toggleable mini-map."
-    },
-    "ch7-mental": {
-      "eyebrow": "How the canvas thinks",
-      "heading": "One infinite board, shared live",
-      "lead": "The canvas is a single, endless sheet that everyone in the room shares in real time. There are no pages and no edges &mdash; you pan and zoom to wherever the work is, and what you draw appears for everyone the instant you draw it.",
-      "body": "Two ideas keep it calm. First, <b>your camera is yours</b>: zooming or panning only moves your own view, never anyone else's, so you can wander off to inspect a detail without dragging the room with you. Second, <b>your edits are everyone's</b>: a shape, sticker, or bot answer you place is collaborative the moment it lands. The mini-map exists to reconcile the two &mdash; it shows the whole board at once so you never lose your bearings.",
-      "pull": "Your camera is yours; your edits are everyone's.",
+    "ch5-focus-model": {
+      "eyebrow": "Mental model",
+      "heading": "One focused person, many surfaces",
+      "lead": "Canvas M always resolves a single <b>focused person</b> — the presenter the room is built around. Every video surface agrees on who that is, so the big tile in Gallery, the ring in the filmstrip and the floating window never disagree.",
+      "body": "The focus is computed, not stored. Canvas M walks a strict order of precedence and picks the first match that is still in the room: your manual <b>pin</b> first, then whoever is <b>sharing their screen</b>, then the <b>active speaker</b>, then the <b>host</b>, and finally — if nothing else applies — the first tile. Because it is a pure derivation, focus updates the instant someone starts talking, starts sharing, or leaves; there is nothing to clean up.",
+      "pull": "Pin beats screen-share beats speaker beats host beats first.",
+      "diagram": {
+        "label": "Focus precedence",
+        "cap": "The single focused person resolves top-down; the first rule that matches a present participant wins."
+      },
       "note": {
-        "tag": "Read-only",
-        "html": "When a meeting has <b>finished</b>, the canvas switches to review mode and the editing extras step back &mdash; the Stickers, Stamps, and bot buttons disappear, while the CAD and 3D openers and the navigation widget stay so you can still inspect and move around."
+        "tag": "Note",
+        "html": "Focus is <em>per-viewer</em>. The person you pin, the surface you choose and the view you follow are all yours alone — they are never broadcast, so picking a different face does not change what anyone else sees."
       }
     },
-    "ch7-trouble": {
-      "eyebrow": "When something's off",
-      "heading": "Canvas snags and fixes",
-      "rows": [
-        { "sym": "The zoom + or &minus; button is greyed out.", "cause": "You're already at the maximum or minimum zoom.", "fix": "Click the percentage to reset to 100%, or use the other button.", "ref": "7.6" },
-        { "sym": "A sticker picker grid is empty.", "cause": "No assets are bundled for that kind yet.", "fix": "You'll see <em>&ldquo;No Stickers in the library yet&rdquo;</em> &mdash; use a stamp or a shape instead.", "ref": "7.4" },
-        { "sym": "<b>CAD view</b> / <b>3D view</b> opens an empty popover.", "cause": "No DXF or IFC files have been uploaded to the room.", "fix": "Add a file via the library bar on the right first, then re-open the view.", "ref": "7.4" },
-        { "sym": "The Stickers, Stamps, and bot buttons vanished.", "cause": "The meeting has finished &mdash; the canvas is read-only.", "fix": "This is expected. You can still pan, zoom, and open CAD/3D views to review.", "ref": "7.7" },
-        { "sym": "The bot says it can't answer.", "cause": "A connection or API problem.", "fix": "You'll see <em>&ldquo;The bot hit an error, try again.&rdquo;</em> &mdash; wait a moment and resend.", "ref": "7.4" }
+    "ch5-raise-hand": {
+      "eyebrow": "Raise hand",
+      "heading": "Ask to speak without interrupting",
+      "steps": [
+        "Join the call so the live controls appear in the meeting header (see Chapter 4).",
+        "Click the <b>hand</b> button. Its tooltip reads <b>Raise hand</b>.",
+        "The button turns amber and the tooltip flips to <b>Lower hand</b> — you are now raised.",
+        "A sticky <b>✋</b> badge appears on the top of your avatar tile, visible to everyone in the room.",
+        "Click the hand button again to lower it; the badge clears for all participants."
       ],
-      "note": "Most canvas controls are local-only, so a hiccup rarely affects the rest of the room &mdash; a quick retry or a zoom reset usually clears it."
+      "outcome": "Your raised hand is broadcast to the whole room and stays up until you lower it — there is no auto-timeout.",
+      "note": "Leaving the call clears your raised hand automatically, so you never leave a hand stuck up after you go.",
+      "host": {
+        "tag": "Host-only",
+        "html": "There is no participant control to lower someone else's hand. Hosts mute and remove people from the participant panel, but the hand itself is owned by the person who raised it."
+      },
+      "figcap": "The hand button in its raised (amber) state with the ✋ badge on the avatar."
+    },
+    "ch5-reactions": {
+      "eyebrow": "Reactions",
+      "heading": "Send a quick emoji",
+      "steps": [
+        "In the live header controls, click the <b>smiley</b> button — its tooltip reads <b>Reactions</b>.",
+        "A small popover opens with six emoji: <b>👍 ❤️ 😂 🎉 👏 😮</b>.",
+        "Click one to send it; the popover closes and the emoji floats up over your avatar for about three seconds.",
+        "Everyone in the room sees the same emoji animate over your tile, then it fades on its own.",
+        "Press <kbd>Esc</kbd> or click anywhere outside the popover to close it without sending."
+      ],
+      "outcome": "Reactions are transient — they animate for roughly three seconds and then expire by themselves. Nothing is logged and nothing stays on screen.",
+      "note": "Each emoji button is labelled \"Send {emoji}\" on hover. Reactions float from your own avatar's position, so the room can tell at a glance who reacted.",
+      "figcap": "The reactions popover with its six quick-react emoji."
+    },
+    "ch5-pin": {
+      "eyebrow": "Pin",
+      "heading": "Lock the focus onto one face",
+      "lead": "A <b>pin</b> is your manual override of the focus order. When you pin someone, their face becomes the focused person on every surface — the big Gallery tile, the filmstrip ring and the floating window — regardless of who is speaking or sharing.",
+      "body": "To pin, click any tile in the filmstrip or the gallery. The tooltip reads <b>Click to pin as focus</b>. Click the pinned tile again to unpin — the affordance switches to <b>Unpin</b> — and focus falls back down the precedence chain to the screen-sharer, speaker, or host. A pin is ephemeral and local: it is never sent to other people and a reload clears it. If the person you pinned leaves the room, the pin quietly stops applying and focus moves on.",
+      "note": {
+        "tag": "Gotcha",
+        "html": "Pin and follow are different tools. <b>Pin</b> changes whose <em>face</em> is featured in the video surfaces; <b>follow</b> changes where your <em>canvas</em> is looking. You can do both at once, to the same person or to different people."
+      }
+    },
+    "ch5-surfaces": {
+      "eyebrow": "Video surfaces",
+      "heading": "Three ways to see the room",
+      "tiles": [
+        {
+          "state": "Minimal",
+          "cap": "Just the bottom participant strip — avatars (or live camera thumbnails), names, mic dots and badges. The canvas stays fully clear. This is the default."
+        },
+        {
+          "state": "Filmstrip",
+          "cap": "An opaque rail of camera tiles docked across the bottom (~140px tall). The canvas is pushed up, not covered; the focused person gets a ring. Click a tile to pin it."
+        },
+        {
+          "state": "Gallery",
+          "cap": "A full-screen grid of everyone's camera. A <b>Grid</b> / <b>Speaker</b> toggle switches between an even grid and one big focused tile with the rest in a strip. Close with <b>Close</b>."
+        }
+      ],
+      "useWhen": "Pick a surface from the <b>Video layout</b> button in the meeting header. The menu lists <b>Minimal</b>, <b>Filmstrip</b> and <b>Gallery</b> as a single choice, with a checkmark on the active one. Your choice is remembered per device across reloads."
+    },
+    "ch5-floating": {
+      "eyebrow": "Floating presenter",
+      "heading": "Keep watching while you work",
+      "steps": [
+        "Open the <b>Video layout</b> menu in the header and toggle <b>Floating presenter</b> on (it sits below the surface choices with its own checkmark).",
+        "A small picture-in-picture card of the focused person appears over the canvas, showing their live camera or avatar with their name.",
+        "Drag the card by its header (the pin grip); on release it snaps to the nearest of the four corners, and that corner is remembered.",
+        "Click <b>−</b> (tooltip <b>Minimise</b>) to shrink it to a small circular puck; click the puck to restore it.",
+        "Click <b>×</b> (tooltip <b>Hide</b>) to dismiss the window; reopen it from the same Video layout toggle.",
+        "When minimised, the puck's tooltip reads <b>Reopen presenter window</b>."
+      ],
+      "outcome": "The floating window always shows the same focused person as the other surfaces, and it follows your pin. It is meant for watching someone else while you draw, so it never shows your own face when there is anyone else to watch.",
+      "note": "The floating window only appears over the Minimal and Filmstrip surfaces. In Gallery it is hidden automatically, because the gallery already shows everyone full-screen.",
+      "figcap": "The floating presenter card docked to a corner, with its minimise and hide buttons."
+    },
+    "ch5-states": {
+      "eyebrow": "Reference",
+      "heading": "Tile badges & indicators",
+      "cols": [
+        "Indicator",
+        "What it means"
+      ],
+      "rows": [
+        [
+          "Green dot (bottom-right)",
+          "In the call with mic on."
+        ],
+        [
+          "Red mic-strikethrough",
+          "In the call but muted; tile tooltip <b>Muted</b>."
+        ],
+        [
+          "Dimmed / no indicator",
+          "In the room but has not joined the audio call yet."
+        ],
+        [
+          "✋ badge (top)",
+          "Hand raised; tooltip <b>Hand raised</b>."
+        ],
+        [
+          "📺 badge",
+          "Sharing their screen; tooltip <b>Sharing screen</b>."
+        ],
+        [
+          "👁 eye badge",
+          "You are following this person's view."
+        ],
+        [
+          "Crown pill",
+          "The elected host; labelled <b>Host</b>."
+        ],
+        [
+          "Half-crown pill",
+          "A designated <b>Co-host</b>."
+        ],
+        [
+          "Green ring",
+          "Active speaker — the same ring used across all surfaces."
+        ]
+      ],
+      "note": "Only your own tile and the current speaker show a name on the strip by default; everyone else shows their name in a hover tooltip. The left-hand count chip reads <b>Joined / Invited</b> and opens the full participant panel when clicked.",
+      "host": {
+        "tag": "Host-only",
+        "html": "Hover a peer's tile as host to reveal <b>Mute this participant</b> and <b>Remove from meeting</b> buttons; the same actions live in the participant panel under each person. Guests never see these, even if host election briefly lands on them."
+      }
+    },
+    "ch5-trouble": {
+      "eyebrow": "Troubleshoot",
+      "heading": "When presence misbehaves",
+      "rows": [
+        {
+          "sym": "Following stopped on its own",
+          "cause": "You pressed Esc, clicked another tile, or the person you followed left the room.",
+          "fix": "Click their tile again to re-follow once they are back. Esc always releases the lock.",
+          "ref": "5.4"
+        },
+        {
+          "sym": "The floating presenter vanished",
+          "cause": "You switched to the Gallery surface, where the floating window is hidden by design.",
+          "fix": "Switch back to Minimal or Filmstrip, or use the full-screen gallery instead.",
+          "ref": "5.8"
+        },
+        {
+          "sym": "My pin disappeared after reload",
+          "cause": "Pins are ephemeral and per-viewer — a reload always clears them.",
+          "fix": "Click the tile to pin again. Use it for in-the-moment focus, not a permanent setting.",
+          "ref": "5.6"
+        },
+        {
+          "sym": "The floating window shows the wrong face",
+          "cause": "With no pin, it tracks the resolved focus (screen-sharer, then speaker, then host).",
+          "fix": "Click a tile in the filmstrip or gallery to pin the face you want.",
+          "ref": "5.8"
+        },
+        {
+          "sym": "I can't lower someone else's raised hand",
+          "cause": "A raised hand is owned by the person who raised it; there is no override.",
+          "fix": "Ask them to lower it, or mute them from the host controls if you are the host.",
+          "ref": "5.3"
+        },
+        {
+          "sym": "My reaction didn't stay on screen",
+          "cause": "Reactions are transient and expire after about three seconds.",
+          "fix": "This is expected — send another if you need to signal again.",
+          "ref": "5.4"
+        }
+      ],
+      "note": "If your own tile looks dimmed with no mic indicator, you are in the room but have not joined the audio call. Join from the header door button (Chapter 4)."
     }
   },
   "figures": {
-    "ch7-toolbar-shot": { "ref": "7.1", "placeholder": "The full canvas toolbar with numbered callouts", "shot": "07-canvas/toolbar" },
-    "ch7-sticker": { "ref": "7.2", "placeholder": "Stickers picker grid open with the resize hint" },
-    "ch7-bot": { "ref": "7.3", "placeholder": "Ask MCM Bot prompt box floating on the canvas" },
-    "ch7-openers": { "ref": "7.4", "placeholder": "CAD view and 3D view opener popovers" },
-    "ch7-place-ghost": { "ref": "7.5", "placeholder": "A translucent sticker ghost tracking the pointer in placing mode" },
-    "ch7-nav-widget": { "ref": "7.6", "placeholder": "Bottom-right navigation widget with mini-map expanded", "shot": "06-meeting/shell" }
+    "ch5-hand-fig": {
+      "ref": "5.2",
+      "placeholder": "Header hand button (amber, raised) and the ✋ badge on an avatar tile"
+    },
+    "ch5-react-fig": {
+      "ref": "5.3",
+      "placeholder": "Reactions popover open with the six emoji 👍 ❤️ 😂 🎉 👏 😮"
+    },
+    "ch5-surface-minimal": {
+      "ref": "5.5",
+      "placeholder": "Minimal: clean canvas with just the bottom participant strip"
+    },
+    "ch5-surface-filmstrip": {
+      "ref": "5.6",
+      "placeholder": "Filmstrip: opaque camera rail docked across the bottom edge"
+    },
+    "ch5-surface-gallery": {
+      "ref": "5.7",
+      "placeholder": "Gallery: full-screen grid with the Grid/Speaker toggle"
+    },
+    "ch5-float-fig": {
+      "ref": "5.8",
+      "placeholder": "Floating presenter card in a corner with minimise (−) and hide (×) buttons"
+    }
   }
 }

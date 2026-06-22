@@ -3,8 +3,10 @@
 //   run from repo root:  node docs/handbook/build/print.mjs
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-const ROOT = "C:/LUAN/19.CanvasMeet/docs/handbook";
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // handbook dir, portable
 const url = `file:///${ROOT}/dist/en/index.html`;
 const outDir = `${ROOT}/dist`;
 mkdirSync(outDir, { recursive: true });
@@ -20,7 +22,7 @@ await page.waitForTimeout(400);
 const els = await page.$$(".page");
 const names = ["cover", "divider", "opener", "prose", "steps", "plate", "gallery", "table", "card"];
 for (let i = 0; i < els.length; i++) {
-  await els[i].screenshot({ path: `C:/LUAN/19.CanvasMeet/_print-${i}-${names[i] || i}.png` });
+  await els[i].screenshot({ path: `${outDir}/_print-${i}-${names[i] || i}.png` });
 }
 console.log("print-media screenshots:", els.length);
 

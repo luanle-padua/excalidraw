@@ -1,0 +1,114 @@
+{
+  "number": 46,
+  "blocks": [
+    {
+      "id": "ch46-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch16-preferences",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch16-privacy",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch46-open": {
+      "eyebrow": "Chapter 46",
+      "title": "Preferences — data & privacy",
+      "standfirst": "Your per-device preferences, what data Canvas M keeps, and your microphone-consent and privacy controls."
+    },
+    "ch16-preferences": {
+      "eyebrow": "Preferences tab",
+      "heading": "Every per-device preference, grouped",
+      "cols": [
+        "Setting",
+        "Choices",
+        "What it does"
+      ],
+      "rows": [
+        [
+          "Interface language",
+          "Tiếng Việt · English · 한국어",
+          "Applies to the whole app interface, including Excalidraw's own menus."
+        ],
+        [
+          "Theme",
+          "Light · Dark · System",
+          "App colour scheme; <b>System</b> follows your OS."
+        ],
+        [
+          "Translate chat messages",
+          "On / off",
+          "Auto-translate incoming chat into your language."
+        ],
+        [
+          "Enable mic for STT",
+          "On / off",
+          "When on, your mic is transcribed live."
+        ],
+        [
+          "Language you speak",
+          "English · 한국어 · Tiếng Việt",
+          "The language your mic is transcribed in."
+        ],
+        [
+          "Translate transcript segments",
+          "On / off",
+          "Translate each finalised transcript segment into your language."
+        ],
+        [
+          "Transcript panel style",
+          "Full · Compact",
+          "How the live transcript panel is laid out."
+        ],
+        [
+          "Show captions while presenting",
+          "On / off",
+          "Auto-show the caption strip when someone shares a screen."
+        ],
+        [
+          "Caption lines",
+          "1 · 2 · 3",
+          "How many lines the caption strip keeps on screen."
+        ],
+        [
+          "Caption text size",
+          "Small · Medium · Large",
+          "Caption font size."
+        ],
+        [
+          "Change / blur background",
+          "No background · Blur (Light/Medium/Strong) · 3 scenes",
+          "Virtual background for your outgoing camera. Desktop only."
+        ],
+        [
+          "Video quality",
+          "Auto · Low · Medium · High",
+          "Your own ceiling for the outgoing camera; quality still floats below it on a weak network."
+        ]
+      ],
+      "note": "Interface preferences (language, theme, captions) are kept on this device only. Every control here is the same one used inline elsewhere, so a change takes effect immediately — including mid-call, if your camera is already on. Background effects are desktop-only: on iPad or phone web the picker renders greyed out with the note <em>Background effects are only supported on desktop</em>. If an admin has lowered the max video quality, tiers above the cap are greyed and a note reads <em>Admin caps the max at {level}</em> — <b>Auto</b> always stays selectable and simply rides the cap.",
+      "host": {
+        "tag": "Host-only",
+        "html": "The video-quality cap shown here is set org-wide by an admin; you can pick any tier up to it but not above. There is no participant control to raise the cap."
+      }
+    },
+    "ch16-privacy": {
+      "eyebrow": "Privacy tab",
+      "heading": "Microphone consent and what we keep",
+      "lead": "The <b>Privacy</b> tab gives you a single, plain-language consent switch and a note describing the data the app holds. The toggle is labelled <b>Allow mic transcription (Deepgram)</b>: when on, your mic audio is sent to Deepgram for live transcription; when off, nothing is sent.",
+      "body": "This is the same on/off state as <b>Enable mic for STT</b> in <b>Preferences</b> — flipping it here also flips it there, and vice versa. Turning it off is an immediate, complete opt-out: no audio leaves your device for transcription.",
+      "note": {
+        "tag": "What we store about you",
+        "html": "The note reads: <em>We store your profile (name, company, avatar), a log of meetings you join, files you upload, and transcripts while you have STT on. Interface preferences (language, theme, captions) are kept on this device only.</em> Your <b>My data</b> tab lets you review the lists behind this — your meetings, invitations, and files — each read-only, with empty states (<em>No meetings yet.</em>, <em>No invitations yet.</em>, <em>No files yet.</em>) when there is nothing to show and <em>Loading…</em> while they fetch."
+      }
+    }
+  },
+  "figures": {}
+}

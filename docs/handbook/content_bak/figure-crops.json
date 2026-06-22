@@ -1,0 +1,43 @@
+{
+  "_doc": "Per-figure crop into the relevant region of its screenshot. [x, y, w, h] in % of the source capture (all captures are 2880x1800 = 16:10). The build (build-web.mjs) merges this onto figures.json, so it survives re-assembles. Figures with a full-page subject (e.g. the whole dashboard) are intentionally omitted = shown whole.",
+
+  "ch1-login": [18, 19, 64, 67],
+
+  "ch7-toolbar": [17, 7.5, 65, 6],
+  "ch7-anatomy": [17, 7.5, 65, 6],
+  "ch2-shell": [0, 0, 100, 15],
+  "ch22-shell": [0, 0, 100, 8],
+  "ch22-shell-fig": [0, 0, 100, 8],
+  "ch3-shell": [54, 0, 46, 8],
+  "ch3-shell-plate": [0, 86, 22, 14],
+  "ch7-nav-widget": [84, 88, 16, 11],
+
+  "ch16-settings": [21, 19, 58, 66],
+  "ch16-plate": [21, 19, 58, 66],
+  "ch6-settings": [21, 19, 58, 66],
+  "ch16-profile": [36, 22, 43, 62],
+
+  "ch14-panel": [21, 36, 58, 39],
+  "ch14-transcript": [21, 36, 58, 39],
+
+  "ch20-form": [17, 6, 41, 93],
+  "ch20-new-meeting": [17, 6, 41, 93],
+  "ch19-manage": [17, 6, 42, 92],
+  "ch19-detail": [17, 6, 42, 92],
+  "ch11-library": [17, 6, 42, 92],
+  "ch11-myfiles": [17, 6, 42, 92],
+  "ch21-guests": [17, 6, 42, 92],
+  "ch21-plate": [17, 6, 42, 92],
+  "ch15-invited": [17, 6, 42, 92],
+
+  "ch4-switcher": [56, 1, 24, 24],
+  "ch8-sticker": [49, 12, 26, 42],
+  "ch8-stickers-shot": [49, 12, 26, 42],
+  "ch8-stamps-shot": [52, 12, 26, 35],
+
+  "ch12-ifc": [17, 7.5, 65, 6],
+  "ch12-3d-view": [17, 7.5, 65, 6],
+  "ch12-dxf": [17, 7.5, 65, 6],
+  "ch12-cad-view": [17, 7.5, 65, 6],
+  "ch9-bot": [17, 7.5, 65, 6]
+}

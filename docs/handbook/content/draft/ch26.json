@@ -1,0 +1,29 @@
+{
+  "number": 26,
+  "blocks": [
+    {
+      "id": "ch26-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c26-tt-ai",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch26-open": {
+      "eyebrow": "Chapter 26",
+      "title": "Transcription & translation AI",
+      "standfirst": "The same AI that powers the live transcript and the translation tools — how it works, and where to control it."
+    },
+    "c26-tt-ai": {
+      "eyebrow": "Behind the captions",
+      "heading": "Speech to text, and text to your language",
+      "lead": "The live transcript and the translate tools are AI-powered. Speech in the call is transcribed in real time into the transcript panel and the caption strip; selected text and chat messages are translated on demand into Vietnamese, English or Korean.",
+      "body": "You drive both from the places they live — the transcript panel and the Translate controls in <em>Communication</em>. This chapter is just the explanation of what's doing the work."
+    }
+  },
+  "figures": {}
+}

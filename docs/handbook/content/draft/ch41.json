@@ -1,0 +1,29 @@
+{
+  "number": 41,
+  "blocks": [
+    {
+      "id": "ch41-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c41-calendar",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch41-open": {
+      "eyebrow": "Chapter 41",
+      "title": "Calendar",
+      "standfirst": "The month calendar on your dashboard, with Korean and Vietnamese public holidays painted in."
+    },
+    "c41-calendar": {
+      "eyebrow": "Your month at a glance",
+      "heading": "A calendar that knows the holidays",
+      "lead": "The dashboard <b>calendar</b> lays your meetings out across the month and lets you create one on any day. It also paints the working week: <b>Sundays and public holidays in red, Saturdays in blue</b>, with <b>Korean and Vietnamese</b> public holidays fetched automatically for each year.",
+      "body": "Country-aware <em>timing</em> — showing a meeting in each attendee's own timezone — is planned but not yet available; for now times show in your own local time."
+    }
+  },
+  "figures": {}
+}

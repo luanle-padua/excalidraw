@@ -3,8 +3,10 @@
 // Emits docs/handbook/dist/en/index.html with automatic page numbers,
 // running feet, and a generated table of contents.
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-const DIR = "C:/LUAN/19.CanvasMeet/docs/handbook";
+const DIR = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // handbook dir, portable
 const book = JSON.parse(readFileSync(`${DIR}/content/book.json`, "utf8"));
 const str = JSON.parse(readFileSync(`${DIR}/content/strings/en.json`, "utf8"));
 try {

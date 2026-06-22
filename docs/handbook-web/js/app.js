@@ -70,6 +70,15 @@
     const shell = document.querySelector(".shell");
     if (shell) { shell.insertBefore(aside, shell.firstChild); }
     else { body.appendChild(aside); }
+    // Keep the current chapter in view — don't reset the sidebar to the top
+    // every time you open a new chapter page.
+    const active = aside.querySelector(".nav-link.active");
+    if (active) {
+      requestAnimationFrame(() => {
+        const target = active.offsetTop - aside.clientHeight * 0.4;
+        aside.scrollTop = Math.max(0, target);
+      });
+    }
     return { aside, scrim };
   }
 

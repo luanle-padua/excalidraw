@@ -1,0 +1,29 @@
+{
+  "number": 31,
+  "blocks": [
+    {
+      "id": "ch31-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c31-division",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch31-open": {
+      "eyebrow": "Chapter 31",
+      "title": "Division admin & staff",
+      "standfirst": "How authority works above a single project: department heads (“Division admin”) and the internal staff directory that project membership is drawn from."
+    },
+    "c31-division": {
+      "eyebrow": "Authority tiers",
+      "heading": "Department heads and the staff directory",
+      "lead": "Above per-project roles sits the organisation. A department (“division”) <b>head</b> is the <b>Division admin</b> — the supreme authority on every project of their department. They can assign a project's leader and delegate co-operators, even on projects they aren't a member of. It's an org-level role read from the directory, separate from the per-project Leader / Co-operator / Participant roles.",
+      "body": "Project membership itself is drawn only from <b>internal staff</b> accounts — the company directory. External people never become members; they're handled as clients (see the Clients part)."
+    }
+  },
+  "figures": {}
+}

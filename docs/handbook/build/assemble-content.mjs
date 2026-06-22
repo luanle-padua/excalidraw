@@ -2,8 +2,10 @@
 // deep-content workflow into the canonical book.json + strings/en.json + figures.json.
 //   node docs/handbook/build/assemble-content.mjs
 import { readFileSync, writeFileSync, existsSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-const HB = "C:/LUAN/19.CanvasMeet/docs/handbook";
+const HB = resolve(dirname(fileURLToPath(import.meta.url)), ".."); // handbook dir, portable
 const book = JSON.parse(readFileSync(`${HB}/content/book.json`, "utf8"));
 const strings = JSON.parse(readFileSync(`${HB}/content/strings/en.json`, "utf8"));
 const figures = JSON.parse(readFileSync(`${HB}/content/figures.json`, "utf8"));
@@ -33,5 +35,5 @@ for (const ch of Object.values(book.chapters)) {
 writeFileSync(`${HB}/content/book.json`, JSON.stringify(book, null, 2) + "\n");
 writeFileSync(`${HB}/content/strings/en.json`, JSON.stringify(strings, null, 2) + "\n");
 writeFileSync(`${HB}/content/figures.json`, JSON.stringify(figures, null, 2) + "\n");
-console.log(`assembled ${ok}/22 chapters; missing/bad: ${missing.join(", ") || "none"}`);
+console.log(`assembled ${ok}/${Object.keys(book.chapters).length} chapters; missing/bad: ${missing.join(", ") || "none"}`);
 console.log(`book blocks total: ${Object.values(book.chapters).reduce((n, c) => n + c.blocks.length, 0)}`);

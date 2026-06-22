@@ -1,157 +1,47 @@
 {
   "number": 16,
   "blocks": [
-    { "id": "ch16-open", "type": "opener", "layout": "opener" },
-    { "id": "ch16-overview", "type": "prose", "layout": "prose", "diagram": "ch16-plate" },
-    { "id": "ch16-plate", "type": "plate", "layout": "plate", "figure": "ch16-plate" },
-    { "id": "ch16-profile", "type": "steps", "layout": "steps", "figure": "ch16-profile-fig" },
-    { "id": "ch16-avatars", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch16-av-lib", "ch16-av-upload", "ch16-av-none"] },
-    { "id": "ch16-account", "type": "reference-table", "layout": "table" },
-    { "id": "ch16-security", "type": "steps", "layout": "steps" },
-    { "id": "ch16-preferences", "type": "reference-table", "layout": "table" },
-    { "id": "ch16-privacy", "type": "prose", "layout": "prose" },
-    { "id": "ch16-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch16-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch12-pdf-pages",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch12-pdf-focus"
+    }
   ],
   "strings": {
     "ch16-open": {
       "eyebrow": "Chapter 16",
-      "title": "Settings & profile",
-      "standfirst": "One window holds everything you can change about your own account and this device: your display name and avatar, your read-only organisation details, your password, every meeting preference, the data we keep, and your microphone consent. Open it from the meeting header gear or the dashboard account menu, and every control here behaves exactly like its inline twin."
+      "title": "PDF documents",
+      "standfirst": "Read a PDF where it sits on the canvas and turn its pages — the page you land on is shared with the whole room."
     },
-    "ch16-overview": {
-      "eyebrow": "The settings window",
-      "heading": "Six tabs, one window",
-      "lead": "<b>Account settings</b> is the single place to manage yourself. It opens as a Glass-Desk panel titled <b>Account settings</b>, with a tab rail down the left and the chosen tab's controls on the right. A close button labelled <b>Close</b> sits top-right, and pressing <kbd>Esc</kbd> — or clicking the dimmed area outside the card — dismisses the whole window.",
-      "body": "The rail shows up to six tabs: <b>Profile</b>, <b>Account</b>, <b>Security</b>, <b>Preferences</b>, <b>My data</b>, and <b>Privacy</b>. Which tab you land on depends on how you opened the window — clicking your own avatar in the participants bar, or the \"set up your profile\" nudge, jumps straight to <b>Profile</b>; the gear and the account menu open it the same way. Each time the window opens it re-seeds from your stored profile, so a half-finished edit you abandoned never carries over.",
-      "note": {
-        "tag": "Guests",
-        "html": "If you joined by magic link rather than a password, the <b>Security</b> tab is hidden — there is no password to change. Magic-link logins are also a no-op for the parts of <b>My data</b> they cannot read; a list you have no access to simply shows its empty state rather than an error.",
-        "variant": "warn"
-      }
-    },
-    "ch16-plate": {
-      "eyebrow": "Anatomy",
-      "legend": [
-        { "n": "1", "text": "Window title — <b>Account settings</b>." },
-        { "n": "2", "text": "<b>Close</b> button (top-right X). <kbd>Esc</kbd> or an outside click does the same." },
-        { "n": "3", "text": "Tab rail: <b>Profile</b>, <b>Account</b>, <b>Security</b>, <b>Preferences</b>, <b>My data</b>, <b>Privacy</b>." },
-        { "n": "4", "text": "The active tab's panel — controls render on the right." },
-        { "n": "5", "text": "<b>Profile</b> preview: avatar, display name, and company, updating live as you type." }
-      ]
-    },
-    "ch16-profile": {
-      "eyebrow": "Profile tab",
-      "heading": "Set your name, company, and avatar",
+    "ch12-pdf-pages": {
+      "eyebrow": "PDF documents",
+      "heading": "Read a PDF and turn its pages",
       "steps": [
-        "Open <b>Account settings</b> and select the <b>Profile</b> tab (you usually land here).",
-        "Type into <b>Display name</b> — placeholder <em>e.g. Luan Le</em>, up to 48 characters. The live preview and the <b>Save</b> button enable as soon as it is non-blank.",
-        "Optionally fill <b>Company</b> — placeholder <em>e.g. MAP Architects</em>, also up to 48 characters.",
-        "Pick a built-in tile from the <b>Avatar</b> gallery, or press <b>⬆ Upload image</b> to choose your own picture.",
-        "Press <b>Save</b>. The window stays open; there is no Cancel button here — the header <b>Close</b> is the dismiss."
+        "Find the PDF anchor on the canvas — it carries a <b>📄</b> label with the file name and, once loaded, a page counter like <em>3 / 24</em>.",
+        "To change the page, <b>right-click</b> the anchor. A small menu appears with <b>Edit PDF (change page)</b> and <b>Cancel</b>.",
+        "Choose <b>Edit PDF (change page)</b> to drop the anchor into focus mode. A toolbar appears across the bottom of the tile.",
+        "Use <b>←</b> (<em>Previous page</em>) and <b>→</b> (<em>Next page</em>) to move through the document; the indicator in the middle shows the current page and total.",
+        "When you are done, click <b>× Exit</b> or press <kbd>Esc</kbd> to leave focus mode."
       ],
-      "outcome": "Your new name, company, and avatar save to this device and broadcast to everyone in the meeting — your participant tile, cursor label, and the built-in avatar list all update at once. A library avatar (a <em>lib:</em> pick) also syncs to your account, so it follows your login to other browsers; an uploaded image stays on this device only.",
-      "note": "<b>Display name</b> is required: with the field blank the preview shows the placeholder and <b>Save</b> stays disabled. Leading and trailing spaces are trimmed before saving.",
+      "outcome": "The page you land on is saved to the anchor and pushed to everyone in the room, so the whole meeting is looking at the same figure. The arrows grey out at the first and last page.",
+      "note": "Double-clicking a PDF anchor does nothing on purpose — it will not drop you into Excalidraw's text editor the way a plain rectangle would.",
       "host": {
         "tag": "Host-only",
-        "html": "Nothing here renames or removes <em>other</em> people — this tab only ever edits your own identity. Host controls for moderating participants live in the meeting, not in Settings."
+        "html": "When you are reviewing a finished meeting in read-only mode, page changes are blocked — the anchor stays on whatever page the live meeting ended on."
       },
-      "figcap": "The Profile tab — name, company, avatar gallery, and the live preview."
-    },
-    "ch16-avatars": {
-      "eyebrow": "Profile tab · avatar",
-      "heading": "Three ways to set your avatar",
-      "tiles": [
-        { "state": "Pick from the gallery", "cap": "Eight built-in tiles. Click one to select it (a selected ring appears); it is stored as a <em>lib:</em> reference and syncs to your account across devices." },
-        { "state": "Upload your own", "cap": "<b>⬆ Upload image</b> opens a file picker (images only). The picture is auto-resized to 256 px on its longest edge and kept on this device. A <b>Remove</b> button appears once an avatar is set." },
-        { "state": "No avatar", "cap": "With no avatar chosen — or after pressing <b>Remove</b> — your tile falls back to a generated avatar built from your name and email." }
-      ],
-      "useWhen": "Use a gallery tile if you want the same face on every device you sign in from; upload an image when you want your real photo, accepting that it stays local to this browser."
-    },
-    "ch16-account": {
-      "eyebrow": "Account tab",
-      "heading": "Your organisation details (read-only)",
-      "cols": ["Field", "What it shows"],
-      "rows": [
-        ["Email", "Your sign-in email."],
-        ["Title (직급)", "Your job title from the org directory."],
-        ["Division", "Your division or branch."],
-        ["Role", "Your access role — falls back to <b>Staff</b> if none is set."],
-        ["Company", "Your company name."]
-      ],
-      "note": "These fields are system-managed and cannot be edited here: <em>The organisation details below are system-managed — read-only here.</em> They load from the org record; if that lookup fails you see <em>Couldn't load account info. Showing your sign-in session.</em> and the panel falls back to your verified sign-in session so it still shows something. Any field with no value displays as a dash (—).",
-      "host": {
-        "tag": "Host-only",
-        "html": "These details are owned by the organisation system, not by hosts or admins inside the app. To correct a wrong title or division, contact whoever administers your org directory."
-      }
-    },
-    "ch16-security": {
-      "eyebrow": "Security tab",
-      "heading": "Change your password, or sign out",
-      "steps": [
-        "Open the <b>Security</b> tab (password logins only — guests don't see it).",
-        "Type your existing password into <b>Current password</b>.",
-        "Type the new one into <b>New password</b>, then again into <b>Confirm new password</b>.",
-        "Press <b>Save password</b>. The button reads <em>Saving…</em> while it works.",
-        "On success a green banner reads <em>Password changed.</em> and the three fields clear."
-      ],
-      "outcome": "Your current password is verified first by re-authenticating, then the new one is set — so even on an already-signed-in browser nobody can change your password without knowing the old one.",
-      "note": "New passwords must be at least 8 characters (<em>New password must be at least 8 characters.</em>) and the two new fields must match (<em>Confirmation doesn't match.</em>). A wrong current password gives <em>Current password is incorrect.</em>; a password that fails policy (or equals the old one) shows the server's reason or <em>Couldn't change password. Try again.</em> <b>Save password</b> stays disabled until all three fields have text. The <b>Sign out</b> button at the bottom ends your session immediately.",
-      "figcap": "Change password: current, new, confirm — then Save password."
-    },
-    "ch16-preferences": {
-      "eyebrow": "Preferences tab",
-      "heading": "Every per-device preference, grouped",
-      "cols": ["Setting", "Choices", "What it does"],
-      "rows": [
-        ["Interface language", "Tiếng Việt · English · 한국어", "Applies to the whole app interface, including Excalidraw's own menus."],
-        ["Theme", "Light · Dark · System", "App colour scheme; <b>System</b> follows your OS."],
-        ["Translate chat messages", "On / off", "Auto-translate incoming chat into your language."],
-        ["Enable mic for STT", "On / off", "When on, your mic is transcribed live."],
-        ["Language you speak", "English · 한국어 · Tiếng Việt", "The language your mic is transcribed in."],
-        ["Translate transcript segments", "On / off", "Translate each finalised transcript segment into your language."],
-        ["Transcript panel style", "Full · Compact", "How the live transcript panel is laid out."],
-        ["Show captions while presenting", "On / off", "Auto-show the caption strip when someone shares a screen."],
-        ["Caption lines", "1 · 2 · 3", "How many lines the caption strip keeps on screen."],
-        ["Caption text size", "Small · Medium · Large", "Caption font size."],
-        ["Change / blur background", "No background · Blur (Light/Medium/Strong) · 3 scenes", "Virtual background for your outgoing camera. Desktop only."],
-        ["Video quality", "Auto · Low · Medium · High", "Your own ceiling for the outgoing camera; quality still floats below it on a weak network."]
-      ],
-      "note": "Interface preferences (language, theme, captions) are kept on this device only. Every control here is the same one used inline elsewhere, so a change takes effect immediately — including mid-call, if your camera is already on. Background effects are desktop-only: on iPad or phone web the picker renders greyed out with the note <em>Background effects are only supported on desktop</em>. If an admin has lowered the max video quality, tiers above the cap are greyed and a note reads <em>Admin caps the max at {level}</em> — <b>Auto</b> always stays selectable and simply rides the cap.",
-      "host": {
-        "tag": "Host-only",
-        "html": "The video-quality cap shown here is set org-wide by an admin; you can pick any tier up to it but not above. There is no participant control to raise the cap."
-      }
-    },
-    "ch16-privacy": {
-      "eyebrow": "Privacy tab",
-      "heading": "Microphone consent and what we keep",
-      "lead": "The <b>Privacy</b> tab gives you a single, plain-language consent switch and a note describing the data the app holds. The toggle is labelled <b>Allow mic transcription (Deepgram)</b>: when on, your mic audio is sent to Deepgram for live transcription; when off, nothing is sent.",
-      "body": "This is the same on/off state as <b>Enable mic for STT</b> in <b>Preferences</b> — flipping it here also flips it there, and vice versa. Turning it off is an immediate, complete opt-out: no audio leaves your device for transcription.",
-      "note": {
-        "tag": "What we store about you",
-        "html": "The note reads: <em>We store your profile (name, company, avatar), a log of meetings you join, files you upload, and transcripts while you have STT on. Interface preferences (language, theme, captions) are kept on this device only.</em> Your <b>My data</b> tab lets you review the lists behind this — your meetings, invitations, and files — each read-only, with empty states (<em>No meetings yet.</em>, <em>No invitations yet.</em>, <em>No files yet.</em>) when there is nothing to show and <em>Loading…</em> while they fetch."
-      }
-    },
-    "ch16-trouble": {
-      "eyebrow": "When something looks off",
-      "heading": "Settings troubleshooting",
-      "rows": [
-        { "sym": "<b>Save</b> on the Profile tab is greyed out", "cause": "Display name is blank (or only spaces).", "fix": "Type a non-blank display name; <b>Save</b> enables once it has real text.", "ref": "16.4" },
-        { "sym": "No <b>Security</b> tab in the rail", "cause": "You signed in by magic link, which has no password.", "fix": "Expected for guests. Password changes only apply to password logins.", "ref": "16.7" },
-        { "sym": "Account fields all show a dash and a yellow banner", "cause": "The org record lookup failed; the panel fell back to your session.", "fix": "Reopen later; the banner reads <em>Couldn't load account info…</em> and your verified session values still appear.", "ref": "16.6" },
-        { "sym": "Background picker is greyed out", "cause": "You're on iPad or phone web, where background effects aren't supported.", "fix": "Use a desktop browser; the note <em>Background effects are only supported on desktop</em> explains the limit.", "ref": "16.8" },
-        { "sym": "High video-quality tiers are dim and unclickable", "cause": "An admin lowered the org-wide max video-quality cap.", "fix": "Pick a tier at or below the cap, or <b>Auto</b>. The note names the cap.", "ref": "16.8" },
-        { "sym": "Uploaded avatar isn't on my other device", "cause": "Uploaded images are kept on this device only; only gallery picks sync.", "fix": "Choose a built-in gallery tile to have an avatar follow your login.", "ref": "16.5" },
-        { "sym": "<em>Only image files are accepted.</em> after uploading", "cause": "The chosen file wasn't an image.", "fix": "Pick a picture file (PNG, JPG, etc.).", "ref": "16.5" }
-      ],
-      "note": "Closing the window discards nothing already saved — preference toggles and password changes commit the moment you make them; only an unsaved Profile edit is dropped, and reopening re-seeds the stored values."
+      "figcap": "A PDF anchor in focus mode, showing the page navigation toolbar."
     }
   },
   "figures": {
-    "ch16-plate": { "ref": "16.1", "placeholder": "Account settings window with tab rail and Profile panel, numbered", "shot": "08-settings/profile" },
-    "ch16-profile-fig": { "ref": "16.2", "placeholder": "Profile tab: name, company, avatar gallery, live preview" },
-    "ch16-av-lib": { "ref": "16.3", "placeholder": "Avatar gallery with a selected tile" },
-    "ch16-av-upload": { "ref": "16.4", "placeholder": "Upload image button and Remove action" },
-    "ch16-av-none": { "ref": "16.5", "placeholder": "Generated fallback avatar from name and email" }
+    "ch12-pdf-focus": {
+      "ref": "12.3",
+      "placeholder": "PDF anchor in focus mode with prev / page-count / next / exit toolbar"
+    }
   }
 }

@@ -1,0 +1,29 @@
+{
+  "number": 25,
+  "blocks": [
+    {
+      "id": "ch25-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c25-canvas-ai",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch25-open": {
+      "eyebrow": "Chapter 25",
+      "title": "Canvas AI",
+      "standfirst": "What the AI actually is in Canvas M — and what it does and doesn't do on your board."
+    },
+    "c25-canvas-ai": {
+      "eyebrow": "Meeting intelligence",
+      "heading": "The AI reads the meeting and writes back text",
+      "lead": "Canvas M's on-canvas intelligence is the <b>MCM Bot</b>. It reads the live meeting — the chat, the transcript and the text on the canvas — and writes its answer back as a real, shared canvas element everyone can see and move.",
+      "body": "It is a <em>text</em> assistant: it summarises, lists decisions, and answers questions. It does not draw shapes, arrange your layout, or generate models — so treat it as a smart note-taker on the board, not an auto-designer."
+    }
+  },
+  "figures": {}
+}

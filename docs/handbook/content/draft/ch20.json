@@ -1,127 +1,262 @@
 {
   "number": 20,
   "blocks": [
-    { "id": "ch20-open", "type": "opener", "layout": "opener" },
-    { "id": "ch20-two-modes", "type": "prose", "layout": "prose", "diagram": "ch20-modes-dia" },
-    { "id": "ch20-open-form", "type": "steps", "layout": "steps", "figure": "ch20-new-meeting" },
-    { "id": "ch20-essentials", "type": "steps", "layout": "steps" },
-    { "id": "ch20-agenda", "type": "reference-table", "layout": "table" },
-    { "id": "ch20-roles", "type": "steps", "layout": "steps" },
-    { "id": "ch20-people", "type": "steps", "layout": "steps" },
-    { "id": "ch20-submit", "type": "gallery", "layout": "gallery", "cols": 2, "figures": ["ch20-state-now", "ch20-state-sched"] },
-    { "id": "ch20-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch20-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch13-anatomy",
+      "type": "plate",
+      "layout": "plate",
+      "figure": "ch13-panel"
+    },
+    {
+      "id": "ch13-send",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch13-states",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch13-empty-room",
+        "ch13-empty-msgs",
+        "ch13-readonly"
+      ]
+    },
+    {
+      "id": "ch13-mention",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch13-react",
+      "type": "steps",
+      "layout": "steps"
+    },
+    {
+      "id": "ch13-ref",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch13-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch20-open": {
       "eyebrow": "Chapter 20",
-      "title": "Scheduling a meeting",
-      "standfirst": "One form does two jobs. It can spin up a room and drop you straight into it, or it can plant a meeting on a future date, stamp it with an agenda, name a host, and quietly invite everyone who needs to be there. This chapter walks the whole form, field by field, exactly as the app draws it."
+      "title": "Chat",
+      "standfirst": "The <b>Conversation</b> panel is the room's running text channel. Type a line, mention a file, summon the AI, react with a tap, quote a reply, and read every message in your own language — all from one quiet, two-row composer beside the canvas."
     },
-    "ch20-two-modes": {
-      "eyebrow": "Mental model",
-      "heading": "Two modes, one form",
-      "lead": "<b>Create &amp; join</b> or <b>Create &amp; invite</b> — the same panel serves both, and the only difference is whether the meeting starts <em>now</em> or sits on a date you choose.",
-      "body": "<p>When you press the project's <b>New meeting</b> button, the form opens in <b>now</b> mode: the meeting is created with status <em>live</em> and you are taken straight into the room the moment you submit. There is no date picker — a now-meeting starts the instant it is born.</p><p>When you open the form to <b>Schedule</b> — by clicking a day in the calendar column on the right — it opens in <b>schedule</b> mode. Now you get a date, a time, and a duration. The meeting is created with status <em>scheduled</em>; you are <em>not</em> taken into a room. Instead it appears in every invitee's <b>Invited / Upcoming</b> list, ready for its hour.</p><p>Everything else — title, agenda, roles, people — is identical between the two. The form deliberately mirrors the edit form: what you can set when you create a meeting is exactly what you can change later.</p>",
-      "diagram": { "label": "now vs. schedule", "cap": "The same panel, two lifecycles: <b>now</b> → <em>live</em> → you enter; <b>schedule</b> → <em>scheduled</em> → Upcoming list." },
-      "note": { "tag": "Host-only", "html": "The <b>New meeting</b> and <b>Schedule</b> entry points only appear to project owners and co-operators. A plain participant browsing the project will not see them — they receive meetings through invitations, covered in the next chapter." }
+    "ch13-anatomy": {
+      "eyebrow": "The panel at a glance",
+      "legend": [
+        {
+          "n": 1,
+          "text": "<b>Header</b> — the title <b>Conversation</b> on the left, and on the right the auto-translate toggle."
+        },
+        {
+          "n": 2,
+          "text": "<b>Auto-translate toggle</b> — the globe button. Its tooltip reads <b>Auto-translate (on)</b> or <b>Auto-translate (off)</b> depending on state; it tints when active."
+        },
+        {
+          "n": 3,
+          "text": "<b>Message stream</b> — messages grouped by author. The first message in a group carries the avatar, name and time; later messages from the same person within three minutes are bare bubbles indented beneath."
+        },
+        {
+          "n": 4,
+          "text": "<b>Your own messages</b> — labelled <b>You</b> and styled distinctly from peers' bubbles."
+        },
+        {
+          "n": 5,
+          "text": "<b>Composer</b> — a two-row card: a one-line text area on top that grows as you type, and an action row below."
+        },
+        {
+          "n": 6,
+          "text": "<b>Action row</b> — left to right: the emoji (smiley) button, the <b>Mention file / bot</b> (@) button, the <b>Attach image</b> (paperclip) button, then the <b>Send</b> button on the right."
+        }
+      ]
     },
-    "ch20-open-form": {
-      "eyebrow": "Getting there",
-      "heading": "Opening the form",
+    "ch13-send": {
+      "eyebrow": "The basics",
+      "heading": "Send a message",
       "steps": [
-        "To start a meeting <em>right now</em>, open a project and press <b>New meeting</b> at the top of the meetings column. The form opens in <b>now</b> mode, bound to that project.",
-        "To plan one ahead, look at the <b>calendar</b> in the right-hand column and click the day you want. The form opens in <b>schedule</b> mode with that date pre-filled.",
-        "When you open <b>Schedule</b> from the calendar with no project selected, the top of the form shows a project <b>Select a project</b> dropdown — you must pick one before you can submit.",
-        "The title field is focused automatically, so you can begin typing the moment the panel appears.",
-        "Changed your mind? Press the <b>back arrow</b> in the top-left of the panel (its label is <b>Leave</b>) to close without creating anything."
+        "Click the text area — its placeholder reads <b>Type a message…</b>.",
+        "Type your line. The card highlights once there is non-blank text, and the <b>Send</b> button enables.",
+        "Press <kbd>Enter</kbd> to send. Use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a line break without sending.",
+        "Or click the <b>Send</b> (paper-plane) button on the right of the action row."
       ],
-      "outcome": "The right-hand panel now shows the meeting form — a back arrow and a <b>New meeting</b> or <b>Schedule</b> heading at the top, four stacked zones below, and a single primary button at the foot.",
-      "host": { "tag": "Host-only", "html": "If you manage several projects, the schedule-mode project dropdown lists every project you can create meetings in. The chosen project decides which guest list appears later — the form never silently files a meeting under an arbitrary project." },
-      "figcap": "The four-zone meeting form: Essentials, Agenda, Roles &amp; settings, People."
+      "outcome": "Your message appears at the bottom of the stream under your avatar and the label <b>You</b>, and the panel scrolls to it. Empty or whitespace-only drafts are ignored — <b>Send</b> stays disabled until you type something.",
+      "note": "Messages are sent end-to-end encrypted with the room key. The stream auto-scrolls to the newest message whenever the count changes, so you always land on the latest line."
     },
-    "ch20-essentials": {
-      "eyebrow": "Zone 1 · Essentials",
-      "heading": "Title, date, time, duration",
-      "steps": [
-        "Type a <b>Meeting title</b> in the large field at the top. This is the only required field — the submit button stays disabled until it has text.",
-        "In schedule mode, set the <b>Date &amp; time</b>. Click the date box to pop the native date picker; if the meeting is unscheduled you may leave the date blank.",
-        "Pick a start time from the dropdown — it offers every half-hour from midnight to 23:30. The time defaults to <b>09:00</b> (or the time you clicked in the calendar).",
-        "Set the <b>Duration (min)</b> in the number box; it defaults to <b>60</b> and steps in fives. The quiet <b>min</b> suffix sits beside it.",
-        "In now mode there is no date row at all — the meeting starts immediately, so date, time, and duration simply do not appear."
-      ],
-      "outcome": "A titled meeting with, in schedule mode, a concrete start moment and length. Leaving the date empty in schedule mode creates the meeting with no scheduled time — it shows as <b>Not scheduled</b> and you can set a time later via Reschedule.",
-      "note": "The time dropdown is click-only — there is no free-typing of arbitrary minutes. Choose the nearest half-hour, then fine-tune the meeting later if you need an odd start time."
-    },
-    "ch20-agenda": {
-      "eyebrow": "Zone 2 · Agenda",
-      "heading": "Topic, description, and the four vocabularies",
-      "cols": ["Field", "Control", "Choices / placeholder"],
-      "rows": [
-        ["<b>Topic</b>", "Single-line text", "Placeholder <em>“e.g. Façade review”</em> — the meeting's one-line focus."],
-        ["<b>Description</b>", "Three-line textarea", "Placeholder <em>“Add notes…”</em> — longer agenda or context."],
-        ["<b>Type</b>", "Dropdown", "Design review · Kickoff · Coordination · Client presentation · Internal sync · QA-QC · Other"],
-        ["<b>Discipline</b>", "Dropdown", "Architecture · Structure · MEP · Façade · Interior · Landscape · General"],
-        ["<b>Priority</b>", "Dropdown", "Low · Normal · High"],
-        ["<b>Confidentiality</b>", "Dropdown", "Internal · Client-shared · Confidential"]
-      ],
-      "note": "Every dropdown carries a blank <b>—</b> entry at the top, so each tag is optional — leave it blank and the meeting simply has no value for that field. The four vocabularies are the same set you see when editing a meeting or filtering the project list.",
-      "host": { "tag": "Host-only", "html": "These tags are how a busy project stays legible: <b>Confidentiality</b> in particular signals whether external guests belong in the room. They are labels, not locks — set them honestly so co-operators reading the project list can tell a <em>Confidential</em> design review from a <em>Client-shared</em> presentation at a glance." }
-    },
-    "ch20-roles": {
-      "eyebrow": "Zone 3 · Roles & settings",
-      "heading": "Naming the host and co-host",
-      "steps": [
-        "Pick the <b>Host</b> from the dropdown. It defaults to <em>you</em>, the organizer — every internal person you have invited also appears as a candidate.",
-        "Optionally pick a <b>Co-host</b>. The dropdown opens on <b>— None —</b>; the list is the same internal candidates minus whoever is currently host.",
-        "Only <em>internal</em> invitees can host or co-host — guests never appear in these dropdowns. To make someone a host candidate, invite them in the People zone first.",
-        "If you choose a host who is already the co-host, the form clears the co-host automatically so the two roles can't collide.",
-        "Note the two switch rows — <b>Waiting room for guests</b> and <b>Record the meeting</b>. Both are labelled <b>(coming soon)</b> and are switched off and disabled; they are placeholders, not yet-enforced policies."
-      ],
-      "outcome": "The meeting carries a designated host (you by default) and, optionally, a pre-assigned co-host whose invitation arrives already stamped with the co-host role.",
-      "note": "If you invite someone, name them host, then remove them from the People list, the form keeps the now-orphaned name selectable rather than silently snapping back — so the host you chose never quietly changes underneath you.",
-      "host": { "tag": "Host-only", "html": "Pre-naming a host matters most for meetings you schedule but won't run yourself. The named host can start the room in your place, and the usual <em>host away → acting host</em> fallback still applies if neither of you arrives." }
-    },
-    "ch20-people": {
-      "eyebrow": "Zone 4 · People",
-      "heading": "Inviting the room",
-      "steps": [
-        "Search internal colleagues in the <b>Search by name / department…</b> box — it matches name, email, division, and job title — then click a result to add them.",
-        "Prefer a checklist? Press <b>Members</b> to open the <b>Select members</b> picker, tick everyone you need, and confirm with <b>Done</b>.",
-        "Invite external contacts from <b>Project guests</b>: search and click a name. Guests must already be issued in the guest manager — there is no free-typed email box here.",
-        "Each person you add appears in the grid at the top of the zone, clustered by division with their avatar; press the remove control to drop anyone.",
-        "When at least one internal person is selected, a checkbox <b>Also grant project access (internal only)</b> appears, ticked by default — leave it on to give colleagues standing access to the project, not just this one meeting."
-      ],
-      "outcome": "On submit, everyone selected is invited to the meeting; the pre-named co-host's invite carries the co-host role, and ticked internal colleagues are added to the project.",
-      "note": "The internal search shows the first 50 matches and the guest search the first 30; narrow your query if someone is missing. When a search finds nobody you'll see <b>No one found</b> (internal) or <b>No project guests yet — issue one in the guest manager</b> (guests).",
-      "host": { "tag": "Host-only", "html": "The guest list is strictly per-project: only guests issued to <em>this</em> project appear, and they are invited by their project login, never a raw email. That is what keeps each department's external contacts walled off from the others." }
-    },
-    "ch20-submit": {
-      "eyebrow": "Submitting",
-      "heading": "Create & join, or Create & invite",
+    "ch13-states": {
+      "eyebrow": "Empty and read-only states",
+      "heading": "When the panel is quiet",
       "tiles": [
-        { "state": "Create & join", "cap": "In <b>now</b> mode the foot button reads <b>Create &amp; join</b>. Press it and the meeting is created <em>live</em> and you are taken straight into the room." },
-        { "state": "Create & invite", "cap": "In <b>schedule</b> mode the button reads <b>Create &amp; invite</b>. The meeting is created <em>scheduled</em>; you stay on the dashboard and it surfaces in everyone's Upcoming list." }
+        {
+          "state": "Not in a session",
+          "cap": "Before you join a live collaboration the panel shows a chat icon, the title <b>Start a live collaboration session</b>, and the subtitle <b>Messages are end-to-end encrypted with the room key.</b> There is no composer yet."
+        },
+        {
+          "state": "No messages yet",
+          "cap": "In a live room with an empty history you see <b>No messages yet</b> and the hint <b>Type @ to mention a file, @bot to ask AI</b>. The composer is ready below."
+        },
+        {
+          "state": "Reviewing a finished meeting",
+          "cap": "Open a finished meeting for review and the history is visible but frozen. The composer is replaced by the notice <b>Reviewing a finished meeting — chat is read-only</b>. Reactions and replies are disabled too."
+        }
       ],
-      "useWhen": "The button is disabled until the title has text, and again while the create is in flight, so a double-press can't make two meetings. If the server refuses the create — a permissions or connection problem — the form stays open and shows <b>Save failed — check your permission (organizer only) or the meeting state.</b> rather than pretending it worked."
+      "useWhen": "Read these states as signals: an encryption subtitle means you haven't started collaborating yet; the read-only notice means the meeting is closed and extract-only."
     },
-    "ch20-trouble": {
-      "eyebrow": "When it doesn't go to plan",
-      "heading": "Scheduling troubleshooting",
-      "rows": [
-        { "sym": "The create button is greyed out and won't click.", "cause": "The <b>Meeting title</b> is empty, or a create is already running.", "fix": "Type a title. The button enables the moment the title has non-blank text; if you just pressed it, wait for the in-flight create to finish.", "ref": "20.6" },
-        { "sym": "In schedule mode from the calendar, I can't submit.", "cause": "No project is bound — the form opened with no project context.", "fix": "Pick a project in the <b>Select a project</b> dropdown at the top of the form, then submit.", "ref": "20.2" },
-        { "sym": "Submitting shows “Save failed — check your permission…”.", "cause": "The server refused the create — you're not the organizer for that action, or the worker is unreachable.", "fix": "Confirm you own or co-operate the project and that you're online, then try again. The form keeps your entries.", "ref": "20.6" },
-        { "sym": "A colleague I want as host isn't in the Host dropdown.", "cause": "Only internal invitees are host candidates; the person isn't yet invited.", "fix": "Add them in the People zone first — they then appear as a host and co-host candidate.", "ref": "20.5" },
-        { "sym": "The Project guests list is empty.", "cause": "This project has no guests issued, or your search matched none.", "fix": "Clear the search; if it's still empty, issue a guest ID in the guest manager first — guests can't be free-typed here.", "ref": "20.6" },
-        { "sym": "The Waiting room / Record switches won't turn on.", "cause": "Both are marked <b>(coming soon)</b> and are intentionally disabled.", "fix": "Nothing to do — they're placeholders for a future release, not active policies.", "ref": "20.5" }
+    "ch13-mention": {
+      "eyebrow": "Mentioning files",
+      "heading": "Reference a file from the library",
+      "steps": [
+        "Type <kbd>@</kbd> anywhere in your draft, or click the <b>Mention file / bot</b> (@) button to insert one and open the picker.",
+        "Keep typing to filter — the picker lists up to eight matching library files by name, plus the <b>MCM Bot</b> option at the top.",
+        "Use <kbd>↑</kbd> / <kbd>↓</kbd> to move the highlight, then <kbd>Enter</kbd> or <kbd>Tab</kbd> to insert; or click an entry. Press <kbd>Esc</kbd> to dismiss the picker.",
+        "The file is inserted as a coloured mention chip in your message.",
+        "In the sent message, click the mention chip — its tooltip reads <b>Click to scroll to file on canvas</b> — to fly the canvas to that image."
       ],
-      "note": "Leaving the date blank in schedule mode is not an error — the meeting is created with no scheduled time and shows as <b>Not scheduled</b>. Give it a time later with Reschedule."
+      "outcome": "Recipients see the same chip. Clicking it scrolls and zooms to the matching image on the canvas.",
+      "note": "If the picker finds nothing it shows <b>No files in this room's library yet.</b> when the library is empty, or <b>No files match \"…\"</b> with your query when none match. If you click a mention whose image isn't placed yet, an alert explains: <b>This file isn't on the canvas yet. Open the library and click it to place first.</b>"
+    },
+    "ch13-react": {
+      "eyebrow": "React and reply",
+      "heading": "Tapback reactions and quoted replies",
+      "steps": [
+        "Hover any message (your own or a peer's) to reveal a floating reaction bar above the bubble.",
+        "Click an emoji — the set is <b>👍 ❤️ 😂 😮 🎉 🔥 👀 🙏 💯 ✅ 🤔 😢</b> — to attach it. Clicking the same emoji again removes your reaction.",
+        "Reactions appear as a pill under the bubble with a running count; the tooltip reads <b>{n} people</b>. Your own reactions are highlighted.",
+        "To reply, click the curved-arrow <b>Reply</b> button at the right end of that same hover bar (tooltip <b>Reply to this message</b>).",
+        "A quote banner appears above the composer showing the author and a snippet; type your answer and send. Press <kbd>Esc</kbd> or the <b>×</b> to cancel the reply.",
+        "Sent replies show the quoted snippet above the bubble — click it (tooltip <b>Scroll to original message</b>) to jump to and briefly flash the original."
+      ],
+      "outcome": "Reactions and replies broadcast to everyone in the room in real time.",
+      "note": "The bot's messages can't be reacted to, and the whole hover bar is hidden while you're reviewing a finished meeting."
+    },
+    "ch13-ref": {
+      "eyebrow": "Quick reference",
+      "heading": "Composer controls and shortcuts",
+      "cols": [
+        "Control / key",
+        "What it does"
+      ],
+      "rows": [
+        [
+          "Smiley button",
+          "Opens a quick-emoji palette; clicking an emoji inserts it into your draft at the cursor."
+        ],
+        [
+          "@ button (<b>Mention file / bot</b>)",
+          "Inserts an @ and opens the mention picker for files and the bot."
+        ],
+        [
+          "Paperclip (<b>Attach image</b>)",
+          "Opens the image picker; selected images upload to the room library and are inserted as mention chips."
+        ],
+        [
+          "<b>Send</b> button",
+          "Sends the current draft (disabled when the draft is blank)."
+        ],
+        [
+          "<kbd>Enter</kbd>",
+          "Send the message."
+        ],
+        [
+          "<kbd>Shift</kbd>+<kbd>Enter</kbd>",
+          "Insert a line break instead of sending."
+        ],
+        [
+          "<kbd>↑</kbd> / <kbd>↓</kbd>",
+          "Move the highlight in the open mention picker."
+        ],
+        [
+          "<kbd>Enter</kbd> / <kbd>Tab</kbd>",
+          "Insert the highlighted mention picker entry."
+        ],
+        [
+          "<kbd>Esc</kbd>",
+          "Close the mention picker, or cancel a pending reply."
+        ],
+        [
+          "Globe toggle",
+          "Turn auto-translate on or off (remembered between sessions)."
+        ]
+      ],
+      "note": "Only images are accepted as attachments. The action row spaces the emoji, mention and attach buttons on the left and the Send button on the right.",
+      "host": {
+        "tag": "Host-only",
+        "html": "There is no participant control to clear, delete or moderate chat history. The transcript and library content the bot draws on are governed by the meeting's lifecycle, not by individual participants."
+      }
+    },
+    "ch13-trouble": {
+      "eyebrow": "When something's off",
+      "heading": "Chat troubleshooting",
+      "rows": [
+        {
+          "sym": "No composer, just an encryption message",
+          "cause": "You haven't started a live collaboration session yet",
+          "fix": "Start or join a live session; the composer appears once you're in the room",
+          "ref": "13.2"
+        },
+        {
+          "sym": "Composer replaced by a read-only notice",
+          "cause": "You opened a finished meeting for review",
+          "fix": "Finished meetings are immutable — history is extract-only, no new messages, reactions or replies",
+          "ref": "13.2"
+        },
+        {
+          "sym": "Attach skipped my file",
+          "cause": "Only image files are supported",
+          "fix": "An alert reads \"Only images are supported. Skipped: …\". Re-attach an image (PNG/JPG/etc.)",
+          "ref": "13.ref"
+        },
+        {
+          "sym": "Mention chip does nothing / shows an alert",
+          "cause": "The referenced image isn't placed on the canvas yet",
+          "fix": "\"This file isn't on the canvas yet. Open the library and click it to place first.\"",
+          "ref": "13.3"
+        },
+        {
+          "sym": "@bot apologised instead of answering",
+          "cause": "The AI had no useful answer, or the service/connection failed",
+          "fix": "Try again later; check your connection. Make sure your question is clear and follows @bot",
+          "ref": "13.bot"
+        },
+        {
+          "sym": "Messages still in another language",
+          "cause": "Auto-translate is off, or the message is already in your language",
+          "fix": "Click the globe toggle until its tooltip reads \"Auto-translate (on)\"",
+          "ref": "13.translate"
+        }
+      ],
+      "note": "If a translation seems stuck on \"Translating…\", it's fetching in the background — it resolves once the result returns or falls back to the original."
     }
   },
   "figures": {
-    "ch20-modes-dia": { "ref": "20.1", "placeholder": "Branching diagram: form → now (live, enter room) vs schedule (scheduled, Upcoming list)" },
-    "ch20-new-meeting": { "ref": "20.2", "placeholder": "The meeting form open in the right column, four zones visible", "shot": "02-dashboard/new-meeting" },
-    "ch20-state-now": { "ref": "20.3", "placeholder": "Foot button reading Create & join (now mode)" },
-    "ch20-state-sched": { "ref": "20.4", "placeholder": "Foot button reading Create & invite, with date/time/duration row above" }
+    "ch13-panel": {
+      "ref": "13.1",
+      "placeholder": "The Conversation panel with header, grouped message stream, and the two-row composer"
+    },
+    "ch13-empty-room": {
+      "ref": "13.2",
+      "placeholder": "Not-in-session empty state: 'Start a live collaboration session'"
+    },
+    "ch13-empty-msgs": {
+      "ref": "13.3",
+      "placeholder": "Empty live room: 'No messages yet' with the @ / @bot hint"
+    },
+    "ch13-readonly": {
+      "ref": "13.4",
+      "placeholder": "Read-only review notice replacing the composer"
+    }
   }
 }

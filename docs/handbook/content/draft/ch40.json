@@ -1,0 +1,86 @@
+{
+  "number": 40,
+  "blocks": [
+    {
+      "id": "ch40-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch19-find",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch19-manage"
+    },
+    {
+      "id": "ch19-states",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": [
+        "ch19-state-mine",
+        "ch19-state-invited",
+        "ch19-state-empty"
+      ]
+    }
+  ],
+  "strings": {
+    "ch40-open": {
+      "eyebrow": "Chapter 40",
+      "title": "Manage projects",
+      "standfirst": "The project browser on your dashboard — finding, grouping and opening the projects you belong to. Full administration lives in the Project management part."
+    },
+    "ch19-find": {
+      "eyebrow": "Getting there",
+      "heading": "Open the Manage projects page",
+      "steps": [
+        "In the left sidebar, look below <b>My meetings</b> and <b>Invited / Upcoming</b> for the <b>Manage projects</b> item (folder-kanban icon).",
+        "Click it. The middle column switches to the project management page, titled <b>Manage projects</b>.",
+        "At the top sits a <b>Search projects…</b> box, a grid/list <b>View</b> toggle, and a <b>New project</b> button.",
+        "Projects are grouped: <b>My projects</b> (folders you belong to) and <b>Invited</b> (folders another department invited you into for one meeting), each with a count.",
+        "Click any project tile or row to drill into its detail. Click <b>All projects</b> to come back to the list."
+      ],
+      "outcome": "You're on the dedicated admin surface. The grid (card) view is the default — covers carry the page; the list view is a denser alternative.",
+      "note": "The toolbar (search + view toggle + New project) hides entirely when you have no projects yet — the empty state carries its own create button instead.",
+      "figcap": "The Manage projects page: search, view toggle, and grouped project tiles."
+    },
+    "ch19-states": {
+      "eyebrow": "Empty & grouped states",
+      "heading": "What the list shows",
+      "tiles": [
+        {
+          "state": "My projects",
+          "cap": "Folders you belong to, sorted by most recently updated, under the <b>My projects (n)</b> heading. Tiles show cover, name, stage pill and a code · client · location meta line."
+        },
+        {
+          "state": "Invited",
+          "cap": "Folders another department invited you into for one meeting, under <b>Invited (n)</b>, each badged <b>Invited</b>. These open read-only — no admin."
+        },
+        {
+          "state": "No projects yet",
+          "cap": "A folder-kanban illustration with <b>“No projects yet”</b> and the hint <b>“Create your first project to start organizing meetings.”</b>, plus a <b>New project</b> button."
+        }
+      ],
+      "useWhen": "When a search matches nothing you'll instead see <b>“No projects match \"{q}\"”</b> with a <b>Clear search</b> link. If the list itself fails to load, it reads <b>“Couldn't load — check your network connection.”</b> with a <b>Retry</b> button."
+    }
+  },
+  "figures": {
+    "ch19-manage": {
+      "ref": "19.1",
+      "placeholder": "Manage projects page: search box, grid/list toggle, New project button, and grouped project tiles (My projects / Invited)",
+      "shot": "03-projects/manage"
+    },
+    "ch19-state-mine": {
+      "ref": "19.3",
+      "placeholder": "My projects group of cards, each with cover, name, stage pill and code/client/location meta"
+    },
+    "ch19-state-invited": {
+      "ref": "19.4",
+      "placeholder": "Invited group: project cards badged 'Invited', opening read-only"
+    },
+    "ch19-state-empty": {
+      "ref": "19.5",
+      "placeholder": "Empty state: folder-kanban icon, 'No projects yet', hint and a New project button"
+    }
+  }
+}

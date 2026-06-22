@@ -1,0 +1,148 @@
+{
+  "number": 24,
+  "blocks": [
+    {
+      "id": "ch24-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch9-bot-steps",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch9-bot"
+    },
+    {
+      "id": "ch9-bot-plate",
+      "type": "plate",
+      "layout": "plate",
+      "figure": "ch9-bot-frame"
+    },
+    {
+      "id": "ch13-bot",
+      "type": "ai",
+      "layout": "prose",
+      "diagram": "ch13-bot-flow"
+    },
+    {
+      "id": "ch9-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
+  ],
+  "strings": {
+    "ch24-open": {
+      "eyebrow": "Chapter 24",
+      "title": "The MCM chat bot",
+      "standfirst": "Drop the MCM Bot anywhere on the canvas, or call @bot in chat, and ask it to summarise, list decisions, or answer a question about the meeting."
+    },
+    "ch9-bot-steps": {
+      "eyebrow": "The Canvas Bot",
+      "heading": "Drop the bot and ask a question",
+      "steps": [
+        "In the toolbar, click the <b>bot</b> icon (tooltip <em>Ask MCM Bot</em>). The pointer enters placing mode and a small bot ghost follows your cursor.",
+        "Click anywhere on the canvas to drop it. Click outside the canvas, or press <kbd>Esc</kbd>, to cancel placing.",
+        "A small prompt box opens at the drop point, with the placeholder <em>Type your request… (e.g. summarize the meeting, list decisions)</em>.",
+        "Type any request &mdash; summarise, list decisions, translate this, and so on &mdash; then click <b>Send</b> or press <kbd>Enter</kbd>. Use <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line, <kbd>Esc</kbd> or <b>×</b> to cancel.",
+        "A framed panel reading <em>🤖 Working…</em> appears at the drop point, then is replaced in place by the bot's answer."
+      ],
+      "outcome": "The answer lands as a dark, cyan-bordered <b>🤖 MCM BOT</b> panel &mdash; a normal, movable canvas element everyone in the room can see and reposition.",
+      "note": "Nothing fires automatically. The bot only runs on your explicit click, so there's no risk of two people triggering it at once &mdash; the prompt box is local to you; only the answer panel is shared.",
+      "host": {
+        "tag": "Host-only",
+        "html": "Any participant can drop the bot &mdash; there is no host gate in the tool itself. Access is checked server-side by room membership, so only people actually in the meeting can run it."
+      },
+      "figcap": "The bot prompt box open at a drop point on the canvas."
+    },
+    "ch9-bot-plate": {
+      "eyebrow": "Anatomy of an answer",
+      "legend": [
+        {
+          "n": "1",
+          "text": "Bot header &mdash; every answer panel opens with <b>🤖 MCM BOT</b> in monospace so it's unmistakably the bot's, not a peer's note."
+        },
+        {
+          "n": "2",
+          "text": "Answer body &mdash; light text on a dark panel, wrapped to the frame width. This is what the bot wrote in reply to your request."
+        },
+        {
+          "n": "3",
+          "text": "Cyan frame &mdash; the panel is a real rectangle with bound text. Drag it, resize it, or delete it like any element; changes sync to the room."
+        },
+        {
+          "n": "4",
+          "text": "Authored by <b>MCM Bot</b> &mdash; the panel is stamped with the bot's identity, so it's excluded from the meeting context the bot reads next time (it never quotes its own answers back to you)."
+        }
+      ]
+    },
+    "ch13-bot": {
+      "eyebrow": "Ask the AI",
+      "heading": "@bot — the in-chat assistant",
+      "lead": "Type <kbd>@bot</kbd> followed by a question to ask the room's AI assistant, <b>MCM Bot</b>. Pick it from the @ picker — labelled <b>MCM Bot</b> with the note <b>Ask AI about the design / project</b> — or just type <code>@bot</code> by hand.",
+      "body": "When you send a line containing <b>@bot</b>, your message posts as normal and the assistant starts working. A bot bubble with an animated three-dot thinking indicator appears while it composes. The bot reads context from the room — the last several chat lines, the full voice transcript so far, text written on the canvas, who is present, and the library file names — then replies in your preferred language. Its answer lands as a distinct robot-avatar bubble from <b>MCM Bot</b>.",
+      "pull": "Ask in plain language: <em>@bot summarise the open questions</em> or <em>@bot what did we decide about the logo?</em>",
+      "diagram": {
+        "label": "How @bot answers",
+        "cap": "Your @bot line → thinking dots → MCM Bot gathers room context → reply bubble in your language."
+      },
+      "note": {
+        "tag": "If it can't answer",
+        "html": "If the assistant has nothing useful it replies <b>Sorry, I couldn't answer. Try again later.</b> If the connection or AI service fails it replies <b>I can't reply right now (connection or API problem).</b> Either way the thinking indicator clears."
+      }
+    },
+    "ch9-trouble": {
+      "eyebrow": "Troubleshooting",
+      "heading": "When translate or the bot misbehaves",
+      "rows": [
+        {
+          "sym": "No Translate pill appears",
+          "cause": "Nothing selected, more than one element selected, or you selected a translation line rather than a source.",
+          "fix": "Click a single text element. Translating a translation is blocked on purpose, so the pill hides on those grey lines.",
+          "ref": "9.2"
+        },
+        {
+          "sym": "Pill shows Refresh translation, not Translate",
+          "cause": "You edited the source text after translating, so the lines below it are now stale and faded.",
+          "fix": "Click <b>Refresh translation</b> to re-translate every out-of-date line in one pass.",
+          "ref": "9.4"
+        },
+        {
+          "sym": "Clicking a language adds nothing",
+          "cause": "The source is empty/whitespace, or the provider is unavailable and returned the original text.",
+          "fix": "Make sure the note has real text. If the provider is down, Canvas M intentionally adds no line; try again later.",
+          "ref": "9.5"
+        },
+        {
+          "sym": "Translation moved when I dragged the note",
+          "cause": "Expected. Translation lines are linked to their source and shift by the same offset to stay together.",
+          "fix": "Nothing to fix &mdash; move the source and the pair travels as one. Delete the source to remove its translations too.",
+          "ref": "9.2"
+        },
+        {
+          "sym": "Bot panel says \"The bot hit an error, try again.\"",
+          "cause": "The request to the bot failed or the server returned an error.",
+          "fix": "Press the bot icon again, drop a fresh prompt, and resend. The error text replaces the loading frame in place.",
+          "ref": "9.6"
+        },
+        {
+          "sym": "Dropped the bot but no prompt box",
+          "cause": "You clicked outside the canvas area, which cancels placing.",
+          "fix": "Re-arm the bot from the toolbar and click inside the canvas to drop it.",
+          "ref": "9.6"
+        }
+      ],
+      "note": "The bot reads the meeting's chat, voice transcript, canvas notes (with authors), participants and shelf files as context &mdash; but it skips its own previous answers, so it won't loop on \"no info\" replies."
+    }
+  },
+  "figures": {
+    "ch9-bot": {
+      "ref": "9.6",
+      "placeholder": "Bot prompt box open on the canvas at a drop point",
+      "shot": "07-canvas/bot"
+    },
+    "ch9-bot-frame": {
+      "ref": "9.7",
+      "placeholder": "A dark, cyan-bordered '🤖 MCM BOT' answer panel on the canvas with numbered callouts"
+    }
+  }
+}

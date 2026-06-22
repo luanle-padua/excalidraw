@@ -1,25 +1,29 @@
 // build-web.mjs — generate the web handbook from the SAME content source as the
 // PDF (docs/handbook/content/*.json). One authoring source → both outputs.
 //   node docs/handbook-web/build/build-web.mjs
-import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync, rmSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
-const HB = "C:/LUAN/19.CanvasMeet/docs/handbook"; // canonical content lives here
-const WEB = "C:/LUAN/19.CanvasMeet/docs/handbook-web";
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url)); // handbook-web/build
+const HB = resolve(SCRIPT_DIR, "../../handbook"); // canonical content lives here
+const WEB = resolve(SCRIPT_DIR, ".."); // handbook-web
 
 const book = JSON.parse(readFileSync(`${HB}/content/book.json`, "utf8"));
 const str = JSON.parse(readFileSync(`${HB}/content/strings/en.json`, "utf8"));
 try { Object.assign(str, JSON.parse(readFileSync(`${HB}/content/strings/en-extra.json`, "utf8"))); } catch {}
 const fig = JSON.parse(readFileSync(`${HB}/content/figures.json`, "utf8"));
+// Per-figure crop rectangles (kept in one durable file so re-assembles don't wipe them).
+try {
+  const crops = JSON.parse(readFileSync(`${HB}/content/figure-crops.json`, "utf8"));
+  for (const [k, c] of Object.entries(crops)) if (fig[k] && Array.isArray(c)) fig[k].crop = c;
+} catch {}
 
-const SLUG = {
-  1: "01-signing-in", 2: "02-joining", 3: "03-seen-heard", 4: "04-video-layouts",
-  5: "05-presence", 6: "06-backgrounds", 7: "07-canvas-basics", 8: "08-stickers",
-  9: "09-translate-bot", 10: "10-screen-share", 11: "11-library", 12: "12-viewers",
-  13: "13-chat", 14: "14-captions", 15: "15-dashboard", 16: "16-settings",
-  17: "17-leaving", 18: "18-troubleshooting", 19: "19-projects", 20: "20-scheduling",
-  21: "21-inviting-clients", 22: "22-hosting",
-};
 const pad2 = (n) => String(n).padStart(2, "0");
+// slug = chapter number + kebab'd title, derived dynamically so any chapter count works
+const kebab = (s) => String(s || "").toLowerCase().replace(/&/g, " and ")
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "chapter";
+const slugFor = (n) => `${pad2(n)}-${kebab((str[`ch${n}-open`] || {}).title)}`;
 const partOf = (ch) => book.parts.find((p) => p.id === ch.part);
 const partIx = (id) => book.parts.findIndex((p) => p.id === id) + 1;
 
@@ -34,12 +38,30 @@ const ICON = {
   host: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-4Z"/></svg>',
   chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>',
 };
+const escAttr = (s) => String(s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 function frameWeb(figId) {
   const f = fig[figId] || {};
   const cap = `<div class="frame-cap">${f.ref ? `<b>Fig ${f.ref}</b> ` : ""}${f.placeholder || ""}</div>`;
-  const stage = f.shot
-    ? `<div class="frame-stage"><img src="../assets/captures/${f.shot}.png" alt="" loading="lazy"></div>`
-    : `<div class="frame-stage"><div class="ph-label"><b>${f.placeholder || figId}</b><small>screenshot pending</small></div></div>`;
+  let stage;
+  if (f.shot) {
+    const src = `../assets/captures/${f.shot}.png`;
+    const alt = escAttr(f.placeholder || "Canvas M screenshot");
+    if (Array.isArray(f.crop) && f.crop.length === 4) {
+      // crop = [x, y, w, h] in % of the source image (captures are 2880×1800 = 1.6:1).
+      // Show exactly that sub-rectangle, zoomed to fill the frame — so each figure
+      // focuses on the region its caption is about instead of a tiny full desktop.
+      const [x, y, w, h] = f.crop;
+      const ar = ((1.6 * w) / h).toFixed(4);
+      const sizeX = (10000 / w).toFixed(2);
+      const posX = w >= 100 ? "50" : ((x / (100 - w)) * 100).toFixed(2);
+      const posY = h >= 100 ? "50" : ((y / (100 - h)) * 100).toFixed(2);
+      stage = `<div class="frame-stage shot crop" role="img" aria-label="${alt}" style="aspect-ratio:${ar};background-image:url(${src});background-size:${sizeX}%;background-position:${posX}% ${posY}%"></div>`;
+    } else {
+      stage = `<div class="frame-stage shot"><img src="${src}" alt="${alt}" loading="lazy"></div>`;
+    }
+  } else {
+    stage = `<div class="frame-stage"><div class="ph-label"><b>${f.placeholder || figId}</b><small>screenshot pending</small></div></div>`;
+  }
   return `<figure class="frame">${stage}${cap}</figure>`;
 }
 const norm = (n) => !n ? null : typeof n === "string" ? { tag: "Note", html: n } : { tag: n.tag || n.lead || n.label || "Note", html: n.html || n.text || n.body || "", variant: n.variant };
@@ -75,7 +97,7 @@ const sectFor = (t) => SECT[t] || SECT[ALIAS[t]];
 
 // ---------- page ----------
 function chapterPage(ch, idx) {
-  const slug = SLUG[ch.number];
+  const slug = slugFor(ch.number);
   const open = str[`ch${ch.number}-open`] || {};
   const part = partOf(ch);
   const sections = ch.blocks.filter((b) => b.type !== "opener").map((b) => {
@@ -83,7 +105,7 @@ function chapterPage(ch, idx) {
     return fn ? fn(b, str[b.id] || {}) : "";
   }).join("\n");
   const prev = FLAT[idx - 1], next = FLAT[idx + 1];
-  const navLink = (c, dir) => c ? `<a${dir === "next" ? ' class="next"' : ""} href="${SLUG[c.number]}.html"><span>${dir === "next" ? "Next →" : "← Previous"}</span><strong>${c.number} · ${(str[`ch${c.number}-open`] || {}).title || ""}</strong></a>` : "<span></span>";
+  const navLink = (c, dir) => c ? `<a${dir === "next" ? ' class="next"' : ""} href="${slugFor(c.number)}.html"><span>${dir === "next" ? "Next →" : "← Previous"}</span><strong>${c.number} · ${(str[`ch${c.number}-open`] || {}).title || ""}</strong></a>` : "<span></span>";
   return `<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -114,7 +136,7 @@ function buildToc() {
       const ch = book.chapters[cid];
       const o = str[`ch${ch.number}-open`] || {};
       const desc = (o.standfirst || "").replace(/<[^>]+>/g, "").split(/[—.]/)[0].trim().slice(0, 48);
-      return `      { n: ${ch.number}, slug: "${SLUG[ch.number]}", title: ${JSON.stringify(o.title || "")}, desc: ${JSON.stringify(desc)}, ready: true },`;
+      return `      { n: ${ch.number}, slug: "${slugFor(ch.number)}", title: ${JSON.stringify(o.title || "")}, desc: ${JSON.stringify(desc)}, ready: true },`;
     }).join("\n");
     return `  {\n    part: ${partIx(p.id)}, label: ${JSON.stringify(p.title)},\n    chapters: [\n${chapters}\n    ],\n  },`;
   }).join("\n");
@@ -137,6 +159,8 @@ if (existsSync(`${HB}/assets/captures`)) {
 // 3. toc + chapters
 writeFileSync(`${WEB}/js/toc.js`, buildToc());
 mkdirSync(`${WEB}/chapters`, { recursive: true });
-FLAT.forEach((ch, i) => writeFileSync(`${WEB}/chapters/${SLUG[ch.number]}.html`, chapterPage(ch, i)));
+// clear stale chapter html (slugs change when chapters are re-titled/re-ordered)
+for (const f of readdirSync(`${WEB}/chapters`)) if (f.endsWith(".html")) rmSync(`${WEB}/chapters/${f}`);
+FLAT.forEach((ch, i) => writeFileSync(`${WEB}/chapters/${slugFor(ch.number)}.html`, chapterPage(ch, i)));
 console.log(`generated toc.js + ${FLAT.length} chapter pages`);
 console.log("DONE");

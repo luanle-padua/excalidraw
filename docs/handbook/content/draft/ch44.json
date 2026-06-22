@@ -1,0 +1,29 @@
+{
+  "number": 44,
+  "blocks": [
+    {
+      "id": "ch44-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "c44-activities",
+      "type": "prose",
+      "layout": "prose"
+    }
+  ],
+  "strings": {
+    "ch44-open": {
+      "eyebrow": "Chapter 44",
+      "title": "My activities",
+      "standfirst": "A personal log of what you've done in Canvas M — meetings created, invitations answered, joins, and files uploaded."
+    },
+    "c44-activities": {
+      "eyebrow": "Your history",
+      "heading": "Everything you've done, in one list",
+      "lead": "The <b>My activities</b> view (the History icon) keeps a running record of your own actions: meetings you created, invitations you received and how you replied, meetings you joined, and files you uploaded.",
+      "body": "It's built from your existing data rather than a separate log, so it's always an honest reflection of what happened — handy for retracing “when did I last open that project?”"
+    }
+  },
+  "figures": {}
+}

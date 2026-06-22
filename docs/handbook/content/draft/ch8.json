@@ -1,132 +1,197 @@
 {
   "number": 8,
   "blocks": [
-    { "id": "ch8-open", "type": "opener", "layout": "opener" },
-    { "id": "ch8-where", "type": "prose", "layout": "prose", "diagram": "ch8-toolbar" },
-    { "id": "ch8-stickers", "type": "steps", "layout": "steps", "figure": "ch8-stickers-shot" },
-    { "id": "ch8-sizing", "type": "gallery", "layout": "gallery", "cols": 3, "figures": ["ch8-ghost-small", "ch8-ghost-mid", "ch8-ghost-big"] },
-    { "id": "ch8-stamps", "type": "steps", "layout": "steps", "figure": "ch8-stamps-shot" },
-    { "id": "ch8-revcloud", "type": "steps", "layout": "steps", "figure": "ch8-revcloud" },
-    { "id": "ch8-authors", "type": "prose", "layout": "prose", "diagram": "ch8-badge" },
-    { "id": "ch8-ref", "type": "reference-table", "layout": "table" },
-    { "id": "ch8-trouble", "type": "troubleshoot", "layout": "table" }
+    {
+      "id": "ch8-open",
+      "type": "opener",
+      "layout": "opener"
+    },
+    {
+      "id": "ch6-two-backgrounds",
+      "type": "prose",
+      "layout": "prose",
+      "diagram": "ch6-map"
+    },
+    {
+      "id": "ch6-camera-bg",
+      "type": "steps",
+      "layout": "steps",
+      "figure": "ch6-settings"
+    },
+    {
+      "id": "ch6-bg-states",
+      "type": "gallery",
+      "layout": "gallery",
+      "cols": 3,
+      "figures": []
+    },
+    {
+      "id": "ch6-quality",
+      "type": "reference-table",
+      "layout": "table"
+    },
+    {
+      "id": "ch6-trouble",
+      "type": "troubleshoot",
+      "layout": "table"
+    }
   ],
   "strings": {
     "ch8-open": {
       "eyebrow": "Chapter 8",
-      "title": "Decorate & annotate",
-      "standfirst": "Stickers, stamps, revision clouds, and author badges turn a working canvas into a marked-up one. This chapter covers every decoration tool a participant can reach — where the buttons live, how placing mode behaves, and what each one leaves behind on the shared scene."
+      "title": "Camera background & video quality",
+      "standfirst": "Blur or replace what's behind you on camera, and set how much bandwidth your video spends. (Your dashboard wallpaper lives in the User dashboard part.)"
     },
-    "ch8-where": {
-      "eyebrow": "Orientation",
-      "heading": "Where the decoration tools live",
-      "lead": "Canvas M adds its decoration controls straight into the Excalidraw toolbar, sitting next to the shape buttons rather than in a separate panel. Look for the small strip of extra buttons: a <b>Stickers</b> button (a colourful character icon), a <b>Stamps</b> button, and a people-shaped <b>Show authors</b> toggle.",
-      "body": "These three buttons share one host strip, so on a narrow screen they stay grouped as a single horizontal row instead of stacking into full-width buttons. The revision-cloud tool is different: it is a regular drawing tool in the main shape row, reachable with the keyboard shortcut <kbd>Q</kbd>.",
+    "ch6-two-backgrounds": {
+      "eyebrow": "Mental model",
+      "heading": "Two backgrounds, two homes",
+      "lead": "The word “background” means two distinct things in Canvas M, and they are set in two different places. Knowing which is which saves a lot of hunting.",
+      "body": "<b>Dashboard wallpaper</b> is the image or gradient painted behind the glass panes of your lobby — the home screen where your meetings and projects live. You change it from the small <b>image</b> button in the lobby header (its tooltip reads <b>Hình nền</b>). It affects only what <em>you</em> see on your own desk; nobody else is touched.<br><br><b>Camera background</b> is the blur or scene that replaces the real room behind you in your <em>outgoing</em> camera feed during a meeting. Everyone in the call sees it. You set it from <b>Account settings → Preferences</b>, under <b>Change / blur background</b>. Below it sits <b>Video quality</b>, which controls how crisp that same camera feed is.",
+      "pull": "Wallpaper is for your eyes only. Camera background and quality are what the room sees.",
+      "diagram": {
+        "label": "Where each background lives",
+        "cap": "Lobby header (left) owns the dashboard wallpaper; Account settings → Preferences (right) owns the camera background and video quality."
+      },
       "note": {
+        "tag": "Per-browser",
+        "html": "All three preferences are stored in this browser’s local storage, not on your account. Sign in on another computer and you start from the defaults again. This is by design — they are purely cosmetic."
+      }
+    },
+    "ch6-camera-bg": {
+      "eyebrow": "In a meeting",
+      "heading": "Blur or replace your camera background",
+      "steps": [
+        "Open <b>Your profile</b> from the meeting header (the gear / avatar control), which opens the <b>Account settings</b> modal.",
+        "Click the <b>Preferences</b> tab in the left rail.",
+        "Scroll to <b>Change / blur background</b>. You’ll see a row of chips and a row of scene thumbnails.",
+        "Click <b>No background</b> for the raw camera, or a <b>Blur</b> chip — <b>Light</b>, <b>Medium</b>, or <b>Strong</b> — for progressively heavier blur.",
+        "Or click a scene thumbnail — <b>Forest mist</b>, <b>Crystal leaves</b>, or <b>Office</b> — to drop yourself in front of that image.",
+        "Only one choice is ever active (it’s a single radio group); the active chip or thumbnail is highlighted."
+      ],
+      "outcome": "If your camera is already on, the effect applies immediately on your live feed. If your camera is off, the choice is saved and applied automatically the next time you turn the camera on — and it survives reloads.",
+      "host": {
         "tag": "Host-only",
-        "html": "Decoration tools that <em>create</em> canvas content — stickers, stamps, the bot, and text translation — are hidden when you open a finished meeting in review mode. A completed meeting is immutable and extract-only, so the buttons simply do not appear. The <b>Show authors</b> toggle stays available so you can still see who wrote what."
-      }
+        "html": "There is no host control to force or clear anyone’s camera background. It is each participant’s own per-browser choice; a host cannot blur you for you."
+      },
+      "note": "Background effects run only on desktop browsers. On a phone or tablet the whole section is disabled and shows the note <b>“Background effects are only supported on desktop”</b>. Switch to a laptop or desktop if you need a virtual background.",
+      "figcap": "Account settings → Preferences, showing the Change / blur background controls."
     },
-    "ch8-stickers": {
-      "eyebrow": "Stickers",
-      "heading": "Drop a sticker on the canvas",
-      "steps": [
-        "Click the <b>Stickers</b> button in the toolbar. A popover opens showing a grid of chibi-animal stickers.",
-        "Read the hint at the top of the popover: <em>Pick → scroll to resize → click to place</em>.",
-        "Click any sticker tile. The popover closes and a translucent ghost of the sticker starts following your pointer.",
-        "Move over the canvas — the ghost previews the exact size and shows a live <b>width × height</b> readout.",
-        "Scroll the mouse wheel to resize before you commit (scroll up = bigger, down = smaller).",
-        "Click once on the canvas to drop the sticker at that point.",
-        "Press <kbd>Esc</kbd> at any time to cancel placing mode without dropping anything."
-      ],
-      "outcome": "The sticker lands centred on your click and becomes a normal image element — free-floating, selectable, movable, and synced to everyone in the room.",
-      "note": "Stickers and stamps work with a mouse, a trackpad, an Apple Pencil, a Surface Pen, or a touch finger — placing mode is built on pointer events, so all input types behave the same. With a pen, the ghost preview is offset slightly so it sits next to the stylus tip instead of under your hand.",
-      "figcap": "The Stickers popover: a 16-tile grid of animal stickers with the pick-scroll-place hint."
-    },
-    "ch8-sizing": {
-      "eyebrow": "Placing mode",
-      "heading": "Sizing the ghost before you click",
+    "ch6-bg-states": {
+      "eyebrow": "Camera background",
+      "heading": "Every camera-background state",
       "tiles": [
-        { "state": "Small", "cap": "Scroll down to shrink. The smallest the wheel allows is 12% of the base size." },
-        { "state": "Default", "cap": "Every pick starts at 100%. Base size is capped at 240px on the longest edge." },
-        { "state": "Large", "cap": "Scroll up to grow, up to 6× the base size. The readout updates as you scroll." }
+        {
+          "state": "No background",
+          "cap": "The raw camera — your real room is shown. The default."
+        },
+        {
+          "state": "Blur · Light",
+          "cap": "A gentle blur — the room is still readable behind you."
+        },
+        {
+          "state": "Blur · Medium",
+          "cap": "A stronger blur — shapes only, details lost."
+        },
+        {
+          "state": "Blur · Strong",
+          "cap": "Maximum blur — the room is fully obscured."
+        },
+        {
+          "state": "Forest mist / Crystal leaves / Office",
+          "cap": "Scene replacement — you appear in front of the chosen image."
+        },
+        {
+          "state": "Disabled (mobile)",
+          "cap": "On phone/tablet web the section is greyed out with the desktop-only note."
+        }
       ],
-      "useWhen": "The ghost is true WYSIWYG: it is drawn at the on-canvas scene size multiplied by your current zoom, so the floating preview is exactly what lands when you click. The corner readout (e.g. <b>180 × 180</b>) is the scene size in canvas pixels, not screen pixels."
+      "useWhen": "Use a Blur level when you just want to hide a messy or private room while keeping a natural look; use a scene when you want a consistent, on-brand backdrop. Start with Light or Medium — Strong can look heavy on a busy room."
     },
-    "ch8-stamps": {
-      "eyebrow": "Stamps",
-      "heading": "Stamp an image so the mark travels with it",
-      "steps": [
-        "Click the <b>Stamps</b> button. A popover opens with a 12-tile grid of postal-style stamps.",
-        "Click a stamp tile, then scroll to size and click on the canvas — exactly like a sticker.",
-        "To attach a stamp to an image, drop it directly on top of that image.",
-        "Drag the underlying image afterwards — the stamp moves with it."
+    "ch6-quality": {
+      "eyebrow": "Camera quality",
+      "heading": "Video quality ceiling",
+      "cols": [
+        "Choice",
+        "What it does",
+        "Capture sent"
       ],
-      "outcome": "A stamp dropped on top of an image <b>adheres</b> to it: the two are grouped, so dragging, selecting, or copying one carries the other. It behaves like a real rubber stamp on a photo. A stamp dropped on empty canvas stays free-floating, just like a sticker.",
-      "note": "The topmost image under your click wins the binding. Canvas M skips its own anchor images (PDF and DXF views own their navigation toolbars) and skips other stamps — stamping a stamp does nothing, since you would just delete the old one. To detach a stamp later, select the group and use Excalidraw's <b>Ungroup</b>.",
-      "figcap": "The Stamps popover: postal-style chibi-animal stamps with the same placing flow as stickers."
-    },
-    "ch8-revcloud": {
-      "eyebrow": "Revision clouds",
-      "heading": "Cloud an area and attach a note",
-      "steps": [
-        "Pick the revision-cloud tool from the shape row, or press <kbd>Q</kbd>.",
-        "Drag a rectangle over the area you want to flag. On release, the rectangle becomes a scalloped cloud outline.",
-        "A toast appears: <em>Click where you want to place the note</em>.",
-        "Click anywhere on the canvas. A text note reading <b>Note</b> drops at that spot.",
-        "An arrow is drawn from the note to the nearest scallop of the cloud, and all three pieces are grouped together.",
-        "Double-click the <b>Note</b> text to edit it; the arrow stays tethered as you move the note."
+      "rows": [
+        [
+          "Auto",
+          "Rides the admin-allowed cap and lets the network adapt below it. The default.",
+          "Up to the cap"
+        ],
+        [
+          "Low",
+          "Caps your outgoing camera at the lowest tier — kindest to a weak connection and CPU.",
+          "640×360 · 20 fps"
+        ],
+        [
+          "Medium",
+          "A middle ground between sharpness and bandwidth.",
+          "960×540 · 25 fps"
+        ],
+        [
+          "High",
+          "The crispest outgoing feed — best on a strong connection.",
+          "1280×720 · 30 fps"
+        ]
       ],
-      "outcome": "You get a grouped revision marker — cloud, note, and connecting arrow — inherited from the colour, stroke width, roughness, and opacity that were active when you drew. Everything is synced to the room as standard canvas elements.",
-      "note": "A single click (no drag) leaves nothing behind — the placeholder is dropped silently. The note inherits your current font so typed text, including Vietnamese, renders correctly. The cloud, the arrow, and the note are all selected together right after creation, so you can move the whole marker as a unit immediately.",
-      "figcap": "A revision cloud with its arrow-tethered Note over a flagged region of the canvas."
-    },
-    "ch8-authors": {
-      "eyebrow": "Author badges",
-      "heading": "See who wrote each piece of text",
-      "lead": "Canvas M stamps the creator's name onto every text element they add. An author badge — a small avatar plus a short name — floats above the top-left corner of authored text so you can tell at a glance who left it.",
-      "body": "By default badges are quiet: one appears only over the text you have <b>selected</b> or are <b>hovering</b>. To reveal every author at once, click the people-shaped <b>Show authors</b> button in the toolbar; its tooltip flips to <b>Hide authors</b> while active. Click again to go back to the calm, selection-only view. Badges are deliberately text-only — shapes, images, stickers, and stamps don't get them, which keeps the canvas readable.",
-      "pull": "Bot answers carry a fixed identity: a 🤖 avatar and the MCM Bot name, so AI-generated text is always distinguishable from a person's.",
-      "note": {
-        "tag": "Good to know",
-        "html": "A badge survives its author leaving the room — the name is snapshotted onto the element, so it keeps showing even after that person disconnects. If a name can't be resolved, the badge falls back to <b>Guest</b>. Badges never appear on text bound inside a container (like the bot frame's own label), because the frame already shows who it belongs to."
+      "note": "Find this under <b>Account settings → Preferences → Video quality</b>. Its hint reads <b>“Adapts to your network; pick your own ceiling.”</b> This is a <em>ceiling</em>, not a fixed level: Canvas M always adapts downward on a weak uplink, so picking High doesn’t guarantee High — it only permits it. Lowering it is the better lever when your video stutters. Like the others, it applies live if your camera is on, else on the next camera-on.",
+      "host": {
+        "tag": "Host-only",
+        "html": "An administrator can set an org-wide <b>cap</b> on the maximum quality anyone may choose. When that cap is below High, the tiers above it are greyed out and a note appears: <b>“Admin caps the max at {level}.”</b> <b>Auto</b> always stays selectable — it simply rides whatever the cap is. A participant cannot raise quality past the admin cap."
       }
     },
-    "ch8-ref": {
-      "eyebrow": "Reference",
-      "heading": "Decoration tools at a glance",
-      "cols": ["Tool", "Where", "Shortcut", "Leaves behind", "Synced?"],
+    "ch6-trouble": {
+      "eyebrow": "When it doesn’t behave",
+      "heading": "Backgrounds & quality troubleshooting",
       "rows": [
-        ["Stickers", "Toolbar extras strip", "—", "Free-floating image", "Yes"],
-        ["Stamps", "Toolbar extras strip", "—", "Image, grouped to the image beneath it", "Yes"],
-        ["Revision cloud", "Shape row", "Q", "Cloud + arrow + Note text, grouped", "Yes"],
-        ["Show / Hide authors", "Toolbar extras strip", "—", "Nothing — a view toggle only", "Local view"]
+        {
+          "sym": "The camera-background section is greyed out",
+          "cause": "You’re on a phone or tablet — background effects are desktop-only.",
+          "fix": "Use a desktop or laptop browser; the note <b>“Background effects are only supported on desktop”</b> confirms this.",
+          "ref": "6.5"
+        },
+        {
+          "sym": "High / Medium quality is greyed out",
+          "cause": "An administrator lowered the org-wide quality cap below that tier.",
+          "fix": "Pick a tier at or below the cap, or <b>Auto</b>. The note <b>“Admin caps the max at …”</b> names the limit.",
+          "ref": "6.7"
+        },
+        {
+          "sym": "Upload fails with “Ảnh quá lớn, chọn ảnh khác”",
+          "cause": "Even after compression the image won’t fit this browser’s storage (storage is nearly full).",
+          "fix": "Choose a smaller image, or clear space; presets and gradients always work.",
+          "ref": "6.3"
+        },
+        {
+          "sym": "Upload fails with “Không đọc được ảnh, chọn ảnh khác”",
+          "cause": "The chosen file isn’t a readable image.",
+          "fix": "Pick a standard image file (JPG/PNG/WebP).",
+          "ref": "6.3"
+        },
+        {
+          "sym": "My background / quality reset after signing in elsewhere",
+          "cause": "These are per-browser preferences, not synced to your account.",
+          "fix": "Re-pick them on the new device; the choice then sticks on that browser.",
+          "ref": "6.2"
+        },
+        {
+          "sym": "Camera background didn’t change while I was already on camera",
+          "cause": "Rarely the processor fails to swap mid-call; the picker never blocks on it.",
+          "fix": "Turn the camera off and on — the saved choice re-applies on the next camera-on.",
+          "ref": "6.5"
+        }
       ],
-      "note": "Placing-mode controls are identical for stickers and stamps: <b>scroll</b> resizes (0.12× to 6×), <b>click</b> places, <kbd>Esc</kbd> cancels. The wheel resizes the decoration instead of zooming the canvas while a ghost is active."
-    },
-    "ch8-trouble": {
-      "eyebrow": "Troubleshooting",
-      "heading": "When decorations don't behave",
-      "rows": [
-        { "sym": "The Stickers / Stamps buttons aren't in the toolbar", "cause": "You're viewing a finished meeting in review mode, where content-creating tools are hidden.", "fix": "Open the live meeting instead — review canvases are immutable and extract-only.", "ref": "8.1" },
-        { "sym": "I picked a sticker but nothing follows my pointer", "cause": "The asset failed to load (missing or forbidden file); placing mode never started.", "fix": "Pick a different tile. A failed asset is skipped quietly without an error popup.", "ref": "8.2" },
-        { "sym": "Clicking off the canvas dropped nothing", "cause": "A click outside the canvas bounds cancels placing instead of placing the decoration.", "fix": "Aim your click inside the canvas area. Press the tool again to retry.", "ref": "8.2" },
-        { "sym": "The wheel won't zoom the canvas", "cause": "A sticker or stamp ghost is active — the wheel resizes the decoration, not the view.", "fix": "Click to place, or press ⌫Esc to cancel, then the wheel zooms normally.", "ref": "8.4" },
-        { "sym": "My stamp didn't stick to the image", "cause": "It landed on empty canvas, on an MCM anchor (PDF/DXF), or on another stamp — none of which bind.", "fix": "Drop the stamp squarely on top of the target image element.", "ref": "8.5" },
-        { "sym": "The revision-cloud drag did nothing", "cause": "The drag was too small — a cloud needs at least a 12px-by-12px rectangle.", "fix": "Drag a larger area, then click to place the note when prompted.", "ref": "8.6" },
-        { "sym": "A badge shows “Guest” instead of a name", "cause": "The author's identity couldn't be resolved from the stamped name or profile cache.", "fix": "Expected for anonymous or departed peers — the marker is still correct.", "ref": "8.7" }
-      ],
-      "note": "Stickers and stamps ride the same upload pipeline as a pasted image, so they survive a late-join and a reopen. If a peer momentarily sees an empty box, it resolves once the bytes finish syncing."
+      "note": "If video stutters or freezes, lower <b>Video quality</b> first (try Low) before touching the background — it cuts both bandwidth and CPU, whereas a blur or scene adds a little CPU work."
     }
   },
   "figures": {
-    "ch8-toolbar": { "ref": "8.1", "placeholder": "The Excalidraw toolbar with the Stickers, Stamps, and Show authors buttons highlighted in the extras strip" },
-    "ch8-stickers-shot": { "ref": "8.2", "placeholder": "Stickers popover open over the canvas", "shot": "07-canvas/stickers" },
-    "ch8-ghost-small": { "ref": "8.3a", "placeholder": "Sticker ghost scrolled small with a tiny size readout" },
-    "ch8-ghost-mid": { "ref": "8.3b", "placeholder": "Sticker ghost at default 100% size" },
-    "ch8-ghost-big": { "ref": "8.3c", "placeholder": "Sticker ghost scrolled large with a big size readout" },
-    "ch8-stamps-shot": { "ref": "8.5", "placeholder": "Stamps popover open over the canvas", "shot": "07-canvas/stamps" },
-    "ch8-revcloud": { "ref": "8.6", "placeholder": "A scalloped revision cloud with an arrow pointing to a Note label" },
-    "ch8-badge": { "ref": "8.7", "placeholder": "Author badge with avatar and short name floating above a text element, plus the bot's robot badge" }
+    "ch6-settings": {
+      "ref": "6.3",
+      "placeholder": "Account settings → Preferences tab showing Change / blur background and Video quality",
+      "shot": "08-settings/profile"
+    }
   }
 }
