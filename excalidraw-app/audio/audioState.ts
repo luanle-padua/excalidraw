@@ -85,32 +85,6 @@ export const audioStateAtom = atom<AudioState>({
  *  the old mesh AudioRoom (same method surface). */
 export const audioRoomInstanceAtom = atom<DailyAudio | null>(null);
 
-// ---------------- Pre-join "green room" (Item 6) ----------------
-// A "hair-check" gate shown BETWEEN entering the canvas (activeRoomLink set,
-// audio still idle) and joining the call. The user previews their camera and
-// picks mic/camera intent before the call starts. It gates CALL entry only —
-// the WaitingForStart / WaitingRoom gates own ROOM entry (sequential, never
-// simultaneous). All three atoms are reset by AudioRoomController's idle
-// teardown so a fresh room re-gates cleanly.
-//
-// `preJoinPendingAtom` is the per-room "should the modal be showing" flag, set
-// true when the controller provisions a room and cleared once the user Joins or
-// Cancels (or the room tears down). It holds the roomId it was raised for so a
-// reconnect to the SAME room (a transient socket blip that re-runs provisioning)
-// doesn't re-gate a user who already chose — only a genuinely new room re-shows
-// the modal.
-export const preJoinPendingAtom = atom<string | null>(null);
-
-/** The user's MIC intent chosen in the pre-join modal — whether to acquire +
- *  publish the mic right after the call goes live (ensureMic). Default false:
- *  joining is listener-only unless the user opts in. */
-export const preJoinMicIntentAtom = atom<boolean>(false);
-
-/** The user's CAMERA intent chosen in the pre-join modal — whether to turn the
- *  camera on right after the call goes live (setCamera(true)). Default false:
- *  camera is opt-in, mirroring the lazy architecture. */
-export const preJoinCamIntentAtom = atom<boolean>(false);
-
 export type RecordingStatus = "idle" | "recording" | "finalizing";
 
 export type RecordingState = {

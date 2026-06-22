@@ -241,6 +241,7 @@ export const vi = {
       "Thiết bị / trình duyệt này không hỗ trợ chia sẻ màn hình (vd: iPad / iPhone). Hãy trình bày từ máy tính.",
     settings: "Cài đặt",
     more: "Thêm",
+    files: "Tài liệu",
     projects: "Dự án",
     untitledMeeting: "Cuộc họp chưa đặt tên",
     editMeetingTitle: "Bấm để sửa tên / chủ đề cuộc họp",
@@ -986,6 +987,7 @@ export const vi = {
 
   // ---------------- Audio call controls ----------------------------
   callControls: {
+    call: "Gọi",
     joinCall: "Vào họp",
     leaveCall: "Rời call",
     mute: "Tắt mic",

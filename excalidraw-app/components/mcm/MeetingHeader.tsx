@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Clock3,
   FileText,
+  Files,
   FolderOpen,
   LogOut,
   Mic,
@@ -511,10 +512,10 @@ export const MeetingHeader = ({
           separated by hairlines so related tools read as one cluster.
           MEDIA · INTERACTION · MEETING · ROOM-CHROME · EXIT ===== */}
       <div className="mcm-header__actions">
-        {/* --- MEDIA: mic · camera (call lifecycle) · present · — the
+        {/* --- MEDIA: call · mic · camera (call lifecycle) · present — the
             "what I broadcast" group. MeetingCallControls renders the
-            mic/cam/leave-call buttons as `mcm-header__icon-btn`s; we frame
-            them with Present so all sharing controls sit together. --- */}
+            call/mic/cam buttons as `mcm-header__icon-btn`s; we frame them with
+            Present so all sharing controls sit together. --- */}
         <div className="mcm-header__group" role="group">
           <MeetingCallControls />
           {/* No "share room link" affordance at all (anh Luân 06-16: "không
@@ -522,7 +523,7 @@ export const MeetingHeader = ({
               only — login + a meeting_invitee row — never a room URL. */}
           <button
             type="button"
-            className={`mcm-header__icon-btn mcm-tip${
+            className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
               isPresenting ? " mcm-header__icon-btn--active" : ""
             }`}
             data-mcm-tip={presentTitle ?? t("header.present")}
@@ -536,6 +537,7 @@ export const MeetingHeader = ({
                 reads truer than a flip-chart and won't be mistaken for a
                 whiteboard/slides tool. */}
             <ScreenShare size={18} />
+            <span className="mcm-header__icon-label">{t("header.present")}</span>
           </button>
         </div>
 
@@ -584,6 +586,31 @@ export const MeetingHeader = ({
           {/* Video-surface switcher (minimal / filmstrip / gallery + floating
               presenter toggle). Drives videoLayoutAtom. */}
           <LayoutSwitcher />
+          {/* Files — opens THIS meeting's material library (upload + view
+              DXF/IFC/PDF). Hidden in review: the meeting-library tab itself is
+              hidden when reviewing a finished meeting (AppSidebar).
+              TODO(pull-from-project): aggregate project-level materials here
+              once that feature exists; today it scopes to the meeting library +
+              upload only. */}
+          {!viewOnly && (
+            <button
+              type="button"
+              className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
+              onClick={() =>
+                excalidrawAPI?.updateScene({
+                  appState: {
+                    ...excalidrawAPI.getAppState(),
+                    openSidebar: { name: "default", tab: "meeting-library" },
+                  },
+                })
+              }
+              data-mcm-tip={t("header.files")}
+              aria-label={t("header.files")}
+            >
+              <Files size={18} />
+              <span className="mcm-header__icon-label">{t("header.files")}</span>
+            </button>
+          )}
           {/* Inviting is MEETING-MANAGEMENT (anh Luân 06-15: "mời đúng chuẩn
               role") — only organizer / host / co-host / project authority
               (canEditMeeting), never a plain participant or guest, and not into
@@ -602,12 +629,18 @@ export const MeetingHeader = ({
           {onOpenFolder && (
             <button
               type="button"
-              className="mcm-header__icon-btn mcm-tip"
+              className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
               onClick={onOpenFolder}
               data-mcm-tip={t("header.projects")}
               aria-label={t("header.projects")}
             >
+              {/* FolderOpen (a folder), distinct from Files' document-stack
+                  glyph: Projects switches the whole project context, Files opens
+                  this meeting's material library. */}
               <FolderOpen size={18} />
+              <span className="mcm-header__icon-label">
+                {t("header.projects")}
+              </span>
             </button>
           )}
         </div>
@@ -634,9 +667,9 @@ export const MeetingHeader = ({
         {/* --- EXIT: leave meeting · end-for-all (host). Visually loud
             (red end-meeting) so the destructive action is unmistakable and
             isolated at the far edge. Three exit verbs use three distinct
-            glyphs so they never blur together: leave CALL = PhoneOff (hang up,
-            in MeetingCallControls), leave MEETING = LogOut (I walk out), end
-            FOR ALL = Power (kill the whole room). --- */}
+            glyphs so they never blur together: the CALL toggle (active Phone,
+            in MeetingCallControls) drops just the call, leave MEETING = LogOut
+            (I walk out), end FOR ALL = Power (kill the whole room). --- */}
         <div className="mcm-header__group" role="group">
           {/* Leave meeting — I exit the room; everyone else stays. LogOut's
               arrow-out-of-box says "I'm leaving", not "shut it down". */}

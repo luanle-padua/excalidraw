@@ -9,9 +9,10 @@
 // moved.
 //
 // Call lifecycle still drives what shows:
-//   • idle       → "Join" icon button (NO mic prompt — joins listener-only)
+//   • idle       → "Call" icon button (NO mic prompt — joins listener-only)
 //   • connecting → spinner icon (disabled)
-//   • live       → mic / camera / raise-hand / reactions / recording / leave
+//   • live       → an ACTIVE "Call" toggle (click = leave the call, stay on the
+//                  canvas) + mic / camera / raise-hand / reactions / recording
 //   • error      → a single error icon button (tooltip carries the message);
 //                  click = retry
 //
@@ -20,11 +21,10 @@
 // prompt fires on that later click — itself a user gesture.
 
 import {
-  DoorOpen,
   Hand,
   Mic,
   MicOff,
-  PhoneOff,
+  Phone,
   Smile,
   Video,
   VideoOff,
@@ -253,6 +253,25 @@ export const MeetingCallControls = () => {
 
     return (
       <>
+        {/* CALL toggle (active) — the leftmost media control in BOTH idle and
+            live states, so its position never shifts. Active highlight signals
+            "you're in the call"; clicking it leaves ONLY the audio/video call
+            (drops Daily) and stays on the canvas / in the meeting. Distinct from
+            the header's "Leave meeting" (LogOut) and "End for all" (Power). */}
+        <button
+          type="button"
+          className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--active"
+          onClick={leave}
+          aria-label={t("callControls.leaveCall")}
+          aria-pressed={true}
+          data-mcm-tip={t("callControls.leaveCall")}
+        >
+          <Phone size={ICON_SIZE} />
+          <span className="mcm-header__icon-label">
+            {t("callControls.call")}
+          </span>
+        </button>
+
         {/* MEDIA: mic + camera. The `--cta` modifier paints the live "you can
             speak/show" state in accent; `--danger` paints the muted state red,
             mirroring every other conferencing app. */}
@@ -364,24 +383,6 @@ export const MeetingCallControls = () => {
         {/* Recording — host gets an active record/stop control; non-host sees
             it disabled with a tooltip naming the host. */}
         <RecordingButton />
-
-        {/* LEAVE CALL — leaves only the audio/video call (stays in the
-            meeting / on the canvas). Phone-down icon = hang up the call, the
-            universal conferencing affordance. Deliberately DISTINCT from the
-            header's "Leave meeting" (door/LogOut) and "End for all" (Power):
-            three exit actions, three different glyphs, no collision. */}
-        <button
-          type="button"
-          className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--danger"
-          onClick={leave}
-          aria-label={t("callControls.leaveCall")}
-          data-mcm-tip={t("callControls.leaveCall")}
-        >
-          <PhoneOff size={ICON_SIZE} />
-          <span className="mcm-header__icon-label">
-            {t("callControls.leaveCall")}
-          </span>
-        </button>
       </>
     );
   }
@@ -430,22 +431,21 @@ export const MeetingCallControls = () => {
     );
   }
 
-  // IDLE — the "Join call" entry point. Neutral open-door icon, not a mic:
-  // joining no longer prompts for the mic (listener-only; mic acquired on first
-  // unmute), so a door reads "go in" without promising the mic turns on. Uses an
-  // OPEN door (DoorOpen) to distinguish entering from the header's exit LogOut.
+  // IDLE — the "Call" entry point (same Phone glyph + label as the live toggle,
+  // sans the active highlight). Joining no longer prompts for the mic
+  // (listener-only; the mic is acquired on the first unmute), so the phone reads
+  // "join the call" without promising the mic turns on. Same leftmost slot as
+  // the live toggle so it never jumps when the call state flips.
   return (
     <button
       type="button"
-      className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--join"
+      className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
       onClick={join}
-      aria-label={t("callControls.joinCall")}
-      data-mcm-tip={t("callControls.joinCall")}
+      aria-label={t("callControls.call")}
+      data-mcm-tip={t("callControls.call")}
     >
-      <DoorOpen size={ICON_SIZE} />
-      <span className="mcm-header__icon-label">
-        {t("callControls.joinCall")}
-      </span>
+      <Phone size={ICON_SIZE} />
+      <span className="mcm-header__icon-label">{t("callControls.call")}</span>
     </button>
   );
 };

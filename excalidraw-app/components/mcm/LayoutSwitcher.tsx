@@ -10,6 +10,7 @@
 
 import {
   Check,
+  LayoutDashboard,
   LayoutGrid,
   Minus,
   PanelBottom,
@@ -88,24 +89,23 @@ export const LayoutSwitcher = () => {
     };
   }, [open]);
 
-  const ActiveIcon =
-    LAYOUT_MODES.find((m) => m.mode === layout)?.icon ?? LayoutGrid;
-
   return (
     <div className="mcm-layout-switcher" ref={wrapRef}>
+      {/* Fixed LayoutDashboard glyph + a "Layout" label so the trigger is a
+          clear, stable affordance. Earlier it showed the ACTIVE mode's icon,
+          which made the control morph (minus / panel / grid) and read as a
+          status rather than a button. The menu still shows the active mode. */}
       <button
         type="button"
-        className="mcm-header__icon-btn"
-        title={t("videoLayout.switcherLabel")}
+        className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
+        data-mcm-tip={t("videoLayout.switcherLabel")}
         aria-label={t("videoLayout.switcherLabel")}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {/* strokeWidth omitted → lucide default 2.0, matching every other 18px
-            action icon in the header row (mic/cam/present/CC/invite/exit) so
-            the whole cluster reads as one icon family. */}
-        <ActiveIcon size={18} />
+        <LayoutDashboard size={18} />
+        <span className="mcm-header__icon-label">{t("header.layout")}</span>
       </button>
       {open && (
         <div className="mcm-layout-switcher__menu" role="menu">

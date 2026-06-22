@@ -1,8 +1,9 @@
-// useJoinCall — the SINGLE join-the-call decision, shared by the pre-join
-// "green room" modal (Item 6) and the retained idle "Join" button in the header
-// (MeetingCallControls). Extracting it guarantees BOTH entry points run
-// identical logic: start the Daily call listener-only, then honour the user's
-// mic / camera intent.
+// useJoinCall — the SINGLE join-the-call decision behind the header "Call"
+// button (MeetingCallControls), for both the idle entry point and the error
+// retry. Extracting it keeps a single code path: start the Daily call
+// listener-only, then honour the user's mic / camera intent. Callers pass no
+// intent today (listener-only); the intent plumbing is retained so a future
+// "join with mic/camera on" entry point can reuse the exact same logic.
 //
 // Lazy architecture preserved (do NOT regress it):
 //   • audioRoom.start() joins LISTENER-ONLY — no getUserMedia, no permission

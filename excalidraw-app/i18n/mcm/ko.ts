@@ -221,6 +221,7 @@ export const ko: Widened<typeof vi> = {
       "이 기기 / 브라우저에서는 화면 공유를 지원하지 않습니다 (예: iPad / iPhone). 컴퓨터에서 발표하세요.",
     settings: "설정",
     more: "더보기",
+    files: "파일",
     projects: "프로젝트",
     untitledMeeting: "제목 없는 회의",
     editMeetingTitle: "클릭하여 회의 이름 / 주제 편집",
@@ -947,6 +948,7 @@ export const ko: Widened<typeof vi> = {
   },
 
   callControls: {
+    call: "통화",
     joinCall: "참여",
     leaveCall: "통화 나가기",
     mute: "음소거",

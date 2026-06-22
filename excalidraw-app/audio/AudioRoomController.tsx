@@ -28,9 +28,6 @@ import { DailyAudio } from "./DailyAudio";
 import {
   audioRoomInstanceAtom,
   audioStateAtom,
-  preJoinCamIntentAtom,
-  preJoinMicIntentAtom,
-  preJoinPendingAtom,
   recorderInstanceAtom,
   recordingStateAtom,
 } from "./audioState";
@@ -66,12 +63,6 @@ export const AudioRoomController = () => {
   const setConnectionState = useSetAtom(connectionStateAtom);
   const setSttLiveError = useSetAtom(sttLiveErrorAtom);
   const setSttCapturing = useSetAtom(sttCapturingAtom);
-  // Pre-join "green room" gate (Item 6). Raised (to the roomId) when a NEW room
-  // is provisioned; reset on idle teardown so a fresh room re-gates and a
-  // reconnect to the SAME room never re-shows the modal.
-  const setPreJoinPending = useSetAtom(preJoinPendingAtom);
-  const setPreJoinMicIntent = useSetAtom(preJoinMicIntentAtom);
-  const setPreJoinCamIntent = useSetAtom(preJoinCamIntentAtom);
   // Translator bound to the viewer's current language. Held in a ref so the
   // long-lived DailyAudio event closures (installed once when the room is
   // created) always read the CURRENT language at toast time — state stays
@@ -139,11 +130,6 @@ export const AudioRoomController = () => {
         // chip when the call tears down, so a new call never inherits a stale
         // network-warning UI (symmetric with DailyAudio.stop()).
         setConnectionState(CONNECTION_STATE_DEFAULT);
-        // Item 6: reset the pre-join gate + intents so the NEXT room re-gates
-        // from a clean slate (no stale mic/camera intent leaks across rooms).
-        setPreJoinPending(null);
-        setPreJoinMicIntent(false);
-        setPreJoinCamIntent(false);
       }
       return;
     }
@@ -157,16 +143,11 @@ export const AudioRoomController = () => {
       return;
     }
 
-    // Pre-join "Ready to join?" modal is DISABLED (06-22): meeting (canvas/DO)
-    // and call (Daily) are cleanly separated, so entering a meeting must NOT
-    // gate on an A/V choice. The user lands straight on the canvas (no Daily
-    // connection, $0) and joins audio later via the explicit "Join call" button
-    // (listener-only) — the old, simpler "vào meeting → bấm call" structure.
-    // Keep pending null so the modal never mounts; intents stay at lazy defaults.
-    setPreJoinPending(null);
-    setPreJoinMicIntent(false);
-    setPreJoinCamIntent(false);
-
+    // No pre-join gate (06-22): meeting (canvas/DO) and call (Daily) are cleanly
+    // separated, so entering a meeting must NOT gate on an A/V choice. The user
+    // lands straight on the canvas (no Daily connection, $0) and joins audio
+    // later via the explicit "Call" button (listener-only) — the simpler "vào
+    // meeting → bấm call" structure.
     console.info(`[audio] controller provisioning DailyAudio (${roomId})`);
     const room = new DailyAudio({
       roomId,
@@ -369,9 +350,6 @@ export const AudioRoomController = () => {
     setCameraState,
     setActiveSpeaker,
     setConnectionState,
-    setPreJoinPending,
-    setPreJoinMicIntent,
-    setPreJoinCamIntent,
   ]);
 
   // -----------------------------------------------------------------

@@ -2,13 +2,13 @@ import { Eye } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
-import { audioStateAtom, preJoinPendingAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
   isCollaboratingAtom,
   kickedAtom,
   meetingViewOnlyAtom,
+  participantsPanelOpenAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
@@ -59,7 +59,6 @@ import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
-import { PreJoinModal } from "./PreJoinModal";
 import { LiveCaptionDock } from "./LiveCaptionDock";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
@@ -114,14 +113,6 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const mySocketId = useAtomValue(mySocketIdAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const setFolderOpen = useSetAtom(projectFolderOpenAtom);
-  // Pre-join "green room" gate (Item 6). It shows only while we're in the room
-  // (activeRoomLink) but the call is still idle, NOT reviewing (viewOnly), and
-  // the gate is still pending for THIS room (preJoinPendingAtom holds the
-  // roomId it was raised for — a reconnect to the same room keeps the same
-  // value so we never re-gate; Join/Cancel clears it). Gating CALL entry only:
-  // the WaitingForStart/WaitingRoom gates own ROOM entry, mounted below.
-  const audioState = useAtomValue(audioStateAtom);
-  const preJoinPending = useAtomValue(preJoinPendingAtom);
 
   // Screen share: presence map (who's sharing, over the socket) drives the
   // single-share lock + the Present button; media holds our own live state.
@@ -227,6 +218,27 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       setLastMeeting({ roomId: m[1], roomKey: m[2] });
     }
   }, [activeRoomLink]);
+
+  // Default the participants panel OPEN once per room entry so people see who's
+  // in the meeting without hunting for the toggle. One-shot (ref-guarded) so the
+  // user can still close it and it won't reopen mid-meeting; the ref resets on
+  // room exit so re-entering a room re-opens it. Keyed on activeRoomLink so it
+  // never fires on the dashboard/lobby (no room). Excluded in review (viewOnly =
+  // read-only). Defaulting here (not via the atom's global default) keeps the
+  // panel shut on non-meeting surfaces.
+  const setParticipantsPanelOpen = useSetAtom(participantsPanelOpenAtom);
+  const didDefaultOpenPanel = useRef(false);
+  useEffect(() => {
+    if (!activeRoomLink || viewOnly) {
+      didDefaultOpenPanel.current = false;
+      return;
+    }
+    if (didDefaultOpenPanel.current) {
+      return;
+    }
+    didDefaultOpenPanel.current = true;
+    setParticipantsPanelOpen(true);
+  }, [activeRoomLink, viewOnly, setParticipantsPanelOpen]);
 
   // Leave the meeting → stop the socket (saves the scene first), then
   // clear the room from the URL so the project home reappears and we
@@ -482,18 +494,6 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
       <MeetingLobby />
-      {/* Pre-join "green room" (Item 6): mic/camera check before joining the
-          CALL. Shows once per room while the call is idle + we're not reviewing.
-          activeRoomLink's roomId must match the pending one (a reconnect to the
-          same room won't re-gate; Join/Cancel clears the pending flag). It gates
-          CALL entry; the room gates below own ROOM entry — never both at once. */}
-      {!viewOnly &&
-        activeRoomLink &&
-        audioState.status === "idle" &&
-        preJoinPending !== null &&
-        extractRoomId(activeRoomLink) === preJoinPending && (
-          <PreJoinModal onLeave={handleLeave} />
-        )}
       {/* Renders above the lobby when a join is parked on a not-yet-started
           (or cancelled) meeting — the Phase 4.5 start gate. */}
       <WaitingForStart />

@@ -214,6 +214,7 @@ export const en: Widened<typeof vi> = {
       "Screen sharing isn't supported on this device or browser (e.g. iPad / iPhone). Present from a computer instead.",
     settings: "Settings",
     more: "More",
+    files: "Files",
     projects: "Projects",
     untitledMeeting: "Untitled meeting",
     editMeetingTitle: "Click to edit meeting name / topic",
@@ -942,6 +943,7 @@ export const en: Widened<typeof vi> = {
   },
 
   callControls: {
+    call: "Call",
     joinCall: "Join",
     leaveCall: "Leave call",
     mute: "Mute",
