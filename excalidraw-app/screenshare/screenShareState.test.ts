@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   screenShareFatalKindFor,
   screenShareLinkFor,
+  screenShareSurfaceLabelKey,
 } from "./screenShareState";
 
 describe("screenShareFatalKindFor (Daily fatal error.type → ScreenShareErrorKind)", () => {
@@ -69,5 +70,17 @@ describe("screenShareLinkFor (Daily network-connection → ScreenShareLink)", ()
       // a future/intermediate event value the caller should ignore
       screenShareLinkFor({ type: "sfu", event: "connecting" }),
     ).toBeNull();
+  });
+});
+
+describe("screenShareSurfaceLabelKey (displaySurface → i18n label key)", () => {
+  it("maps each Chromium displaySurface to its own label key", () => {
+    expect(screenShareSurfaceLabelKey("monitor")).toBe("surfaceMonitor");
+    expect(screenShareSurfaceLabelKey("window")).toBe("surfaceWindow");
+    expect(screenShareSurfaceLabelKey("browser")).toBe("surfaceBrowser");
+  });
+
+  it("falls back to the generic label when the surface is unknown (Safari/Firefox)", () => {
+    expect(screenShareSurfaceLabelKey(null)).toBe("surfaceGeneric");
   });
 });

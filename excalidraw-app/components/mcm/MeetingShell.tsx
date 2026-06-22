@@ -58,6 +58,7 @@ import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
+import { ScreenShareSelfView } from "./ScreenShareSelfView";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { LiveCaptionDock } from "./LiveCaptionDock";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
@@ -435,7 +436,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         isPresenting={iAmPresenting}
         presentDisabled={viewOnly || someoneElseSharing || !canScreenShare}
         presentTitle={
-          !canScreenShare ? t("header.presentUnsupported") : undefined
+          iAmPresenting
+            ? t("screenShare.stopShare")
+            : !canScreenShare
+            ? t("header.presentUnsupported")
+            : undefined
         }
       />
       <div className="mcm-shell__canvas-wrap">
@@ -471,6 +476,9 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
               The old floating bottom-center pill was removed (it overlapped the
               lower CAD / DXF anchors). */}
           <ScreenSharePane />
+          {/* Presenter self-awareness: floating self-preview + "you are
+              presenting [source]" banner + Stop. Self-gates on localActive. */}
+          <ScreenShareSelfView />
           {captionSurface === "overlay" && (
             <LiveCaptionDock variant="overlay" />
           )}

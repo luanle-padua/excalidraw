@@ -1289,6 +1289,14 @@ export const vi = {
     stopShare: "Dừng chia sẻ",
     presenting: "{name} đang trình bày",
     youArePresenting: "Bạn đang trình bày",
+    // Source-type labels for the presenter banner (Chromium displaySurface);
+    // surfaceGeneric covers Safari/Firefox where the kind is unknown.
+    surfaceMonitor: "Toàn màn hình",
+    surfaceWindow: "Cửa sổ",
+    surfaceBrowser: "Tab trình duyệt",
+    surfaceGeneric: "màn hình",
+    // Self-preview thumbnail caption — "everyone can see this".
+    everyoneSees: "Mọi người đang thấy",
     lockedBy: "{name} đang trình bày — đợi họ kết thúc",
     popOut: "Tách cửa sổ",
     popOutTitle: "Mở ra cửa sổ riêng để kéo sang màn hình khác",

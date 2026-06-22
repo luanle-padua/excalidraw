@@ -65,6 +65,18 @@ export type ScreenShareMedia = {
   remoteSharerName: string | null;
   /** true while WE are the one presenting (drives the Present button state) */
   localActive: boolean;
+  /** OUR OWN screen stream, wrapped for a self-preview <video> so the presenter
+   *  can SEE what everyone else sees. Null when we're not sharing. Built from the
+   *  same local track that flips localActive (reusing the remote MediaStream
+   *  pattern); never the remoteStream. */
+  localStream: MediaStream | null;
+  /** display-surface KIND of our share, from track.getSettings().displaySurface.
+   *  CHROMIUM-ONLY — null on Safari/Firefox (and before the track resolves); the
+   *  UI falls back to a generic "screen" label. Never used for logic. */
+  localSurface: "monitor" | "window" | "browser" | null;
+  /** raw browser-supplied label of our shared source (track.label) — free text,
+   *  shown as-is, never parsed. Null when not sharing. */
+  localLabel: string | null;
   /** language-neutral error code from the last failure — see ScreenShareErrorKind.
    *  Null when there's no error. The UI maps this to an i18n message. */
   errorKind: ScreenShareErrorKind | null;
@@ -82,12 +94,35 @@ export const SCREEN_SHARE_IDLE: ScreenShareMedia = {
   remoteStream: null,
   remoteSharerName: null,
   localActive: false,
+  localStream: null,
+  localSurface: null,
+  localLabel: null,
   errorKind: null,
   errorMessage: null,
   link: "connected",
 };
 
 export const screenShareMediaAtom = atom<ScreenShareMedia>(SCREEN_SHARE_IDLE);
+
+/** PURE map: a `displaySurface` kind → the i18n KEY of its human label. Kept
+ *  pure (string→string, no React/i18n import) so it's unit-testable in
+ *  isolation; the UI feeds the result into `t()`. An undefined/unknown surface
+ *  (Safari/Firefox, where `displaySurface` is absent) collapses to the generic
+ *  "screen" label so a missing capability never blanks the banner. */
+export const screenShareSurfaceLabelKey = (
+  surface: ScreenShareMedia["localSurface"],
+): "surfaceMonitor" | "surfaceWindow" | "surfaceBrowser" | "surfaceGeneric" => {
+  switch (surface) {
+    case "monitor":
+      return "surfaceMonitor";
+    case "window":
+      return "surfaceWindow";
+    case "browser":
+      return "surfaceBrowser";
+    default:
+      return "surfaceGeneric";
+  }
+};
 
 export const screenShareInstanceAtom = atom<DailyScreenShare | null>(null);
 

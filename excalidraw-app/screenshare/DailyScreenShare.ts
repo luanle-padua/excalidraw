@@ -67,6 +67,12 @@ export class DailyScreenShare {
   private remoteStream: MediaStream | null = null;
   private remoteSharerName: string | null = null;
   private localActive = false;
+  /** OUR OWN screen stream, wrapped for the presenter self-preview. Built from
+   *  the same local screenVideo track that flips localActive (reusing the remote
+   *  MediaStream pattern) and torn down on stop/leave so we never leak. */
+  private localStream: MediaStream | null = null;
+  private localSurface: "monitor" | "window" | "browser" | null = null;
+  private localLabel: string | null = null;
   private errorKind: ScreenShareErrorKind | null = null;
   private errorMessage: string | null = null;
   /** connectivity lifecycle of the screen-share call (Daily network-connection),
@@ -101,6 +107,9 @@ export class DailyScreenShare {
       remoteStream: this.remoteStream,
       remoteSharerName: this.remoteSharerName,
       localActive: this.localActive,
+      localStream: this.localStream,
+      localSurface: this.localSurface,
+      localLabel: this.localLabel,
       errorKind: this.errorKind,
       errorMessage: this.errorMessage,
       link: this.link,
@@ -298,10 +307,47 @@ export class DailyScreenShare {
       !!sv && sv.state !== "off" && sv.state !== "blocked" && !!local?.local;
     if (live) {
       this.localActive = true;
+      // Recover the self-preview too — Daily won't re-fire a local track-started
+      // for the pre-existing track, so capture it from the participant set.
+      const t = sv?.persistentTrack ?? sv?.track;
+      if (t) {
+        this.captureLocalSelfPreview(t);
+      }
       this.recomputeStatus();
       this.emit();
       this.events.onLocalShareChange(true);
     }
+  }
+
+  /** Capture OUR own live screen track into a self-preview MediaStream + read
+   *  its source kind/label, so the presenter can see what everyone else sees.
+   *  Reuses the remote `new MediaStream([track])` pattern. Idempotent: if the
+   *  same track is already wrapped this is a no-op (never double-wraps). Does
+   *  NOT emit — the caller emits once after flipping localActive. */
+  private captureLocalSelfPreview(track: MediaStreamTrack) {
+    if (this.localStream?.getVideoTracks()[0] === track) {
+      return; // already wrapped this exact track — don't double-wrap
+    }
+    this.localStream = new MediaStream([track]);
+    // displaySurface is Chromium-only — guard the cast; Safari/Firefox give
+    // undefined → null (the UI shows a generic "screen" label). Never parse the
+    // label for logic; it's free browser text shown as-is.
+    const surface = track.getSettings().displaySurface;
+    this.localSurface =
+      surface === "monitor" || surface === "window" || surface === "browser"
+        ? surface
+        : null;
+    this.localLabel = track.label || null;
+  }
+
+  /** Drop the self-preview stream + source metadata when our share ends. We
+   *  do NOT stop the underlying track here — Daily owns its lifecycle
+   *  (stopScreenShare / leave handles that); we only release our MediaStream
+   *  wrapper so it doesn't dangle. */
+  private clearLocalSelfPreview() {
+    this.localStream = null;
+    this.localSurface = null;
+    this.localLabel = null;
   }
 
   private onParticipantUpdated = () => {
@@ -353,6 +399,7 @@ export class DailyScreenShare {
     this.remoteSharerName = null;
     const wasSharing = this.localActive;
     this.localActive = false;
+    this.clearLocalSelfPreview();
     this.errorKind = null;
     this.errorMessage = null;
     this.link = "connected";
@@ -402,6 +449,11 @@ export class DailyScreenShare {
     if (e.participant.local) {
       if (!this.localActive) {
         this.localActive = true;
+        // Keep e.track (previously discarded): wrap it for the presenter's own
+        // self-preview so they SEE what everyone else sees.
+        if (e.track) {
+          this.captureLocalSelfPreview(e.track);
+        }
         this.recomputeStatus();
         this.emit();
         this.events.onLocalShareChange(true);
@@ -426,6 +478,7 @@ export class DailyScreenShare {
     if (e.participant?.local) {
       if (this.localActive) {
         this.localActive = false;
+        this.clearLocalSelfPreview();
         this.recomputeStatus();
         this.emit();
         this.events.onLocalShareChange(false);
@@ -510,6 +563,7 @@ export class DailyScreenShare {
       // and broadcast presence off so peers prune our stale SCREEN_SHARE badge.
       if (this.localActive) {
         this.localActive = false;
+        this.clearLocalSelfPreview();
         this.events.onLocalShareChange(false);
       }
       this.setError("share", e.errorMsg || "screen share error");
