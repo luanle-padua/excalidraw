@@ -157,11 +157,13 @@ export const AudioRoomController = () => {
       return;
     }
 
-    // Item 6: raise the pre-join gate for THIS room. Keyed by roomId so a
-    // reconnect that re-provisions the SAME room doesn't re-gate a user who
-    // already chose (MeetingShell only shows the modal while pending === the
-    // current room AND audio is idle). Reset intents to the lazy defaults.
-    setPreJoinPending(roomId);
+    // Pre-join "Ready to join?" modal is DISABLED (06-22): meeting (canvas/DO)
+    // and call (Daily) are cleanly separated, so entering a meeting must NOT
+    // gate on an A/V choice. The user lands straight on the canvas (no Daily
+    // connection, $0) and joins audio later via the explicit "Join call" button
+    // (listener-only) — the old, simpler "vào meeting → bấm call" structure.
+    // Keep pending null so the modal never mounts; intents stay at lazy defaults.
+    setPreJoinPending(null);
     setPreJoinMicIntent(false);
     setPreJoinCamIntent(false);
 
