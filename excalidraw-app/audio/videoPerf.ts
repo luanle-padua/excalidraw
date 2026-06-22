@@ -20,3 +20,19 @@ import { atom } from "../app-jotai";
  *  AudioRoomController from DailyAudio's onActiveSpeaker event; read by the
  *  layout lane to ring that person's tile. */
 export const activeSpeakerAtom = atom<string | null>(null);
+
+/** Phase 5 — the socket.ids of the camera tiles CURRENTLY RENDERED on screen
+ *  (the visible gallery page / filmstrip rail). Set best-effort by the video
+ *  surface that is mounted (MeetingGallery / VideoFilmstrip) and READ by
+ *  DailyAudio (via a subscription on the jotai store) to drive manual track
+ *  subscription + pagination in big meetings: only visible tiles + the active
+ *  speaker are subscribed; everything else is staged / unsubscribed so the
+ *  device never decodes more streams than it can handle.
+ *
+ *  Keyed by OUR socket.id (the same identity bridge as videoTilesAtom /
+ *  activeSpeakerAtom), never a raw Daily session_id — DailyAudio resolves the
+ *  socket.id ↔ session_id mapping at its own boundary. Empty set = "no explicit
+ *  signal yet"; DailyAudio falls back to keeping everyone subscribed until a
+ *  surface reports its visible tiles. Best-effort throughout: a missed update
+ *  only over-subscribes (safe), never drops a visible tile. */
+export const visibleTilesAtom = atom<Set<string>>(new Set<string>());

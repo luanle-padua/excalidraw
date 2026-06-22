@@ -21,10 +21,15 @@
 import { useEffect, useState } from "react";
 
 import { appLangCodeAtom } from "../app-language/language-state";
-import { atom, useAtomValue } from "../app-jotai";
+import { atom, useAtomValue, appJotaiStore } from "../app-jotai";
 
 import { beginAiActivity, endAiActivity } from "./aiActivity";
 import { aiBackendUrl } from "./aiBackend";
+import {
+  CAPTION_BATCH_DEBOUNCE_MS,
+  CaptionBatchAccumulator,
+  CaptionSettledRegistry,
+} from "./captionBatch";
 import { fetchWithAuth } from "./fetchWithAuth";
 
 export type SupportedLanguage = "vi" | "en" | "ko";
@@ -111,6 +116,55 @@ export const setTranslationEnabled = (enabled: boolean): void => {
     // ignore
   }
 };
+
+// ---------------------------------------------------------------------
+// Translation-degraded signal (plan §5 — surface overload, don't hide it).
+//
+// When the server replies 429 (rate limited) or 502 (Gemini overload/empty),
+// the client still falls back to the ORIGINAL text — but silently doing so made
+// "we're throttled" indistinguishable from "translation is broken". This flag
+// lets the caption UI show a subtle "translation paused (overloaded)" hint.
+//
+// The flag is a language-NEUTRAL boolean (code, not copy); the component maps it
+// to i18n at render. It is DEBOUNCED on the falling edge: any degraded response
+// (re)arms a timer that clears it after a quiet window, so a single blip shows
+// briefly and a sustained overload stays lit without per-response thrashing.
+// Module-level store access so the non-React fetch helpers can drive it.
+// ---------------------------------------------------------------------
+
+export const translationDegradedAtom = atom<boolean>(false);
+
+// How long the degraded hint lingers after the LAST degraded response before it
+// clears itself. Long enough that a steady stream of 429s keeps it lit, short
+// enough that it disappears soon after the overload passes.
+const TRANSLATION_DEGRADED_LINGER_MS = 6000;
+let degradedClearTimer: number | null = null;
+
+/** Mark translation as degraded (overloaded). Idempotent + debounced: sets the
+ *  flag and (re)arms the auto-clear timer. Non-fatal — purely a UI hint. */
+const markTranslationDegraded = (): void => {
+  try {
+    appJotaiStore.set(translationDegradedAtom, true);
+    if (typeof window !== "undefined") {
+      if (degradedClearTimer !== null) {
+        window.clearTimeout(degradedClearTimer);
+      }
+      degradedClearTimer = window.setTimeout(() => {
+        degradedClearTimer = null;
+        appJotaiStore.set(translationDegradedAtom, false);
+      }, TRANSLATION_DEGRADED_LINGER_MS);
+    }
+  } catch {
+    // jotai store unavailable (non-browser test) — the hint is best-effort.
+  }
+};
+
+/** A degraded response is one the server returned because it is OVERLOADED, as
+ *  opposed to a config/auth/validation error. 429 = rate limited, 502 = Gemini
+ *  empty/overloaded. (503 = provider not configured is a different, persistent
+ *  state and should NOT flash the transient overload hint.) */
+const isDegradedStatus = (status: number): boolean =>
+  status === 429 || status === 502;
 
 // ---------------------------------------------------------------------
 // Cache + in-flight deduplication
@@ -263,7 +317,12 @@ const fetchTranslation = async (
         body: JSON.stringify({ text, target: targetLang }),
       });
       if (!res.ok) {
-        // 503 = provider not configured — fall back to original.
+        // 503 = provider not configured — fall back to original. 429/502 mean
+        // the server is OVERLOADED: still fall back, but flash the degraded
+        // hint so the user knows it's throttled, not broken (plan §5).
+        if (isDegradedStatus(res.status)) {
+          markTranslationDegraded();
+        }
         return text;
       }
       const body = (await res.json()) as { translated?: string };
@@ -327,6 +386,10 @@ export const fetchBatchTranslation = async (
       // Surface the failure instead of swallowing it — a batch error used to be
       // indistinguishable from "same language", so translation just looked dead.
       console.warn(`[translate] batch failed: ${res.status} ${res.statusText}`);
+      // 429/502 = server overloaded → flash the degraded hint (plan §5).
+      if (isDegradedStatus(res.status)) {
+        markTranslationDegraded();
+      }
       return null;
     }
     const body = (await res.json()) as {
@@ -357,7 +420,9 @@ export const fetchBatchTranslation = async (
     // slow Gemini round trip looked identical to "translation disabled". Name it.
     const aborted = err instanceof DOMException && err.name === "AbortError";
     console.warn(
-      `[translate] batch ${aborted ? `timed out (${timeoutMs}ms)` : "errored"}:`,
+      `[translate] batch ${
+        aborted ? `timed out (${timeoutMs}ms)` : "errored"
+      }:`,
       err,
     );
     return null;
@@ -365,6 +430,112 @@ export const fetchBatchTranslation = async (
     window.clearTimeout(timer);
     endAiActivity();
   }
+};
+
+// ---------------------------------------------------------------------
+// Caption translation batcher (plan §5). Live captions used to translate one
+// /translate call per finalized line per viewer language — the flood that
+// tripped the rate limit in a busy meeting. Instead, finalized caption lines
+// are QUEUED here, deduped, and flushed together on a short debounce: each
+// distinct line goes through /translate-batch ONCE (all languages, one round
+// trip) which warms the per-(lang,text) cache that useTranslate reads. The
+// per-line useTranslate hooks then resolve from cache via the subscriber
+// notification — no per-line API call. Non-fatal throughout.
+// ---------------------------------------------------------------------
+
+// In-flight caption texts (a batch request is running for this text). Distinct
+// from `inflight` (keyed by lang:text for the single /translate path).
+const captionInflight = new Set<string>();
+
+// Caption texts whose batch request SETTLED without producing a usable
+// translation (429/502/timeout/network/empty). The batched useTranslate path
+// keeps `loading` true until its subscriber fires; on success the cache fills
+// and the subscriber resolves. On FAILURE nothing fills the cache, so without
+// this the line would render the "Translating…" label forever instead of
+// falling back to the original spoken text (violates LiveCaptionDock's "captions
+// must never blank out" invariant + plan §5's "fall back to original on
+// overload"). We record the failed text here and notify so the hook can clear
+// loading and show `seg.text`. (Pure bounded registry — see captionBatch.ts.)
+const captionSettled = new CaptionSettledRegistry();
+
+/** True when this caption text's batch settled without a translation (so the
+ *  batched useTranslate hook should stop "loading" and fall back to original). */
+export const captionBatchSettledWithoutTranslation = (text: string): boolean =>
+  captionSettled.has(text);
+
+/** A caption text is "already handled" when a batch request is in flight for it
+ *  OR it is already cached in EVERY target language (so every viewer can read
+ *  it from cache and no batch is needed). */
+const captionHandled = (text: string): boolean => {
+  if (captionInflight.has(text)) {
+    return true;
+  }
+  return ALL_TARGETS.every((lang) => memoryCache.has(cacheKey(lang, text)));
+};
+
+const captionAccumulator = new CaptionBatchAccumulator(captionHandled);
+let captionFlushTimer: number | null = null;
+
+const flushCaptionBatch = (): void => {
+  captionFlushTimer = null;
+  const texts = captionAccumulator.drain();
+  for (const text of texts) {
+    if (captionInflight.has(text)) {
+      continue;
+    }
+    captionInflight.add(text);
+    // fetchBatchTranslation warms the per-(lang,text) cache + notifies
+    // subscribers on success, and marks degraded on 429/502 — all non-fatal.
+    // On FAILURE (null) it warms nothing, so the batched useTranslate hooks for
+    // this line would stay stuck on "Translating…". Record the failure + notify
+    // so each hook clears `loading` and falls back to the original spoken text
+    // (plan §5 / LiveCaptionDock "captions must never blank out").
+    void fetchBatchTranslation(text)
+      .then((result) => {
+        if (result === null) {
+          captionSettled.markFailed(text);
+          notifySubscribers();
+        } else {
+          // A later retry succeeded — this text is no longer "failed" (the
+          // success branch already warmed the cache + notified subscribers).
+          captionSettled.forget(text);
+        }
+      })
+      .finally(() => {
+        captionInflight.delete(text);
+      });
+  }
+  // If a burst overflowed the per-flush cap, re-arm to drain the rest.
+  if (captionAccumulator.hasOverflow() && typeof window !== "undefined") {
+    captionFlushTimer = window.setTimeout(
+      flushCaptionBatch,
+      CAPTION_BATCH_DEBOUNCE_MS,
+    );
+  }
+};
+
+/**
+ * Queue a finalized caption line for batched translation. Safe to call on every
+ * final segment render — deduped against the cache + in-flight set, debounced,
+ * and a no-op when translation is disabled or the text is empty. Returns true
+ * if the text was newly queued (mainly for tests/observability).
+ */
+export const requestCaptionTranslation = (text: string): boolean => {
+  try {
+    if (!appJotaiStore.get(translationEnabledAtom)) {
+      return false;
+    }
+  } catch {
+    // store unavailable — fall through and queue anyway (best-effort).
+  }
+  const queued = captionAccumulator.add(text);
+  if (queued && typeof window !== "undefined" && captionFlushTimer === null) {
+    captionFlushTimer = window.setTimeout(
+      flushCaptionBatch,
+      CAPTION_BATCH_DEBOUNCE_MS,
+    );
+  }
+  return queued;
 };
 
 // ---------------------------------------------------------------------
@@ -380,19 +551,28 @@ export const fetchBatchTranslation = async (
  *      → use that, zero API hits. This is the common path now.
  *   3. `options.assumedSource === preferred` → source already matches.
  *   4. Per-(text, lang) memory cache.
- *   5. `/translate` request, returns original while loading.
+ *   5. On a miss: a translate request, returns original while loading.
+ *      - default: per-(text,lang) `/translate`.
+ *      - `options.batched` (live captions): queue the text into the debounced
+ *        /translate-batch batcher instead of firing a per-line call. The cache
+ *        is filled by the batch flush and we resolve via the subscriber. This
+ *        is what stops a busy meeting flooding the API (plan §5).
  */
 export const useTranslate = (
   text: string,
   options?: {
     assumedSource?: SupportedLanguage;
     preset?: Record<string, string>;
+    /** Route cache-misses through the batched /translate-batch path instead of
+     *  a per-line /translate. Used by the live caption dock. */
+    batched?: boolean;
   },
 ): { translated: string; isSameLanguage: boolean; loading: boolean } => {
   const preferred = useAtomValue(preferredLanguageAtom);
   const enabled = useAtomValue(translationEnabledAtom);
   const preset = options?.preset;
   const assumedSource = options?.assumedSource;
+  const batched = options?.batched ?? false;
 
   // If the sender already shipped a translation for our preferred lang,
   // take it and bail out — no fetch, no cache lookup, no API.
@@ -430,13 +610,28 @@ export const useTranslate = (
       return;
     }
     setLoading(true);
-    fetchTranslation(text, preferred).then((result) => {
-      if (cancelled) {
-        return;
+    if (batched) {
+      // Captions: queue into the debounced /translate-batch batcher. The flush
+      // fills the cache for every language + notifies subscribers; we resolve
+      // below via onUpdate. While waiting we keep showing the original text.
+      // If a previous window already tried this exact text and the batch FAILED
+      // (overload/timeout), don't sit on "Translating…" forever — fall back to
+      // the original immediately (plan §5). requestCaptionTranslation also won't
+      // re-queue it, so onUpdate would never fire for it.
+      if (captionBatchSettledWithoutTranslation(text)) {
+        setLoading(false);
+      } else {
+        requestCaptionTranslation(text);
       }
-      setTranslated(result);
-      setLoading(false);
-    });
+    } else {
+      fetchTranslation(text, preferred).then((result) => {
+        if (cancelled) {
+          return;
+        }
+        setTranslated(result);
+        setLoading(false);
+      });
+    }
 
     const onUpdate = () => {
       if (cancelled) {
@@ -446,6 +641,13 @@ export const useTranslate = (
       if (next !== null) {
         setTranslated(next);
         setLoading(false);
+        return;
+      }
+      // Batched path only: the batch settled but warmed nothing for this text
+      // (overload/timeout/empty). Stop loading so the line falls back to the
+      // original spoken text instead of the stuck "Translating…" label.
+      if (batched && captionBatchSettledWithoutTranslation(text)) {
+        setLoading(false);
       }
     };
     subscribers.add(onUpdate);
@@ -453,7 +655,7 @@ export const useTranslate = (
       cancelled = true;
       subscribers.delete(onUpdate);
     };
-  }, [text, preferred, sameLang, hasPreset, presetForPreferred]);
+  }, [text, preferred, sameLang, hasPreset, presetForPreferred, batched]);
 
   return {
     translated,

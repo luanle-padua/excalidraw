@@ -504,7 +504,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border: 0;
     padding: 5px 10px;
     border-radius: var(--mcm-radius-sm, 10px);
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+    transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease);
     font-family: inherit;
     letter-spacing: -0.01em;
 
@@ -562,7 +563,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border: 0;
     font: inherit;
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+    transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease);
 
     &:hover:not(:disabled) {
       background: color-mix(in srgb, var(--mcm-text) 9%, transparent);
@@ -613,7 +615,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transition: background-color var(--mcm-dur-fast, 120ms)
+        var(--mcm-ease, ease),
       color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
       transform 100ms var(--mcm-ease, ease);
 
@@ -697,6 +700,30 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
         color: var(--mcm-text-soft);
       }
     }
+
+    // LABELED variant — the high-value / destructive controls (Join, Mute,
+    // Camera, Leave-call, Leave, End) carry an inline text label next to the
+    // glyph so a first-time user isn't staring at a "scary" icon-only button.
+    // The button grows from a 34px square into a text+icon pill; the label is
+    // hidden again under 1100px (see the responsive block below) so the rail
+    // never overflows on narrow viewports — falling back to icon + tooltip.
+    &--labeled {
+      width: auto;
+      min-width: 34px;
+      padding: 0 10px;
+      gap: 6px;
+    }
+  }
+
+  // Inline text label inside a `--labeled` icon button. Quiet, tight
+  // typography that inherits the button's state colour (accent on --active,
+  // white on --danger:hover, etc.) so it never fights the glyph.
+  &__icon-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    white-space: nowrap;
   }
 }
 
@@ -729,8 +756,11 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     font-weight: 600;
     letter-spacing: -0.005em;
     line-height: 1.2;
-    box-shadow: var(--mcm-shadow-2, 0 2px 6px rgba(0, 0, 0, 0.18),
-        0 10px 24px rgba(0, 0, 0, 0.22));
+    box-shadow: var(
+      --mcm-shadow-2,
+      0 2px 6px rgba(0, 0, 0, 0.18),
+      0 10px 24px rgba(0, 0, 0, 0.22)
+    );
     opacity: 0;
     transition: opacity var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
       transform var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
@@ -1482,7 +1512,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     &--cohost {
       background: #cbd5e1;
       color: #334155;
-      box-shadow: 0 0 0 2px var(--mcm-surface), 0 2px 4px rgba(71, 85, 105, 0.35);
+      box-shadow: 0 0 0 2px var(--mcm-surface),
+        0 2px 4px rgba(71, 85, 105, 0.35);
     }
   }
 
@@ -7279,6 +7310,21 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     max-width: 200px;
   }
 }
+@media (max-width: 1100px) {
+  // Collapse the labeled call/exit buttons back to icon-only so the action
+  // rail never overflows on narrow screens. The label is hidden and the
+  // button shrinks to the standard 34px square; the existing `data-mcm-tip`
+  // tooltip + aria-label remain as the fallback affordance.
+  .mcm-header__icon-btn--labeled {
+    width: 34px;
+    min-width: 0;
+    padding: 0;
+    gap: 0;
+  }
+  .mcm-header__icon-label {
+    display: none;
+  }
+}
 @media (max-width: 1000px) {
   // Hide app-level preferences (lang/theme) + the redundant project line —
   // both reachable elsewhere (Settings, the meeting title menu).
@@ -11777,6 +11823,85 @@ body:has(.excalidraw.theme--dark) {
 @keyframes mcm-gate-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+// ---------------- Pre-join "green room" (Item 6) ----------------
+// Reuses the client-themed gate (.mcm-gate--client) backdrop + frosted card,
+// adding the camera-preview surface and the mic/camera intent toggles. Shown
+// AFTER the user is in the room but BEFORE they join the call.
+.mcm-prejoin {
+  &__card {
+    // A touch wider than the waiting-room card to comfortably hold the 16:9
+    // preview without cramping the toggles.
+    max-width: 440px;
+    gap: 14px;
+  }
+
+  // 16:9 self-view surface. Holds either the mirrored <video> or the avatar
+  // fallback (camera off / no device / permission not yet granted).
+  &__preview {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin: 4px 0 2px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: color-mix(in srgb, #000 42%, transparent);
+    border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+    display: grid;
+    place-items: center;
+  }
+
+  &__video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    // Mirror the self-view — every conferencing app shows "you" mirrored so
+    // it reads like a mirror, not a stranger.
+    transform: scaleX(-1);
+  }
+
+  &__avatar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__avatar {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  &__cam-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.78);
+  }
+
+  &__toggles {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+
+  &__toggle {
+    flex: 1;
+    justify-content: center;
+
+    // The "on" state paints the toggle in the brand accent so the user can see
+    // at a glance which inputs go live on Join.
+    &--on {
+      background: var(--mcm-accent-soft);
+      border-color: var(--mcm-accent);
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__join {
+    margin-top: 4px;
   }
 }
 

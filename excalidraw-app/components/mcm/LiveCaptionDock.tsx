@@ -45,7 +45,7 @@ import {
   sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
-import { useTranslate } from "../../data/translation";
+import { translationDegradedAtom, useTranslate } from "../../data/translation";
 import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
@@ -131,8 +131,12 @@ const FinalCaptionLine = ({ seg }: { seg: TranscriptSegment }) => {
     seg.lang && seg.lang !== "multi"
       ? (seg.lang as SupportedLanguage)
       : undefined;
+  // `batched: true` routes caption translation through the debounced
+  // /translate-batch batcher instead of one /translate per line — the load fix
+  // for busy meetings (plan §5, data/translation.ts).
   const { translated, isSameLanguage, loading } = useTranslate(seg.text, {
     assumedSource,
+    batched: true,
   });
   const name = useSpeakerName(seg.socketId, seg.username);
   // Translate OFF → original, no hook output used. Translate ON → translated,
@@ -220,6 +224,11 @@ export const LiveCaptionDock = ({
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
   const lineCount = useAtomValue(captionLineCountAtom);
   const fontScale = useAtomValue(captionFontScaleAtom);
+  // Translation overloaded (429/502) — show a subtle, debounced hint instead of
+  // silently dropping to the original text (plan §5). Only meaningful while
+  // caption translation is ON.
+  const translateOn = useAtomValue(sttTranslateEnabledAtom);
+  const degraded = useAtomValue(translationDegradedAtom);
 
   const interimEntries = useMemo(() => Object.values(interims), [interims]);
 
@@ -319,6 +328,13 @@ export const LiveCaptionDock = ({
       />
       {showStrip && (
         <div className="mcm-caption__strip" aria-live="polite">
+          {translateOn && degraded && (
+            // Transient "translation paused (overloaded)" hint — captions still
+            // fall back to the original spoken text below it (plan §5).
+            <div className="mcm-caption__degraded" role="status">
+              {t("caption.degraded")}
+            </div>
+          )}
           {lines.map((line) =>
             line.kind === "final" ? (
               <FinalCaptionLine key={line.seg.id} seg={line.seg} />

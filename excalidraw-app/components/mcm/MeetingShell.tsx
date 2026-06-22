@@ -2,6 +2,7 @@ import { Eye } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
+import { audioStateAtom, preJoinPendingAtom } from "../../audio/audioState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
@@ -46,6 +47,7 @@ import { CADViewPane } from "./cad/CADViewPane";
 import { CADViewTriggers } from "./cad/CADViewTriggers";
 import { CanvasBotTool } from "./CanvasBotTool";
 import { CanvasNavWidget } from "./CanvasNavWidget";
+import { ConnectionBanner } from "./ConnectionBanner";
 import { DXFCanvasOverlay } from "./dxf/DXFCanvasOverlay";
 import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
 import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
@@ -57,6 +59,7 @@ import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
 import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
+import { PreJoinModal } from "./PreJoinModal";
 import { LiveCaptionDock } from "./LiveCaptionDock";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
@@ -111,6 +114,14 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const mySocketId = useAtomValue(mySocketIdAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const setFolderOpen = useSetAtom(projectFolderOpenAtom);
+  // Pre-join "green room" gate (Item 6). It shows only while we're in the room
+  // (activeRoomLink) but the call is still idle, NOT reviewing (viewOnly), and
+  // the gate is still pending for THIS room (preJoinPendingAtom holds the
+  // roomId it was raised for — a reconnect to the same room keeps the same
+  // value so we never re-gate; Join/Cancel clears it). Gating CALL entry only:
+  // the WaitingForStart/WaitingRoom gates own ROOM entry, mounted below.
+  const audioState = useAtomValue(audioStateAtom);
+  const preJoinPending = useAtomValue(preJoinPendingAtom);
 
   // Screen share: presence map (who's sharing, over the socket) drives the
   // single-share lock + the Present button; media holds our own live state.
@@ -154,19 +165,47 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   );
   // Surface a screen-share failure as an app toast — only on the
   // TRANSITION into "error" (tracked via ref) so re-renders while the
-  // error state persists don't re-fire the same toast.
+  // error state persists don't re-fire the same toast. The error carries a
+  // language-neutral CODE (errorKind); we map it to an i18n message here
+  // (errorMessage is dev-facing raw detail only — never shown localized).
   const prevShareStatusRef = useRef(screenShareMedia.status);
   useEffect(() => {
     const prev = prevShareStatusRef.current;
     prevShareStatusRef.current = screenShareMedia.status;
     if (screenShareMedia.status === "error" && prev !== "error") {
-      showAppToast(
-        t("errors.presentFailed", {
-          detail: screenShareMedia.errorMessage ?? "",
-        }),
-      );
+      const kind = screenShareMedia.errorKind;
+      const detail =
+        kind === "meeting-full"
+          ? t("screenShare.errMeetingFull")
+          : kind === "token-expired"
+          ? t("screenShare.errTokenExpired")
+          : kind === "share"
+          ? t("screenShare.errShare")
+          : t("screenShare.errCall");
+      showAppToast(t("errors.presentFailed", { detail }));
     }
   }, [screenShareMedia, t]);
+
+  // Surface the screen-share call's connectivity lifecycle to the PRESENTER as a
+  // toast on transition (Daily network-connection). A reconnecting/unstable blip
+  // is not an error (the call recovers) — it just tells the presenter their
+  // shared screen paused. Only fires while WE are presenting (a remote viewer
+  // sees the frozen frame recover on its own).
+  const prevShareLinkRef = useRef(screenShareMedia.link);
+  useEffect(() => {
+    const prev = prevShareLinkRef.current;
+    prevShareLinkRef.current = screenShareMedia.link;
+    if (!screenShareMedia.localActive || screenShareMedia.link === prev) {
+      return;
+    }
+    if (screenShareMedia.link === "reconnecting") {
+      showAppToast(t("screenShare.linkReconnecting"));
+    } else if (screenShareMedia.link === "unstable") {
+      showAppToast(t("screenShare.linkUnstable"));
+    } else if (prev !== "connected") {
+      showAppToast(t("screenShare.linkReconnected"));
+    }
+  }, [screenShareMedia.link, screenShareMedia.localActive, t]);
 
   const handlePresent = () => {
     const mgr = screenShareInstance;
@@ -400,6 +439,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
               <span>{t("review.banner")}</span>
             </div>
           )}
+          {/* Phase 1 network-resilience banner + quality chip. Self-hides when
+              the connection is healthy (renders null), so it costs nothing in
+              the common case. */}
+          <ConnectionBanner />
           <DXFCanvasOverlay />
           <PDFCanvasOverlay />
           <IFCCanvasOverlay />
@@ -439,6 +482,18 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
         defaultUsername={collabAPI?.getUsername() || undefined}
       />
       <MeetingLobby />
+      {/* Pre-join "green room" (Item 6): mic/camera check before joining the
+          CALL. Shows once per room while the call is idle + we're not reviewing.
+          activeRoomLink's roomId must match the pending one (a reconnect to the
+          same room won't re-gate; Join/Cancel clears the pending flag). It gates
+          CALL entry; the room gates below own ROOM entry — never both at once. */}
+      {!viewOnly &&
+        activeRoomLink &&
+        audioState.status === "idle" &&
+        preJoinPending !== null &&
+        extractRoomId(activeRoomLink) === preJoinPending && (
+          <PreJoinModal onLeave={handleLeave} />
+        )}
       {/* Renders above the lobby when a join is parked on a not-yet-started
           (or cancelled) meeting — the Phase 4.5 start gate. */}
       <WaitingForStart />

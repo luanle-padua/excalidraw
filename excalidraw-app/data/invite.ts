@@ -16,7 +16,10 @@ export type DirectoryUser = {
   name: string;
   title?: string;
   division?: string;
-  /** "lib:NN.png" gallery ref from the account (user_metadata.avatar). */
+  /** The account avatar from `user_metadata.avatar` — either a "lib:NN.png"
+   *  gallery pick or the lightweight R2 reference (`/v1/me/avatar/<hash>.png`)
+   *  from an upload. Resolve through `resolveAvatarUrl` so the roster matches
+   *  the in-call surfaces. Never a heavy `data:` URL (worker drops those). */
   avatar?: string;
 };
 

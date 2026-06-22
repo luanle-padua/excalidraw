@@ -13,7 +13,9 @@ import { useEffect, useRef } from "react";
 
 import { useAtomValue, useSetAtom } from "../app-jotai";
 import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
+import { showAppToast } from "../data/appToast";
 import { getDailyToken } from "../data/projects";
+import { useT } from "../i18n/mcm";
 import { sttProviderAtom } from "../data/sttProviders";
 import {
   sttCapturingAtom,
@@ -26,9 +28,17 @@ import { DailyAudio } from "./DailyAudio";
 import {
   audioRoomInstanceAtom,
   audioStateAtom,
+  preJoinCamIntentAtom,
+  preJoinMicIntentAtom,
+  preJoinPendingAtom,
   recorderInstanceAtom,
   recordingStateAtom,
 } from "./audioState";
+import {
+  CONNECTION_STATE_DEFAULT,
+  connectionStateAtom,
+} from "./connectionState";
+import { formatStatsTooltip } from "./dailyTelemetry";
 import { STTSession } from "./sttSession";
 import { activeSpeakerAtom } from "./videoPerf";
 import { cameraStateAtom, videoTilesAtom } from "./videoState";
@@ -53,8 +63,24 @@ export const AudioRoomController = () => {
   const setVideoTiles = useSetAtom(videoTilesAtom);
   const setCameraState = useSetAtom(cameraStateAtom);
   const setActiveSpeaker = useSetAtom(activeSpeakerAtom);
+  const setConnectionState = useSetAtom(connectionStateAtom);
   const setSttLiveError = useSetAtom(sttLiveErrorAtom);
   const setSttCapturing = useSetAtom(sttCapturingAtom);
+  // Pre-join "green room" gate (Item 6). Raised (to the roomId) when a NEW room
+  // is provisioned; reset on idle teardown so a fresh room re-gates and a
+  // reconnect to the SAME room never re-shows the modal.
+  const setPreJoinPending = useSetAtom(preJoinPendingAtom);
+  const setPreJoinMicIntent = useSetAtom(preJoinMicIntentAtom);
+  const setPreJoinCamIntent = useSetAtom(preJoinCamIntentAtom);
+  // Translator bound to the viewer's current language. Held in a ref so the
+  // long-lived DailyAudio event closures (installed once when the room is
+  // created) always read the CURRENT language at toast time — state stays
+  // language-neutral (a CODE crosses the boundary; the string is built here).
+  const t = useT();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   /** Live STT session bound to the user's own mic. Spun up when the
    *  audio call goes live, torn down when the call ends or STT
    *  toggle is flipped off. */
@@ -107,8 +133,17 @@ export const AudioRoomController = () => {
           errorMessage: null,
         });
         setVideoTiles(new Map());
-        setCameraState({ status: "off", errorMessage: null });
+        setCameraState({ status: "off", errorKind: null, errorMessage: null });
         setActiveSpeaker(null);
+        // Phase 1: drop any reconnecting/unstable banner + reset the quality
+        // chip when the call tears down, so a new call never inherits a stale
+        // network-warning UI (symmetric with DailyAudio.stop()).
+        setConnectionState(CONNECTION_STATE_DEFAULT);
+        // Item 6: reset the pre-join gate + intents so the NEXT room re-gates
+        // from a clean slate (no stale mic/camera intent leaks across rooms).
+        setPreJoinPending(null);
+        setPreJoinMicIntent(false);
+        setPreJoinCamIntent(false);
       }
       return;
     }
@@ -121,6 +156,14 @@ export const AudioRoomController = () => {
     if (!roomId) {
       return;
     }
+
+    // Item 6: raise the pre-join gate for THIS room. Keyed by roomId so a
+    // reconnect that re-provisions the SAME room doesn't re-gate a user who
+    // already chose (MeetingShell only shows the modal while pending === the
+    // current room AND audio is idle). Reset intents to the lazy defaults.
+    setPreJoinPending(roomId);
+    setPreJoinMicIntent(false);
+    setPreJoinCamIntent(false);
 
     console.info(`[audio] controller provisioning DailyAudio (${roomId})`);
     const room = new DailyAudio({
@@ -189,6 +232,101 @@ export const AudioRoomController = () => {
         onActiveSpeaker: (socketId) => {
           setActiveSpeaker(socketId);
         },
+        // Phase 1 — network resilience. Both callbacks carry language-neutral
+        // CODES (DailyAudio already mapped Daily's payloads); we only pour them
+        // into connectionStateAtom here, where ConnectionBanner maps each code
+        // to an i18n string at render time. Lifecycle drives the
+        // reconnecting/unstable banner; quality drives the header chip.
+        onConnectionState: (lifecycle, reasons) => {
+          setConnectionState((prev) => ({ ...prev, lifecycle, reasons }));
+        },
+        onConnectionQuality: (quality, reasons) => {
+          setConnectionState((prev) => ({ ...prev, quality, reasons }));
+        },
+        // Phase 4 — observability. A fresh getNetworkStats() sample (~2s). We
+        // format it to a short real-numbers suffix HERE (the only non-code field
+        // in the atom — pure numerics + units, language-neutral) so the quality
+        // chip tooltip can show "rtt 180ms · loss 4% · 320kbps" alongside the
+        // reason codes. Pour into the atom only; never alters call lifecycle.
+        onStats: (sample) => {
+          const statsTooltip = formatStatsTooltip(sample);
+          setConnectionState((prev) => ({ ...prev, statsTooltip }));
+        },
+        // Phase 4 — the Daily meeting SESSION id (captured after join). Record
+        // it for cross-referencing a post-meeting log/recording. Attaching it to
+        // recorder metadata is deferred (no metadata hook on MeetingRecorder
+        // yet); a structured console line is the LIGHT sink for now.
+        onSessionId: (sessionId) => {
+          console.info(`[audio] daily session id: ${sessionId}`);
+        },
+        // Daily NON-FATAL error (the call keeps running). Carries a
+        // language-neutral CODE; map it to a light toast here at the controller
+        // boundary so no localized string is ever baked into state. The most
+        // important case is "video-processor": a virtual background failed and
+        // Daily cleared it AND turned the camera off — DailyAudio has already
+        // synced cameraOn=off + dropped the self-view tile, so here we only need
+        // to inform the user. Reflect the camera-off in cameraStateAtom too.
+        onNonfatal: (kind, rawMsg) => {
+          if (rawMsg) {
+            console.warn(`[audio] nonfatal (${kind}):`, rawMsg);
+          }
+          if (kind === "video-processor") {
+            // Virtual background failed → Daily cleared the processor AND turned
+            // the camera off (DailyAudio already synced cameraOn + dropped the
+            // self-view tile). Reflect the camera-off and toast the user.
+            setCameraState({
+              status: "off",
+              errorKind: null,
+              errorMessage: null,
+            });
+            showAppToast(tRef.current("videoBg.processorCleared"));
+          } else {
+            // audio-processor / screen-share / other: a light, generic toast so
+            // the failure is VISIBLE rather than swallowed in the console. The
+            // call keeps running — never alter call lifecycle here.
+            showAppToast(tRef.current("callControls.featureDisabled"));
+          }
+        },
+        // Phase 2 — Daily's STRUCTURED camera-error (permissions / in-use /
+        // not-found / constraints). DailyAudio already mapped it to a
+        // language-neutral CameraErrorKind and dropped the self-view; here we
+        // pour it into cameraStateAtom so MeetingCallControls renders the right
+        // guidance (e.g. an "allow camera" prompt). State carries the CODE only.
+        onCameraError: (kind, rawMsg, affectsVideo) => {
+          if (rawMsg) {
+            console.warn(`[audio] camera-error (${kind}):`, rawMsg);
+          }
+          // A mic-only failure rides the same `camera-error` event but does NOT
+          // implicate the camera (mic + camera are on separate acquisition paths
+          // here). Forcing cameraStateAtom into {status:"error"} would wrongly
+          // tear the camera UI into an error state, so we leave it untouched —
+          // DailyAudio already kept the live self-view. The mic failure surfaces
+          // on the audio path (getUserMedia → onError) where it belongs.
+          if (!affectsVideo) {
+            return;
+          }
+          setCameraState({
+            status: "error",
+            errorKind: kind,
+            errorMessage: rawMsg || null,
+          });
+        },
+        // Phase 2 — Daily FATAL error already classified to an AudioErrorKind
+        // (meeting-full / token-expired / generic call). Flip audioStateAtom into
+        // the error state with the CODE so MeetingCallControls shows the right
+        // headline. This is preferred over onError below (which carries an
+        // un-classified Error from the getUserMedia / token paths).
+        onFatal: (kind, rawMsg) => {
+          console.warn(`[audio] fatal (${kind}):`, rawMsg);
+          setAudioState({
+            status: "error",
+            muted: false,
+            canTransmit: false,
+            peers: new Map(),
+            errorKind: kind,
+            errorMessage: rawMsg || null,
+          });
+        },
         onError: (err) => {
           // Classify into a CODE; MeetingCallControls translates it at
           // render time (state must stay language-neutral). getUserMedia
@@ -228,6 +366,10 @@ export const AudioRoomController = () => {
     setVideoTiles,
     setCameraState,
     setActiveSpeaker,
+    setConnectionState,
+    setPreJoinPending,
+    setPreJoinMicIntent,
+    setPreJoinCamIntent,
   ]);
 
   // -----------------------------------------------------------------

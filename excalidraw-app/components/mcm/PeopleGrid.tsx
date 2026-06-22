@@ -38,7 +38,10 @@ export const PersonChip = ({
   <span
     className={`mcm-pchip${person.revoked ? " mcm-pchip--revoked" : ""}`}
     style={{
-      ["--pa" as string]: personColor(person.group || person.email),
+      // Seed the chip ring on the SAME key MCMAvatar uses (the person's
+      // EMAIL) so the ring hue == the initials hue for that person — keying
+      // it on the group made the ring disagree with the avatar tint.
+      ["--pa" as string]: personColor(person.email),
     }}
     title={[person.email, person.group, person.tooltip]
       .filter(Boolean)

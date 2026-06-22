@@ -79,21 +79,59 @@ const ASSISTANT_LANGUAGE_NAMES: Record<string, string> = {
 // ---------------------------------------------------------------------
 // Per-isolate rate limiting (plan §6 — replaces express-rate-limit).
 //
-// A simple in-memory sliding-window-ish counter keyed by IP + route. NOT a
-// distributed store — each Worker isolate keeps its own counters, which is
-// enough for internal use. Keyed by the request IP (CF-Connecting-IP); the
-// routes carry no user identity. 429 on limit.
+// A simple in-memory sliding-window-ish counter keyed by IDENTITY + route. NOT
+// a distributed store — each Worker isolate keeps its own counters, which is
+// enough for internal use. 429 on limit.
+//
+// ROOT-CAUSE FIX (plan §5, 2026-06-22): the limiter used to key on the request
+// IP. The office shares ONE NAT egress IP, so during a real meeting every
+// participant's caption translate calls landed in the SAME per-IP bucket and
+// tripped the limit for the whole room ("dies when the meeting is busy"). Key
+// on the AUTHENTICATED USER instead (email, else userId) so each person gets
+// their own budget; fall back to IP only for sessions with no identity (which
+// in practice can't happen here — jwtGate gates every AI route — but keeps the
+// helper safe). A cheap GLOBAL per-IP ceiling stays as an abuse backstop.
 // ---------------------------------------------------------------------
 type RateBucket = { count: number; resetAt: number };
 const rateBuckets = new Map<string, RateBucket>();
 
+// Identity used to scope a per-user rate bucket. The route reads these off the
+// shared Hono context (set by jwtGate). Kept as a tiny structural type so the
+// pure key selector below is trivially unit-testable without a full context.
+type RateIdentity = { email?: string; userId?: string; ip: string };
+
+/**
+ * Pick the rate-limit subject for a request. PURE + exported for tests.
+ *
+ * Preference order: email → userId → ip. Email is the stable per-user key
+ * (matches how the rest of MCM keys per-user state); userId is the fallback
+ * when a token carries no email; ip is the last resort for a truly anonymous
+ * request (shared across a NAT, so only a coarse abuse backstop).
+ *
+ * Returns both the key string AND whether it resolved to a real user, so the
+ * caller can apply a generous per-USER limit but a tighter per-IP one.
+ */
+export const rateLimitKey = (
+  id: RateIdentity,
+): { key: string; scope: "user" | "ip" } => {
+  const email = id.email?.trim().toLowerCase();
+  if (email) {
+    return { key: `u:${email}`, scope: "user" };
+  }
+  const userId = id.userId?.trim();
+  if (userId) {
+    return { key: `u:${userId}`, scope: "user" };
+  }
+  return { key: `ip:${id.ip || "unknown"}`, scope: "ip" };
+};
+
 const rateLimited = (
-  ip: string,
+  subject: string,
   route: string,
   max: number,
   windowMs: number,
 ): boolean => {
-  const key = `${route}:${ip}`;
+  const key = `${route}:${subject}`;
   const nowMs = Date.now();
   const bucket = rateBuckets.get(key);
   if (!bucket || nowMs >= bucket.resetAt) {
@@ -108,6 +146,55 @@ const clientIp = (req: Request): string =>
   req.headers.get("CF-Connecting-IP") ||
   req.headers.get("x-forwarded-for") ||
   "unknown";
+
+// Per-route limits. Tuned for live captions (plan §5): realtime STT produces a
+// steady stream of finalized lines, and even with client-side batching a busy
+// speaker can emit several batches a minute, so the PER-USER translate budget
+// is generous (60/min). The chatbot + summarize are user-initiated and far
+// rarer, so they stay tight. A separate, much higher PER-IP ceiling on the
+// translate routes catches a single host hammering the key (e.g. a script)
+// without throttling a legitimately busy NATed office (many users × 60).
+const TRANSLATE_PER_USER_PER_MIN = 60;
+const TRANSLATE_PER_IP_PER_MIN = 600;
+const CHATBOT_PER_USER_PER_MIN = 5;
+const SUMMARIZE_PER_USER_PER_MIN = 1;
+
+/**
+ * Apply the per-user limit and (for the translate routes) a coarse global
+ * per-IP safety ceiling. Returns true when the request should be 429'd.
+ *
+ * The IP ceiling is only meaningful when the user IS identified (so the two
+ * buckets are distinct); for an anonymous request the subject already IS the
+ * IP, so the user-limit alone covers it.
+ */
+const translateRateLimited = (id: RateIdentity): boolean => {
+  const { key, scope } = rateLimitKey(id);
+  if (rateLimited(key, "translate", TRANSLATE_PER_USER_PER_MIN, 60_000)) {
+    return true;
+  }
+  if (
+    scope === "user" &&
+    rateLimited(
+      `ip:${id.ip || "unknown"}`,
+      "translate-ip",
+      TRANSLATE_PER_IP_PER_MIN,
+      60_000,
+    )
+  ) {
+    return true;
+  }
+  return false;
+};
+
+// Read the rate identity off the shared Hono context.
+const identityFromCtx = (c: {
+  req: { raw: Request };
+  get: (k: "email" | "userId") => string | undefined;
+}): RateIdentity => ({
+  email: c.get("email"),
+  userId: c.get("userId"),
+  ip: clientIp(c.req.raw),
+});
 
 // ---------------------------------------------------------------------
 // Translation cache (per-isolate Map; plan §6).
@@ -454,7 +541,7 @@ export const aiRoutes = new Hono<{
 }>();
 
 aiRoutes.post("/translate-batch", async (c) => {
-  if (rateLimited(clientIp(c.req.raw), "translate", 20, 60_000)) {
+  if (translateRateLimited(identityFromCtx(c))) {
     return c.json({ error: "Too many requests, please slow down" }, 429);
   }
   const apiKey = c.env.GEMINI_API_KEY;
@@ -536,7 +623,7 @@ aiRoutes.post("/translate-batch", async (c) => {
 });
 
 aiRoutes.post("/translate", async (c) => {
-  if (rateLimited(clientIp(c.req.raw), "translate", 20, 60_000)) {
+  if (translateRateLimited(identityFromCtx(c))) {
     return c.json({ error: "Too many requests, please slow down" }, 429);
   }
   const apiKey = c.env.GEMINI_API_KEY;
@@ -595,7 +682,14 @@ aiRoutes.post("/translate", async (c) => {
 });
 
 aiRoutes.post("/chatbot", async (c) => {
-  if (rateLimited(clientIp(c.req.raw), "chatbot", 5, 60_000)) {
+  if (
+    rateLimited(
+      rateLimitKey(identityFromCtx(c)).key,
+      "chatbot",
+      CHATBOT_PER_USER_PER_MIN,
+      60_000,
+    )
+  ) {
     return c.json({ error: "Too many requests, please slow down" }, 429);
   }
   const apiKey = c.env.GEMINI_API_KEY;
@@ -738,10 +832,9 @@ aiRoutes.post("/chatbot", async (c) => {
     .filter((s) => typeof s?.text === "string" && s.text!.trim())
     .map(
       (s) =>
-        `${s.speaker || "Speaker"}${s.lang ? ` (${s.lang})` : ""}: ${s.text!.slice(
-          0,
-          2000,
-        )}`,
+        `${s.speaker || "Speaker"}${
+          s.lang ? ` (${s.lang})` : ""
+        }: ${s.text!.slice(0, 2000)}`,
     )
     .join("\n");
 
@@ -818,7 +911,9 @@ aiRoutes.post("/chatbot", async (c) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt + INJECTION_GUARD }] },
+        systemInstruction: {
+          parts: [{ text: systemPrompt + INJECTION_GUARD }],
+        },
         contents: [{ parts: [{ text: userPrompt }] }],
         generationConfig: { temperature: 0.5, maxOutputTokens: 1024 },
       }),
@@ -846,7 +941,14 @@ aiRoutes.post("/chatbot", async (c) => {
 });
 
 aiRoutes.post("/summarize", async (c) => {
-  if (rateLimited(clientIp(c.req.raw), "summarize", 1, 60_000)) {
+  if (
+    rateLimited(
+      rateLimitKey(identityFromCtx(c)).key,
+      "summarize",
+      SUMMARIZE_PER_USER_PER_MIN,
+      60_000,
+    )
+  ) {
     return c.json({ error: "Too many requests, please slow down" }, 429);
   }
   const apiKey = c.env.GEMINI_API_KEY;

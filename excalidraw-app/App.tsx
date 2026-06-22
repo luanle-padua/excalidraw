@@ -85,6 +85,7 @@ import {
   SYNC_BROWSER_TABS_TIMEOUT,
 } from "./app_constants";
 import { sessionAtom } from "./data/session";
+import { userProfileAtom } from "./data/userProfile";
 import Collab, {
   collabAPIAtom,
   isCollaboratingAtom,
@@ -946,6 +947,7 @@ const ExcalidrawWrapper = () => {
             if (!socketId) {
               return;
             }
+            const myAvatar = appJotaiStore.get(userProfileAtom)?.avatar;
             const me = {
               id: socketId,
               name: collabAPI?.getUsername() || "Guest",
@@ -953,17 +955,16 @@ const ExcalidrawWrapper = () => {
               // email so the copy is recognised as MINE — and stays editable —
               // across reloads, not just within this socket session.
               email: appJotaiStore.get(sessionAtom)?.email,
+              // Snapshot the avatar so the author badge keeps the right
+              // email-keyed face after the author leaves (mirrors Collab).
+              ...(myAvatar ? { avatar: myAvatar } : {}),
             };
             // Only the freshly inserted duplicates are absent from
             // prevElements — restamp those, leave everything else as-is.
             const prevIds = new Set(prevElements.map((el) => el.id));
             let changed = false;
             const remapped = nextElements.map((el) => {
-              if (
-                el.type === "text" &&
-                !el.isDeleted &&
-                !prevIds.has(el.id)
-              ) {
+              if (el.type === "text" && !el.isDeleted && !prevIds.has(el.id)) {
                 changed = true;
                 return newElementWith(el, {
                   customData: {

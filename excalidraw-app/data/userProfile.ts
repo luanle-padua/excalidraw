@@ -135,6 +135,24 @@ export const resolveAvatarUrlWithDefault = (
   return `/decorations/avatars/${AVATAR_LIBRARY[idx]}`;
 };
 
+/** Pick the STABLE identity key for a person's avatar/initials/colour seed.
+ *  Prefer the verified login EMAIL (lower-cased) — the same person then maps to
+ *  the same default face, initials hue, and name tint on every surface and
+ *  across reconnects. Only anonymous link-join peers (no email) fall back to the
+ *  per-session socketId, which is the best we can do without an identity.
+ *
+ *  This is the ONE decision the avatar-sync fix turns on: every surface (canvas
+ *  cursor, participants bar, STT/log name tint, people-grid chip ring) seeds on
+ *  the value this returns so they all agree. Pure + exported so it can be unit
+ *  tested and reused without re-deriving the `email ?? socketId` rule. */
+export const avatarIdentityKey = (
+  email: string | null | undefined,
+  socketId: string,
+): string => {
+  const e = email?.trim().toLowerCase();
+  return e || socketId;
+};
+
 export type UserProfile = {
   username: string;
   company?: string;

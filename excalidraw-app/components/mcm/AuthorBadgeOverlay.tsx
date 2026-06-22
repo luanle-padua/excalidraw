@@ -24,13 +24,27 @@ import { MCMAvatar } from "./Avatar";
 import { shortDisplayName } from "./animalEmoji";
 import { findOrCreateToolbarExtras } from "./toolbarExtras";
 
-type Author = { id: string; name: string };
+// The stamp (Collab.applyTextAuthorship / App onDuplicate) snapshots the
+// author's email + avatar alongside the name, so the badge keeps the correct
+// EMAIL-keyed identity (face / initials / colour) even AFTER the author leaves
+// the room and their live profile is pruned from peerProfilesAtom.
+type Author = {
+  id: string;
+  name: string;
+  email?: string | null;
+  avatar?: string | null;
+};
 type Badge = { key: string; author: Author; left: number; top: number };
 
 const readAuthor = (el: ExcalidrawElement): Author | null => {
   const a = (el.customData as any)?.mcmAuthor;
   return a && typeof a.id === "string"
-    ? { id: a.id, name: typeof a.name === "string" ? a.name : "" }
+    ? {
+        id: a.id,
+        name: typeof a.name === "string" ? a.name : "",
+        email: typeof a.email === "string" ? a.email : null,
+        avatar: typeof a.avatar === "string" ? a.avatar : null,
+      }
     : null;
 };
 const isAuthoredText = (el: ExcalidrawElement): boolean =>
@@ -258,11 +272,16 @@ export const AuthorBadgeOverlay = () => {
     const profile =
       author.id === mySocketId ? myProfile : peerProfiles.get(author.id);
     const rawName = author.name || profile?.username || t("participants.guest");
+    // Prefer the LIVE profile (its avatar/email reflect a mid-meeting edit),
+    // but fall back to the stamped snapshot so a departed author keeps their
+    // real email-keyed face/colour instead of degrading to socketId initials.
+    const email = profile?.email ?? author.email ?? null;
+    const avatar = profile?.avatar ?? author.avatar ?? null;
     return {
       name: shortDisplayName(rawName) || rawName,
-      avatar: profile?.avatar ?? null,
-      email: profile?.email ?? null,
-      identityKey: profile?.email ?? author.id,
+      avatar,
+      email,
+      identityKey: email ?? author.id,
       isBot: false,
     };
   };

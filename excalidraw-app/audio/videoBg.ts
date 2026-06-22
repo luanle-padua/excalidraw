@@ -23,6 +23,8 @@
 // browsers — they are a no-op / unsupported on mobile web. The UI gates the
 // control to desktop (see isVideoBgSupported); this module just owns the state.
 
+import Daily from "@daily-co/daily-js";
+
 import { atom, appJotaiStore } from "../app-jotai";
 
 const KEY = "mcm:videoBg";
@@ -52,10 +54,7 @@ export const DEFAULT_VIDEO_BG: VideoBg = { kind: "none" };
 export type VideoBgImagePreset = {
   id: string;
   /** i18n key under `videoBg.*` for the accessible label. */
-  labelKey:
-    | "videoBg.imgForest"
-    | "videoBg.imgCrystal"
-    | "videoBg.imgOffice";
+  labelKey: "videoBg.imgForest" | "videoBg.imgCrystal" | "videoBg.imgOffice";
   src: string;
 };
 
@@ -76,35 +75,59 @@ export const VIDEO_BG_IMAGE_PRESETS: VideoBgImagePreset[] = [
   {
     id: "office-forest",
     labelKey: "videoBg.imgOffice",
-    src: "/backgrounds/client-forest.webp",
+    // PLACEHOLDER src. Daily's `background-image` processor accepts ONLY
+    // jpg/jpeg/png (URL or ArrayBuffer) — a .webp source fails SILENTLY (no
+    // processor attaches, camera publishes raw). The original
+    // "/backgrounds/client-forest.webp" (and every other client-* backdrop
+    // under /public/backgrounds) is webp, so there is no png/jpg "office/client"
+    // asset to point at. The ONLY png/jpg presets shipped today are forest-mist
+    // and crystal-leaves, so this placeholder must reuse one of them (it cannot
+    // be visually unique until a real office png/jpg is added). We point at
+    // crystal-leaves rather than ship a new binary asset; swap this for a real
+    // png/jpg office backdrop once one is added to /public/backgrounds.
+    src: "/backgrounds/crystal-leaves.png",
   },
 ];
 
 /**
- * Whether Daily's video-background processors can run here. They are a
- * DESKTOP-BROWSER-only feature (mobile web is unsupported), so we gate the
- * control on a coarse-pointer / touch heuristic. Conservative: a hybrid
- * device with both a mouse and touch reads as desktop (it can run the
- * processor), which is the safe default — the worst case is the toggle is
- * shown on a device that then no-ops, not a crash.
+ * Whether Daily's video-background processors can run here. The AUTHORITATIVE
+ * signal is Daily's own `supportedBrowser().supportsVideoProcessing` flag —
+ * it covers the real requirements (WebGL + OffscreenCanvas, excludes desktop
+ * Safari) far more accurately than a pointer/touch heuristic, so the toggle is
+ * only shown where the processor will actually run (not where it silently
+ * no-ops).
+ *
+ * The old coarse-pointer / touch heuristic is kept ONLY as a fallback for when
+ * `supportedBrowser()` throws or returns nothing (defensive — the SDK probe
+ * reads UA/feature state and could in principle fail). SSR-guarded throughout:
+ * with no window/navigator there is nothing to run the processor on.
  */
 export const isVideoBgSupported = (): boolean => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return false;
   }
-  // Primary signal: a touch-only device (no fine pointer) is mobile/tablet web.
-  // `pointer: fine` is present on anything with a mouse/trackpad (desktop +
-  // hybrid laptops), absent on phones/tablets.
+  // Primary signal: Daily's official capability probe.
+  try {
+    const info = Daily.supportedBrowser();
+    if (info && typeof info.supportsVideoProcessing === "boolean") {
+      return info.supportsVideoProcessing;
+    }
+  } catch {
+    // Probe threw (unexpected) — fall through to the legacy heuristic below so
+    // the control still degrades gracefully rather than vanishing entirely.
+  }
+  // Fallback heuristic: a touch-only device (no fine pointer) is mobile/tablet
+  // web. `pointer: fine` is present on anything with a mouse/trackpad (desktop
+  // + hybrid laptops), absent on phones/tablets. Conservative — a hybrid device
+  // reads as desktop, the safe default (worst case the toggle no-ops).
   const hasFinePointer =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(pointer: fine)").matches;
   if (hasFinePointer) {
     return true;
   }
-  // Fallback when matchMedia is unavailable: treat a touch device as mobile.
-  const touch =
-    "ontouchstart" in window ||
-    (navigator.maxTouchPoints ?? 0) > 0;
+  // Final fallback when matchMedia is unavailable: treat a touch device as mobile.
+  const touch = "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
   return !touch;
 };
 
@@ -117,8 +140,10 @@ const isVideoBg = (v: unknown): v is VideoBg => {
     return true;
   }
   if (k === "blur") {
-    return (v as { level?: unknown }).level != null &&
-      (v as { level?: string }).level! in BLUR_STRENGTHS;
+    return (
+      (v as { level?: unknown }).level != null &&
+      (v as { level?: string }).level! in BLUR_STRENGTHS
+    );
   }
   if (k === "image") {
     return typeof (v as { src?: unknown }).src === "string";

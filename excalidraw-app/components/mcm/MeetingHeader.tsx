@@ -642,12 +642,13 @@ export const MeetingHeader = ({
               arrow-out-of-box says "I'm leaving", not "shut it down". */}
           <button
             type="button"
-            className="mcm-header__icon-btn mcm-tip"
+            className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
             onClick={onLeave}
             data-mcm-tip={t("header.leave")}
             aria-label={t("header.leave")}
           >
             <LogOut size={18} />
+            <span className="mcm-header__icon-label">{t("header.leave")}</span>
           </button>
           {canEndMeeting && !viewOnly && (
             // End for all — host-only, destructive. Power icon (not a phone)
@@ -655,12 +656,15 @@ export const MeetingHeader = ({
             // from the call hang-up and the personal leave. Painted red.
             <button
               type="button"
-              className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
+              className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--danger"
               onClick={() => void handleEndMeeting()}
               data-mcm-tip={t("header.endMeeting")}
               aria-label={t("header.endMeeting")}
             >
               <Power size={18} />
+              <span className="mcm-header__icon-label">
+                {t("header.endMeeting")}
+              </span>
             </button>
           )}
         </div>

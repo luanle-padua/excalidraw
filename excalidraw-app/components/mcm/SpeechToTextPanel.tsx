@@ -46,6 +46,7 @@ import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
+import { personColor } from "./meetingColors";
 import { shortDisplayName } from "./animalEmoji";
 
 import type { STTLang, STTProvider } from "../../audio/sttSession";
@@ -83,26 +84,11 @@ const Icon = ({ d }: { d: string }) => (
   </svg>
 );
 
-// Deterministic gradient for the speaker name colour. Mirrors the
-// algorithm in ParticipantsBar/avatar — same socketId yields the
-// same colour everywhere in the UI.
-const PALETTE: [string, string][] = [
-  ["#34d399", "#0ea5e9"],
-  ["#f472b6", "#ef4444"],
-  ["#fbbf24", "#f97316"],
-  ["#60a5fa", "#6366f1"],
-  ["#a78bfa", "#ec4899"],
-  ["#22d3ee", "#3b82f6"],
-  ["#fb7185", "#f59e0b"],
-  ["#84cc16", "#10b981"],
-];
-const colorFor = (key: string): string => {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) {
-    h = (h * 31 + key.charCodeAt(i)) | 0;
-  }
-  return PALETTE[Math.abs(h) % PALETTE.length][0];
-};
+// Deterministic speaker-name tint. Keyed on the speaker's EMAIL (their stable
+// login identity) and resolved through the SAME `personColor` used by MCMAvatar,
+// so a person's name tint == their avatar tint and stays the same across
+// reconnects. Anonymous link-join speakers (no email) fall back to socketId.
+const colorFor = (key: string): string => personColor(key);
 
 // Native display names for the "language I speak" options. These are the
 // languages themselves, so they're shown in their own script regardless of the
@@ -179,9 +165,9 @@ const SegmentRow = ({
         )}
         <span
           className="mcm-stt__line-spk"
-          // per-speaker colour from the same palette as avatars
+          // per-speaker tint keyed on EMAIL so it matches the avatar hue
           // eslint-disable-next-line react/forbid-dom-props
-          style={{ color: colorFor(seg.socketId) }}
+          style={{ color: colorFor(speakerProfile?.email ?? seg.socketId) }}
         >
           {shortName}
         </span>
@@ -239,7 +225,7 @@ const InterimLine = ({
         <span
           className="mcm-stt__line-spk"
           // eslint-disable-next-line react/forbid-dom-props
-          style={{ color: colorFor(entry.socketId) }}
+          style={{ color: colorFor(speakerProfile?.email ?? entry.socketId) }}
         >
           {shortDisplayName(name)}
         </span>
@@ -915,134 +901,134 @@ export const SpeechToTextPanel = () => {
           so the slim card shows nothing but the transcript + a minimal header.
           Everything here is still reachable by switching back to Full. */}
       {!compact && (
-      <div className="mcm-stt__controls">
-        {!viewOnly && (
+        <div className="mcm-stt__controls">
+          {!viewOnly && (
+            <button
+              type="button"
+              className={`mcm-stt__toggle${
+                sttEnabled ? " mcm-stt__toggle--on" : ""
+              }`}
+              onClick={() => {
+                const next = !sttEnabled;
+                setSttEnabledState(next);
+                setSttEnabled(next);
+              }}
+              title={
+                sttEnabled
+                  ? t("stt.sttToggleOnTitle")
+                  : t("stt.sttToggleOffTitle")
+              }
+            >
+              <Icon d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z M19 10v2a7 7 0 01-14 0v-2 M12 19v4 M8 23h8" />
+              {sttEnabled ? t("stt.sttOn") : t("stt.sttOff")}
+            </button>
+          )}
+
           <button
             type="button"
-            className={`mcm-stt__toggle${
-              sttEnabled ? " mcm-stt__toggle--on" : ""
+            className={`mcm-stt__toggle mcm-stt__toggle--translate${
+              translateEnabled ? " mcm-stt__toggle--on" : ""
             }`}
             onClick={() => {
-              const next = !sttEnabled;
-              setSttEnabledState(next);
-              setSttEnabled(next);
+              const next = !translateEnabled;
+              setTranslateEnabledState(next);
+              setSttTranslateEnabled(next);
             }}
             title={
-              sttEnabled
-                ? t("stt.sttToggleOnTitle")
-                : t("stt.sttToggleOffTitle")
+              translateEnabled
+                ? t("stt.translateToggleOnTitle")
+                : t("stt.translateToggleOffTitle")
             }
           >
-            <Icon d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z M19 10v2a7 7 0 01-14 0v-2 M12 19v4 M8 23h8" />
-            {sttEnabled ? t("stt.sttOn") : t("stt.sttOff")}
+            <Icon d="M4 5h11 M9 3v2 M11 5a8 8 0 01-7 8 M5 9c0 4 4 7 9 7 M14 21l5-11 5 11 M15.5 17.5h7" />
+            {translateEnabled ? t("stt.translateOn") : t("stt.translateOff")}
           </button>
-        )}
 
-        <button
-          type="button"
-          className={`mcm-stt__toggle mcm-stt__toggle--translate${
-            translateEnabled ? " mcm-stt__toggle--on" : ""
-          }`}
-          onClick={() => {
-            const next = !translateEnabled;
-            setTranslateEnabledState(next);
-            setSttTranslateEnabled(next);
-          }}
-          title={
-            translateEnabled
-              ? t("stt.translateToggleOnTitle")
-              : t("stt.translateToggleOffTitle")
-          }
-        >
-          <Icon d="M4 5h11 M9 3v2 M11 5a8 8 0 01-7 8 M5 9c0 4 4 7 9 7 M14 21l5-11 5 11 M15.5 17.5h7" />
-          {translateEnabled ? t("stt.translateOn") : t("stt.translateOff")}
-        </button>
-
-        {/* Per-session STT provider selector (A/B accuracy test, 06-18).
+          {/* Per-session STT provider selector (A/B accuracy test, 06-18).
             Each option carries its per-minute price so the PM sees cost
             while picking the most ACCURATE provider — default Deepgram.
             ?provider=<id> is forwarded to /stt by the next session. */}
-        {!viewOnly && (
-          <label className="mcm-stt__provider" title={t("stt.providerTitle")}>
-            <span className="mcm-stt__provider-label">
-              {t("stt.providerLabel")}
-            </span>
-            <select
-              className="mcm-stt__provider-select"
-              value={sttProvider}
-              onChange={(e) => {
-                const next = e.target.value as STTProvider;
-                setSttProviderState(next);
-                setSttProvider(next);
-              }}
-            >
-              {STT_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id} disabled={p.comingSoon}>
-                  {p.name} · {fmtPerMinute(p.usdPerMinute)}
-                  {p.comingSoon ? ` — ${t("stt.providerSoon")}` : ""}
-                </option>
-              ))}
-            </select>
-            <span className="mcm-stt__provider-price">
-              {fmtPerMinute(providerMeta(sttProvider).usdPerMinute)}
-            </span>
-          </label>
-        )}
+          {!viewOnly && (
+            <label className="mcm-stt__provider" title={t("stt.providerTitle")}>
+              <span className="mcm-stt__provider-label">
+                {t("stt.providerLabel")}
+              </span>
+              <select
+                className="mcm-stt__provider-select"
+                value={sttProvider}
+                onChange={(e) => {
+                  const next = e.target.value as STTProvider;
+                  setSttProviderState(next);
+                  setSttProvider(next);
+                }}
+              >
+                {STT_PROVIDERS.map((p) => (
+                  <option key={p.id} value={p.id} disabled={p.comingSoon}>
+                    {p.name} · {fmtPerMinute(p.usdPerMinute)}
+                    {p.comingSoon ? ` — ${t("stt.providerSoon")}` : ""}
+                  </option>
+                ))}
+              </select>
+              <span className="mcm-stt__provider-price">
+                {fmtPerMinute(providerMeta(sttProvider).usdPerMinute)}
+              </span>
+            </label>
+          )}
 
-        {/* Language the LOCAL user speaks. Independent of the app UI language:
+          {/* Language the LOCAL user speaks. Independent of the app UI language:
             Deepgram transcribes the mic in THIS language. Changing it restarts
             the live STT session (AudioRoomController deps on the atom). */}
-        {!viewOnly && (
-          <label
-            className="mcm-stt__provider"
-            title={t("stt.spokenLangTitle")}
-          >
-            <span className="mcm-stt__provider-label">
-              {t("stt.spokenLangLabel")}
-            </span>
-            <select
-              className="mcm-stt__provider-select"
-              value={spokenLang}
-              onChange={(e) => {
-                const next = e.target.value as STTLang;
-                setSpokenLangState(next);
-                setSttSpokenLanguage(next);
-              }}
+          {!viewOnly && (
+            <label
+              className="mcm-stt__provider"
+              title={t("stt.spokenLangTitle")}
             >
-              {SPOKEN_LANGUAGES.map((lng) => (
-                <option key={lng} value={lng}>
-                  {SPOKEN_LANG_NAMES[lng]}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+              <span className="mcm-stt__provider-label">
+                {t("stt.spokenLangLabel")}
+              </span>
+              <select
+                className="mcm-stt__provider-select"
+                value={spokenLang}
+                onChange={(e) => {
+                  const next = e.target.value as STTLang;
+                  setSpokenLangState(next);
+                  setSttSpokenLanguage(next);
+                }}
+              >
+                {SPOKEN_LANGUAGES.map((lng) => (
+                  <option key={lng} value={lng}>
+                    {SPOKEN_LANG_NAMES[lng]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
-        <div className="mcm-stt__controls-spacer" />
+          <div className="mcm-stt__controls-spacer" />
 
-        {!viewOnly && (
-          <button
-            type="button"
-            className="mcm-stt__test"
-            onClick={() => fileInputRef.current?.click()}
-            title={t("stt.testFileTitle")}
-          >
-            <Icon d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
-            {testStatus === "running"
-              ? t("stt.testRunning")
-              : t("stt.testFile")}
-          </button>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*"
-          aria-label={t("stt.pickAudioFileAria")}
-          title={t("stt.pickAudioFileAria")}
-          className="mcm-stt__file-input"
-          onChange={handleFilePick}
-        />
-      </div>
+          {!viewOnly && (
+            <button
+              type="button"
+              className="mcm-stt__test"
+              onClick={() => fileInputRef.current?.click()}
+              title={t("stt.testFileTitle")}
+            >
+              <Icon d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />
+              {testStatus === "running"
+                ? t("stt.testRunning")
+                : t("stt.testFile")}
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            aria-label={t("stt.pickAudioFileAria")}
+            title={t("stt.pickAudioFileAria")}
+            className="mcm-stt__file-input"
+            onChange={handleFilePick}
+          />
+        </div>
       )}
 
       <div

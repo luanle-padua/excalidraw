@@ -13,8 +13,8 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
-import { useAtomValue } from "../../app-jotai";
-import { activeSpeakerAtom } from "../../audio/videoPerf";
+import { useAtomValue, useSetAtom } from "../../app-jotai";
+import { activeSpeakerAtom, visibleTilesAtom } from "../../audio/videoPerf";
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
@@ -46,6 +46,7 @@ export const VideoFilmstrip = ({
   // Contract with the Daily-perf lane: the socketId of the current active
   // speaker (or null). We ring whichever tile id matches.
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
+  const setVisibleTiles = useSetAtom(visibleTilesAtom);
 
   // Tag <body> while the rail is up so global CSS can (a) raise the floating
   // bottom call controls above the 140px rail and (b) slim the people-bar to
@@ -54,6 +55,21 @@ export const VideoFilmstrip = ({
     document.body.classList.add("mcm-has-filmstrip");
     return () => document.body.classList.remove("mcm-has-filmstrip");
   }, []);
+
+  // Phase 5 — visible-tile signalling for manual subscription + pagination.
+  // Publish the socket.ids the rail is currently rendering so DailyAudio can
+  // subscribe only these (+ active speaker) in a big meeting. Best-effort: the
+  // rail renders every tile today, so this reports "all rendered" — honest, and
+  // it lets DailyAudio drop nothing while paging on speaker/headcount instead.
+  // Cleared on unmount so a layout switch back to "minimal" releases the signal
+  // and DailyAudio falls back to automatic subscription.
+  const visibleKey = tiles.map((tile) => tile.id).join("|");
+  useEffect(() => {
+    setVisibleTiles(new Set(tiles.map((tile) => tile.id)));
+    return () => setVisibleTiles(new Set());
+    // visibleKey captures the membership; tiles identity changes every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey, setVisibleTiles]);
 
   return createPortal(
     <div

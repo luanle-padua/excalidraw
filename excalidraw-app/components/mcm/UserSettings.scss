@@ -60,7 +60,8 @@
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     border-radius: 50%;
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+    transition: background-color var(--mcm-dur-fast, 120ms)
+      var(--mcm-ease, ease);
 
     &:hover {
       background: var(--mcm-surface-2, #f0f0f3);
@@ -101,7 +102,8 @@
     padding: 9px 11px;
     border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transition: background-color var(--mcm-dur-fast, 120ms)
+        var(--mcm-ease, ease),
       color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
     svg {
@@ -266,7 +268,8 @@
     padding: 9px 16px;
     border-radius: var(--mcm-radius-md, 14px);
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transition: background-color var(--mcm-dur-fast, 120ms)
+        var(--mcm-ease, ease),
       opacity var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
     &:disabled {
@@ -283,12 +286,20 @@
       }
     }
     &--danger {
-      border-color: color-mix(in srgb, var(--mcm-danger, #d64545) 40%, transparent);
+      border-color: color-mix(
+        in srgb,
+        var(--mcm-danger, #d64545) 40%,
+        transparent
+      );
       background: var(--mcm-danger-soft, rgba(220, 80, 80, 0.12));
       color: var(--mcm-danger, #d64545);
 
       &:hover:not(:disabled) {
-        background: color-mix(in srgb, var(--mcm-danger, #d64545) 18%, transparent);
+        background: color-mix(
+          in srgb,
+          var(--mcm-danger, #d64545) 18%,
+          transparent
+        );
       }
     }
   }
@@ -356,7 +367,8 @@
     background: var(--mcm-surface-3, rgba(0, 0, 0, 0.18));
     cursor: pointer;
     padding: 0;
-    transition: background-color var(--mcm-dur-base, 180ms) var(--mcm-ease, ease);
+    transition: background-color var(--mcm-dur-base, 180ms)
+      var(--mcm-ease, ease);
 
     &.--on {
       background: var(--mcm-accent, #6965db);
@@ -396,7 +408,8 @@
     padding: 5px 11px;
     border-radius: var(--mcm-radius-xs, 7px);
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transition: background-color var(--mcm-dur-fast, 120ms)
+        var(--mcm-ease, ease),
       color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
     &:hover {
@@ -441,7 +454,8 @@
     border: 1px solid transparent;
     border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
-    transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transition: background-color var(--mcm-dur-fast, 120ms)
+        var(--mcm-ease, ease),
       color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
     &:hover {

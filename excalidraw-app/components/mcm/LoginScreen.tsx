@@ -11,6 +11,16 @@ import { LangThemeSwitcher } from "./LangThemeSwitcher";
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
 
+// Magic-link (signInWithOtp) is gated OFF until we have a custom auth domain (~Aug).
+// WHY: the verify email's link points straight at supabase.co/auth/v1/verify — that
+// FIRST hop is NOT routed through our Worker proxy (authProxyFetch), so on Vietnamese
+// WiFi (which blocks supabase.co) the link is dead the moment the user taps it.
+// Password sign-in + token refresh ARE proxied (VN-safe), and guests get a synthetic
+// email + crypto temp-password, so everyone — internal and guest — can use password.
+// The signInWithOtp code + magic-link form below are left intact behind this flag for
+// a one-line re-enable once the custom domain lands and the verify hop is proxied.
+const ALLOW_MAGIC_LINK = false;
+
 // Cinematic intro: the Canvas M wordmark reveals centre-screen, holds, then
 // dissolves to hand off to the login card. Total run is kept in sync with the
 // `mcm-login__intro` CSS animations. Skipped entirely under reduced-motion.
@@ -288,7 +298,7 @@ export const LoginScreen = () => {
                   {t("login.usePassword")}
                 </button>
               </form>
-            ) : mode === "password" ? (
+            ) : mode === "password" || !ALLOW_MAGIC_LINK ? (
               <form className="mcm-login__form" onSubmit={signInPassword}>
                 <label className="mcm-login__field">
                   <span className="mcm-login__label">
@@ -336,16 +346,21 @@ export const LoginScreen = () => {
                   {loading ? t("login.signingIn") : t("login.signIn")}
                 </button>
 
-                <button
-                  type="button"
-                  className="mcm-login__guest-toggle"
-                  onClick={() => {
-                    setMode("magic");
-                    setError(null);
-                  }}
-                >
-                  {t("login.guestToggle")}
-                </button>
+                {/* Magic-link entry is hidden until the custom auth domain lands
+                    (see ALLOW_MAGIC_LINK above) — otherwise the verify link is
+                    dead on VN WiFi. Everyone uses the proxied password path. */}
+                {ALLOW_MAGIC_LINK && (
+                  <button
+                    type="button"
+                    className="mcm-login__guest-toggle"
+                    onClick={() => {
+                      setMode("magic");
+                      setError(null);
+                    }}
+                  >
+                    {t("login.guestToggle")}
+                  </button>
+                )}
 
                 <button
                   type="button"

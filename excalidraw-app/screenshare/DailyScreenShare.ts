@@ -14,14 +14,26 @@
 
 import Daily from "@daily-co/daily-js";
 
+import {
+  screenShareFatalKindFor,
+  screenShareLinkFor,
+} from "./screenShareState";
+
 import type {
   DailyCall,
   DailyEventObjectTrack,
   DailyEventObjectFatalError,
+  DailyEventObjectNonFatalError,
+  DailyEventObjectNetworkConnectionEvent,
   DailyEventObjectParticipantLeft,
 } from "@daily-co/daily-js";
 
-import type { ScreenShareMedia, ScreenShareStatus } from "./screenShareState";
+import type {
+  ScreenShareErrorKind,
+  ScreenShareLink,
+  ScreenShareMedia,
+  ScreenShareStatus,
+} from "./screenShareState";
 
 export type DailyTokenFetcher = (
   roomId: string,
@@ -55,7 +67,11 @@ export class DailyScreenShare {
   private remoteStream: MediaStream | null = null;
   private remoteSharerName: string | null = null;
   private localActive = false;
+  private errorKind: ScreenShareErrorKind | null = null;
   private errorMessage: string | null = null;
+  /** connectivity lifecycle of the screen-share call (Daily network-connection),
+   *  surfaced to the presenter; reset to "connected" on leave(). */
+  private link: ScreenShareLink = "connected";
   /** hidden <audio> playing a remote presenter's shared tab/system audio
    *  (the "screenAudio" track). Daily does NOT auto-play screen audio in
    *  call-object mode, so we play it ourselves. */
@@ -85,13 +101,25 @@ export class DailyScreenShare {
       remoteStream: this.remoteStream,
       remoteSharerName: this.remoteSharerName,
       localActive: this.localActive,
+      errorKind: this.errorKind,
       errorMessage: this.errorMessage,
+      link: this.link,
     });
+  }
+
+  /** Set a language-neutral error code + raw dev detail, then recompute/emit.
+   *  Centralises the error path so every failure carries a code the UI can map
+   *  to i18n (never a bare localized string). */
+  private setError(kind: ScreenShareErrorKind, raw: string | null) {
+    this.errorKind = kind;
+    this.errorMessage = raw;
+    this.recomputeStatus();
+    this.emit();
   }
 
   /** Recompute the coarse status from the underlying flags. */
   private recomputeStatus() {
-    if (this.errorMessage) {
+    if (this.errorKind) {
       this.status = "error";
     } else if (this.localActive) {
       this.status = "sharing";
@@ -117,6 +145,7 @@ export class DailyScreenShare {
     if (this.joining) {
       return this.joining;
     }
+    this.errorKind = null;
     this.errorMessage = null;
     this.recomputeStatus();
     this.status = "connecting";
@@ -128,9 +157,7 @@ export class DailyScreenShare {
         return false;
       }
       if (!cfg) {
-        this.errorMessage = "token";
-        this.recomputeStatus();
-        this.emit();
+        this.setError("token", "no token");
         return false;
       }
       // No webcam/mic — viewers join silently (no device prompts) and the
@@ -173,9 +200,10 @@ export class DailyScreenShare {
         return true;
       } catch (err) {
         warn("join failed", err);
-        this.errorMessage = err instanceof Error ? err.message : "join failed";
-        this.recomputeStatus();
-        this.emit();
+        this.setError(
+          "call",
+          err instanceof Error ? err.message : "join failed",
+        );
         await call.destroy().catch(() => undefined);
         return false;
       }
@@ -198,6 +226,12 @@ export class DailyScreenShare {
     call.on("participant-updated", this.onParticipantUpdated);
     call.on("participant-left", this.onParticipantLeft);
     call.on("error", this.onFatalError);
+    // Phase 6 parity with the audio call object: surface non-fatal screen-share
+    // errors (instead of swallowing them) + the call's connectivity lifecycle so
+    // a dropped/recovering screen-share call is visible to the presenter rather
+    // than silently freezing.
+    call.on("nonfatal-error", this.onNonfatalError);
+    call.on("network-connection", this.onNetworkConnection);
   }
 
   /** Reconcile the remote screen VIDEO against the live participant set. Daily
@@ -289,10 +323,10 @@ export class DailyScreenShare {
       return true;
     } catch (err) {
       warn("startScreenShare failed", err);
-      this.errorMessage =
-        err instanceof Error ? err.message : "screen share failed";
-      this.recomputeStatus();
-      this.emit();
+      this.setError(
+        "share",
+        err instanceof Error ? err.message : "screen share failed",
+      );
       return false;
     }
   }
@@ -319,7 +353,9 @@ export class DailyScreenShare {
     this.remoteSharerName = null;
     const wasSharing = this.localActive;
     this.localActive = false;
+    this.errorKind = null;
     this.errorMessage = null;
+    this.link = "connected";
     this.status = "idle";
     this.emit();
     if (wasSharing) {
@@ -440,10 +476,70 @@ export class DailyScreenShare {
     }
   }
 
+  /**
+   * Daily FATAL error on the SCREEN-SHARE call object — the screen-share call is
+   * over. Phase 6 parity: classify `error.type` into a language-neutral
+   * ScreenShareErrorKind via the PURE screenShareFatalKindFor, so the UI can show
+   * a TYPE-specific message (room full / token expired → refresh) instead of one
+   * opaque "screen share error". This NEVER touches the separate AUDIO call.
+   */
   private onFatalError = (e: DailyEventObjectFatalError) => {
-    warn("fatal error", e.errorMsg);
-    this.errorMessage = e.errorMsg || "screen share error";
-    this.recomputeStatus();
-    this.emit();
+    // error.type is `any` for non-connection fatal types in the daily-js typings;
+    // read it defensively.
+    const type = (e.error as { type?: string } | undefined)?.type;
+    const kind = screenShareFatalKindFor(type);
+    warn("fatal error", type ?? "(no type)", e.errorMsg);
+    this.setError(kind, e.errorMsg || "screen share error");
+  };
+
+  /**
+   * Daily NON-FATAL error — the screen-share call keeps running. The important
+   * case here is `screen-share-error`: the local screen share itself failed (the
+   * picker errored, the source was lost, or capture stopped). Previously this was
+   * swallowed; now we surface a clear, language-neutral "share" error so the
+   * presenter learns why their screen stopped. Non-fatal by default: we do NOT
+   * tear the call down (a remote viewer keeps watching anyone else still sharing).
+   */
+  private onNonfatalError = (e: DailyEventObjectNonFatalError) => {
+    try {
+      warn("nonfatal error", e.type, e.errorMsg);
+      if (e.type !== "screen-share-error") {
+        return; // not our concern — keep the call running, don't churn state
+      }
+      // The local screen-share dropped. Reflect that we're no longer presenting
+      // and broadcast presence off so peers prune our stale SCREEN_SHARE badge.
+      if (this.localActive) {
+        this.localActive = false;
+        this.events.onLocalShareChange(false);
+      }
+      this.setError("share", e.errorMsg || "screen share error");
+    } catch (err) {
+      warn("onNonfatalError failed (non-fatal)", err);
+    }
+  };
+
+  /**
+   * Daily "network-connection" on the screen-share call object → connectivity
+   * lifecycle, surfaced to the presenter so a dropped/recovering screen-share
+   * call is visible instead of a silently frozen frame. Maps the payload via the
+   * PURE screenShareLinkFor. Non-fatal by default: ANY failure is caught, logged
+   * and swallowed — a monitoring signal must never tear down a working call.
+   */
+  private onNetworkConnection = (
+    e: DailyEventObjectNetworkConnectionEvent,
+  ) => {
+    try {
+      const link = screenShareLinkFor(e);
+      if (!link || link === this.link) {
+        return; // intermediate/unknown event or no change — don't churn state
+      }
+      this.link = link;
+      log(`network-connection ${e.type}/${e.event} → ${link}`);
+      // A connectivity blip is NOT an error state — the call recovers. We only
+      // update `link` (the presenter notice) and re-emit; status is unchanged.
+      this.emit();
+    } catch (err) {
+      warn("onNetworkConnection failed (non-fatal)", err);
+    }
   };
 }

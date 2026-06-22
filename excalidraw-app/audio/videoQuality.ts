@@ -92,3 +92,38 @@ export const clampQuality = (
 /** Tiers the user is allowed to choose given the cap (for greying out the UI). */
 export const allowedTiers = (cap: QualityCap): QualityCap[] =>
   BY_RANK.filter((t) => RANK[t] <= RANK[cap]);
+
+// ---- Phase 5 — scale subscription thresholds ----------------------------
+//
+// Centralised here, next to QUALITY_TIERS, so an admin can tune the "big
+// meeting" thresholds in ONE place (rather than hardcoding magic numbers across
+// DailyAudio / the gallery). Daily's guidance: a laptop decodes ~30 simulcast
+// streams comfortably, mobile ~12 (~75 kbps/stream downstream). We sit BELOW
+// those ceilings so the device never thrashes before pagination kicks in.
+
+/** Above this many REMOTE camera videos we stop auto-subscribing to every track
+ *  and switch to manual subscription + pagination (subscribe only the visible
+ *  tiles + active speaker). Desktop is the generous default; a mobile/tablet
+ *  caps far lower because it decodes + composites far fewer streams. The mobile
+ *  value is selected by maxVideoSubscribeFor(isMobile) at call time. */
+export const MAX_VIDEO_SUBSCRIBE_DESKTOP = 20;
+export const MAX_VIDEO_SUBSCRIBE_MOBILE = 9;
+
+/** Pick the manual-subscription threshold for the running device. Mobile/tablet
+ *  web decodes far fewer streams, so it paginates much sooner. */
+export const maxVideoSubscribeFor = (isMobile: boolean): number =>
+  isMobile ? MAX_VIDEO_SUBSCRIBE_MOBILE : MAX_VIDEO_SUBSCRIBE_DESKTOP;
+
+/** At or below this many remote camera tiles the grid is "small": every
+ *  non-speaker stays on the MIDDLE simulcast layer (base 1) so idle tiles look
+ *  sharp. Strictly ABOVE it the grid is "large": non-speakers drop to the LOWEST
+ *  layer (base 0) per Daily's large-grid guidance — the active speaker is still
+ *  promoted to the top layer regardless. */
+export const RECEIVE_BASE_LAYER_CUTOFF = 9;
+
+/** Adaptive receive BASE layer for non-speaker tiles, given the remote camera
+ *  tile count. Small grid (≤ cutoff) → layer 1 (legibly sharp idle tiles); large
+ *  grid (> cutoff) → layer 0 (cheapest, the default Daily recommends for big
+ *  grids). PURE so it can be unit tested in isolation. */
+export const receiveBaseForTileCount = (tileCount: number): 0 | 1 =>
+  tileCount > RECEIVE_BASE_LAYER_CUTOFF ? 0 : 1;

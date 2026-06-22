@@ -13,13 +13,15 @@
 // model (pin > screenshare > active-speaker > host > first), computed in
 // ParticipantsBar and passed down — clicking any tile toggles the local pin.
 
+import { useEffect } from "react";
+
 import { LayoutGrid, Pin, PinOff, SquareUser } from "lucide-react";
 
 import { useT } from "../../i18n/mcm";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { gallerySubModeAtom } from "../../audio/videoFocus";
-import { activeSpeakerAtom } from "../../audio/videoPerf";
+import { activeSpeakerAtom, visibleTilesAtom } from "../../audio/videoPerf";
 import { captionSurfaceAtom } from "../../data/captionState";
 
 import { MCMAvatar } from "./Avatar";
@@ -155,6 +157,21 @@ export const MeetingGallery = ({
   // double-mounting on the pane/canvas behind the gallery.
   const captionSurface = useAtomValue(captionSurfaceAtom);
   const captionsOnGallery = captionSurface === "gallery";
+  const setVisibleTiles = useSetAtom(visibleTilesAtom);
+
+  // Phase 5 — visible-tile signalling for manual subscription + pagination.
+  // Publish the socket.ids the gallery is rendering so DailyAudio subscribes
+  // only these (+ active speaker) in a big meeting. Both sub-modes render the
+  // full tile set (grid = all; speaker = focus + rail), so we report all tile
+  // ids — best-effort, honest about what is mounted. Cleared on unmount so
+  // closing the gallery releases the signal (DailyAudio → automatic).
+  const visibleKey = tiles.map((tile) => tile.id).join("|");
+  useEffect(() => {
+    setVisibleTiles(new Set(tiles.map((tile) => tile.id)));
+    return () => setVisibleTiles(new Set());
+    // visibleKey captures membership; `tiles` identity changes every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleKey, setVisibleTiles]);
 
   const focusTile =
     tiles.find((tile) => tile.id === focusedSocketId) ?? tiles[0] ?? null;

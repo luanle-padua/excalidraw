@@ -877,8 +877,10 @@ export const ko: Widened<typeof vi> = {
     tabPreferences: "환경설정",
     tabData: "내 데이터",
     tabPrivacy: "개인정보",
-    accountNote: "아래 조직 정보는 시스템에서 관리되며 여기서는 읽기 전용입니다.",
-    accountError: "계정 정보를 불러오지 못했습니다. 로그인 세션 정보를 표시합니다.",
+    accountNote:
+      "아래 조직 정보는 시스템에서 관리되며 여기서는 읽기 전용입니다.",
+    accountError:
+      "계정 정보를 불러오지 못했습니다. 로그인 세션 정보를 표시합니다.",
     email: "이메일",
     titleField: "직급",
     division: "부서",
@@ -949,6 +951,8 @@ export const ko: Widened<typeof vi> = {
     leaveCall: "통화 나가기",
     mute: "음소거",
     unmute: "음소거 해제",
+    micLabel: "마이크",
+    cameraLabel: "카메라",
     listenOnly: "듣기 전용",
     listenOnlyTitle: "이 기기에는 마이크가 없습니다 — 듣기 전용",
     requestingMic: "마이크 권한을 요청 중…",
@@ -970,6 +974,27 @@ export const ko: Widened<typeof vi> = {
     noCameraTitle: "이 기기에서 카메라를 찾을 수 없습니다",
     cameraError:
       "카메라를 시작할 수 없습니다 — 권한을 확인하고 다시 시도하세요.",
+    cameraPermission:
+      "카메라/마이크가 차단되었습니다 — 브라우저에서 접근을 허용하고 다시 시도하세요.",
+    meetingFull: "회의 정원이 가득 찼습니다 — 참여할 자리가 없습니다.",
+    tokenExpired:
+      "세션이 만료되었습니다 — 페이지를 새로고침하여 다시 참여하세요.",
+    featureDisabled: "오류로 인해 일부 기능이 꺼졌습니다 — 회의는 계속됩니다.",
+  },
+
+  // ---------------- Pre-join "green room" (Item 6) ------------------
+  preJoin: {
+    title: "참여하시겠어요?",
+    joiningAs: "{name}님으로 참여",
+    joinNow: "참여하기",
+    joining: "참여 중…",
+    micOn: "마이크 켜짐",
+    micOff: "마이크 꺼짐",
+    cameraOn: "카메라 켜짐",
+    cameraOff: "카메라 꺼짐",
+    cameraOffHint: "카메라가 꺼져 있습니다",
+    noPreview: "카메라 미리보기를 사용할 수 없습니다",
+    cancel: "뒤로",
   },
 
   // ---------------- Video background (blur / change camera bg) ------
@@ -985,6 +1010,30 @@ export const ko: Widened<typeof vi> = {
     imgForest: "숲 안개",
     imgCrystal: "크리스탈 잎",
     imgOffice: "사무실",
+    processorCleared:
+      "처리 오류로 가상 배경이 해제되었습니다 — 카메라도 꺼졌습니다",
+  },
+
+  // ---------------- Network resilience (banner + quality chip) ------
+  connection: {
+    reconnecting: "연결이 끊겼습니다 — 다시 연결 중…",
+    unstable: "연결이 불안정합니다 — 회의에서 나가질 수 있습니다",
+    reconnected: "다시 연결되었습니다",
+    qualityLabel: "연결 품질",
+    quality: {
+      good: "연결 양호",
+      low: "연결 약함",
+      bad: "연결 불량",
+    },
+    reason: {
+      sendPacketLoss: "패킷 손실 (업로드)",
+      recvPacketLoss: "패킷 손실 (다운로드)",
+      roundTripTime: "높은 지연 시간",
+      availableOutgoingBitrate: "낮은 업로드 대역폭",
+      signaling: "시그널링 경로",
+      sfu: "미디어 경로 (서버)",
+      "peer-to-peer": "P2P 연결",
+    },
   },
 
   videoQuality: {
@@ -1198,6 +1247,16 @@ export const ko: Widened<typeof vi> = {
     expand: "펼치기",
     connecting: "연결 중…",
     startError: "화면을 공유할 수 없습니다",
+    // Phase 6 — language-neutral error codes mapped to messages.
+    errShare: "오류로 화면 공유가 중지되었습니다 — 다시 공유해 보세요",
+    errMeetingFull: "회의가 가득 차 화면을 공유할 수 없습니다",
+    errTokenExpired:
+      "세션이 만료되었습니다 — 페이지를 새로고침한 뒤 다시 공유하세요",
+    errCall: "화면 공유 오류",
+    // Connectivity lifecycle of the screen-share call (presenter notices).
+    linkReconnecting: "화면 공유 연결이 끊겼습니다 — 다시 연결 중…",
+    linkUnstable: "화면 공유 연결이 불안정합니다 — 끊길 수 있습니다",
+    linkReconnected: "화면 공유 연결이 복구되었습니다",
   },
 
   chat: {
@@ -1247,8 +1306,7 @@ export const ko: Widened<typeof vi> = {
     providerLabel: "STT 모델",
     providerSoon: "곧 추가 예정",
     spokenLangLabel: "내가 말하는 언어",
-    spokenLangTitle:
-      "Deepgram이 내 마이크를 받아쓰는 언어 — 앱 언어와 독립적",
+    spokenLangTitle: "Deepgram이 내 마이크를 받아쓰는 언어 — 앱 언어와 독립적",
     sttOn: "STT: 켜짐",
     sttOff: "STT: 꺼짐",
     sttToggleOnTitle: "음성 인식 끄기",
@@ -1292,6 +1350,7 @@ export const ko: Widened<typeof vi> = {
   caption: {
     label: "실시간 자막",
     translating: "번역 중…",
+    degraded: "번역 일시 중지 (과부하) — 원문 표시",
     hideTitle: "자막 잠시 숨기기",
     toggleOnTitle: "자막 끄기 (CC)",
     toggleOffTitle: "자막 켜기 (CC)",

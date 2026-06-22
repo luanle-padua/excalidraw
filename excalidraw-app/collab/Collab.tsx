@@ -141,6 +141,7 @@ import {
 import { isInternalEmail, sessionAtom } from "../data/session";
 
 import {
+  avatarIdentityKey,
   ensureMyJoinedAt,
   hostSocketIdAtom,
   importUserProfileFromLocalStorage,
@@ -507,10 +508,15 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         if (!this.liveSocketIds.has(socketId as SocketId)) {
           continue;
         }
-        // Default to a deterministic library image when the peer
-        // hasn't picked an avatar — keeps Excalidraw's on-canvas
-        // cursor + built-in UserList off the placeholder initials.
-        const avatarUrl = resolveAvatarUrlWithDefault(profile.avatar, socketId);
+        // Default to a deterministic library image when the peer hasn't
+        // picked an avatar. Key the default on the peer's EMAIL (their stable
+        // login identity) so the canvas cursor stays the SAME face across
+        // reconnects and matches every other avatar surface; only anonymous
+        // link-join peers (no email) fall back to the per-session socketId.
+        const avatarUrl = resolveAvatarUrlWithDefault(
+          profile.avatar,
+          avatarIdentityKey(profile.email, socketId),
+        );
         this.updateCollaborator(socketId as SocketId, {
           username: profile.username,
           avatarUrl,
@@ -1372,13 +1378,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
             // raw MOUSE_LOCATION username when no profile has arrived
             // yet.
             const profile = appJotaiStore.get(peerProfilesAtom).get(socketId);
-            // Always send a real image URL — falls back to a library
-            // avatar deterministic from socketId when no profile has
-            // arrived yet, so the on-canvas cursor never shows the
-            // default initials placeholder.
+            // Always send a real image URL — falls back to a library avatar
+            // deterministic from the peer's EMAIL (stable login identity) so
+            // the on-canvas cursor face matches the participants bar / chat and
+            // does NOT change on reconnect. Anonymous link-join peers with no
+            // email use the per-session socketId as the only key available.
             const avatarUrl = resolveAvatarUrlWithDefault(
               profile?.avatar,
-              socketId,
+              avatarIdentityKey(profile?.email, socketId),
             );
             this.updateCollaborator(socketId, {
               pointer,
@@ -2100,10 +2107,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     // (from the session) alongside it — email is the durable key used by
     // the edit gate (canEditTextElement) to decide "is this mine?".
     const email = appJotaiStore.get(sessionAtom)?.email;
+    // Snapshot the avatar too, so the author badge keeps the right
+    // email-keyed face/initials AFTER the author leaves the room — without
+    // it the badge degrades to a socketId-keyed default once the live
+    // profile is pruned from peerProfilesAtom.
+    const avatar = appJotaiStore.get(userProfileAtom)?.avatar;
     const me = {
       id: socketId,
       name: this.state.username || "Guest",
       email,
+      ...(avatar ? { avatar } : {}),
     };
     let changed = false;
     const next = elements.map((el) => {

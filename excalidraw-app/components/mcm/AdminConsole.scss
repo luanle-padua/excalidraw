@@ -799,8 +799,7 @@
   // downloaded, so it sits between a neutral and a hard-danger button. Clearly
   // distinct from the plain delete (trash) icon next to it.
   &__archive-btn {
-    border: 1px solid
-      color-mix(in srgb, var(--mcm-warning) 45%, transparent);
+    border: 1px solid color-mix(in srgb, var(--mcm-warning) 45%, transparent);
     background: var(--mcm-warning-soft);
     color: var(--mcm-warning);
 

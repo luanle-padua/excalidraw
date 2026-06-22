@@ -29,6 +29,7 @@ import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
+import { personColor } from "./meetingColors";
 import { shortDisplayName } from "./animalEmoji";
 
 import type {
@@ -38,23 +39,11 @@ import type {
 
 // --- helpers ---------------------------------------------------------
 
-const PALETTE: [string, string][] = [
-  ["#34d399", "#0ea5e9"],
-  ["#f472b6", "#ef4444"],
-  ["#fbbf24", "#f97316"],
-  ["#60a5fa", "#6366f1"],
-  ["#a78bfa", "#ec4899"],
-  ["#22d3ee", "#3b82f6"],
-  ["#fb7185", "#f59e0b"],
-  ["#84cc16", "#10b981"],
-];
-const colorFor = (key: string): string => {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) {
-    h = (h * 31 + key.charCodeAt(i)) | 0;
-  }
-  return PALETTE[Math.abs(h) % PALETTE.length][0];
-};
+// Deterministic person tint, resolved through the SAME `personColor` MCMAvatar
+// uses so a speaker's name tint == their avatar hue. Speaker rows key on EMAIL
+// (stable login identity, falling back to socketId for anon link-joins); the AI
+// summary participant chips key on the participant name string they carry.
+const colorFor = (key: string): string => personColor(key);
 
 const fmtTime = (ts: number): string => {
   const d = new Date(ts);
@@ -412,9 +401,14 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                         />
                         <span
                           className="mcm-log-modal__run-spk"
-                          // per-speaker color matches the avatar + STT panel
+                          // per-speaker color keyed on EMAIL → matches the
+                          // avatar hue + STT panel, stable across reconnects
                           // eslint-disable-next-line react/forbid-dom-props
-                          style={{ color: colorFor(run.socketId) }}
+                          style={{
+                            color: colorFor(
+                              speakerProfile?.email ?? run.socketId,
+                            ),
+                          }}
                         >
                           {shortDisplayName(speakerName)}
                         </span>

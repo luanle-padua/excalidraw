@@ -917,7 +917,8 @@ export const en: Widened<typeof vi> = {
     panelCompact: "Compact",
     prefCaptions: "Live captions",
     captionDock: "Show captions while presenting",
-    captionDockHint: "Auto-show the caption strip when someone shares a screen.",
+    captionDockHint:
+      "Auto-show the caption strip when someone shares a screen.",
     captionLines: "Caption lines",
     captionFont: "Caption text size",
     font_s: "Small",
@@ -945,6 +946,8 @@ export const en: Widened<typeof vi> = {
     leaveCall: "Leave call",
     mute: "Mute",
     unmute: "Unmute",
+    micLabel: "Mic",
+    cameraLabel: "Camera",
     listenOnly: "Listening",
     listenOnlyTitle: "This device has no microphone — listen only",
     requestingMic: "Requesting mic permission…",
@@ -964,6 +967,27 @@ export const en: Widened<typeof vi> = {
     cameraOff: "Turn off camera",
     noCameraTitle: "No camera detected on this device",
     cameraError: "Couldn't start the camera — check permissions and retry.",
+    cameraPermission:
+      "Camera/mic is blocked — allow access in your browser and retry.",
+    meetingFull: "The meeting is full — no room left to join.",
+    tokenExpired: "Your session expired — reload the page to rejoin.",
+    featureDisabled:
+      "A feature was turned off due to an error — the meeting continues.",
+  },
+
+  // ---------------- Pre-join "green room" (Item 6) ------------------
+  preJoin: {
+    title: "Ready to join?",
+    joiningAs: "Joining as {name}",
+    joinNow: "Join now",
+    joining: "Joining…",
+    micOn: "Mic on",
+    micOff: "Mic off",
+    cameraOn: "Camera on",
+    cameraOff: "Camera off",
+    cameraOffHint: "Camera is off",
+    noPreview: "Camera preview unavailable",
+    cancel: "Back",
   },
 
   // ---------------- Video background (blur / change camera bg) ------
@@ -979,6 +1003,30 @@ export const en: Widened<typeof vi> = {
     imgForest: "Forest mist",
     imgCrystal: "Crystal leaves",
     imgOffice: "Office",
+    processorCleared:
+      "Virtual background turned off due to a processing error — your camera was also turned off",
+  },
+
+  // ---------------- Network resilience (banner + quality chip) ------
+  connection: {
+    reconnecting: "Connection lost — reconnecting…",
+    unstable: "Unstable connection — you may be dropped from the meeting",
+    reconnected: "Reconnected",
+    qualityLabel: "Connection quality",
+    quality: {
+      good: "Good connection",
+      low: "Weak connection",
+      bad: "Poor connection",
+    },
+    reason: {
+      sendPacketLoss: "Packet loss (upload)",
+      recvPacketLoss: "Packet loss (download)",
+      roundTripTime: "High latency",
+      availableOutgoingBitrate: "Low upload bandwidth",
+      signaling: "Signaling path",
+      sfu: "Media path (server)",
+      "peer-to-peer": "Peer-to-peer connection",
+    },
   },
 
   videoQuality: {
@@ -1191,6 +1239,15 @@ export const en: Widened<typeof vi> = {
     expand: "Expand",
     connecting: "Connecting…",
     startError: "Couldn't share your screen",
+    // Phase 6 — language-neutral error codes mapped to messages.
+    errShare: "Screen sharing stopped due to an error — try sharing again",
+    errMeetingFull: "The meeting is full — can't share your screen",
+    errTokenExpired: "Your session expired — reload the page and share again",
+    errCall: "Screen share error",
+    // Connectivity lifecycle of the screen-share call (presenter notices).
+    linkReconnecting: "Screen-share connection lost — reconnecting…",
+    linkUnstable: "Unstable screen-share connection — you may be dropped",
+    linkReconnected: "Screen sharing reconnected",
   },
 
   chat: {
@@ -1251,7 +1308,8 @@ export const en: Widened<typeof vi> = {
     translateToggleOffTitle: "Translate transcript to preferred language",
     styleFull: "Full",
     styleCompact: "Compact",
-    styleToggleToCompactTitle: "Switch to compact mode (only the 3 newest lines)",
+    styleToggleToCompactTitle:
+      "Switch to compact mode (only the 3 newest lines)",
     styleToggleToFullTitle: "Switch to full mode (the whole transcript)",
     testFile: "Test file",
     testRunning: "Testing…",
@@ -1284,6 +1342,7 @@ export const en: Widened<typeof vi> = {
   caption: {
     label: "Live captions",
     translating: "Translating…",
+    degraded: "Translation paused (overloaded) — showing original",
     hideTitle: "Hide captions for now",
     toggleOnTitle: "Turn off captions (CC)",
     toggleOffTitle: "Turn on captions (CC)",

@@ -97,9 +97,7 @@ const syncInternalDomains = (): void => {
     .then((res) => (res.ok ? res.json() : null))
     .then(
       (
-        cfg:
-          | { internal_domains?: string[]; video_quality_cap?: string }
-          | null,
+        cfg: { internal_domains?: string[]; video_quality_cap?: string } | null,
       ) => {
         const list = (cfg?.internal_domains ?? [])
           .map((d) => d.trim().toLowerCase().replace(/^@/, ""))
@@ -149,14 +147,19 @@ export const deriveSession = (user: User): Session => {
     (typeof md.name === "string" && md.name) ||
     (typeof md.display_name === "string" && md.display_name) ||
     nameFromEmail(email);
-  // Accept the two CANONICAL avatar forms from the account so an uploaded
-  // avatar roams across devices: a built-in gallery ref ("lib:NN.png") or an
-  // R2 upload reference ("/v1/me/avatar/<hash>.png", set by PUT /v1/me/avatar).
-  // Anything else (junk, or an accidentally-synced heavy data: URL) is ignored
-  // so a corrupt user_metadata value can never break every avatar surface.
+  // Accept the CANONICAL avatar forms from the account so an uploaded avatar
+  // roams across devices and matches the roster/directory projection: a
+  // built-in gallery ref ("lib:NN.png"), an R2 upload reference
+  // ("/v1/me/avatar/<hash>.png", set by PUT /v1/me/avatar), or a fully-qualified
+  // https serve URL. A heavy data: URL (never stored server-side, only a
+  // transient local pick) or any other junk is ignored so a corrupt
+  // user_metadata value can never break every avatar surface.
   const avatar =
     typeof md.avatar === "string" &&
-    (md.avatar.startsWith("lib:") || md.avatar.startsWith("/v1/me/avatar/"))
+    (md.avatar.startsWith("lib:") ||
+      md.avatar.startsWith("/v1/me/avatar/") ||
+      md.avatar.startsWith("http://") ||
+      md.avatar.startsWith("https://"))
       ? md.avatar
       : undefined;
   // Carry the verified role + project scope from app_metadata (the Worker sets

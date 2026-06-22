@@ -33,7 +33,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
 import { audioRoomInstanceAtom, audioStateAtom } from "../../audio/audioState";
-import { cameraStateAtom } from "../../audio/videoState";
+import { useJoinCall } from "../../audio/useJoinCall";
+import {
+  cameraErrorKindForDomException,
+  cameraStateAtom,
+} from "../../audio/videoState";
 import {
   activeRoomLinkAtom,
   collabAPIAtom,
@@ -124,23 +128,13 @@ export const MeetingCallControls = () => {
     [collabAPI],
   );
 
-  const join = useCallback(async () => {
-    if (!audioRoom) {
-      return;
-    }
-    setAudioState((prev) => ({
-      ...prev,
-      status: "connecting",
-      errorKind: null,
-      errorMessage: null,
-    }));
-    try {
-      await audioRoom.start();
-      setAudioState((prev) => ({ ...prev, status: "live" }));
-    } catch {
-      // error already surfaced via onError → audioStateAtom.errorMessage
-    }
-  }, [audioRoom, setAudioState]);
+  // The idle "Join" button and the error-retry button both join listener-only
+  // (no mic/camera intent) — the pre-join modal is the path that carries an
+  // intent. Both share useJoinCall() so the join logic is identical everywhere.
+  const joinCall = useJoinCall();
+  const join = useCallback(() => {
+    void joinCall();
+  }, [joinCall]);
 
   const toggleMute = useCallback(() => {
     audioRoom?.toggleMute();
@@ -175,14 +169,29 @@ export const MeetingCallControls = () => {
     }
     const turningOn = !audioRoom.isCameraOn();
     if (turningOn) {
-      setCameraState({ status: "starting", errorMessage: null });
+      setCameraState({
+        status: "starting",
+        errorKind: null,
+        errorMessage: null,
+      });
     }
     try {
       const on = await audioRoom.setCamera(turningOn);
-      setCameraState({ status: on ? "on" : "off", errorMessage: null });
+      setCameraState({
+        status: on ? "on" : "off",
+        errorKind: null,
+        errorMessage: null,
+      });
     } catch (err) {
+      // The toggle acquires the camera via getUserMedia itself, so it surfaces a
+      // raw DOMException (not Daily's structured camera-error). Classify the
+      // exception NAME into the same CameraErrorKind vocabulary so the UI shows
+      // the right guidance (a "permissions" code → "allow camera" prompt).
       setCameraState({
         status: "error",
+        errorKind: cameraErrorKindForDomException(
+          err instanceof Error ? err.name : undefined,
+        ),
         errorMessage: err instanceof Error ? err.message : null,
       });
     }
@@ -232,7 +241,12 @@ export const MeetingCallControls = () => {
     const camTitle = !hasCamera
       ? t("callControls.noCameraTitle")
       : cameraState.status === "error"
-      ? t("callControls.cameraError")
+      ? // Type-specific guidance from the language-neutral CameraErrorKind:
+        // "permissions" gets the actionable "allow camera/mic" prompt; every
+        // other kind falls back to the generic camera-error message.
+        cameraState.errorKind === "permissions"
+        ? t("callControls.cameraPermission")
+        : t("callControls.cameraError")
       : camOn
       ? t("callControls.cameraOff")
       : t("callControls.cameraOn");
@@ -244,7 +258,7 @@ export const MeetingCallControls = () => {
             mirroring every other conferencing app. */}
         <button
           type="button"
-          className={`mcm-header__icon-btn mcm-tip${
+          className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
             muted || !canTransmit ? " mcm-header__icon-btn--danger" : ""
           }`}
           onClick={canTransmit ? toggleMute : undefined}
@@ -257,11 +271,16 @@ export const MeetingCallControls = () => {
           ) : (
             <Mic size={ICON_SIZE} />
           )}
+          {/* State-neutral inline label (the icon + tooltip carry mute state);
+              hidden under 1100px back to icon-only. */}
+          <span className="mcm-header__icon-label">
+            {t("callControls.micLabel")}
+          </span>
         </button>
 
         <button
           type="button"
-          className={`mcm-header__icon-btn mcm-tip${
+          className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
             camOn ? " mcm-header__icon-btn--active" : ""
           }`}
           onClick={hasCamera && !camStarting ? toggleCamera : undefined}
@@ -277,6 +296,9 @@ export const MeetingCallControls = () => {
           ) : (
             <VideoOff size={ICON_SIZE} />
           )}
+          <span className="mcm-header__icon-label">
+            {t("callControls.cameraLabel")}
+          </span>
         </button>
 
         {/* Virtual-background control moved to User Settings → Preferences
@@ -350,12 +372,15 @@ export const MeetingCallControls = () => {
             three exit actions, three different glyphs, no collision. */}
         <button
           type="button"
-          className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--danger"
+          className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--danger"
           onClick={leave}
           aria-label={t("callControls.leaveCall")}
           data-mcm-tip={t("callControls.leaveCall")}
         >
           <PhoneOff size={ICON_SIZE} />
+          <span className="mcm-header__icon-label">
+            {t("callControls.leaveCall")}
+          </span>
         </button>
       </>
     );
@@ -384,6 +409,10 @@ export const MeetingCallControls = () => {
         ? t("callControls.micDenied")
         : errorKind === "mic-busy"
         ? t("callControls.micBusy")
+        : errorKind === "meeting-full"
+        ? t("callControls.meetingFull")
+        : errorKind === "token-expired"
+        ? t("callControls.tokenExpired")
         : errorKind === "call"
         ? t("callControls.callFailed")
         : t("callControls.cannotStartMic");
@@ -408,12 +437,15 @@ export const MeetingCallControls = () => {
   return (
     <button
       type="button"
-      className="mcm-header__icon-btn mcm-tip mcm-header__icon-btn--join"
+      className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--join"
       onClick={join}
       aria-label={t("callControls.joinCall")}
       data-mcm-tip={t("callControls.joinCall")}
     >
       <DoorOpen size={ICON_SIZE} />
+      <span className="mcm-header__icon-label">
+        {t("callControls.joinCall")}
+      </span>
     </button>
   );
 };

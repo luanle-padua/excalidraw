@@ -25,6 +25,50 @@
 
 import Daily from "@daily-co/daily-js";
 
+import { appJotaiStore } from "../app-jotai";
+
+import { fatalErrorKindFor } from "./audioState";
+import {
+  lifecycleFromConnectionEvent,
+  qualityFromNetworkEvent,
+} from "./connectionState";
+import {
+  extractStatsSample,
+  formatStatsLine,
+  type NetworkStatsSample,
+} from "./dailyTelemetry";
+import { cameraErrorAffectsVideo, cameraErrorKindFor } from "./videoState";
+import { getVideoBg, toDailyProcessor, type VideoBg } from "./videoBg";
+import {
+  clampQuality,
+  maxVideoSubscribeFor,
+  QUALITY_TIERS,
+  receiveBaseForTileCount,
+  videoQualityAtom,
+  videoQualityCapAtom,
+  type QualityCap,
+  type QualityLevel,
+} from "./videoQuality";
+import {
+  computeSubscriptions,
+  countSubscribed,
+  remoteCamerasFromRoster,
+  shouldPaginate,
+  toDailyVideoSub,
+  type RosterCamera,
+} from "./videoSubscription";
+import { visibleTilesAtom } from "./videoPerf";
+import {
+  isDecodeUnderPressure,
+  minTier,
+  nextSendTier,
+  type CpuReason,
+  type CpuState,
+  type GovernorQuality,
+  type GovernorSignals,
+} from "./videoGovernor";
+
+import type { AudioRoomEvents, NonfatalKind, PeerState } from "./audioTypes";
 import type {
   DailyCall,
   DailyEventObjectTrack,
@@ -32,20 +76,16 @@ import type {
   DailyEventObjectParticipantLeft,
   DailyEventObjectFatalError,
   DailyEventObjectActiveSpeakerChange,
+  DailyEventObjectCameraError,
+  DailyEventObjectNonFatalError,
+  DailyEventObjectInputSettingsUpdated,
+  DailyEventObjectNetworkConnectionEvent,
+  DailyEventObjectNetworkQualityEvent,
+  DailyEventObjectCpuLoadEvent,
+  DailyEventObjectMeetingSessionSummaryUpdated,
+  DailyEventObjectBase,
   DailyParticipant,
 } from "@daily-co/daily-js";
-
-import { appJotaiStore } from "../app-jotai";
-
-import type { AudioRoomEvents, PeerState } from "./audioTypes";
-import { getVideoBg, toDailyProcessor, type VideoBg } from "./videoBg";
-import {
-  clampQuality,
-  QUALITY_TIERS,
-  videoQualityAtom,
-  videoQualityCapAtom,
-  type QualityLevel,
-} from "./videoQuality";
 
 // Map our tier.sendSetting (the videoQuality vocabulary) to Daily's exact
 // updateSendSettings preset literals. We CAN'T touch videoQuality.ts, and its
@@ -55,7 +95,7 @@ import {
 // pass through unchanged. Every target preset is a 3-layer adaptive simulcast,
 // so ABR keeps scaling DOWN under load on all tiers — we only move the ceiling.
 const SEND_PRESET: Record<
-  (typeof QUALITY_TIERS)[keyof typeof QUALITY_TIERS]["sendSetting"],
+  typeof QUALITY_TIERS[keyof typeof QUALITY_TIERS]["sendSetting"],
   "quality-optimized" | "bandwidth-and-quality-balanced" | "bandwidth-optimized"
 > = {
   "quality-optimized": "quality-optimized",
@@ -88,8 +128,33 @@ const SILENT_WAV =
 // for a small internal meeting that read as "bad video" across the board. Layer
 // 1 keeps idle tiles legibly sharp while still saving meaningful CPU/bandwidth
 // vs. decoding everyone at full 720p; the speaker still gets the crisp top layer.
-const RECEIVE_LAYER_BASE = 1;
+//
+// Phase 5: the base is now ADAPTIVE — receiveBaseForTileCount(n) keeps layer 1
+// for small grids and drops non-speakers to layer 0 once the grid is large
+// (> RECEIVE_BASE_LAYER_CUTOFF), per Daily's big-grid guidance. The speaker is
+// always promoted to RECEIVE_LAYER_ACTIVE regardless.
 const RECEIVE_LAYER_ACTIVE = 2;
+
+// Phase 4 — observability cadence. We PULL getNetworkStats() because Daily has
+// no live-quality webhook. ~2s keeps the chip tooltip + governor inputs fresh
+// without flooding the main thread; the telemetry stats line is throttled to
+// ~10s so the structured console sink stays low-noise (only ~1 line / 10s).
+const STATS_POLL_MS = 2000;
+const TELEMETRY_STATS_THROTTLE_MS = 10000;
+
+// Phase 3 — adaptive quality GOVERNOR timing. The governor unifies
+// cpu-load-change + network-quality-change into a single send-tier ceiling
+// (and a receive-base nudge), only ever moving the TEMPORARY ceiling BELOW
+// clampQuality(userPref, adminCap) — never above it.
+//
+// COOLDOWN keeps the governor from "pumping" the tier on every event: after any
+// move (up or down) it ignores further moves for this long. RECOVERY_DWELL is
+// how long conditions must stay CALM (CPU low + link not bad) before we step the
+// ceiling back UP one notch — recovery is deliberately slower than degradation
+// so a brief calm patch doesn't yo-yo the quality. All timing uses
+// performance.now() (monotonic), never Date.now().
+const GOVERNOR_COOLDOWN_MS = 6000;
+const GOVERNOR_RECOVERY_DWELL_MS = 15000;
 
 const log = (...a: unknown[]) => console.info("[audio]", ...a);
 const warn = (...a: unknown[]) => console.warn("[audio]", ...a);
@@ -132,6 +197,20 @@ export class DailyAudio {
   private cameraOn = false;
   /** the local self-view MediaStream while the camera is on (mirrored in UI) */
   private localVideoStream: MediaStream | null = null;
+  /** A standalone PREVIEW camera stream owned by the pre-join "green room"
+   *  modal (Item 6). Acquired via getUserMedia OUTSIDE the call object (no Daily
+   *  room, no publish) purely so the user can see themselves before joining; the
+   *  modal renders it into a mirrored <video>. Kept here (not in the modal) so
+   *  stop()/teardown can guarantee the camera light goes off even if the modal
+   *  unmounts without calling stopPreview(). */
+  private previewStream: MediaStream | null = null;
+  /** Cancels an in-flight previewCamera() getUserMedia. Without this, a
+   *  stopPreview() issued WHILE the permission prompt is still pending is a
+   *  no-op (previewStream not yet set), then getUserMedia resolves and stores a
+   *  now-orphaned camera that nothing tears down — the camera light stays ON
+   *  while the modal shows camera OFF (Item 6 teardown race). stopPreview()
+   *  aborts this so the late-resolving acquisition stops its own tracks. */
+  private previewAbort: AbortController | null = null;
   /** session_id → socket.id for VIDEO tracks specifically, so a
    *  participant-left / track-stopped that only carries a session can still
    *  resolve the tile to drop (video peers may differ from audio peers — a
@@ -149,6 +228,64 @@ export class DailyAudio {
    *  not yet probed; false = P2P (updateReceiveSettings is a no-op / unsafe, so
    *  we skip the optimisation entirely to never risk breaking video). */
   private isSfu: boolean | null = null;
+
+  /** last connectivity lifecycle we emitted (Daily "network-connection"),
+   *  so a duplicate event (e.g. two paths reporting the same state) doesn't
+   *  re-fire the banner, and stop() can reset it. */
+  private connectionLifecycle: "connected" | "reconnecting" | "unstable" =
+    "connected";
+
+  /** Phase 4 — getNetworkStats() poll handle (started after join, cleared in
+   *  stop()). null when no poll is running. */
+  private statsTimer: number | null = null;
+  /** Latest narrowed network-stats sample, or null before the first pull. Read
+   *  by getLatestStats() (chip tooltip / governor confirm). */
+  private latestStats: NetworkStatsSample | null = null;
+  /** performance.now() of the last telemetry STATS line we logged — used to
+   *  throttle the structured console sink to ~1 line / TELEMETRY_STATS_THROTTLE_MS
+   *  so observability never floods the console. */
+  private lastStatsLogAt = 0;
+  /** The Daily meeting SESSION id captured from meetingSessionSummary(), so a
+   *  post-meeting log/recording can be cross-referenced. Emitted once via
+   *  onSessionId; reset in stop(). */
+  private sessionId: string | null = null;
+
+  /** Phase 5 — manual subscription + pagination. `paginating` is true once the
+   *  remote camera count exceeded the device threshold and we switched Daily off
+   *  automatic subscription; it flips back false when the count drops back at or
+   *  below the threshold (we re-enable automatic). `unsub` removes the
+   *  visibleTilesAtom jotai-store subscription on teardown. `maxVideoSubscribe`
+   *  is the per-device threshold, resolved once at construction. */
+  private paginating = false;
+  private unsubVisibleTiles: (() => void) | null = null;
+  private readonly maxVideoSubscribe: number;
+
+  /** Phase 3 — adaptive quality governor state. `governorCpuState` /
+   *  `governorCpuReason` hold the LAST cpu-load-change we saw; `governorNetwork`
+   *  the LAST link-quality grade (good/low/bad) from network-quality-change. The
+   *  governor reads these two latched signals on every evaluation rather than
+   *  acting only on the event that fired, so a stale CPU reading isn't lost when
+   *  a network event arrives (and vice-versa). */
+  private governorCpuState: CpuState = "low";
+  private governorCpuReason: CpuReason = "none";
+  private governorNetwork: GovernorQuality = "good";
+  /** The TEMPORARY send-tier ceiling the governor currently holds. Starts at
+   *  "high" (no restriction): the effective tier applied to Daily is
+   *  minTier(governorCeiling, clampQuality(userPref, adminCap)), so while this is
+   *  "high" the governor is a no-op and the user/admin cap rules. */
+  private governorCeiling: QualityCap = "high";
+  /** performance.now() of the last ceiling MOVE (up or down) — drives the
+   *  cooldown so the tier can't pump on every event. -Infinity = never moved. */
+  private governorLastChangeAt = Number.NEGATIVE_INFINITY;
+  /** performance.now() since which conditions have been continuously CALM (CPU
+   *  low + link not bad), or null when not currently calm. Recovery (stepping
+   *  the ceiling back up) is gated on this dwell reaching RECOVERY_DWELL_MS. */
+  private governorCalmSince: number | null = null;
+  /** A pending recovery timer (governor wants to step UP but is still inside the
+   *  recovery dwell): a single deferred re-evaluation so recovery happens even
+   *  if no further Daily event arrives while conditions stay calm. Cleared in
+   *  stop(). */
+  private governorRecoveryTimer: number | null = null;
 
   /** keyed by socket.id, like the mesh */
   private peers = new Map<string, RemotePeer>();
@@ -177,6 +314,32 @@ export class DailyAudio {
     this.getSocketId = opts.getSocketId;
     this.getToken = opts.getToken;
     this.events = opts.events;
+    // Resolve the per-device manual-subscription threshold once. A mobile/tablet
+    // (touch-only, no fine pointer) decodes far fewer streams, so it paginates
+    // much sooner. Conservative: a hybrid laptop reads as desktop (the higher
+    // threshold), the safe default. SSR-guarded.
+    this.maxVideoSubscribe = maxVideoSubscribeFor(DailyAudio.isMobileDevice());
+  }
+
+  /** Best-effort "is this a mobile/tablet web client" probe — mirrors the
+   *  heuristic in videoBg.isVideoBgSupported (touch-only, no fine pointer). Only
+   *  used to pick the lower pagination threshold; a wrong guess just over- or
+   *  under-subscribes by a few tiles, never breaks the call. */
+  private static isMobileDevice(): boolean {
+    if (typeof window === "undefined" || typeof navigator === "undefined") {
+      return false;
+    }
+    try {
+      const hasFinePointer =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(pointer: fine)").matches;
+      if (hasFinePointer) {
+        return false; // mouse/trackpad → desktop
+      }
+      return "ontouchstart" in window || (navigator.maxTouchPoints ?? 0) > 0;
+    } catch {
+      return false; // probe failed → assume desktop (higher threshold)
+    }
   }
 
   // ---- lifecycle (mirrors AudioRoom) -------------------------------------
@@ -373,6 +536,10 @@ export class DailyAudio {
     this.videoSockets.clear();
     this.videoSessionToSocket.clear();
     this.releaseLocalVideo();
+    // Drop any lingering pre-join preview camera (normally torn down by the
+    // modal on Join, but stop() is the safety net so the camera light always
+    // goes off when the call ends).
+    this.stopPreview();
     this.cameraOn = false;
     // Clear the speaker ring and reset per-call optimisation state.
     if (this.activeSpeakerSession !== null) {
@@ -380,6 +547,38 @@ export class DailyAudio {
     }
     this.activeSpeakerSession = null;
     this.isSfu = null;
+    // Phase 5: drop the visibleTilesAtom listener and reset pagination so a fresh
+    // call starts on automatic subscription and never inherits a stale "paginating"
+    // flag (symmetric with the listener set up in subscribeVisibleTiles).
+    if (this.unsubVisibleTiles) {
+      this.unsubVisibleTiles();
+      this.unsubVisibleTiles = null;
+    }
+    this.paginating = false;
+    // Reset network-resilience state so a fresh call never inherits a stale
+    // banner. The controller also resets connectionStateAtom in its idle
+    // teardown block; this keeps the manager's own bookkeeping symmetric.
+    this.connectionLifecycle = "connected";
+    // Phase 4 — stop the getNetworkStats() poll and reset observability state so
+    // a fresh call never inherits a stale sample / session id / log throttle.
+    if (this.statsTimer !== null) {
+      window.clearInterval(this.statsTimer);
+      this.statsTimer = null;
+    }
+    this.latestStats = null;
+    this.lastStatsLogAt = 0;
+    this.sessionId = null;
+    // Phase 3 — stop the governor: clear its deferred recovery timer and reset
+    // the ceiling + latched signals so a fresh call never inherits a throttled
+    // ceiling or a stale CPU/network reading (symmetric with onCpuLoad /
+    // onNetworkQuality which latch them, and with the wire() listener).
+    this.clearGovernorRecoveryTimer();
+    this.governorCeiling = "high";
+    this.governorCpuState = "low";
+    this.governorCpuReason = "none";
+    this.governorNetwork = "good";
+    this.governorLastChangeAt = Number.NEGATIVE_INFINITY;
+    this.governorCalmSince = null;
     for (const peer of this.peers.values()) {
       this.teardownPeer(peer);
     }
@@ -580,6 +779,98 @@ export class DailyAudio {
     }
   }
 
+  // ---- pre-join camera preview (Item 6 — "green room") -------------------
+
+  /**
+   * Acquire a STANDALONE camera stream for the pre-join modal's self-preview —
+   * WITHOUT joining the call or publishing anything. This is the green-room
+   * "hair check": the user sees themselves before committing to Join.
+   *
+   * Deliberately separate from setCamera(): there is no call object during
+   * pre-join (the user hasn't joined yet), so this is a plain getUserMedia using
+   * the SAME 720p constraints as setCamera so the preview matches what they'll
+   * actually publish. Idempotent — a second call returns the existing stream
+   * rather than opening a second camera. Resolves to null (never throws) on no
+   * device / permission denied / SSR, so the modal can fall back to the avatar:
+   * a real permission decision is made later at Join, where it routes through the
+   * call's error channel.
+   */
+  async previewCamera(): Promise<MediaStream | null> {
+    if (this.previewStream) {
+      return this.previewStream;
+    }
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      return null;
+    }
+    // Track this acquisition so a stopPreview() issued WHILE getUserMedia is
+    // still pending can abort it. A fresh controller per call (the previous one,
+    // if any, was already consumed/aborted) — we hold the reference locally so a
+    // LATER previewCamera() replacing this.previewAbort can't make us mistake
+    // someone else's cancellation for our own.
+    const abort = new AbortController();
+    this.previewAbort = abort;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30, max: 30 },
+          facingMode: "user",
+        },
+        audio: false,
+      });
+      // The modal may have torn down (camera toggled OFF / Join / Cancel /
+      // unmount) while we awaited the permission prompt. Two ways to detect it,
+      // both of which must stop THIS stream so we never leak a live camera:
+      //   1. stopPreview() aborted us (signal fired) — the common toggle-off /
+      //      unmount race the previous guard missed (stopPreview was a no-op
+      //      because previewStream was still null), leaving the light stuck ON.
+      //   2. a concurrent previewCamera() already grabbed one — keep that.
+      if (abort.signal.aborted || this.previewStream) {
+        for (const t of stream.getTracks()) {
+          t.stop();
+        }
+        return this.previewStream;
+      }
+      this.previewStream = stream;
+      return stream;
+    } catch (err) {
+      // No device / denied / busy — the modal shows the avatar placeholder. Not
+      // an error here: the binding mic/cam choice is still made, and the real
+      // permission decision happens at Join (setCamera), surfaced there.
+      warn("previewCamera failed (non-fatal)", err);
+      return null;
+    } finally {
+      // Only clear if we're still the current acquisition — a newer
+      // previewCamera() may have installed its own controller while we awaited.
+      if (this.previewAbort === abort) {
+        this.previewAbort = null;
+      }
+    }
+  }
+
+  /** Stop + release the pre-join preview camera (modal Join / Cancel / unmount).
+   *  Idempotent. The preview NEVER touches the call object, so this is just a
+   *  track teardown — the live camera (setCamera) is wholly independent. */
+  stopPreview(): void {
+    // Cancel an in-flight previewCamera() (permission prompt still pending) so
+    // its late-resolving getUserMedia stops its own tracks instead of storing a
+    // now-orphaned camera — the toggle-off / unmount teardown race (Item 6).
+    if (this.previewAbort) {
+      this.previewAbort.abort();
+      this.previewAbort = null;
+    }
+    if (this.previewStream) {
+      for (const t of this.previewStream.getTracks()) {
+        t.stop();
+      }
+      this.previewStream = null;
+    }
+  }
+
   /**
    * Apply a virtual background (blur / image / none) to the LOCAL camera via
    * Daily's video PROCESSOR pipeline on this same call object. Desktop-browser
@@ -623,13 +914,16 @@ export class DailyAudio {
     if (!call || !this.active || !this.cameraOn) {
       return;
     }
-    const tier =
-      QUALITY_TIERS[
-        clampQuality(
-          appJotaiStore.get(videoQualityAtom),
-          appJotaiStore.get(videoQualityCapAtom),
-        )
-      ];
+    // The HARD cap: the user's pref clamped to the org-wide admin cap. The
+    // governor (Phase 3) may only lower the EFFECTIVE tier FURTHER via its
+    // temporary ceiling — minTier guarantees it can never raise the tier above
+    // this cap. While governorCeiling is "high" (the default / recovered state)
+    // minTier is a no-op and the user/admin cap rules.
+    const cap = clampQuality(
+      appJotaiStore.get(videoQualityAtom),
+      appJotaiStore.get(videoQualityCapAtom),
+    );
+    const tier = QUALITY_TIERS[minTier(this.governorCeiling, cap)];
 
     // Capture constraints. CRITICAL: updateInputSettings({video}) REPLACES the
     // whole video input-settings object, so passing only `settings` would WIPE
@@ -687,6 +981,530 @@ export class DailyAudio {
     call.on("participant-left", this.onParticipantLeft);
     call.on("active-speaker-change", this.onActiveSpeakerChange);
     call.on("error", this.onFatalError);
+    // Non-fatal errors (call keeps running). Phase 0 handles the
+    // video-processor case (virtual background failed → Daily clears the
+    // processor + turns the camera OFF); Phase 2 extends this same listener for
+    // the remaining nonfatal types. Registered ONCE here.
+    call.on("nonfatal-error", this.onNonfatalError);
+    // Phase 2 — Daily's STRUCTURED camera/mic acquisition error (permissions /
+    // device-in-use / not-found / constraints). Distinct from the getUserMedia
+    // exception the camera toggle classifies itself: this fires whenever Daily's
+    // own input pipeline fails to acquire a device (e.g. a mid-call device pull
+    // or a permission revoke). Maps to a CameraErrorKind code + cameraStateAtom.
+    call.on("camera-error", this.onCameraError);
+    // The AUTHORITATIVE post-change camera/processor state. After a
+    // video-processor-error Daily mutates input settings (clears processor,
+    // disables video) and fires this — we read the real state here instead of
+    // assuming the last settings we sent still hold.
+    call.on("input-settings-updated", this.onInputSettingsUpdated);
+    // Phase 1 — network resilience. "network-connection" drives the
+    // reconnecting/unstable BANNER (signaling vs media path interrupted);
+    // "network-quality-change" drives the small link-quality CHIP. Both are
+    // best-effort + non-fatal (see handlers) and torn down implicitly when the
+    // call object is destroyed in stop().
+    call.on("network-connection", this.onNetworkConnection);
+    call.on("network-quality-change", this.onNetworkQuality);
+    // Phase 3 — adaptive quality governor. "cpu-load-change" feeds the CPU
+    // pressure signal; the network signal is latched from onNetworkQuality. Both
+    // re-run governQuality(), which moves the TEMPORARY send-tier ceiling (and a
+    // receive-base nudge) — never above clampQuality(userPref, adminCap), wholly
+    // non-fatal. The governor timers are cleared in stop().
+    call.on("cpu-load-change", this.onCpuLoad);
+    // Phase 4 — observability. Capture the Daily session id once we're in
+    // ("joined-meeting") and whenever Daily revises the summary
+    // ("meeting-session-summary-updated", the CURRENT event name — NOT the old
+    // "meeting-session-state-updated"). The getNetworkStats() poll is started
+    // from onJoinedMeeting (not here) so it only runs once media is flowing.
+    call.on("joined-meeting", this.onJoinedMeeting);
+    call.on(
+      "meeting-session-summary-updated",
+      this.onMeetingSessionSummaryUpdated,
+    );
+  }
+
+  // ---- observability (Phase 4) -------------------------------------------
+
+  /**
+   * Daily "joined-meeting" — media is flowing. Capture the session id (sync
+   * meetingSessionSummary()) and start the ~2s getNetworkStats() poll. Wholly
+   * non-fatal: a stats/summary hiccup must never disturb the live call.
+   */
+  private onJoinedMeeting = () => {
+    try {
+      this.captureSessionId();
+    } catch (err) {
+      warn("captureSessionId failed (non-fatal)", err);
+    }
+    this.startStatsPoll();
+    this.subscribeVisibleTiles();
+  };
+
+  // ---- scale subscription + pagination (Phase 5) -------------------------
+
+  /**
+   * Start listening to visibleTilesAtom (the gallery / filmstrip publishes the
+   * socket.ids it is currently rendering) so that in a BIG meeting we subscribe
+   * only the tiles actually on screen + the active speaker, and stage / drop the
+   * rest. Idempotent; the listener is removed in stop(). Best-effort: a jotai
+   * subscribe failure leaves us on automatic subscription (decode everyone),
+   * which is correct, just heavier — never breaks the call.
+   */
+  private subscribeVisibleTiles() {
+    if (this.unsubVisibleTiles) {
+      return; // already listening
+    }
+    try {
+      this.unsubVisibleTiles = appJotaiStore.sub(visibleTilesAtom, () => {
+        void this.reconcileSubscriptions();
+      });
+    } catch (err) {
+      warn("subscribeVisibleTiles failed (non-fatal)", err);
+    }
+    // Apply once now in case tiles were already published before we joined.
+    void this.reconcileSubscriptions();
+  }
+
+  /**
+   * The heart of Phase 5: decide each REMOTE camera's subscription and apply it.
+   *
+   * Below the device threshold we keep Daily on AUTOMATIC subscription (decode
+   * everyone — simplest, no churn) and flip automatic back on if we had
+   * previously paginated. Above it we switch automatic OFF and explicitly
+   * subscribe only the visible tiles + the active speaker (the rest staged /
+   * unsubscribed) via updateParticipants. Wholly non-fatal — any failure leaves
+   * video flowing at Daily's defaults.
+   *
+   * The participant list is seeded from call.participants() — which lists ALL
+   * remote cameras regardless of whether we are currently subscribed to them —
+   * NOT from videoSessionToSocket (which holds only tracks that already reached
+   * `playable`). With automatic subscription OFF, an off-page camera is never
+   * subscribed, so its track never becomes playable and it would otherwise be
+   * invisible to reconcile; when it later scrolls INTO view we must still be
+   * able to subscribe it (Phase 5a: paging a tile into view subscribes it).
+   *
+   * Empty visibleTilesAtom is the module's documented "no explicit signal yet"
+   * fallback (videoPerf.ts): we keep EVERYONE subscribed (stay on / restore
+   * automatic) rather than blacking the whole grid. This also covers the
+   * last-writer-wins race where one of two mounted video surfaces clears the
+   * shared atom on unmount.
+   */
+  private async reconcileSubscriptions() {
+    const call = this.call;
+    if (!call || !this.active) {
+      return;
+    }
+    try {
+      const visibleSockets = appJotaiStore.get(visibleTilesAtom);
+
+      // Documented fallback (videoPerf.ts): an empty visible set means "no
+      // explicit signal yet" — keep everyone subscribed instead of dropping
+      // every off-speaker tile to black. Restore Daily's automatic subscription
+      // if we had been paginating, then bail (nothing to micromanage).
+      if (visibleSockets.size === 0) {
+        if (this.paginating) {
+          this.paginating = false;
+          call.setSubscribeToTracksAutomatically(true);
+          log(
+            "pagination OFF — no visible-tile signal yet, subscribing to everyone (automatic)",
+          );
+        }
+        return;
+      }
+
+      // Build the remote-camera participant list (session_id keyed) from the
+      // LIVE call roster, not from videoSessionToSocket: a camera that joined /
+      // turned on AFTER automatic subscription was switched off has no playable
+      // track yet (we never subscribed it), so it is absent from
+      // videoSessionToSocket but present here. Skip the local self-view and any
+      // remote whose camera is off/blocked (no track to subscribe).
+      const activeSocket = this.activeSpeakerSession
+        ? this.socketIdForSession(this.activeSpeakerSession)
+        : null;
+      const dailyRoster = call.participants();
+      const roster: RosterCamera[] = [];
+      for (const key of Object.keys(dailyRoster)) {
+        const p = dailyRoster[key];
+        if (!p) {
+          continue;
+        }
+        roster.push({
+          sessionId: p.session_id,
+          socketId: this.socketIdOf(p),
+          local: p.local,
+          videoState: p.tracks.video.state,
+        });
+      }
+      // PURE mapping (unit-tested): drops self, non-publishing cameras, and any
+      // socket.id not resolved yet; marks visible / active-speaker tiles.
+      const participants = remoteCamerasFromRoster(
+        roster,
+        visibleSockets,
+        this.activeSpeakerSession,
+        activeSocket,
+      );
+
+      const paginate = shouldPaginate(
+        participants.length,
+        this.maxVideoSubscribe,
+      );
+
+      if (!paginate) {
+        // Small meeting (or shrank back below threshold). If we had paginated,
+        // restore Daily's automatic subscription so newly-arriving tiles are
+        // decoded again without us micromanaging them.
+        if (this.paginating) {
+          this.paginating = false;
+          call.setSubscribeToTracksAutomatically(true);
+          log(
+            `pagination OFF — ${participants.length} remote video(s) ≤ ${this.maxVideoSubscribe}, subscribing to everyone (automatic)`,
+          );
+        }
+        return;
+      }
+
+      // Big meeting: switch off automatic subscription (once) and drive explicit
+      // per-tile subscriptions.
+      if (!this.paginating) {
+        this.paginating = true;
+        call.setSubscribeToTracksAutomatically(false);
+      }
+      const subs = computeSubscriptions(participants, this.maxVideoSubscribe);
+      if (subs.size === 0) {
+        return;
+      }
+      const updates: Record<
+        string,
+        { setSubscribedTracks: { video: ReturnType<typeof toDailyVideoSub> } }
+      > = {};
+      for (const [sessionId, tier] of subs) {
+        updates[sessionId] = {
+          setSubscribedTracks: { video: toDailyVideoSub(tier) },
+        };
+      }
+      call.updateParticipants(updates);
+      // CLEARLY log that we are NOT showing everyone, so a watcher never mistakes
+      // a paginated grid for "the whole room is on screen".
+      log(
+        `pagination ON — showing ${countSubscribed(subs)} of ${
+          participants.length
+        } remote video(s) (device cap ${
+          this.maxVideoSubscribe
+        }); off-page streams dropped`,
+      );
+    } catch (err) {
+      warn("reconcileSubscriptions skipped (non-fatal)", err);
+    }
+  }
+
+  /** Daily "meeting-session-summary-updated" — re-capture the (possibly new)
+   *  session id. Same code path / dedupe as the initial capture.
+   *
+   *  daily-js 0.90's `.on()` event→payload map does NOT include the
+   *  summary-updated payload (only the DEPRECATED meeting-session-updated /
+   *  -state-updated), so the listener is typed to the base event and we read
+   *  `meetingSession` defensively off a widened view — exactly how onFatalError /
+   *  onCameraError read their typed-`any` payload fields. */
+  private onMeetingSessionSummaryUpdated = (e: DailyEventObjectBase) => {
+    try {
+      const summary = (
+        e as Partial<DailyEventObjectMeetingSessionSummaryUpdated>
+      ).meetingSession;
+      const id = summary?.id;
+      if (id && id !== this.sessionId) {
+        this.sessionId = id;
+        log("session id (updated)", id);
+        this.events.onSessionId?.(id);
+      }
+    } catch (err) {
+      warn("onMeetingSessionSummaryUpdated failed (non-fatal)", err);
+    }
+  };
+
+  /** Read the synchronous meetingSessionSummary() and emit the session id ONCE
+   *  (deduped against the last value). meetingSessionSummary() replaces the
+   *  deprecated getMeetingSession(); it returns synchronously, so no await. */
+  private captureSessionId() {
+    const call = this.call;
+    if (!call) {
+      return;
+    }
+    const id = call.meetingSessionSummary?.()?.id;
+    if (id && id !== this.sessionId) {
+      this.sessionId = id;
+      log("session id", id);
+      this.events.onSessionId?.(id);
+    }
+  }
+
+  /** The Daily meeting session id captured after join, or null. */
+  getSessionId(): string | null {
+    return this.sessionId;
+  }
+
+  /** The latest narrowed getNetworkStats() sample, or null before the first
+   *  pull. Read by the chip tooltip + (later) the governor recover-confirm. */
+  getLatestStats(): NetworkStatsSample | null {
+    return this.latestStats;
+  }
+
+  /**
+   * Start the getNetworkStats() poll (~2s). Idempotent: a second call is a
+   * no-op while a timer is live. Each tick pulls stats, narrows them to a
+   * sample, feeds the chip tooltip (onStats) and the throttled telemetry sink.
+   * Wholly non-fatal — a failed pull is logged and the poll keeps going.
+   */
+  private startStatsPoll() {
+    if (this.statsTimer !== null) {
+      return; // already polling
+    }
+    const tick = async () => {
+      const call = this.call;
+      if (!call || !this.active) {
+        return;
+      }
+      try {
+        const raw = await call.getNetworkStats();
+        if (!this.active) {
+          return; // torn down while awaiting
+        }
+        const sample = extractStatsSample(raw);
+        if (!sample) {
+          return; // no measurement yet — skip this tick
+        }
+        this.latestStats = sample;
+        this.events.onStats?.(sample);
+        this.maybeLogStats(sample);
+      } catch (err) {
+        warn("getNetworkStats failed (non-fatal)", err);
+      }
+    };
+    this.statsTimer = window.setInterval(() => {
+      void tick();
+    }, STATS_POLL_MS);
+  }
+
+  /**
+   * THROTTLED structured telemetry stats line (the LIGHT observability sink —
+   * console only). One key=value line per ~10s so the console stays readable.
+   *
+   * TODO(telemetry-endpoint): batch quality/cpu/fatal/nonfatal events + these
+   * stats lines and POST them to the Worker `POST /v1/daily/telemetry` (D1 table
+   * `daily_quality_log`) for the Admin Console quality-by-meeting view. Deferred
+   * to a later phase — not built here to keep this change isolated and non-fatal.
+   */
+  private maybeLogStats(sample: NetworkStatsSample) {
+    const now = performance.now();
+    if (now - this.lastStatsLogAt < TELEMETRY_STATS_THROTTLE_MS) {
+      return;
+    }
+    this.lastStatsLogAt = now;
+    log("telemetry stats", formatStatsLine(sample));
+  }
+
+  // ---- network resilience (Phase 1) --------------------------------------
+
+  /**
+   * Daily "network-connection" → connectivity lifecycle (banner). Maps the
+   * payload via the PURE lifecycleFromConnectionEvent and emits a code +
+   * raw reasons; the controller mirrors it into connectionStateAtom.
+   *
+   * Non-fatal by default: ANY failure is caught, logged via warn(), and
+   * swallowed — a monitoring signal must never tear down a working call.
+   */
+  private onNetworkConnection = (e: DailyEventObjectNetworkConnectionEvent) => {
+    try {
+      const mapped = lifecycleFromConnectionEvent(e);
+      if (!mapped) {
+        return; // intermediate/unknown event — keep current state
+      }
+      if (mapped.lifecycle === this.connectionLifecycle) {
+        return; // no change — don't re-fire
+      }
+      this.connectionLifecycle = mapped.lifecycle;
+      log(`network-connection ${e.type}/${e.event} → ${mapped.lifecycle}`);
+      this.events.onConnectionState?.(mapped.lifecycle, mapped.reasons);
+    } catch (err) {
+      warn("onNetworkConnection failed (non-fatal)", err);
+    }
+  };
+
+  /**
+   * Daily "network-quality-change" → link-quality chip. Maps the payload via
+   * the PURE qualityFromNetworkEvent (good/low/bad + raw reasons) and emits it.
+   * Reads `networkState` / `networkStateReasons` only — never the deprecated
+   * `threshold` / `quality`. Non-fatal by default.
+   */
+  private onNetworkQuality = (e: DailyEventObjectNetworkQualityEvent) => {
+    try {
+      const { quality, reasons } = qualityFromNetworkEvent(e);
+      this.events.onConnectionQuality?.(quality, reasons);
+      // Phase 3 — latch the link grade for the governor and re-evaluate. Our
+      // ConnectionQuality ("good"|"low"|"bad") is exactly GovernorQuality, so no
+      // remap is needed. governQuality() is non-fatal in its own right.
+      this.governorNetwork = quality;
+      this.governQuality();
+    } catch (err) {
+      warn("onNetworkQuality failed (non-fatal)", err);
+    }
+  };
+
+  // ---- adaptive quality governor (Phase 3) -------------------------------
+
+  /**
+   * Daily "cpu-load-change" → latch the CPU pressure signal and re-evaluate the
+   * governor. Payload: { cpuLoadState: 'low'|'high', cpuLoadStateReason:
+   * 'encode'|'decode'|'scheduleDuration'|'none' }. Non-fatal by default: a CPU
+   * signal must never disturb the live call.
+   */
+  private onCpuLoad = (e: DailyEventObjectCpuLoadEvent) => {
+    try {
+      this.governorCpuState = e.cpuLoadState;
+      this.governorCpuReason = e.cpuLoadStateReason;
+      this.governQuality();
+    } catch (err) {
+      warn("onCpuLoad failed (non-fatal)", err);
+    }
+  };
+
+  /**
+   * The Phase 3 GOVERNOR. Unifies the two latched signals (CPU + link quality)
+   * into a single decision and moves the TEMPORARY send-tier ceiling — never
+   * above the hard clampQuality(userPref, adminCap) cap (enforced in
+   * applyVideoQuality via minTier(governorCeiling, cap)).
+   *
+   * The pure decision (videoGovernor.nextSendTier) says whether to step the
+   * ceiling DOWN (machine/uplink under pressure) or back UP (sustained calm);
+   * everything HERE is the timing skin around it:
+   *  - HYSTERESIS / COOLDOWN: after any move we ignore further moves for
+   *    GOVERNOR_COOLDOWN_MS so the tier can't pump on a flapping signal.
+   *  - RECOVERY DWELL: stepping back up requires conditions to stay calm for
+   *    GOVERNOR_RECOVERY_DWELL_MS; a deferred timer re-runs this even if no
+   *    further Daily event arrives while it stays calm.
+   *
+   * Decode-side pressure (CPU high + reason "decode") is a RECEIVE cost, not a
+   * send one: instead of touching the send tier we re-run applyReceiveLayers so
+   * the adaptive receive base re-applies (it already lowers non-speakers for big
+   * grids). Wholly best-effort + non-fatal.
+   */
+  private governQuality() {
+    if (!this.call || !this.active) {
+      return;
+    }
+    const signals: GovernorSignals = {
+      cpuState: this.governorCpuState,
+      cpuReason: this.governorCpuReason,
+      networkState: this.governorNetwork,
+    };
+    const now = performance.now();
+
+    // Decode pressure → nudge the RECEIVE side (re-apply adaptive base layers
+    // for the current speaker/grid). Independent of the send-tier cooldown.
+    if (isDecodeUnderPressure(signals)) {
+      void this.applyReceiveLayers(
+        this.activeSpeakerSession,
+        this.activeSpeakerSession,
+      );
+    }
+
+    const desired = nextSendTier(signals, this.governorCeiling);
+
+    // Track the "calm since" window for the recovery dwell. Calm = CPU low AND
+    // the link is not bad (mirrors videoGovernor.isCalm). The moment we are NOT
+    // calm, reset the window so a brief lull can't shortcut a recovery.
+    const calmNow =
+      signals.cpuState === "low" && signals.networkState !== "bad";
+    if (calmNow) {
+      if (this.governorCalmSince === null) {
+        this.governorCalmSince = now;
+      }
+    } else {
+      this.governorCalmSince = null;
+    }
+
+    if (desired === this.governorCeiling) {
+      // No change wanted (HOLD): clear any pending recovery timer if conditions
+      // are no longer calm; otherwise leave it to fire.
+      if (!calmNow) {
+        this.clearGovernorRecoveryTimer();
+      }
+      return;
+    }
+
+    // desired != ceiling here (HOLD returned above), and nextSendTier moves at
+    // most one notch, so this is a strict step. minTier picking `desired` means
+    // it is the LOWER tier → a step DOWN.
+    const steppingDown = minTier(desired, this.governorCeiling) === desired;
+
+    if (steppingDown) {
+      // DOWN: gated only by the cooldown (degrade promptly to protect the call,
+      // but not on every single flapping event).
+      if (now - this.governorLastChangeAt < GOVERNOR_COOLDOWN_MS) {
+        return;
+      }
+      this.clearGovernorRecoveryTimer();
+      this.applyGovernorCeiling(desired, now, signals);
+      return;
+    }
+
+    // UP (recovery): require BOTH the cooldown AND the recovery dwell to have
+    // elapsed under continuously-calm conditions. If the dwell hasn't elapsed
+    // yet, arm a single deferred re-evaluation so recovery still happens when no
+    // further Daily event arrives while it stays calm.
+    if (now - this.governorLastChangeAt < GOVERNOR_COOLDOWN_MS) {
+      return;
+    }
+    const calmFor =
+      this.governorCalmSince === null ? 0 : now - this.governorCalmSince;
+    if (calmFor < GOVERNOR_RECOVERY_DWELL_MS) {
+      this.armGovernorRecoveryTimer(GOVERNOR_RECOVERY_DWELL_MS - calmFor);
+      return;
+    }
+    this.applyGovernorCeiling(desired, now, signals);
+  }
+
+  /** Commit a new governor ceiling: record the move time, log the trace, and
+   *  re-apply the effective video quality (which clamps to the user/admin cap).
+   *  After a step the governor re-arms a recovery check if it's still calm. */
+  private applyGovernorCeiling(
+    next: QualityCap,
+    now: number,
+    signals: GovernorSignals,
+  ) {
+    const prev = this.governorCeiling;
+    this.governorCeiling = next;
+    this.governorLastChangeAt = now;
+    log(
+      `governor ${prev}→${next} (cpu=${signals.cpuState}/${signals.cpuReason} net=${signals.networkState})`,
+    );
+    void this.applyVideoQuality();
+    // If we just stepped DOWN but are already calm, or stepped UP but not yet at
+    // the top, keep the recovery loop alive so the ceiling keeps climbing back.
+    if (next !== "high" && this.governorCalmSince !== null) {
+      this.armGovernorRecoveryTimer(GOVERNOR_RECOVERY_DWELL_MS);
+    }
+  }
+
+  /** Arm a single deferred governQuality() re-evaluation after `delayMs`. Used
+   *  for recovery so the ceiling can step back up even if Daily emits no further
+   *  cpu/network event while conditions stay calm. Idempotent (replaces any
+   *  pending timer). */
+  private armGovernorRecoveryTimer(delayMs: number) {
+    this.clearGovernorRecoveryTimer();
+    this.governorRecoveryTimer = window.setTimeout(() => {
+      this.governorRecoveryTimer = null;
+      try {
+        this.governQuality();
+      } catch (err) {
+        warn("governor recovery tick failed (non-fatal)", err);
+      }
+    }, Math.max(0, delayMs));
+  }
+
+  private clearGovernorRecoveryTimer() {
+    if (this.governorRecoveryTimer !== null) {
+      window.clearTimeout(this.governorRecoveryTimer);
+      this.governorRecoveryTimer = null;
+    }
   }
 
   // ---- active speaker (SFU) → speaker ring + receive-layer promotion -------
@@ -697,9 +1515,7 @@ export class DailyAudio {
     const prevSession = this.activeSpeakerSession;
     this.activeSpeakerSession = sessionId;
 
-    const socketId = sessionId
-      ? this.socketIdForSession(sessionId)
-      : null;
+    const socketId = sessionId ? this.socketIdForSession(sessionId) : null;
     // Surface to the UI even if we can't resolve a socketId yet (null clears the
     // ring) — the layout lane just won't ring an unknown tile.
     this.events.onActiveSpeaker?.(socketId);
@@ -707,6 +1523,11 @@ export class DailyAudio {
     // Optimisation: promote the active speaker's video to a high simulcast
     // layer, demote the previous one back to base. No-op-safe (see below).
     this.applyReceiveLayers(sessionId, prevSession);
+    // Phase 5: when paginating, keep the (possibly off-page) active speaker
+    // subscribed so the speaker tile is never a black frame. No-op below threshold.
+    if (this.paginating) {
+      void this.reconcileSubscriptions();
+    }
   };
 
   /** Map a Daily session_id to our socket.id. Tries the live participant's
@@ -769,13 +1590,17 @@ export class DailyAudio {
         return; // call was torn down while awaiting topology
       }
 
-      const updates: Record<
-        string,
-        { video: { layer: number | "inherit" } }
-      > = {
-        // Everyone defaults to the lowest layer; the active speaker overrides.
-        "*": { video: { layer: RECEIVE_LAYER_BASE } },
-      };
+      // Phase 5: the base layer is ADAPTIVE in the grid size. A small grid keeps
+      // non-speakers on layer 1 (sharp); a large grid drops them to layer 0
+      // (cheapest) per Daily's big-grid guidance. videoSockets is the remote
+      // camera count (the self-view is added separately but is local, never a
+      // receive layer concern here).
+      const receiveBase = receiveBaseForTileCount(this.videoSockets.size);
+      const updates: Record<string, { video: { layer: number | "inherit" } }> =
+        {
+          // Everyone defaults to the adaptive base layer; the speaker overrides.
+          "*": { video: { layer: receiveBase } },
+        };
       if (prevSession && prevSession !== activeSession) {
         updates[prevSession] = { video: { layer: "inherit" } };
       }
@@ -814,6 +1639,8 @@ export class DailyAudio {
     this.videoSockets.add(socketId);
     this.events.onVideoTrack?.(socketId, new MediaStream([e.track]));
     log(`remote video from ${e.participant.user_name} (${socketId})`);
+    // Phase 5: a new remote camera may push us over the pagination threshold.
+    void this.reconcileSubscriptions();
   };
 
   private onVideoStopped = (e: DailyEventObjectTrack) => {
@@ -839,6 +1666,9 @@ export class DailyAudio {
       }
     }
     this.events.onVideoRemoved?.(socketId);
+    // Phase 5: a camera left — the count may have dropped back below the
+    // threshold, in which case reconcile re-enables automatic subscription.
+    void this.reconcileSubscriptions();
   }
 
   /** Wait until the DO has minted our socket.id (delivered in the init-room WS
@@ -940,6 +1770,8 @@ export class DailyAudio {
       this.videoSessionToSocket.set(p.session_id, socketId);
       this.videoSockets.add(socketId);
       this.events.onVideoTrack?.(socketId, new MediaStream([vTrack]));
+      // Phase 5: reconcile in case this camera tips us over the threshold.
+      void this.reconcileSubscriptions();
     } else if (
       this.videoSockets.has(socketId) &&
       p.tracks.video.state !== "playable" &&
@@ -994,9 +1826,173 @@ export class DailyAudio {
     this.videoSessionToSocket.delete(sessionId);
   };
 
+  /**
+   * Daily FATAL error — the call is over. Phase 2 classifies `error.type` into a
+   * language-neutral AudioErrorKind (meeting-full / token-expired / generic
+   * "call") via the PURE fatalErrorKindFor, so the UI can show a TYPE-specific
+   * headline (the room is full vs. the token expired → refresh) instead of one
+   * opaque "call failed". We emit BOTH the new classified onFatal (preferred) and
+   * the legacy onError (so any consumer still bound to it keeps working).
+   */
   private onFatalError = (e: DailyEventObjectFatalError) => {
-    warn("fatal error", e.errorMsg);
+    // error.type is `any` for non-connection fatal types in the daily-js typings
+    // (DailyFatalErrorObject collapses to any); read it defensively.
+    const type = (e.error as { type?: string } | undefined)?.type;
+    const kind = fatalErrorKindFor(type);
+    warn("fatal error", type ?? "(no type)", e.errorMsg);
+    this.events.onFatal?.(kind, e.errorMsg ?? "");
     this.events.onError?.(new Error(e.errorMsg || "call error"));
+  };
+
+  /**
+   * Daily STRUCTURED `camera-error` (Phase 2) — a camera/mic acquisition failure
+   * with a typed reason. Maps `error.type` to our language-neutral CameraErrorKind
+   * via the PURE cameraErrorKindFor and emits it; the controller mirrors it into
+   * cameraStateAtom so the UI can offer the right guidance (an "allow camera"
+   * prompt for "permissions"). Non-fatal by default: a camera failure must never
+   * tear the AUDIO call down — we only surface the camera state.
+   */
+  private onCameraError = (e: DailyEventObjectCameraError) => {
+    try {
+      // error.type is a discriminated union across cam/mic error shapes; the
+      // disambiguation fields (blockedMedia/missingMedia/failedMedia) live on
+      // the specific variants, so read them defensively off a widened view.
+      const error = e.error as
+        | {
+            type?: string;
+            blockedMedia?: Array<"video" | "audio">;
+            missingMedia?: Array<"video" | "audio">;
+            failedMedia?: Array<"video" | "audio">;
+          }
+        | undefined;
+      const type = error?.type;
+      const kind = cameraErrorKindFor(type);
+      // Did the failure actually implicate the CAMERA, or is it a mic-only error
+      // riding the same event? Mic and camera are acquired on SEPARATE paths
+      // here, so a `mic-in-use` / mic-permission failure must NOT drop a working
+      // self-view. We disambiguate via Daily's videoOk flag + the per-type media
+      // array (blockedMedia / missingMedia / failedMedia).
+      const affectsVideo = cameraErrorAffectsVideo({
+        type,
+        videoOk: e.errorMsg?.videoOk,
+        affectedMedia:
+          error?.blockedMedia ?? error?.missingMedia ?? error?.failedMedia,
+      });
+      warn(
+        "camera error",
+        type ?? "(no type)",
+        affectsVideo ? "(video affected)" : "(mic-only)",
+        e.errorMsg?.errorMsg,
+      );
+      // Only when VIDEO actually failed: our local self-view is no longer valid
+      // — drop it and flip cameraOn off so the UI stops promising a live camera.
+      // input-settings-updated reconciles the authoritative state. A mic-only
+      // failure leaves the live camera untouched.
+      if (affectsVideo && this.cameraOn) {
+        this.cameraOn = false;
+        this.releaseLocalVideo();
+        const selfSocketId = this.getSocketId();
+        if (selfSocketId && this.videoSockets.has(selfSocketId)) {
+          this.videoSockets.delete(selfSocketId);
+          this.events.onVideoRemoved?.(selfSocketId);
+        }
+      }
+      this.events.onCameraError?.(
+        kind,
+        e.errorMsg?.errorMsg ?? "",
+        affectsVideo,
+      );
+    } catch (err) {
+      warn("onCameraError failed (non-fatal)", err);
+    }
+  };
+
+  /** Map a Daily non-fatal error type to our language-neutral NonfatalKind.
+   *  Centralised + pure so it can be unit-tested. Unknown / future types
+   *  collapse to "other" so nothing is swallowed silently. */
+  private static nonfatalKindFor(type: string | undefined): NonfatalKind {
+    switch (type) {
+      case "video-processor-error":
+        return "video-processor";
+      case "audio-processor-error":
+        return "audio-processor";
+      case "screen-share-error":
+        return "screen-share";
+      default:
+        return "other";
+    }
+  }
+
+  /**
+   * Daily NON-FATAL error — the call keeps running. The important Phase 0 case
+   * is `video-processor-error`: a virtual background (blur/image) failed (e.g.
+   * under CPU load). Per Daily's contract, on this error Daily CLEARS the
+   * processor AND turns the local camera OFF — so we must sync our own state to
+   * "camera off" rather than leaving a stale "on". We do NOT tear the call down
+   * (non-fatal by default); we surface a light toast via onNonfatal and let the
+   * authoritative `input-settings-updated` event reconcile the true video state.
+   */
+  private onNonfatalError = (e: DailyEventObjectNonFatalError) => {
+    const kind = DailyAudio.nonfatalKindFor(e.type);
+    warn("nonfatal error", e.type, e.errorMsg);
+    if (kind === "video-processor" && this.cameraOn) {
+      // Daily already cleared the processor and disabled local video. Mirror
+      // that into OUR state: drop the local self-view tile and flip cameraOn
+      // off so the UI stops showing a live camera. input-settings-updated is
+      // the source of truth and will confirm video is off (handled below).
+      this.cameraOn = false;
+      this.releaseLocalVideo();
+      const selfSocketId = this.getSocketId();
+      if (selfSocketId && this.videoSockets.has(selfSocketId)) {
+        this.videoSockets.delete(selfSocketId);
+        this.events.onVideoRemoved?.(selfSocketId);
+      }
+    }
+    // Best-effort UI surface (toast). Never alters call lifecycle.
+    this.events.onNonfatal?.(kind, e.errorMsg ?? "");
+  };
+
+  /**
+   * Authoritative input-settings state from Daily. Daily fires this whenever it
+   * mutates input settings — including AFTER a video-processor-error, where it
+   * has cleared the processor and disabled local video. We read the REAL video
+   * state here instead of assuming the last settings we sent still apply. If
+   * Daily reports the camera off while we still think it's on, reconcile (drop
+   * our self-view + flip cameraOn). Purely defensive + non-fatal.
+   */
+  private onInputSettingsUpdated = (
+    e: DailyEventObjectInputSettingsUpdated,
+  ) => {
+    try {
+      const call = this.call;
+      if (!call) {
+        return;
+      }
+      // Read the genuine local-video state from the live participant rather than
+      // trusting cached flags. Daily may have turned video off (processor error)
+      // without us issuing setLocalVideo(false).
+      const local = call.participants?.()?.local;
+      const videoState = local?.tracks?.video?.state;
+      const videoOff =
+        videoState === "off" ||
+        videoState === "blocked" ||
+        videoState === "interrupted";
+      if (this.cameraOn && videoOff) {
+        this.cameraOn = false;
+        this.releaseLocalVideo();
+        const selfSocketId = this.getSocketId();
+        if (selfSocketId && this.videoSockets.has(selfSocketId)) {
+          this.videoSockets.delete(selfSocketId);
+          this.events.onVideoRemoved?.(selfSocketId);
+        }
+      }
+    } catch (err) {
+      // Defensive read of participant state — never let it disturb the call.
+      warn("onInputSettingsUpdated reconcile failed (non-fatal)", err);
+    }
+    // Silence the unused-payload lint while keeping the typed param for clarity
+    // and Phase-2 extension (it carries inputSettings.video.processor).
+    void e;
   };
 
   // ---- peer state + speaking analyser ------------------------------------

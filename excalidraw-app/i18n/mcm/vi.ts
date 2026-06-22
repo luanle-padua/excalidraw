@@ -912,7 +912,8 @@ export const vi = {
     // Account / Org (read-only)
     accountNote:
       "Thông tin tổ chức bên dưới do hệ thống quản lý — chỉ xem, không sửa tại đây.",
-    accountError: "Không tải được thông tin tài khoản. Hiển thị từ phiên đăng nhập.",
+    accountError:
+      "Không tải được thông tin tài khoản. Hiển thị từ phiên đăng nhập.",
     email: "Email",
     titleField: "Chức vụ (직급)",
     division: "Phòng ban",
@@ -989,6 +990,11 @@ export const vi = {
     leaveCall: "Rời call",
     mute: "Tắt mic",
     unmute: "Bật mic",
+    // Terse inline labels rendered NEXT TO the icon in the header call cluster
+    // (state-neutral so the button width never jumps between mute/unmute or
+    // camera on/off); the icon + tooltip still carry the live on/off state.
+    micLabel: "Mic",
+    cameraLabel: "Camera",
     listenOnly: "Chỉ nghe",
     listenOnlyTitle: "Máy này không có mic — chỉ nghe được",
     requestingMic: "Đang xin quyền mic…",
@@ -1009,6 +1015,27 @@ export const vi = {
     cameraOff: "Tắt camera",
     noCameraTitle: "Thiết bị này không có camera",
     cameraError: "Không bật được camera — kiểm tra quyền truy cập và thử lại.",
+    cameraPermission:
+      "Camera/mic bị chặn — cho phép truy cập trong trình duyệt rồi thử lại.",
+    meetingFull: "Cuộc họp đã đầy — không còn chỗ tham gia.",
+    tokenExpired: "Phiên đã hết hạn — tải lại trang để vào lại.",
+    featureDisabled: "Một tính năng đã bị tắt do lỗi — cuộc họp vẫn tiếp tục.",
+  },
+
+  // ---------------- Pre-join "green room" (Item 6) ------------------
+  // Cửa kiểm tra mic/camera trước khi vào call (sau khi đã vào phòng họp).
+  preJoin: {
+    title: "Sẵn sàng tham gia?",
+    joiningAs: "Tham gia với tên {name}",
+    joinNow: "Vào họp",
+    joining: "Đang vào…",
+    micOn: "Mic bật",
+    micOff: "Mic tắt",
+    cameraOn: "Camera bật",
+    cameraOff: "Camera tắt",
+    cameraOffHint: "Camera đang tắt",
+    noPreview: "Không xem trước được camera",
+    cancel: "Quay lại",
   },
 
   // ---------------- Video background (blur / đổi nền camera) --------
@@ -1026,6 +1053,32 @@ export const vi = {
     imgForest: "Rừng sương",
     imgCrystal: "Lá pha lê",
     imgOffice: "Văn phòng",
+    processorCleared: "Đã tắt nền ảo do lỗi xử lý — camera cũng đã tắt",
+  },
+
+  // ---------------- Network resilience (banner + quality chip) ------
+  connection: {
+    // Banner (lifecycle)
+    reconnecting: "Mất kết nối — đang kết nối lại…",
+    unstable: "Kết nối không ổn định — bạn có thể bị ngắt khỏi cuộc họp",
+    reconnected: "Đã kết nối lại",
+    // Quality chip
+    qualityLabel: "Chất lượng kết nối",
+    quality: {
+      good: "Kết nối tốt",
+      low: "Kết nối yếu",
+      bad: "Kết nối kém",
+    },
+    // Tooltip reason labels (Daily's machine codes)
+    reason: {
+      sendPacketLoss: "Mất gói khi gửi",
+      recvPacketLoss: "Mất gói khi nhận",
+      roundTripTime: "Độ trễ cao",
+      availableOutgoingBitrate: "Băng thông lên thấp",
+      signaling: "Đường tín hiệu",
+      sfu: "Đường media (máy chủ)",
+      "peer-to-peer": "Kết nối ngang hàng",
+    },
   },
 
   // ---------------- Video quality (user + admin cap) ---------------
@@ -1242,6 +1295,15 @@ export const vi = {
     expand: "Mở rộng",
     connecting: "Đang kết nối…",
     startError: "Không chia sẻ được màn hình",
+    // Phase 6 — language-neutral error codes mapped to messages.
+    errShare: "Màn hình chia sẻ đã dừng do lỗi — hãy thử chia sẻ lại",
+    errMeetingFull: "Phòng đã đầy — không thể chia sẻ màn hình",
+    errTokenExpired: "Phiên đã hết hạn — tải lại trang rồi chia sẻ lại",
+    errCall: "Lỗi chia sẻ màn hình",
+    // Connectivity lifecycle of the screen-share call (presenter notices).
+    linkReconnecting: "Mất kết nối chia sẻ màn hình — đang kết nối lại…",
+    linkUnstable: "Kết nối chia sẻ không ổn định — có thể bị ngắt",
+    linkReconnected: "Đã kết nối lại phần chia sẻ màn hình",
   },
 
   // ---------------- Chat panel -------------------------------------
@@ -1340,6 +1402,8 @@ export const vi = {
   caption: {
     label: "Phụ đề trực tiếp",
     translating: "Đang dịch…",
+    // Hiển thị khi máy chủ dịch quá tải (429/502) — phụ đề tạm về tiếng gốc.
+    degraded: "Tạm dừng dịch (quá tải) — hiển thị tiếng gốc",
     hideTitle: "Tạm ẩn phụ đề",
     toggleOnTitle: "Tắt phụ đề (CC)",
     toggleOffTitle: "Bật phụ đề (CC)",

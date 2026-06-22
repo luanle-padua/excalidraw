@@ -65,8 +65,7 @@
   // We still adopt the Glass-Desk geometry (radius scale, blur, layered shadow).
   &__strip {
     background: rgba(20, 24, 32, 0.62);
-    backdrop-filter: blur(var(--mcm-glass-blur, 16px))
-      #{"saturate(var(--mcm-glass-sat, 1.4))"};
+    backdrop-filter: blur(var(--mcm-glass-blur, 16px)) #{"saturate(var(--mcm-glass-sat, 1.4))"};
     -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 16px));
     border: 1px solid rgba(255, 255, 255, 0.1);
     // Match the Glass-Desk medium card radius so the strip reads as the same
@@ -89,6 +88,25 @@
   &--active &__strip {
     opacity: 1;
     transform: translateY(0);
+  }
+
+  // ----- translation-degraded hint -----
+  // Subtle amber strip shown above the caption lines when the translation
+  // backend is overloaded (429/502). Captions still show the original text
+  // below it — this only signals "throttled, not broken" (plan §5). Kept small
+  // + low-key so it never competes with the captions themselves.
+  &__degraded {
+    align-self: center;
+    margin-bottom: 2px;
+    padding: 1px 8px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: rgba(251, 191, 36, 0.16);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    color: #fbbf24;
+    font-size: calc(var(--mcm-caption-base) * var(--mcm-caption-scale) * 0.72);
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+    white-space: nowrap;
   }
 
   // ----- one caption line -----
@@ -152,8 +170,7 @@
     padding: 4px;
     border-radius: var(--mcm-radius-pill, 999px);
     background: rgba(20, 24, 32, 0.55);
-    backdrop-filter: blur(var(--mcm-glass-blur, 16px))
-      #{"saturate(var(--mcm-glass-sat, 1.4))"};
+    backdrop-filter: blur(var(--mcm-glass-blur, 16px)) #{"saturate(var(--mcm-glass-sat, 1.4))"};
     -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 16px));
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06),

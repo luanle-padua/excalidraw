@@ -1048,7 +1048,9 @@ const isAdmittedForRoom = async (
     return false;
   }
   const knock = await db
-    .prepare(`SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`)
+    .prepare(
+      `SELECT status FROM meeting_knock WHERE room_id = ?1 AND email = ?2`,
+    )
     .bind(roomId, email.toLowerCase())
     .first<{ status: string | null }>();
   return knock?.status === "admitted";
@@ -1079,12 +1081,7 @@ const roomGate: MiddlewareHandler<{
       seg === "library" ||
       seg === "files" ||
       seg === "transcripts") &&
-    !(await isAdmittedForRoom(
-      c.env.DB,
-      c.get("email"),
-      c.get("role"),
-      roomId,
-    ))
+    !(await isAdmittedForRoom(c.env.DB, c.get("email"), c.get("role"), roomId))
   ) {
     return c.json({ error: "not admitted to this meeting" }, 403);
   }
@@ -3458,8 +3455,13 @@ app.get("/v1/directory", async (c) => {
       if (!isInternalEmail(u.email) || isAdminish(u.app_metadata?.role)) {
         continue;
       }
-      // Avatar: only the small "lib:NN.png" gallery refs ride along (that's
-      // all the client syncs to user_metadata) — never inline data URLs.
+      // Avatar: carry the FULL account avatar the client stores in
+      // user_metadata so the roster/people-grid matches the in-call surfaces —
+      // either a "lib:NN.png" gallery pick OR the lightweight R2 reference
+      // (`/v1/me/avatar/<hash>.png`) produced by an upload. Heavy inline
+      // `data:` URLs never reach user_metadata (the client uploads first and
+      // stores the reference), but we defensively drop them so the directory
+      // payload stays small. resolveAvatarUrl on the client maps either form.
       const avatar = u.user_metadata?.avatar;
       people.push({
         email: u.email!.toLowerCase(),
@@ -3467,7 +3469,7 @@ app.get("/v1/directory", async (c) => {
         title: u.user_metadata?.title,
         division: u.user_metadata?.division,
         avatar:
-          typeof avatar === "string" && avatar.startsWith("lib:")
+          typeof avatar === "string" && avatar && !avatar.startsWith("data:")
             ? avatar
             : undefined,
       });
@@ -4127,18 +4129,35 @@ const DAILY_ROOM_MAX_PARTICIPANTS = 50;
 // these exact keys. Best-effort — a settings read failure falls back to defaults.
 const readDailyCaps = async (
   db: D1Database,
-): Promise<{ maxParticipants: number; expHours: number }> => {
+): Promise<{
+  maxParticipants: number;
+  expHours: number;
+  adaptiveSimulcast: boolean;
+}> => {
   let maxParticipants = DAILY_ROOM_MAX_PARTICIPANTS;
   let expHours = DAILY_ROOM_EXP_HOURS;
+  // `enable_multiparty_adaptive_simulcast` is OFF by default (Phase 7,
+  // docs/plans/daily-monitoring-resilience.md). It can improve ABR behaviour in
+  // large calls but Firefox falls back to a 3-layer encoding, so we gate it
+  // behind an explicit, default-OFF system_settings flag rather than turning it
+  // on org-wide. Admin opts in by setting 'daily_adaptive_simulcast' = 'on'.
+  let adaptiveSimulcast = false;
   try {
     const { results } = await db
       .prepare(
         `SELECT key, value FROM system_settings
-           WHERE key IN ('daily_room_max_participants', 'daily_room_exp_hours')`,
+           WHERE key IN ('daily_room_max_participants', 'daily_room_exp_hours',
+                         'daily_adaptive_simulcast')`,
       )
       .all<{ key: string; value: string }>();
     for (const row of results ?? []) {
-      const n = parseInt((row.value ?? "").trim(), 10);
+      const raw = (row.value ?? "").trim();
+      if (row.key === "daily_adaptive_simulcast") {
+        // Only the exact opt-in string flips it on; unset/blank/garbage → OFF.
+        adaptiveSimulcast = raw.toLowerCase() === "on";
+        continue;
+      }
+      const n = parseInt(raw, 10);
       if (!Number.isFinite(n)) {
         continue;
       }
@@ -4151,7 +4170,7 @@ const readDailyCaps = async (
   } catch {
     // settings table missing / transient D1 error — keep the constant defaults
   }
-  return { maxParticipants, expHours };
+  return { maxParticipants, expHours, adaptiveSimulcast };
 };
 
 // Admin-chosen ceiling on the video resolution any client may request
@@ -4164,10 +4183,15 @@ const readDailyCaps = async (
 // clamp). Cached per-isolate for 60s mirroring internalDomains, since /v1/config
 // is hit on every client boot/reconnect and the value changes rarely.
 type VideoQualityCap = "low" | "medium" | "high";
-const VIDEO_QUALITY_CAPS: readonly VideoQualityCap[] = ["low", "medium", "high"];
+const VIDEO_QUALITY_CAPS: readonly VideoQualityCap[] = [
+  "low",
+  "medium",
+  "high",
+];
 const DEFAULT_VIDEO_QUALITY_CAP: VideoQualityCap = "high";
 const isVideoQualityCap = (v: unknown): v is VideoQualityCap =>
-  typeof v === "string" && (VIDEO_QUALITY_CAPS as readonly string[]).includes(v);
+  typeof v === "string" &&
+  (VIDEO_QUALITY_CAPS as readonly string[]).includes(v);
 let videoQualityCap: VideoQualityCap = DEFAULT_VIDEO_QUALITY_CAP;
 let videoQualityCapAt = 0;
 const readVideoQualityCap = async (
@@ -4272,7 +4296,8 @@ app.get("/v1/daily/token", async (c) => {
     // and `eject_after_elapsed` (force-leave participants after that elapsed
     // time) so an abandoned room TRULY stops billing, not just stops accepting
     // joins. `eject_at_room_exp` ejects everyone exactly at `exp`.
-    const { maxParticipants, expHours } = await readDailyCaps(c.env.DB);
+    const { maxParticipants, expHours, adaptiveSimulcast } =
+      await readDailyCaps(c.env.DB);
     const expSeconds = expHours * 60 * 60;
     const createRoom = await fetch(`${DAILY_API}/rooms`, {
       method: "POST",
@@ -4294,6 +4319,19 @@ app.get("/v1/daily/token", async (c) => {
           max_participants: maxParticipants,
           eject_at_room_exp: true,
           eject_after_elapsed: expSeconds,
+          // Phase 7 (docs/plans/daily-monitoring-resilience.md): adaptive
+          // multiparty simulcast is opt-in only (default OFF — Firefox falls
+          // back to 3-layer). When the admin flag is unset the property is
+          // OMITTED entirely so we stay on Daily's default behaviour. `geo` is
+          // left unset so Daily auto-picks the nearest region (multi-country).
+          ...(adaptiveSimulcast
+            ? { enable_multiparty_adaptive_simulcast: true }
+            : {}),
+          // TODO(recording, July v1): recording is not shipped yet (Phase 5,
+          // see /v1/admin/daily recording_minutes:0). When it lands, add
+          // `enable_recording` here with the agreed scope ('cloud'/'local') and
+          // a matching token permission — deferred until there is a clear
+          // recording pattern to mirror, per Phase 7 guidance.
         },
       }),
     });
@@ -6022,7 +6060,10 @@ app.put("/v1/admin/settings", async (c) => {
   // (the read path would coerce it back to default, but failing loud here keeps
   // the stored setting honest and surfaces the admin's typo immediately).
   if (
-    Object.prototype.hasOwnProperty.call(body.settings ?? {}, "video_quality_cap") &&
+    Object.prototype.hasOwnProperty.call(
+      body.settings ?? {},
+      "video_quality_cap",
+    ) &&
     !isVideoQualityCap(body.settings?.video_quality_cap)
   ) {
     return c.json(
@@ -6041,7 +6082,10 @@ app.put("/v1/admin/settings", async (c) => {
   // Invalidate the per-isolate cap cache so an admin's new ceiling is served by
   // the very next /v1/config (this isolate) instead of lagging up to 60s.
   if (
-    Object.prototype.hasOwnProperty.call(body.settings ?? {}, "video_quality_cap")
+    Object.prototype.hasOwnProperty.call(
+      body.settings ?? {},
+      "video_quality_cap",
+    )
   ) {
     videoQualityCapAt = 0;
   }
