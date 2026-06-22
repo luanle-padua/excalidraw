@@ -1679,4 +1679,45 @@ export const vi = {
     loadFailed: "Không tải được dữ liệu — kiểm tra kết nối mạng.",
     retry: "Thử lại",
   },
+
+  // ---------------- Meeting Package (bản tổng kết sau họp) -----------
+  // Sau khi họp xong, host/người có quyền dự án curate 1 gói chia sẻ:
+  // sửa summary + chọn file + chọn audience, rồi publish / export offline.
+  pkg: {
+    create: "Tạo bản tổng kết",
+    builderTitle: "Tổng kết cuộc họp",
+    builderSubtitle:
+      "Chọn nội dung và file để đóng gói chia sẻ. Bản họp gốc giữ nguyên.",
+    titleLabel: "Tiêu đề gói",
+    titlePlaceholder: "VD: Tổng kết họp thiết kế tuần 24",
+    summaryLabel: "Tóm tắt (sửa được)",
+    summaryPlaceholder: "Tóm tắt nội dung sẽ chia sẻ…",
+    filesLabel: "File đính kèm",
+    filesEmpty: "Cuộc họp này chưa có file nào.",
+    filesLoading: "Đang tải danh sách file…",
+    selectedCount: "Đã chọn {count} file",
+    audienceLabel: "Người xem",
+    audienceMeeting: "Người dự họp",
+    audienceProject: "Cả dự án",
+    audienceList: "Danh sách email",
+    audienceMeetingHint: "Những người đã được mời / dự cuộc họp này.",
+    audienceProjectHint: "Mọi thành viên của dự án.",
+    audienceListHint: "Chỉ những email bạn nhập bên dưới.",
+    confidentialBlocked:
+      "Cuộc họp này được đánh dấu BẢO MẬT — không thể chia sẻ cho cả dự án.",
+    recipientsLabel: "Email người nhận",
+    recipientsPlaceholder: "an@cty.com, binh@cty.com",
+    saveDraft: "Lưu nháp",
+    publish: "Phát hành",
+    exportZip: "Tải gói (.zip)",
+    cancel: "Huỷ",
+    close: "Đóng",
+    draftSaved: "Đã lưu nháp.",
+    published: "Đã phát hành bản tổng kết.",
+    packaging: "Đang đóng gói file…",
+    saveFailed: "Không lưu được gói — kiểm tra mạng rồi thử lại.",
+    needTitle: "Nhập tiêu đề cho gói.",
+    statusDraft: "Nháp",
+    statusPublished: "Đã phát hành",
+  },
 } as const;

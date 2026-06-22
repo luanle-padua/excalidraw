@@ -3,6 +3,7 @@ import {
   CalendarClock,
   CircleSlash,
   FolderOpen,
+  Package,
   Pencil,
   RotateCcw,
   Sparkles,
@@ -25,6 +26,7 @@ import { isInternalEmail, sessionAtom } from "../../data/session";
 import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
 
+import { MeetingPackageBuilder } from "./MeetingPackageBuilder";
 import { statusBucket } from "./meetingColors";
 import {
   canManageMeeting,
@@ -91,6 +93,8 @@ export const MeetingDetailPreview = ({
   // AI recap clamp/expand — collapsed by default so a long recap doesn't
   // push the people sections below the fold.
   const [aiExpanded, setAiExpanded] = useState(false);
+  // Meeting Package builder modal (curate a post-meeting deliverable).
+  const [showPackage, setShowPackage] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -161,6 +165,9 @@ export const MeetingDetailPreview = ({
   // A mis-cancelled meeting isn't stuck forever: the organizer can restore it
   // to `scheduled` (the one transition the server allows out of cancelled).
   const showRestore = !!d && canManage && status === "cancelled";
+  // Meeting Package: curate a shareable recap from a FINISHED meeting. Host /
+  // project authority only (canManage), and only once the meeting is done.
+  const showPackageBtn = !!d && canManage && status === "finished";
 
   const saveReschedule = async () => {
     if (!dateStr || busy) {
@@ -435,6 +442,18 @@ export const MeetingDetailPreview = ({
                 </div>
               )}
 
+              {showPackageBtn && (
+                <div className="mcm-mdp__actions">
+                  <button
+                    type="button"
+                    className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+                    onClick={() => setShowPackage(true)}
+                  >
+                    <Package size={14} /> {t("pkg.create")}
+                  </button>
+                </div>
+              )}
+
               {showLifecycle && rescheduling && (
                 <div className="mcm-sched__row mcm-mdp__resched">
                   <label>
@@ -604,6 +623,19 @@ export const MeetingDetailPreview = ({
           </div>
         )}
       </div>
+
+      {showPackage && d && (
+        <MeetingPackageBuilder
+          roomId={roomId}
+          roomKey={d.room_key}
+          meetingTitle={d.title || ""}
+          initialSummary={d.ai_summary}
+          isConfidential={
+            (d.confidentiality ?? "").toLowerCase() === "confidential"
+          }
+          onClose={() => setShowPackage(false)}
+        />
+      )}
     </div>
   );
 };

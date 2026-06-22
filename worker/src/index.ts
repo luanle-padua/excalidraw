@@ -462,6 +462,115 @@ const userFileKey = (email: string, fileId: string) =>
 const userFileThumbKey = (email: string, fileId: string) =>
   `${userFileKey(email, fileId)}/thumb`;
 
+// Meeting Package R2 keys (server-readable copies — NOT room-key encrypted).
+// The chosen meeting files are decrypted client-side and re-uploaded here as
+// plaintext; the recap + offline zip live alongside. See meeting-package.md.
+const packageFileKey = (pkgId: string, fileId: string) =>
+  `packages/${pkgId}/files/${fileId}`;
+const packageRecapKey = (pkgId: string) => `packages/${pkgId}/recap.html`;
+const packageBundleKey = (pkgId: string) => `packages/${pkgId}/bundle.zip`;
+
+// Build a STORE-only (uncompressed) ZIP archive in-memory. We avoid a
+// compression dependency in the Worker — a store zip is a fully valid archive
+// every tool opens, and the package files (images/pdf/dxf/ifc) are already
+// mostly incompressible. Implements the minimal ZIP spec: a local file header +
+// raw bytes per entry, then a central directory. CRC-32 is mandatory even for
+// stored entries. Sizes here are well within the addressable range, so we stay
+// on the classic 32-bit format (no ZIP64).
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+const crc32 = (data: Uint8Array): number => {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i++) {
+    crc = CRC32_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+};
+const buildStoreZip = (
+  entries: { name: string; data: Uint8Array }[],
+): Uint8Array => {
+  const enc = new TextEncoder();
+  const locals: Uint8Array[] = [];
+  const centrals: Uint8Array[] = [];
+  let offset = 0;
+  for (const e of entries) {
+    const nameBytes = enc.encode(e.name);
+    const crc = crc32(e.data);
+    const size = e.data.length;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true); // local file header signature
+    lv.setUint16(4, 20, true); // version needed
+    lv.setUint16(6, 0, true); // flags
+    lv.setUint16(8, 0, true); // method = store
+    lv.setUint16(10, 0, true); // mod time
+    lv.setUint16(12, 0x21, true); // mod date (1980-01-01)
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true); // compressed size
+    lv.setUint32(22, size, true); // uncompressed size
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true); // extra len
+    local.set(nameBytes, 30);
+    locals.push(local, e.data);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true); // central dir signature
+    cv.setUint16(4, 20, true); // version made by
+    cv.setUint16(6, 20, true); // version needed
+    cv.setUint16(8, 0, true); // flags
+    cv.setUint16(10, 0, true); // method
+    cv.setUint16(12, 0, true); // mod time
+    cv.setUint16(14, 0x21, true); // mod date
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true); // extra len
+    cv.setUint16(32, 0, true); // comment len
+    cv.setUint16(34, 0, true); // disk number
+    cv.setUint16(36, 0, true); // internal attrs
+    cv.setUint32(38, 0, true); // external attrs
+    cv.setUint32(42, offset, true); // local header offset
+    central.set(nameBytes, 46);
+    centrals.push(central);
+
+    offset += local.length + e.data.length;
+  }
+  const centralSize = centrals.reduce((n, b) => n + b.length, 0);
+  const end = new Uint8Array(22);
+  const ev = new DataView(end.buffer);
+  ev.setUint32(0, 0x06054b50, true); // EOCD signature
+  ev.setUint16(8, entries.length, true); // entries on this disk
+  ev.setUint16(10, entries.length, true); // total entries
+  ev.setUint32(12, centralSize, true); // central dir size
+  ev.setUint32(16, offset, true); // central dir offset
+  const total =
+    locals.reduce((n, b) => n + b.length, 0) + centralSize + end.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const b of locals) {
+    out.set(b, p);
+    p += b.length;
+  }
+  for (const b of centrals) {
+    out.set(b, p);
+    p += b.length;
+  }
+  out.set(end, p);
+  return out;
+};
+
 // Avatar R2 key — STABLE per identity so a re-upload overwrites the old image
 // (no orphan blobs, no cache-busting churn on the canvas) and the reference URL
 // stays constant across uploads. We key on a hash of the lowercased email, NOT
@@ -948,6 +1057,34 @@ const isMeetingProjectAuthority = async (
     )
     .bind(roomId, me)
     .first());
+};
+
+// HOST-level edit gate for a meeting (there is no `canEditMeeting`): the
+// meeting's organizer/host, OR a project authority (leader / leading-division
+// head), OR an admin. This is the same shape the GET /v1/meetings/:roomId
+// handler computes inline for `viewer_is_authority`; factored out here so the
+// Meeting Package create/edit routes gate identically. `meetingRow` carries the
+// already-loaded organizer/host emails so the caller avoids a re-query.
+const canEditMeeting = async (
+  db: D1Database,
+  roomId: string,
+  email: string | undefined,
+  role: string | undefined,
+  meetingRow: { organizer_email?: string | null; host_email?: string | null },
+): Promise<boolean> => {
+  if (isAdminish(role)) {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  const org = meetingRow.organizer_email?.toLowerCase();
+  const host = meetingRow.host_email?.toLowerCase();
+  if (me === org || me === host) {
+    return true;
+  }
+  return isMeetingProjectAuthority(db, roomId, me);
 };
 
 // Is the caller a member of the OWNING DEPARTMENT of this meeting's project —
@@ -2455,6 +2592,500 @@ app.post("/v1/meetings/:roomId/participant", async (c) => {
     .bind(roomId, email, name ?? null, t)
     .run();
   return c.json({ ok: true });
+});
+
+// ---- Meeting Package (curated post-meeting deliverable) ------------------
+// A Package is a server-readable, hand-curated copy of a FINISHED meeting:
+// an editable summary + a chosen subset of files, scoped to an audience. The
+// raw meeting (E2E room-key) is untouched — the client decrypts the chosen
+// files and re-uploads them as plaintext under packages/<id>/…. The raw
+// meeting key stays out of this table. See docs/plans/meeting-package.md.
+
+type PackageRow = {
+  id: string;
+  meeting_id: string;
+  project_id: string | null;
+  title: string | null;
+  summary_text: string | null;
+  audience_kind: string | null;
+  status: string | null;
+  bundle_r2_key: string | null;
+  created_by: string | null;
+  created_at: number;
+  published_at: number | null;
+};
+
+// Shared loader for the package-scoped routes (edit/publish/file/recap/get/
+// export). Returns the package row + the meeting's organizer/host/conf so the
+// authority gate doesn't re-query. NULL = no such package.
+const loadPackage = async (
+  db: D1Database,
+  pkgId: string,
+): Promise<
+  | (PackageRow & {
+      organizer_email: string | null;
+      host_email: string | null;
+      confidentiality: string | null;
+    })
+  | null
+> =>
+  db
+    .prepare(
+      `SELECT pkg.*, m.organizer_email, m.host_email, m.confidentiality
+         FROM meeting_package pkg
+         JOIN meeting m ON m.id = pkg.meeting_id
+        WHERE pkg.id = ?1`,
+    )
+    .bind(pkgId)
+    .first();
+
+// Files of a meeting for the Package builder's picker. roomGate (above) already
+// vetted that the caller can see this meeting, so no extra gate here. Returns
+// just the index columns the picker needs — bytes are pulled per-file by the
+// client (which holds the room key) when it decrypts for upload.
+app.get("/v1/meetings/:roomId/files", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, kind, name, size FROM file
+      WHERE meeting_id = ?1 ORDER BY created_at ASC`,
+  )
+    .bind(c.req.param("roomId"))
+    .all<{ id: string; kind: string | null; name: string | null; size: number | null }>();
+  return c.json({ files: results ?? [] });
+});
+
+// Create a DRAFT package. Gate = the meeting's organizer/host OR a project
+// authority (or admin) — the same host-level edit gate as PATCH /meetings. The
+// meeting MUST be finished (a package is a post-meeting artefact).
+app.post("/v1/meetings/:roomId/packages", async (c) => {
+  const roomId = c.req.param("roomId");
+  const m = await c.env.DB.prepare(
+    `SELECT status, project_id, organizer_email, host_email
+       FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{
+      status: string | null;
+      project_id: string | null;
+      organizer_email: string | null;
+      host_email: string | null;
+    }>();
+  if (!m) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(c.env.DB, roomId, c.get("email"), c.get("role"), m))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (normalizeStatus(m.status) !== "finished") {
+    return c.json({ error: "meeting not finished" }, 409);
+  }
+  const b = await c.req.json<{
+    title?: string;
+    summary_text?: string;
+    audience_kind?: string;
+    file_ids?: string[];
+    recipients?: string[];
+  }>();
+  const audience =
+    b.audience_kind === "project" || b.audience_kind === "list"
+      ? b.audience_kind
+      : "meeting";
+  const id = crypto.randomUUID();
+  const ts = now();
+  await c.env.DB.prepare(
+    `INSERT INTO meeting_package
+       (id, meeting_id, project_id, title, summary_text, audience_kind,
+        status, bundle_r2_key, created_by, created_at, published_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'draft', NULL, ?7, ?8, NULL)`,
+  )
+    .bind(
+      id,
+      roomId,
+      m.project_id,
+      b.title?.slice(0, 300) ?? null,
+      b.summary_text?.slice(0, 50_000) ?? null,
+      audience,
+      c.get("email")?.toLowerCase() ?? null,
+      ts,
+    )
+    .run();
+  await insertPackageFiles(c.env.DB, id, b.file_ids);
+  await insertPackageRecipients(c.env.DB, id, b.recipients, ts);
+  return c.json({ ok: true, id });
+});
+
+// Insert the chosen file rows (idempotent). Shared by create + edit.
+const insertPackageFiles = async (
+  db: D1Database,
+  pkgId: string,
+  fileIds: string[] | undefined,
+): Promise<void> => {
+  const ids = (fileIds ?? []).filter((x) => typeof x === "string" && x);
+  if (!ids.length) {
+    return;
+  }
+  await db.batch(
+    ids.map((fid) =>
+      db
+        .prepare(
+          `INSERT OR IGNORE INTO meeting_package_file (package_id, file_id)
+           VALUES (?1, ?2)`,
+        )
+        .bind(pkgId, fid),
+    ),
+  );
+};
+
+// Insert recipient rows for an audience='list' package (idempotent, active).
+const insertPackageRecipients = async (
+  db: D1Database,
+  pkgId: string,
+  recipients: string[] | undefined,
+  ts: number,
+): Promise<void> => {
+  const emails = (recipients ?? [])
+    .filter((x) => typeof x === "string" && x.includes("@"))
+    .map((x) => x.toLowerCase());
+  if (!emails.length) {
+    return;
+  }
+  await db.batch(
+    emails.map((email) =>
+      db
+        .prepare(
+          `INSERT INTO meeting_package_recipient
+             (package_id, email, status, added_at)
+           VALUES (?1, ?2, 'active', ?3)
+           ON CONFLICT(package_id, email) DO UPDATE SET status = 'active'`,
+        )
+        .bind(pkgId, email, ts),
+    ),
+  );
+};
+
+// Edit a DRAFT package (title / summary / audience / files / recipients). Gate
+// = the SAME host-level edit gate, resolved through the package's meeting.
+app.put("/v1/packages/:id", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(
+      c.env.DB,
+      pkg.meeting_id,
+      c.get("email"),
+      c.get("role"),
+      pkg,
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (pkg.status === "published") {
+    return c.json({ error: "published — not editable" }, 409);
+  }
+  const b = await c.req.json<{
+    title?: string;
+    summary_text?: string;
+    audience_kind?: string;
+    file_ids?: string[];
+    recipients?: string[];
+  }>();
+  const audience =
+    b.audience_kind === undefined
+      ? null
+      : b.audience_kind === "project" || b.audience_kind === "list"
+        ? b.audience_kind
+        : "meeting";
+  await c.env.DB.prepare(
+    `UPDATE meeting_package SET
+       title = COALESCE(?2, title),
+       summary_text = COALESCE(?3, summary_text),
+       audience_kind = COALESCE(?4, audience_kind)
+     WHERE id = ?1`,
+  )
+    .bind(
+      pkg.id,
+      b.title?.slice(0, 300) ?? null,
+      b.summary_text?.slice(0, 50_000) ?? null,
+      audience,
+    )
+    .run();
+  // File selection is REPLACED when explicitly provided (the picker sends the
+  // full set); otherwise left as-is. Recipients are additive (revoke is a
+  // separate flip, never a hard delete — keeps provenance).
+  if (b.file_ids !== undefined) {
+    await c.env.DB.prepare(
+      `DELETE FROM meeting_package_file WHERE package_id = ?1`,
+    )
+      .bind(pkg.id)
+      .run();
+    await insertPackageFiles(c.env.DB, pkg.id, b.file_ids);
+  }
+  await insertPackageRecipients(c.env.DB, pkg.id, b.recipients, now());
+  return c.json({ ok: true });
+});
+
+// Store a DECRYPTED file blob into the package (client decrypts with the room
+// key, then uploads plaintext bytes here). Mirrors PUT /v1/files/:roomId/:fileId
+// but writes to the package R2 prefix and is gated by the package edit gate.
+app.put("/v1/packages/:id/files/:fileId", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(
+      c.env.DB,
+      pkg.meeting_id,
+      c.get("email"),
+      c.get("role"),
+      pkg,
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  await c.env.BUCKET.put(packageFileKey(pkg.id, fileId), body, {
+    httpMetadata: {
+      contentType: c.req.header("content-type") || "application/octet-stream",
+    },
+  });
+  // Ensure the file is part of the package even if it wasn't pre-listed.
+  await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO meeting_package_file (package_id, file_id)
+     VALUES (?1, ?2)`,
+  )
+    .bind(pkg.id, fileId)
+    .run();
+  return c.json({ ok: true });
+});
+
+// Store the rendered recap.html for the package (client renders, uploads).
+app.put("/v1/packages/:id/recap", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(
+      c.env.DB,
+      pkg.meeting_id,
+      c.get("email"),
+      c.get("role"),
+      pkg,
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const body = await c.req.arrayBuffer();
+  await c.env.BUCKET.put(packageRecapKey(pkg.id), body, {
+    httpMetadata: { contentType: "text/html; charset=utf-8" },
+  });
+  return c.json({ ok: true });
+});
+
+// Finalise: draft -> published. Same edit gate.
+app.post("/v1/packages/:id/publish", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(
+      c.env.DB,
+      pkg.meeting_id,
+      c.get("email"),
+      c.get("role"),
+      pkg,
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package SET status = 'published', published_at = ?2
+      WHERE id = ?1`,
+  )
+    .bind(pkg.id, now())
+    .run();
+  return c.json({ ok: true, published_at: now() });
+});
+
+// AUDIENCE gate for reading a published package. Admin always; otherwise by
+// audience_kind:
+//   meeting -> canSeeMeeting(meeting)
+//   project -> full project member AND the meeting is NOT confidential
+//              (a confidential meeting never leaks to the whole project)
+//   list    -> a recipient row with status <> 'revoked' (revoke != delete)
+// The package's own creator always passes (so a draft author can preview).
+const canSeePackage = async (
+  db: D1Database,
+  email: string | undefined,
+  role: string | undefined,
+  pkg: PackageRow & {
+    organizer_email: string | null;
+    host_email: string | null;
+    confidentiality: string | null;
+  },
+): Promise<boolean> => {
+  if (isAdminish(role)) {
+    return true;
+  }
+  const me = email?.toLowerCase();
+  if (!me) {
+    return false;
+  }
+  if (me === (pkg.created_by ?? "").toLowerCase()) {
+    return true;
+  }
+  // The host-level edit set can always read their own package back.
+  if (await canEditMeeting(db, pkg.meeting_id, email, role, pkg)) {
+    return true;
+  }
+  if (pkg.audience_kind === "project") {
+    if ((pkg.confidentiality ?? "").toLowerCase() === "confidential") {
+      return false;
+    }
+    if (!pkg.project_id) {
+      return false;
+    }
+    const acc = await projectAccess(db, email, role, pkg.project_id);
+    return acc === "full";
+  }
+  if (pkg.audience_kind === "list") {
+    const r = await db
+      .prepare(
+        `SELECT 1 FROM meeting_package_recipient
+          WHERE package_id = ?1 AND email = ?2 AND status <> 'revoked' LIMIT 1`,
+      )
+      .bind(pkg.id, me)
+      .first();
+    return !!r;
+  }
+  // 'meeting' (default): the meeting's normal visibility set.
+  return canSeeMeeting(db, email, role, pkg.meeting_id);
+};
+
+// Read a package's metadata + file list + recap (audience-gated). A draft is
+// readable only by the edit set (canEditMeeting / creator) — published is
+// readable by the configured audience.
+app.get("/v1/packages/:id", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const isEditor = await canEditMeeting(
+    c.env.DB,
+    pkg.meeting_id,
+    c.get("email"),
+    c.get("role"),
+    pkg,
+  );
+  if (pkg.status !== "published" && !isEditor && !isAdminish(c.get("role"))) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (!(await canSeePackage(c.env.DB, c.get("email"), c.get("role"), pkg))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results: files } = await c.env.DB.prepare(
+    `SELECT f.id, f.kind, f.name, f.size
+       FROM meeting_package_file pf
+       JOIN file f ON f.id = pf.file_id
+      WHERE pf.package_id = ?1`,
+  )
+    .bind(pkg.id)
+    .all<{ id: string; kind: string | null; name: string | null; size: number | null }>();
+  const recapObj = await c.env.BUCKET.get(packageRecapKey(pkg.id));
+  const recap_html = recapObj ? await recapObj.text() : null;
+  return c.json({
+    package: {
+      id: pkg.id,
+      meeting_id: pkg.meeting_id,
+      project_id: pkg.project_id,
+      title: pkg.title,
+      summary_text: pkg.summary_text,
+      audience_kind: pkg.audience_kind,
+      status: pkg.status,
+      created_by: pkg.created_by,
+      created_at: pkg.created_at,
+      published_at: pkg.published_at,
+    },
+    files: files ?? [],
+    recap_html,
+  });
+});
+
+// Offline export (P2): assemble a STORE-only zip (no compression — a valid,
+// universally-openable archive) in the Worker from packages/<id>/files/* +
+// recap.html, stream it back as bundle.zip. Same audience gate as GET. We
+// build a store zip by hand to avoid pulling a compression dep into the Worker;
+// CRC-32 is required by the spec even for stored entries.
+app.get("/v1/packages/:id/export", async (c) => {
+  const pkg = await loadPackage(c.env.DB, c.req.param("id"));
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (!(await canSeePackage(c.env.DB, c.get("email"), c.get("role"), pkg))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const entries: { name: string; data: Uint8Array }[] = [];
+  const recapObj = await c.env.BUCKET.get(packageRecapKey(pkg.id));
+  if (recapObj) {
+    entries.push({
+      name: "recap.html",
+      data: new Uint8Array(await recapObj.arrayBuffer()),
+    });
+  }
+  const { results: files } = await c.env.DB.prepare(
+    `SELECT f.id, f.name FROM meeting_package_file pf
+       JOIN file f ON f.id = pf.file_id WHERE pf.package_id = ?1`,
+  )
+    .bind(pkg.id)
+    .all<{ id: string; name: string | null }>();
+  const used = new Set<string>();
+  for (const f of files ?? []) {
+    const obj = await c.env.BUCKET.get(packageFileKey(pkg.id, f.id));
+    if (!obj) {
+      continue;
+    }
+    // De-dupe names inside the zip so two files sharing a name don't collide.
+    let entryName = `files/${f.name || f.id}`;
+    if (used.has(entryName)) {
+      entryName = `files/${f.id}-${f.name || "file"}`;
+    }
+    used.add(entryName);
+    entries.push({
+      name: entryName,
+      data: new Uint8Array(await obj.arrayBuffer()),
+    });
+  }
+  const zip = buildStoreZip(entries);
+  // Cache the assembled bundle in R2 so a re-export is a single GET, and record
+  // the pointer on the package row (bundle_r2_key was NULL until first export).
+  c.executionCtx.waitUntil(
+    (async () => {
+      const key = packageBundleKey(pkg.id);
+      await c.env.BUCKET.put(key, zip, {
+        httpMetadata: { contentType: "application/zip" },
+      });
+      await c.env.DB.prepare(
+        `UPDATE meeting_package SET bundle_r2_key = ?2 WHERE id = ?1`,
+      )
+        .bind(pkg.id, key)
+        .run();
+    })(),
+  );
+  return new Response(zip, {
+    headers: {
+      "content-type": "application/zip",
+      "content-disposition": `attachment; filename="package-${pkg.id}.zip"`,
+    },
+  });
 });
 
 // ---- Invite / membership (Phase 4.5) -------------------------------------
