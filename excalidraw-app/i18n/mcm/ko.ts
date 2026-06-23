@@ -1707,6 +1707,8 @@ export const ko: Widened<typeof vi> = {
     sharedWithMe: "나와 공유됨",
     sharedEmpty: "아직 공유된 요약이 없어요.",
     sharedNew: "새로 공유된 항목 {count}개",
+    noProject: "기타 요약",
+    meetingFallback: "제목 없는 회의",
     open: "열기",
     noFiles: "파일 없음",
     viewerTitle: "요약",

@@ -1778,6 +1778,8 @@ export const vi = {
     sharedWithMe: "Đã chia sẻ với tôi",
     sharedEmpty: "Chưa có bản tổng kết nào được chia sẻ với bạn.",
     sharedNew: "{count} mục mới được chia sẻ",
+    noProject: "Bản tổng kết khác",
+    meetingFallback: "Cuộc họp chưa đặt tên",
     open: "Mở",
     noFiles: "Không có file",
     viewerTitle: "Bản tổng kết",

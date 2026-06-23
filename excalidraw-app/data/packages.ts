@@ -69,6 +69,12 @@ export type MeetingPackageListItem = {
   created_at: number;
   published_at: number | null;
   file_count: number;
+  // Display context for the recipient surfaces — lets "Shared with me" and the
+  // portal recaps GROUP/label each recap by its project + meeting (so a user
+  // with recaps across many meetings can tell them apart). NULL when the
+  // backing meeting/project row is gone.
+  project_name: string | null;
+  meeting_title: string | null;
 };
 
 /** Full package payload returned by GET /v1/packages/:id (metadata + the

@@ -7397,6 +7397,43 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   gap: 8px;
 }
 
+// Recaps grouped by project → meeting so a guest can tell them apart.
+.mcm-portal__recap-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.mcm-portal__recap-project {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.mcm-portal__recap-project-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 680;
+  color: var(--mcm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mcm-portal__recap-meeting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  // Sit the meeting block under its project header.
+  padding-left: 2px;
+}
+.mcm-portal__recap-meeting-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mcm-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mcm-portal__row {
   display: flex;
   align-items: center;
@@ -9398,6 +9435,43 @@ body:has(.excalidraw.theme--dark) {
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     padding: 18px 4px;
     margin: 0;
+  }
+
+  // --- Project → meeting grouping (so recaps are identifiable at a glance) ---
+  &__group {
+    & + & {
+      margin-top: 20px;
+    }
+  }
+  &__group-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    @include t-label;
+    color: var(--mcm-accent, #6965db);
+    margin: 0 0 8px;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+  &__meeting {
+    & + & {
+      margin-top: 12px;
+    }
+    // Indent the meeting block under its project header.
+    padding-left: 4px;
+  }
+  &__meeting-title {
+    @include t-caption;
+    font-weight: 640;
+    color: var(--mcm-text, rgba(0, 0, 0, 0.78));
+    margin: 0 0 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

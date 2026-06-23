@@ -3668,6 +3668,11 @@ type PackageListRow = PackageRow & {
   host_email: string | null;
   confidentiality: string | null;
   file_count: number;
+  // Display context so the recipient surfaces ("Shared with me" / portal
+  // recaps) can GROUP and label each recap by its project + meeting rather
+  // than listing bare titles. NULL when the meeting/project row is missing.
+  project_name: string | null;
+  meeting_title: string | null;
 };
 
 const shapePackageListItem = (p: PackageListRow) => ({
@@ -3681,6 +3686,8 @@ const shapePackageListItem = (p: PackageListRow) => ({
   created_at: p.created_at,
   published_at: p.published_at,
   file_count: p.file_count,
+  project_name: p.project_name,
+  meeting_title: p.meeting_title,
 });
 
 // List the packages of one meeting that the caller may see. The host-level
@@ -3715,10 +3722,12 @@ app.get("/v1/meetings/:roomId/packages", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT pkg.*, m.organizer_email, m.host_email, m.confidentiality,
+            m.title AS meeting_title, p.name AS project_name,
             (SELECT COUNT(*) FROM meeting_package_file f
               WHERE f.package_id = pkg.id) AS file_count
        FROM meeting_package pkg
        JOIN meeting m ON m.id = pkg.meeting_id
+       LEFT JOIN project p ON p.id = COALESCE(m.project_id, pkg.project_id)
       WHERE pkg.meeting_id = ?1 AND pkg.deleted_at IS NULL
       ORDER BY pkg.created_at DESC`,
   )
@@ -3759,10 +3768,12 @@ app.get("/v1/me/packages", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT DISTINCT pkg.*, m.organizer_email, m.host_email, m.confidentiality,
+            m.title AS meeting_title, p.name AS project_name,
             (SELECT COUNT(*) FROM meeting_package_file f
               WHERE f.package_id = pkg.id) AS file_count
        FROM meeting_package pkg
        JOIN meeting m ON m.id = pkg.meeting_id
+       LEFT JOIN project p ON p.id = COALESCE(m.project_id, pkg.project_id)
        LEFT JOIN meeting_package_recipient r
               ON r.package_id = pkg.id
              AND lower(r.email) = ?1

@@ -1700,6 +1700,10 @@ export const en: Widened<typeof vi> = {
     sharedWithMe: "Shared with me",
     sharedEmpty: "No recaps have been shared with you yet.",
     sharedNew: "{count} newly shared",
+    // Grouping labels for the recipient surfaces — recaps are grouped by
+    // project → meeting so they're identifiable at a glance.
+    noProject: "Other recaps",
+    meetingFallback: "Untitled meeting",
     open: "Open",
     noFiles: "No files",
     viewerTitle: "Recap",

@@ -63,6 +63,49 @@ const fmtRecapWhen = (ms: number | null): string => {
       });
 };
 
+// Group a flat recap list into project → meeting buckets for the portal recaps
+// section. Purely presentational (opening still keys on the package id). Named
+// projects appear in first-seen order; recaps with no known project fall into a
+// trailing "Other recaps" bucket (key "").
+type PortalMeetingGroup = {
+  meetingId: string;
+  meetingTitle: string | null;
+  items: MeetingPackageListItem[];
+};
+type PortalProjectGroup = {
+  key: string;
+  projectName: string | null;
+  meetings: PortalMeetingGroup[];
+};
+const groupRecaps = (
+  items: MeetingPackageListItem[],
+): PortalProjectGroup[] => {
+  const projects = new Map<string, PortalProjectGroup>();
+  for (const p of items) {
+    const pKey = p.project_id ?? "";
+    let pg = projects.get(pKey);
+    if (!pg) {
+      pg = { key: pKey, projectName: p.project_name, meetings: [] };
+      projects.set(pKey, pg);
+    }
+    let mg = pg.meetings.find((m) => m.meetingId === p.meeting_id);
+    if (!mg) {
+      mg = { meetingId: p.meeting_id, meetingTitle: p.meeting_title, items: [] };
+      pg.meetings.push(mg);
+    }
+    mg.items.push(p);
+  }
+  return [...projects.values()].sort((a, b) => {
+    if (a.key === "" && b.key !== "") {
+      return 1;
+    }
+    if (b.key === "" && a.key !== "") {
+      return -1;
+    }
+    return 0;
+  });
+};
+
 export const ClientPortal = ({ session }: { session: Session }) => {
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -221,6 +264,12 @@ export const ClientPortal = ({ session }: { session: Session }) => {
     );
   };
 
+  // Group recaps by project → meeting so a guest with recaps across several
+  // meetings can tell which is which (server returns project_name/meeting_title
+  // per package). Named projects keep first-seen order; the no-project bucket
+  // sinks to the end. Each meeting becomes a labelled sub-block of recap rows.
+  const recapGroups = groupRecaps(recaps ?? []);
+
   // The recap surface stands on its own — a guest may have shared recaps even
   // when they have no current/past meetings, so it must not be gated behind the
   // meetings list.
@@ -291,9 +340,32 @@ export const ClientPortal = ({ session }: { session: Session }) => {
                     {t("portal.recapsTitle")}
                   </h2>
                   {hasRecaps ? (
-                    <ul className="mcm-portal__list">
-                      {(recaps ?? []).map((p) => recapRow(p))}
-                    </ul>
+                    <div className="mcm-portal__recap-groups">
+                      {recapGroups.map((pg) => (
+                        <div
+                          key={pg.key || "__no_project__"}
+                          className="mcm-portal__recap-project"
+                        >
+                          <h3 className="mcm-portal__recap-project-title">
+                            {pg.projectName?.trim() || t("pkg.noProject")}
+                          </h3>
+                          {pg.meetings.map((mg) => (
+                            <div
+                              key={mg.meetingId}
+                              className="mcm-portal__recap-meeting"
+                            >
+                              <p className="mcm-portal__recap-meeting-title">
+                                {mg.meetingTitle?.trim() ||
+                                  t("pkg.meetingFallback")}
+                              </p>
+                              <ul className="mcm-portal__list">
+                                {mg.items.map((p) => recapRow(p))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <div className="mcm-portal__recaps-empty">
                       <Package size={18} strokeWidth={1.5} aria-hidden="true" />
