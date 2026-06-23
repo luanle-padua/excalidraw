@@ -23,6 +23,12 @@
 
 **Prod hiện tại:** Pages `map-canvasm` + Worker `mcm-storage` = HEAD `origin/master`; migration remote D1 tới **0036**. (PWA cache cứng → hard-refresh / unregister service worker để thấy bản mới — hôm nay 1 bundle SW cũ làm rối khâu test.)
 
+## 🔧 FIX THÊM CUỐI NGÀY 06-23 (đã deploy — CHỜ ANH LUÂN VERIFY)
+- **Recording screen-share KHÔNG có audio → ĐÃ FIX** (`excalidraw-app/audio/clientRecording.ts`). Gốc rễ (3 agent xác nhận): đường audio + remux + player đều SẠCH; thủ phạm là **VP9 real-time encoder starve track Opus ở tầng mux MediaRecorder** (audio-only không có video encoder nên không dính). Fix: ưu tiên `vp8,opus` trước vp9 + ép `audioBitsPerSecond:128k` + cap `videoBitsPerSecond` + log `recorder.mimeType`. LIVE. **VERIFY: quay thử screen-share → nghe có tiếng chưa.**
+- **Admin Console xóa project KHÔNG xóa được → ĐÃ FIX** (`worker/src/index.ts`). Gốc rễ THẬT (không phải cache): `meeting_package.meeting_id` là **FK enforced** tới meeting(id); cascade cũ không xóa `meeting_package*` → `DELETE FROM meeting` ném "FOREIGN KEY constraint failed" → batch rollback → `DELETE FROM project` không chạy → project còn nguyên + client nuốt lỗi. **Phát sinh hôm nay vì Package vừa go-live 06-23.** Fix: (a) `meetingDeleteStatements` xóa `meeting_package_recipient/_file/_package` (đúng thứ tự FK) + `meeting_event/meeting_consent/recording`; (b) route admin xóa toàn bộ row DB trong **1 D1 batch chia chunk** (project biến mất chắc chắn, atomic) + dọn R2/DO/Daily đẩy xuống **`waitUntil` background**; (c) client `AdminConsole.handleDeleteProject` **báo alert lỗi** thay vì nuốt (key i18n `admin.deleteProjectFailed`). Worker LIVE `bfe7a7e4`. **VERIFY: hard-refresh → xóa project "20260617" → phải biến mất ngay.**
+- Worker version cuối: `bfe7a7e4`. Pages cuối: `f4c25d67`. Push cuối: `fb5ba531`.
+- Còn sót (minor, KHÔNG block xóa): R2 blobs `packages/<id>/...` và rows `project_file` không được dọn khi xóa project (orphan; giữ theo moat "revoke≠delete"). Để sau nếu cần.
+
 ## ⏳ PENDING / BUGS cho ngày mai (PHẦN QUAN TRỌNG NHẤT)
 1. **Canvas-Replay — ĐÃ REVERT hôm nay** (revert commit trên master; bản gốc là feature replay: capture canvas evolution + scrub player). **LÝ DO revert: gây REGRESSION** —
    - (a) **phantom guests**: hàng chục entry "guest" cứ hiện cho NGƯỜI KHÁC khi review (nghi do player mount Excalidraw THỨ HAI + vòng lặp reload → re-join phòng lặp → presence ma);
@@ -30,7 +36,7 @@
    - (c) không scrub được.
    - **Phía CAPTURE đã review SẠCH** (`data/canvasHistory.ts`: snapshot-delta mỗi 3s, E2E, hook thụ động trong `Collab.syncElements` SAU broadcast; worker `/v1/canvas-history/:roomId` blob E2E). Thủ phạm là **PLAYER** (`CanvasReplaySection.tsx`, một `<Excalidraw>` thứ 2 standalone).
    - **REBUILD theo hướng**: play trên CHÍNH canvas review-mode (lái Excalidraw review hiện có qua `updateScene` theo timeline — **KHÔNG mount Excalidraw thứ 2**), KHÔNG presence ma, KHÔNG reload loop, scrub chạy được. (UX owner: "chỉ cần player ở canvas, cho nó play mọi hoạt động".)
-2. **Recording bug — quay screen-share KHÔNG có audio.** Khi record TRONG LÚC screen-share, WebM ra thiếu audio (record audio-only THÌ CÓ audio, theo owner). Soi `excalidraw-app/audio/clientRecording.ts` — output stream phải LUÔN mang track audio-mix kèm track video-canvas; tìm vì sao audio rớt khi có track video compositor (nghi MediaRecorder codec/thứ tự track, hoặc mix audio rỗng khi screen capture).
+2. ~~**Recording bug — quay screen-share KHÔNG có audio**~~ → **ĐÃ FIX + deploy 06-23** (xem mục 🔧 ở trên, VP8). Chỉ còn chờ anh Luân verify nghe có tiếng.
 3. **Recording — KHÔNG phải bug (đã xác nhận)**: screen recording quay đúng người đang share (1 người share bất kỳ), KHÔNG phải ghép tất cả mọi người — owner OK.
 4. **Dọn worktree**: ~25+ worktree agent cũ tồn trong `.claude/worktrees/` (bẫy junction Windows — `rm -rf` và cả `git worktree remove` đi theo junction node_modules rồi XOÁ repo CHÍNH; xem memory feedback_windows-worktree-junction-footgun). Chúng làm bẩn `yarn test:app` (file test trùng). Dọn TAY: tắt process node/vite vương vãi, rồi xoá `.claude/worktrees/` bằng tay. KHÔNG rm chúng từ trong 1 session đang chạy.
 
