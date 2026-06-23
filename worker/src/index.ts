@@ -7084,6 +7084,36 @@ const meetingDeleteStatements = (
   env.DB.prepare(`DELETE FROM note WHERE scope = 'meeting' AND ref = ?1`).bind(
     roomId,
   ),
+  // Meeting Package rows (0032/0034) — `meeting_package.meeting_id` is an
+  // ENFORCED foreign key to meeting(id) (D1 enforces FKs by default), so the
+  // `DELETE FROM meeting` below THROWS "FOREIGN KEY constraint failed" if any
+  // package row survives — which rolls back the whole batch and leaves the
+  // project undeletable (the regression that surfaced when Packages went live
+  // 06-23). Delete children (recipient/file → package) before the parent, and
+  // the parent before the meeting. Provenance is the R2 package blobs + the
+  // archive download, so removing these index rows is correct on a hard delete.
+  env.DB
+    .prepare(
+      `DELETE FROM meeting_package_recipient
+         WHERE package_id IN (SELECT id FROM meeting_package WHERE meeting_id = ?1)`,
+    )
+    .bind(roomId),
+  env.DB
+    .prepare(
+      `DELETE FROM meeting_package_file
+         WHERE package_id IN (SELECT id FROM meeting_package WHERE meeting_id = ?1)`,
+    )
+    .bind(roomId),
+  env.DB.prepare(`DELETE FROM meeting_package WHERE meeting_id = ?1`).bind(
+    roomId,
+  ),
+  // Meeting-scoped rows with NON-enforced (commented) FKs — they don't block the
+  // delete, but a hard meeting delete should leave no orphans behind.
+  env.DB.prepare(`DELETE FROM meeting_event WHERE meeting_id = ?1`).bind(roomId),
+  env.DB.prepare(`DELETE FROM meeting_consent WHERE meeting_id = ?1`).bind(
+    roomId,
+  ),
+  env.DB.prepare(`DELETE FROM recording WHERE meeting_id = ?1`).bind(roomId),
   env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId),
   // Tombstone: deleted stays deleted — the upsert PUT/POST routes check this so
   // a client still holding the room open can't resurrect the meeting.
