@@ -7285,6 +7285,38 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   display: flex;
   flex-direction: column;
   gap: 28px;
+  // Bound the height so a guest with many meetings + shared recaps scrolls the
+  // list INSIDE the frosted card instead of growing the card past the viewport
+  // (the page used to overflow / the rows clipped at the bottom). The cap is
+  // generous so short lists never scroll; long lists get the app's thin
+  // (Notion) scrollbar. A little right padding keeps the bar off the rows, and
+  // the negative margin reclaims it so rows stay flush with the section titles.
+  max-height: min(62vh, 620px);
+  overflow-y: auto;
+  padding-right: 6px;
+  margin-right: -6px;
+
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 200ms;
+
+  &:hover {
+    scrollbar-color: var(--mcm-hairline) transparent;
+  }
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background-color 200ms;
+  }
+  &:hover::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+  }
 }
 
 .mcm-portal__section {
@@ -12220,6 +12252,15 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline-2);
     border-radius: 16px;
     box-shadow: var(--mcm-elev);
+  }
+
+  // Language switcher (VI/EN/KO) pinned to the top-right of the card so the
+  // user can read the terms in their language before accepting. Reuses the
+  // shared `.mcm-langtheme__langs` segmented control (LangSwitcher), which
+  // drives the app-wide preferred language.
+  &__lang {
+    align-self: flex-end;
+    margin: -8px -4px 4px 0;
   }
 
   &__icon {

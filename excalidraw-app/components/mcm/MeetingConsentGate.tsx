@@ -10,6 +10,8 @@ import { getMeeting } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
+import { LangSwitcher } from "./LangThemeSwitcher";
+
 /**
  * Join-time consent gate (legally-important, disclosed record-keeping).
  *
@@ -83,6 +85,14 @@ export const MeetingConsentGate = ({
   return (
     <div className="mcm-gate" role="dialog" aria-modal="true">
       <div className="mcm-gate__card">
+        {/* Read the terms in your language. Drives the app-wide
+            `preferredLanguageAtom` (via appLangCodeAtom) so the choice persists
+            and stays consistent everywhere — not a local-only toggle. The
+            consent.* copy already exists in vi/en/ko; switching the lang just
+            flips which renders. */}
+        <div className="mcm-gate__lang">
+          <LangSwitcher />
+        </div>
         <ShieldCheck size={34} className="mcm-gate__icon" />
         <h2 className="mcm-gate__title">{t("consent.title")}</h2>
         <p className="mcm-gate__desc">{t("consent.body")}</p>
