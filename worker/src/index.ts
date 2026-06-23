@@ -348,6 +348,16 @@ app.use("/v1/*", async (c, next) => {
   if (c.req.path === "/v1/health") {
     return next();
   }
+  // Public avatar READS: an uploaded avatar renders via `<img src=…>`, which
+  // cannot attach the Authorization bearer — so the serve route must be
+  // reachable without a JWT, or custom avatars 401 on reload and vanish (while
+  // preset "lib:NN.png" avatars, served as static frontend assets, work). Only
+  // a GET of a specific key is exempt; the avatar key is an email-HASH (not the
+  // email) and avatars are shown to every signed-in user anyway. The PUT upload
+  // (`/v1/me/avatar`, no sub-segment) stays gated.
+  if (c.req.method === "GET" && /^\/v1\/me\/avatar\/[^/]+$/.test(c.req.path)) {
+    return next();
+  }
   return jwtGate(c, next);
 });
 
