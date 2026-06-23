@@ -1753,8 +1753,17 @@ export const vi = {
     audienceListHint: "Chỉ những email bạn nhập bên dưới.",
     confidentialBlocked:
       "Cuộc họp này được đánh dấu BẢO MẬT — không thể chia sẻ cho cả dự án.",
-    recipientsLabel: "Email người nhận",
-    recipientsPlaceholder: "an@cty.com, binh@cty.com",
+    recipientsLabel: "Người nhận",
+    recipientsPlaceholder: "ten@congty.com",
+    // Từ trong tên mặc định, vd "Acme · Họp thiết kế · Tóm tắt · 2026-06-23".
+    recapWord: "Tóm tắt",
+    // Bộ chọn người nhận (đối tượng = danh sách).
+    recipientSearch: "Tìm theo tên / phòng ban / công ty…",
+    recipientInternal: "Thành viên nội bộ",
+    recipientGuests: "Khách dự án",
+    recipientExternal: "Email khác",
+    recipientAdd: "Thêm",
+    recipientRemove: "Xóa người nhận",
     saveDraft: "Lưu nháp",
     publish: "Phát hành",
     exportZip: "Tải gói (.zip)",

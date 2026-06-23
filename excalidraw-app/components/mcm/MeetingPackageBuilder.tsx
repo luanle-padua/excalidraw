@@ -16,14 +16,18 @@ import {
   Box,
   X,
   Plus,
+  Search,
+  Briefcase,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { getDirectory, type DirectoryUser } from "../../data/invite";
 import {
   createPackage,
   decryptMeetingChat,
   decryptMeetingFile,
+  defaultPackageName,
   exportMeetingBoardPng,
   exportPackageZip,
   listMeetingFiles,
@@ -37,7 +41,23 @@ import {
   type PackageAudience,
   type RecapChatMessage,
 } from "../../data/packages";
+import { listProjectGuests, type ProjectGuest } from "../../data/projectGuests";
+import { getMeeting } from "../../data/projects";
 import { useT, type McmKey } from "../../i18n/mcm";
+
+// A picked recipient for the audience='list' member picker. `kind` only drives
+// the chip styling; the worker just needs the email, so internal members,
+// project guests, and free-typed externals all collapse to the same recipient
+// string on save.
+type PickedRecipient = {
+  email: string;
+  name: string;
+  kind: "internal" | "guest" | "external";
+};
+
+// Loose email shape check for the raw external-email fallback input.
+const looksLikeEmail = (s: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 // Reasonable byte size formatter for the file rows.
 const fmtSize = (n: number | null | undefined): string => {
@@ -200,10 +220,23 @@ export const MeetingPackageBuilder = ({
   onClose: () => void;
 }) => {
   const t = useT();
-  const [title, setTitle] = useState(meetingTitle || "");
+  const [title, setTitle] = useState("");
+  // Whether the curator has hand-edited the title — once they have, we stop
+  // overwriting it with the (async-resolved) default name.
+  const titleTouched = useRef(false);
   const [summary, setSummary] = useState(initialSummary ?? "");
   const [audience, setAudience] = useState<PackageAudience>("meeting");
-  const [recipients, setRecipients] = useState("");
+  // audience='list' recipients are now PICKED (members / project guests / a
+  // free-typed external email) into chips; their emails feed `createPackage`.
+  const [picked, setPicked] = useState<Map<string, PickedRecipient>>(new Map());
+  // Internal staff directory + this project's issued guests for the picker —
+  // the SAME data sources the Invite flow uses (getDirectory / listProjectGuests).
+  const [dir, setDir] = useState<DirectoryUser[]>([]);
+  const [guests, setGuests] = useState<ProjectGuest[]>([]);
+  const [peopleQ, setPeopleQ] = useState("");
+  // Free-typed external email fallback (the picker only covers internal staff +
+  // issued project guests).
+  const [extraEmail, setExtraEmail] = useState("");
   const [files, setFiles] = useState<MeetingFileRow[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -231,6 +264,69 @@ export const MeetingPackageBuilder = ({
     };
   }, [roomId]);
 
+  // Resolve a GOOD default title from the meeting's context (project + title +
+  // date), using getMeeting — the same read-only source the rest of the meeting
+  // surfaces use. We don't get project/date as props (the builder is opened with
+  // just the title), so we fetch them here and also pre-fill from `meetingTitle`
+  // synchronously so the field is never empty while the fetch is in flight.
+  // The default is only applied while the curator hasn't edited the title.
+  useEffect(() => {
+    let alive = true;
+    // Seed immediately with what we already have (title + today), so the field
+    // shows a sensible default before the project/date resolve.
+    if (!titleTouched.current) {
+      setTitle(
+        defaultPackageName({
+          meetingTitle,
+          recapWord: t("pkg.recapWord"),
+          meetingDate: null,
+        }),
+      );
+    }
+    void (async () => {
+      const m = await getMeeting(roomId);
+      if (!alive || titleTouched.current) {
+        return;
+      }
+      setTitle(
+        defaultPackageName({
+          projectName: m?.project_name ?? null,
+          meetingTitle: m?.title || meetingTitle,
+          recapWord: t("pkg.recapWord"),
+          // Prefer the meeting's scheduled date; fall back to when it was
+          // created; defaultPackageName falls back to today if both are absent.
+          meetingDate: m?.scheduled_at ?? m?.created_at ?? null,
+        }),
+      );
+    })();
+    return () => {
+      alive = false;
+    };
+    // meetingTitle is stable for the lifetime of the modal; t is stable per
+    // language. roomId identifies the meeting to fetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
+
+  // Load the picker's people sources once (internal directory + this project's
+  // issued guests) — reusing the Invite flow's data fns, not a new endpoint.
+  useEffect(() => {
+    let alive = true;
+    void getDirectory().then((users) => {
+      if (alive) {
+        setDir(users);
+      }
+    });
+    void (async () => {
+      const m = await getMeeting(roomId);
+      if (alive && m?.project_id) {
+        setGuests(await listProjectGuests(m.project_id));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [roomId]);
+
   // A confidential meeting can never target the whole project.
   const projectBlocked = isConfidential;
   useEffect(() => {
@@ -244,14 +340,75 @@ export const MeetingPackageBuilder = ({
     [files, selected],
   );
 
+  // The recipient emails flowing into createPackage/updatePackage — exactly the
+  // same data contract as before (a string[] of emails), now SOURCED from the
+  // picked chips instead of a raw textarea. De-duped + lower-cased.
   const parsedRecipients = useMemo(
-    () =>
-      recipients
-        .split(/[,;\n]/)
-        .map((s) => s.trim().toLowerCase())
-        .filter((s) => s.includes("@")),
-    [recipients],
+    () => [...new Set([...picked.values()].map((p) => p.email))],
+    [picked],
   );
+
+  // Add / remove a picked recipient (keyed by lower-cased email).
+  const addPicked = (p: PickedRecipient) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.set(p.email, p);
+      return next;
+    });
+  const removePicked = (email: string) =>
+    setPicked((prev) => {
+      const next = new Map(prev);
+      next.delete(email);
+      return next;
+    });
+
+  // Friendly guest display name (representative + company), mirroring InvitePanel.
+  const guestName = (g: ProjectGuest) =>
+    g.company ? `${g.label ?? g.login} · ${g.company}` : g.label ?? g.login;
+
+  // Internal staff matching the search and not already picked.
+  const dirMatches = useMemo(() => {
+    const needle = peopleQ.trim().toLowerCase();
+    return dir
+      .filter((u) => !picked.has(u.email.toLowerCase()))
+      .filter(
+        (u) =>
+          !needle ||
+          u.name.toLowerCase().includes(needle) ||
+          u.email.toLowerCase().includes(needle) ||
+          (u.division ?? "").toLowerCase().includes(needle),
+      )
+      .slice(0, 40);
+  }, [dir, peopleQ, picked]);
+
+  // Active project guests matching the search and not already picked. Guests are
+  // addressed by their synthetic `login` identity (same as the invite flow).
+  const guestMatches = useMemo(() => {
+    const needle = peopleQ.trim().toLowerCase();
+    return guests
+      .filter(
+        (g) => g.status === "active" && !picked.has(g.login.toLowerCase()),
+      )
+      .filter(
+        (g) =>
+          !needle ||
+          (g.label ?? "").toLowerCase().includes(needle) ||
+          (g.company ?? "").toLowerCase().includes(needle) ||
+          (g.real_email ?? "").toLowerCase().includes(needle),
+      )
+      .slice(0, 30);
+  }, [guests, peopleQ, picked]);
+
+  // Add the free-typed external email (fallback for addresses the picker can't
+  // cover). No-op on a malformed / already-picked address.
+  const addExtraEmail = () => {
+    const email = extraEmail.trim().toLowerCase();
+    if (!looksLikeEmail(email) || picked.has(email)) {
+      return;
+    }
+    addPicked({ email, name: email, kind: "external" });
+    setExtraEmail("");
+  };
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -509,7 +666,10 @@ export const MeetingPackageBuilder = ({
               type="text"
               value={title}
               placeholder={t("pkg.titlePlaceholder")}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                titleTouched.current = true;
+                setTitle(e.target.value);
+              }}
               disabled={busy}
             />
           </label>
@@ -637,18 +797,144 @@ export const MeetingPackageBuilder = ({
           </div>
 
           {audience === "list" && (
-            <label className="mcm-pkg-field">
+            <div className="mcm-pkg-field mcm-pkg-recips">
               <span className="mcm-invite__label">
                 {t("pkg.recipientsLabel")}
+                {picked.size > 0 ? ` · ${picked.size}` : ""}
               </span>
-              <textarea
-                rows={2}
-                value={recipients}
-                placeholder={t("pkg.recipientsPlaceholder")}
-                onChange={(e) => setRecipients(e.target.value)}
-                disabled={busy}
-              />
-            </label>
+
+              {/* Selected recipients as removable chips. */}
+              {picked.size > 0 && (
+                <div className="mcm-invite__chips mcm-pkg-recips__chips">
+                  {[...picked.values()].map((p) => (
+                    <span
+                      key={p.email}
+                      className={`mcm-invite__chip${
+                        p.kind === "guest" ? " --guest" : ""
+                      }`}
+                    >
+                      {p.name}
+                      <button
+                        type="button"
+                        onClick={() => removePicked(p.email)}
+                        aria-label={t("pkg.recipientRemove")}
+                        disabled={busy}
+                      >
+                        <X size={12} aria-hidden="true" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* One search box drives both the internal-member and project-guest
+                  result lists (reusing the Invite flow's data sources). */}
+              <div className="mcm-invite__search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  value={peopleQ}
+                  onChange={(e) => setPeopleQ(e.target.value)}
+                  placeholder={t("pkg.recipientSearch")}
+                  disabled={busy}
+                />
+              </div>
+
+              <span className="mcm-invite__label">
+                {t("pkg.recipientInternal")}
+              </span>
+              <ul className="mcm-invite__list mcm-pkg-recips__list">
+                {dirMatches.map((u) => (
+                  <li key={u.email}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addPicked({
+                          email: u.email.toLowerCase(),
+                          name: u.name,
+                          kind: "internal",
+                        })
+                      }
+                      disabled={busy}
+                    >
+                      <strong>{u.name}</strong>
+                      <span>
+                        {[u.title, u.division].filter(Boolean).join(" · ") ||
+                          u.email}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+                {dirMatches.length === 0 && (
+                  <li className="mcm-invite__empty">{t("invite.empty")}</li>
+                )}
+              </ul>
+
+              {guests.length > 0 && (
+                <>
+                  <span className="mcm-invite__label">
+                    <Briefcase size={13} style={{ verticalAlign: "-2px" }} />{" "}
+                    {t("pkg.recipientGuests")}
+                  </span>
+                  <ul className="mcm-invite__list mcm-pkg-recips__list">
+                    {guestMatches.map((g) => (
+                      <li key={g.id}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            addPicked({
+                              email: g.login.toLowerCase(),
+                              name: guestName(g),
+                              kind: "guest",
+                            })
+                          }
+                          disabled={busy}
+                        >
+                          <strong>{g.label ?? g.login}</strong>
+                          <span>
+                            {[g.company, g.real_email]
+                              .filter(Boolean)
+                              .join(" · ") || g.login}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                    {guestMatches.length === 0 && (
+                      <li className="mcm-invite__empty">
+                        {t("projGuest.pickEmpty")}
+                      </li>
+                    )}
+                  </ul>
+                </>
+              )}
+
+              {/* Fallback: type a raw external email the picker can't cover. */}
+              <span className="mcm-invite__label">
+                {t("pkg.recipientExternal")}
+              </span>
+              <div className="mcm-pkg-recips__extra">
+                <input
+                  type="email"
+                  value={extraEmail}
+                  placeholder={t("pkg.recipientsPlaceholder")}
+                  onChange={(e) => setExtraEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addExtraEmail();
+                    }
+                  }}
+                  disabled={busy}
+                />
+                <button
+                  type="button"
+                  className="mcm-btn mcm-btn--secondary"
+                  onClick={addExtraEmail}
+                  disabled={busy || !looksLikeEmail(extraEmail.trim())}
+                >
+                  <Plus size={15} aria-hidden="true" /> {t("pkg.recipientAdd")}
+                </button>
+              </div>
+            </div>
           )}
 
           {phase && <p className="mcm-pkg-phase">{phase}</p>}

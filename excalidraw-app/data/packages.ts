@@ -10,18 +10,19 @@
 import { exportToBlob } from "@excalidraw/excalidraw";
 import { decompressData } from "@excalidraw/excalidraw/data/encode";
 
+import type {
+  FileId,
+  InitializedExcalidrawImageElement,
+} from "@excalidraw/element/types";
+
+import type { BinaryFiles } from "@excalidraw/excalidraw/types";
+
 import { fetchWithAuth } from "./fetchWithAuth";
 import {
   loadChatFromStorage,
   loadFilesFromStorage,
   loadFromStorage,
 } from "./storage";
-
-import type {
-  FileId,
-  InitializedExcalidrawImageElement,
-} from "@excalidraw/element/types";
-import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 
 // Same base-URL resolution as projects.ts / storage.ts.
 const STORAGE_URL =
@@ -147,6 +148,53 @@ export const getPackage = async (
   } catch {
     return null;
   }
+};
+
+/** Format a Date as a local `YYYY-MM-DD` stamp for the default package name. */
+const ymd = (d: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+/** Compose the builder's DEFAULT package title from the meeting's context, using
+ *  a consistent naming convention: `{project} · {meeting} · {recapWord} · {date}`.
+ *  Missing parts are dropped gracefully (no dangling separators) and the result
+ *  is length-capped. The curator can still freely edit it afterwards.
+ *
+ *  `meetingDate` accepts the meeting's `scheduled_at` (ISO string) or
+ *  `created_at` (ms epoch); an unparseable / absent value falls back to today,
+ *  so the stamp always reflects a sensible recap date. */
+export const DEFAULT_PACKAGE_NAME_MAX = 120;
+export const defaultPackageName = (args: {
+  projectName?: string | null;
+  meetingTitle?: string | null;
+  /** Localised "Recap" word (so the convention reads in the viewer's language). */
+  recapWord: string;
+  /** ISO string (scheduled_at) or ms-epoch (created_at) or null. */
+  meetingDate?: string | number | null;
+}): string => {
+  let when: Date = new Date();
+  if (typeof args.meetingDate === "number") {
+    const d = new Date(args.meetingDate);
+    if (!Number.isNaN(d.getTime())) {
+      when = d;
+    }
+  } else if (typeof args.meetingDate === "string" && args.meetingDate) {
+    const d = new Date(args.meetingDate);
+    if (!Number.isNaN(d.getTime())) {
+      when = d;
+    }
+  }
+  const parts = [
+    args.projectName?.trim(),
+    args.meetingTitle?.trim(),
+    args.recapWord.trim(),
+    ymd(when),
+  ].filter((p): p is string => Boolean(p && p.length));
+  const name = parts.join(" · ");
+  return name.length > DEFAULT_PACKAGE_NAME_MAX
+    ? `${name.slice(0, DEFAULT_PACKAGE_NAME_MAX - 1).trimEnd()}…`
+    : name;
 };
 
 /** List a meeting's files for the package builder's picker. */

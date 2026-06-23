@@ -1680,8 +1680,17 @@ export const ko: Widened<typeof vi> = {
     audienceListHint: "아래에 입력한 이메일만.",
     confidentialBlocked:
       "이 회의는 기밀로 표시되어 있어 프로젝트 전체에 공유할 수 없어요.",
-    recipientsLabel: "받는 사람 이메일",
-    recipientsPlaceholder: "ann@co.com, ben@co.com",
+    recipientsLabel: "받는 사람",
+    recipientsPlaceholder: "name@company.com",
+    // 기본 제목 규칙 단어, 예: "Acme · 설계 검토 · 요약 · 2026-06-23".
+    recapWord: "요약",
+    // 받는 사람 선택기 (대상 = 목록).
+    recipientSearch: "이름 / 부서 / 회사로 검색…",
+    recipientInternal: "내부 구성원",
+    recipientGuests: "프로젝트 게스트",
+    recipientExternal: "다른 이메일",
+    recipientAdd: "추가",
+    recipientRemove: "받는 사람 제거",
     saveDraft: "초안 저장",
     publish: "게시",
     exportZip: "패키지 다운로드 (.zip)",

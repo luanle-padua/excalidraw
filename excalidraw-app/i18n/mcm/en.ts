@@ -1674,8 +1674,17 @@ export const en: Widened<typeof vi> = {
     audienceListHint: "Only the emails you enter below.",
     confidentialBlocked:
       "This meeting is marked CONFIDENTIAL — it can't be shared with the whole project.",
-    recipientsLabel: "Recipient emails",
-    recipientsPlaceholder: "ann@co.com, ben@co.com",
+    recipientsLabel: "Recipients",
+    recipientsPlaceholder: "name@company.com",
+    // Default-name convention word, e.g. "Acme · Design review · Recap · 2026-06-23".
+    recapWord: "Recap",
+    // Recipient member picker (audience='list').
+    recipientSearch: "Search people by name / department / company…",
+    recipientInternal: "Internal members",
+    recipientGuests: "Project guests",
+    recipientExternal: "Other email",
+    recipientAdd: "Add",
+    recipientRemove: "Remove recipient",
     saveDraft: "Save draft",
     publish: "Publish",
     exportZip: "Download package (.zip)",

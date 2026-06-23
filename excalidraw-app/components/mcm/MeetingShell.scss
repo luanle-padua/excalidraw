@@ -3612,6 +3612,55 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   color: var(--mcm-accent);
 }
 
+// ---- audience='list' recipient PICKER -------------------------------------
+// Reuses the Invite flow's chip / search / result-list visual language
+// (.mcm-invite__chips / __search / __list) — these rules only scope the
+// picker's spacing inside the package builder + the raw-email fallback row.
+.mcm-pkg-recips {
+  &__chips {
+    margin-bottom: 2px;
+  }
+
+  // Cap each result list so the two stacked pickers (members + guests) plus the
+  // fallback row stay inside the modal body without taking it over.
+  &__list {
+    max-height: 160px;
+  }
+
+  // Raw external-email fallback: a flat field + an inline Add button.
+  &__extra {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+
+    input[type="email"] {
+      flex: 1;
+      min-width: 0;
+      box-sizing: border-box;
+      font: inherit;
+      font-size: 14px;
+      color: var(--mcm-text);
+      background: var(--mcm-surface-2);
+      border: 1px solid var(--mcm-hairline);
+      border-radius: 10px;
+      padding: 9px 12px;
+
+      &:focus {
+        outline: none;
+        border-color: var(--mcm-accent);
+      }
+    }
+
+    button {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+  }
+}
+
 // ---- Meeting Package VIEWER (recipient-facing) ----------------------------
 .mcm-pkgv-modal {
   // Wider than the builder: the recap now leads with a full board image, which
