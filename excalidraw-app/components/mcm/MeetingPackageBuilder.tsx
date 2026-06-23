@@ -333,7 +333,7 @@ export const MeetingPackageBuilder = ({
   // instead of over the whole viewport.
   return createPortal(
     <div
-      className="mcm-log-modal-backdrop"
+      className="mcm-log-modal-backdrop mcm-pkg-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label={t("pkg.builderTitle")}

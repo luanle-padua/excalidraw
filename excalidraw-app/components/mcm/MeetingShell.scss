@@ -8606,6 +8606,13 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 // escapes the Glass-Desk blur stacking context that was burying it under the
 // calendar) — stamp tokens here or its accent "save" button renders invisible.
 .mcm-meditor,
+// The Meeting Package builder modal portals to <body> (escaping the Glass-Desk
+// transform/blur ancestors that trapped its fixed backdrop under the calendar);
+// stamp tokens here or its --mcm-surface panel computes to nothing (transparent
+// background) and its mcm-btn accents render invisible. Scoped to its own
+// backdrop class so the in-meeting log modal (same .mcm-log-modal markup, base
+// tokens) is untouched.
+.mcm-pkg-backdrop,
 // roots that sit OUTSIDE .mcm-lobby but ride the Glass-Desk vocabulary:
 // the swatches popover portals into .mcm-shell, the app toast mounts as a
 // shell sibling of the lobby — neither inherits the lobby token scope.
@@ -8625,6 +8632,7 @@ body:has(.excalidraw.theme--dark) {
   .mcm-pp-overlay,
   .mcm-cmodal-ov,
   .mcm-meditor,
+  .mcm-pkg-backdrop,
   .mcm-swatches--pop,
   .mcm-toast {
     @include mcm-tokens-dark;
