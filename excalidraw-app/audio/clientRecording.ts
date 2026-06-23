@@ -4,11 +4,31 @@
 //   • MIXED AUDIO — the local mic + every remote participant's audio, mixed
 //     through a Web Audio graph (the exact approach proven in MeetingRecorder.ts,
 //     reused here). Streams can be added/removed live as peers join/leave.
-//   • SCREEN-SHARE VIDEO — the live screen video TRACK, when a share is active
-//     (the host's own share via the controller's localStream, or the remote
-//     presenter's remoteStream the host is viewing). When no one is sharing the
-//     output is audio-only; the track can be attached/detached mid-record without
-//     restarting the recorder (we add it to the SAME canonical output stream).
+//   • SCREEN-SHARE VIDEO via a CANVAS COMPOSITOR (when the host opts into screen
+//     capture). See the compositor note below — this is what lets a share that
+//     starts AFTER Record was pressed still land in the file.
+//
+// THE CANVAS COMPOSITOR (fixes "share started after Record = audio-only file").
+//   MediaRecorder ONLY records the tracks that exist on its stream at the moment
+//   start() was called — a track added later is ignored. So the old approach
+//   (start audio-only, then outputStream.addTrack(screen) when a share begins)
+//   silently dropped any mid-record share. The compositor sidesteps this:
+//     - At start() we create an offscreen <canvas> and record a CONSTANT video
+//       track from canvas.captureStream(fps). That single canvas track is on the
+//       stream from start() → MediaRecorder always has a video track to record.
+//     - A throttled rAF loop draws the CURRENT screen-share frame onto the canvas
+//       (letterboxed/contain), or a neutral dark placeholder when nobody shares.
+//     - The screen source is fed through an offscreen <video> (muted/autoplay/
+//       playsInline) whose srcObject is the active screen stream. setScreenStream
+//       just swaps that srcObject → starting/stopping a share mid-record is
+//       SEAMLESS: the recorded canvas track never changes, only its content does.
+//   Audio stays the existing Web Audio mix (one audio track). Output = audio +
+//   the constant canvas-video track.
+//
+//   AUDIO-ONLY path: if the host did NOT opt into screen capture (start({screen:
+//   false})) we skip the compositor entirely and record audio-only (a smaller
+//   file). When screen IS opted in we ALWAYS run the compositor so a later share
+//   is captured. The choice is explicit — see start()'s `screen` option.
 //
 // The result blob is uploaded to R2 (data/recordings.ts → PUT upload route) and
 // indexed in the `recording` D1 table, so review-mode (RecordingsSection) plays
@@ -22,6 +42,7 @@
 // (it is still wired behind RecordingControls) and reuse its audio-mix recipe.
 
 import { fixWebmDuration } from "./fixWebmDuration";
+import { makeWebmSeekable } from "./makeWebmSeekable";
 
 // Prefer VIDEO webm (vp8/opus) so a screen track is recordable; fall back down
 // to plain audio webm if the browser only supports audio (so an audio-only
@@ -54,21 +75,49 @@ export type ClientRecordingResult = {
   durationMs: number;
 };
 
+/** Options for a recording session, chosen by the host's pre-record picker. */
+export type ClientRecordingOptions = {
+  /** When true, run the canvas compositor so a screen-share (now OR started
+   *  later) is captured. When false, record audio-only (smaller file). */
+  screen: boolean;
+};
+
 const LOCAL_KEY = "__local__";
+
+// Compositor video config — deliberately small/low-fps to match the existing
+// low-bitrate intent (review/docs-sized 480p files, not broadcast quality).
+const COMPOSITOR_WIDTH = 854; // ~480p 16:9
+const COMPOSITOR_HEIGHT = 480;
+const COMPOSITOR_FPS = 15;
 
 export class ClientMeetingRecorder {
   private readonly ctx: AudioContext;
   private readonly destination: MediaStreamAudioDestinationNode;
   private readonly sources = new Map<string, MediaStreamAudioSourceNode>();
   /** The canonical stream handed to MediaRecorder: one mixed audio track plus
-   *  (optionally) one screen-share video track. We keep a stable reference so a
-   *  screen track can be attached/removed mid-record without re-creating it. */
+   *  (optionally) the CONSTANT canvas-video track. We keep a stable reference so
+   *  the recorder is never re-created mid-session. */
   private outputStream: MediaStream | null = null;
-  /** The video track currently attached to outputStream (if any). */
-  private videoTrack: MediaStreamTrack | null = null;
   private recorder: MediaRecorder | null = null;
   private chunks: BlobPart[] = [];
   private startedAt = 0;
+
+  // ---- canvas compositor (screen capture) -------------------------------
+  /** Whether this session captures screen (runs the compositor). Set in start(). */
+  private compositorOn = false;
+  /** The offscreen canvas we draw the active share onto + record from. */
+  private canvas: HTMLCanvasElement | null = null;
+  private canvasCtx: CanvasRenderingContext2D | null = null;
+  /** The CONSTANT video track recorded from the canvas (present from start()). */
+  private canvasStream: MediaStream | null = null;
+  /** Offscreen <video> playing the CURRENT screen stream; the loop draws it. */
+  private screenVideo: HTMLVideoElement | null = null;
+  /** True when a screen stream is currently feeding the offscreen <video>. */
+  private hasActiveScreen = false;
+  /** rAF handle for the draw loop. */
+  private rafId = 0;
+  /** Timestamp (ms) of the last drawn frame, for fps throttling. */
+  private lastDrawAt = 0;
 
   constructor() {
     this.ctx = new (window.AudioContext ||
@@ -132,52 +181,195 @@ export class ClientMeetingRecorder {
     this.removeStream(LOCAL_KEY);
   }
 
-  // ---- screen video track -----------------------------------------------
+  // ---- screen video via the canvas compositor ----------------------------
 
   /**
-   * Attach a screen-share VIDEO track to the recording (or swap the existing
-   * one). Pass a MediaStream that carries a video track — the host's own share
-   * (screenShareMediaAtom.localStream) or the remote presenter's stream
-   * (remoteStream). Safe to call before OR during recording: the track is added
-   * to the canonical output stream that MediaRecorder is already recording, so a
-   * share that starts mid-meeting is captured without restarting.
-   *
-   * Only ONE screen video track is recorded at a time (the active share). A null
-   * / track-less stream detaches the current video track (audio-only from then
-   * on). We never STOP the underlying track here — the screen-share controller
-   * owns its lifecycle; we only add/remove it from our output stream.
+   * Point the compositor at the CURRENT screen-share stream (or null when nobody
+   * is sharing). Safe to call before OR during recording — it only swaps the
+   * srcObject of the offscreen <video> the draw loop reads, so a share that
+   * starts/stops mid-record is SEAMLESS: the recorded canvas track never changes,
+   * only its on-screen content does. No-op when the compositor isn't running
+   * (audio-only session). We never STOP the underlying track — the screen-share
+   * controller owns its lifecycle.
    */
   setScreenStream(stream: MediaStream | null): void {
-    const nextTrack = stream?.getVideoTracks()[0] ?? null;
-    if (nextTrack === this.videoTrack) {
-      return; // no change
+    if (!this.compositorOn || !this.screenVideo) {
+      return;
     }
-    // Detach the previous video track from the output stream (if any).
-    if (this.videoTrack && this.outputStream) {
-      try {
-        this.outputStream.removeTrack(this.videoTrack);
-      } catch {
-        // ignore
+    const track = stream?.getVideoTracks()[0] ?? null;
+    if (!track) {
+      // Detach — the draw loop will paint the placeholder from now on.
+      this.hasActiveScreen = false;
+      if (this.screenVideo.srcObject) {
+        this.screenVideo.srcObject = null;
       }
+      return;
     }
-    this.videoTrack = nextTrack;
-    if (nextTrack && this.outputStream) {
-      try {
-        this.outputStream.addTrack(nextTrack);
-      } catch (err) {
-        console.warn("[client-recorder] failed to add screen track", err);
+    // Feed the (single-video-track) stream into the offscreen <video>. Wrap in a
+    // fresh MediaStream so we never mutate the controller's stream.
+    const next = new MediaStream([track]);
+    this.screenVideo.srcObject = next;
+    // play() may reject if interrupted by a rapid swap — harmless; the loop only
+    // draws once readyState is high enough.
+    this.screenVideo.play().catch(() => undefined);
+    this.hasActiveScreen = true;
+  }
+
+  /** True when a live screen stream is currently feeding the compositor. */
+  hasScreen(): boolean {
+    return this.hasActiveScreen;
+  }
+
+  /** Build the offscreen canvas + <video> + constant capture track. Called from
+   *  start() only when screen capture is opted in. */
+  private initCompositor(): MediaStreamTrack | null {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = COMPOSITOR_WIDTH;
+      canvas.height = COMPOSITOR_HEIGHT;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return null;
       }
+      const video = document.createElement("video");
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      // Off-DOM elements still decode frames in modern browsers; keep them out of
+      // layout/AT.
+      video.setAttribute("aria-hidden", "true");
+
+      const stream = canvas.captureStream(COMPOSITOR_FPS);
+      const track = stream.getVideoTracks()[0] ?? null;
+      if (!track) {
+        return null;
+      }
+
+      this.canvas = canvas;
+      this.canvasCtx = ctx;
+      this.canvasStream = stream;
+      this.screenVideo = video;
+      this.compositorOn = true;
+
+      // Paint one placeholder frame immediately so the very first recorded frame
+      // is valid even before the loop's first tick.
+      this.drawPlaceholder();
+      this.startDrawLoop();
+      return track;
+    } catch (err) {
+      console.warn("[client-recorder] compositor init failed", err);
+      this.teardownCompositor();
+      return null;
     }
   }
 
-  /** True when a screen video track is currently attached. */
-  hasScreen(): boolean {
-    return this.videoTrack !== null;
+  /** Throttled rAF loop: draw the active screen frame (contain-fit) or a neutral
+   *  placeholder. Throttled to COMPOSITOR_FPS so we don't burn CPU. */
+  private startDrawLoop(): void {
+    const tick = () => {
+      this.rafId = requestAnimationFrame(tick);
+      const now = performance.now();
+      if (now - this.lastDrawAt < 1000 / COMPOSITOR_FPS) {
+        return;
+      }
+      this.lastDrawAt = now;
+      this.drawFrame();
+    };
+    this.rafId = requestAnimationFrame(tick);
+  }
+
+  private drawFrame(): void {
+    const ctx = this.canvasCtx;
+    const canvas = this.canvas;
+    const video = this.screenVideo;
+    if (!ctx || !canvas) {
+      return;
+    }
+    if (
+      this.hasActiveScreen &&
+      video &&
+      video.readyState >= 2 && // HAVE_CURRENT_DATA
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    ) {
+      // Letterbox/contain the screen frame onto the canvas.
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const scale = Math.min(
+        canvas.width / video.videoWidth,
+        canvas.height / video.videoHeight,
+      );
+      const w = video.videoWidth * scale;
+      const h = video.videoHeight * scale;
+      const x = (canvas.width - w) / 2;
+      const y = (canvas.height - h) / 2;
+      try {
+        ctx.drawImage(video, x, y, w, h);
+      } catch {
+        // A transient decode error — keep the previous frame.
+      }
+    } else {
+      this.drawPlaceholder();
+    }
+  }
+
+  /** Neutral dark frame with a small hint — shown whenever nobody is sharing. */
+  private drawPlaceholder(): void {
+    const ctx = this.canvasCtx;
+    const canvas = this.canvas;
+    if (!ctx || !canvas) {
+      return;
+    }
+    ctx.fillStyle = "#0f1115";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#5b616e";
+    ctx.font =
+      "16px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("No screen shared", canvas.width / 2, canvas.height / 2);
+  }
+
+  /** Stop the loop + release the compositor's canvas/video/capture stream. We do
+   *  NOT stop the screen-share track (the controller owns it); we only null our
+   *  srcObject reference to it. */
+  private teardownCompositor(): void {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+    }
+    if (this.screenVideo) {
+      try {
+        this.screenVideo.srcObject = null;
+        this.screenVideo.pause();
+      } catch {
+        // ignore
+      }
+      this.screenVideo = null;
+    }
+    if (this.canvasStream) {
+      // This stream is OURS (the canvas capture) — stopping it is correct.
+      for (const t of this.canvasStream.getTracks()) {
+        try {
+          t.stop();
+        } catch {
+          // ignore
+        }
+      }
+      this.canvasStream = null;
+    }
+    this.canvas = null;
+    this.canvasCtx = null;
+    this.compositorOn = false;
+    this.hasActiveScreen = false;
+    this.lastDrawAt = 0;
   }
 
   // ---- recorder lifecycle ------------------------------------------------
 
-  async start(): Promise<void> {
+  async start(
+    options: ClientRecordingOptions = { screen: false },
+  ): Promise<void> {
     if (this.recorder) {
       return;
     }
@@ -193,14 +385,23 @@ export class ClientMeetingRecorder {
         console.warn("[client-recorder] failed to resume AudioContext", err);
       }
     }
-    // Build the canonical output stream = mixed audio + (optional) screen video.
+    // Build the canonical output stream = mixed audio + (optionally) the CONSTANT
+    // canvas-video track. When screen capture is opted in we ALWAYS attach the
+    // canvas track from the start so a share that begins later is recorded
+    // (MediaRecorder ignores tracks added after start()). When not, we record
+    // audio-only for a smaller file.
     const audioTrack = this.destination.stream.getAudioTracks()[0];
     const tracks: MediaStreamTrack[] = [];
     if (audioTrack) {
       tracks.push(audioTrack);
     }
-    if (this.videoTrack) {
-      tracks.push(this.videoTrack);
+    if (options.screen) {
+      const canvasTrack = this.initCompositor();
+      if (canvasTrack) {
+        tracks.push(canvasTrack);
+      }
+      // If the compositor failed to init we fall through to audio-only rather
+      // than aborting the whole recording.
     }
     this.outputStream = new MediaStream(tracks);
 
@@ -247,16 +448,29 @@ export class ClientMeetingRecorder {
         const mimeType = recorder.mimeType || pickMimeType() || "video/webm";
         const rawBlob = new Blob(this.chunks, { type: mimeType });
         const durationMs = performance.now() - this.startedAt;
-        // Patch the WebM duration so players can seek — but RACE it against a
-        // short timeout and fall back to the raw blob, because fixWebmDuration
-        // (written for audio) can be slow / hang on a large video webm. Never
-        // let it block Stop.
+        // Make the WebM SEEKABLE so the review player's slider can drag.
+        // MediaRecorder emits a streaming WebM (no SeekHead/Cues, often no
+        // Duration) → unseekable. makeWebmSeekable (ts-ebml) re-muxes in a
+        // SeekHead + Cues + Duration. If that returns null (decode hiccup /
+        // odd file), fall back to fixWebmDuration which at least injects the
+        // Duration (fixes the length readout). Both steps are RACED against a
+        // hard timeout + fail-soft to the raw blob — Stop must NEVER hang on
+        // post-processing.
         let blob = rawBlob;
         if (mimeType.includes("webm") && rawBlob.size > 0) {
           try {
             blob = await Promise.race([
-              fixWebmDuration(rawBlob, durationMs),
-              new Promise<Blob>((r) => window.setTimeout(() => r(rawBlob), 4000)),
+              (async () => {
+                const seekable = await makeWebmSeekable(rawBlob);
+                if (seekable) {
+                  return seekable;
+                }
+                // Seekable remux unavailable — at least patch the Duration.
+                return fixWebmDuration(rawBlob, durationMs);
+              })(),
+              new Promise<Blob>((r) =>
+                window.setTimeout(() => r(rawBlob), 6000),
+              ),
             ]);
           } catch {
             blob = rawBlob;
@@ -285,8 +499,9 @@ export class ClientMeetingRecorder {
   }
 
   /** Tear everything down. Safe after stop() — releases the AudioContext, the
-   *  source nodes, and our output-stream wrapper (we never stop the screen
-   *  track; the screen-share controller owns it). */
+   *  source nodes, the canvas compositor (loop + canvas + our capture stream),
+   *  and the output-stream wrapper. We never stop the screen-share track; the
+   *  screen-share controller owns it. */
   close(): void {
     if (this.recorder && this.recorder.state !== "inactive") {
       try {
@@ -303,15 +518,9 @@ export class ClientMeetingRecorder {
       }
     }
     this.sources.clear();
-    // Detach (do NOT stop) the screen track + drop the output-stream wrapper.
-    if (this.videoTrack && this.outputStream) {
-      try {
-        this.outputStream.removeTrack(this.videoTrack);
-      } catch {
-        // ignore
-      }
-    }
-    this.videoTrack = null;
+    // Stop the draw loop + release the canvas/video/capture stream (never the
+    // screen-share track itself).
+    this.teardownCompositor();
     this.outputStream = null;
     this.ctx.close().catch(() => undefined);
   }

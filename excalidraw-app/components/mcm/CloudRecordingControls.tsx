@@ -55,9 +55,10 @@ const DEFAULT_CONTENT: RecordContent = {
 
 /** Pick the active screen-share stream to record: prefer OUR OWN share, else the
  *  remote presenter we're viewing. Null when no one is sharing. */
-const activeScreenStream = (
-  media: { localStream: MediaStream | null; remoteStream: MediaStream | null },
-): MediaStream | null => media.localStream ?? media.remoteStream ?? null;
+const activeScreenStream = (media: {
+  localStream: MediaStream | null;
+  remoteStream: MediaStream | null;
+}): MediaStream | null => media.localStream ?? media.remoteStream ?? null;
 
 const extractRoomId = (link: string | null | undefined): string | null =>
   link?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
@@ -203,14 +204,12 @@ export const CloudRecordingControls = () => {
       return;
     }
     captureScreenRef.current = content.screen;
-    if (content.screen) {
-      // Attach whatever is being shared at start; the useEffect above keeps it
-      // in sync if the share starts/stops mid-record.
-      rec.setScreenStream(activeScreenStream(screenMedia));
-    }
 
     try {
-      await rec.start();
+      // Pass the screen choice so the recorder runs the CANVAS COMPOSITOR (a
+      // constant video track present from start()) when screen is opted in — so
+      // a share that starts LATER is still captured. Audio-only otherwise.
+      await rec.start({ screen: content.screen });
     } catch (err) {
       rec.close();
       setBusy(false);
@@ -223,6 +222,11 @@ export const CloudRecordingControls = () => {
       return;
     }
     recorderRef.current = rec;
+    if (content.screen) {
+      // Seed the compositor with whatever is being shared right now; the
+      // useEffect below keeps it in sync if the share starts/stops mid-record.
+      rec.setScreenStream(activeScreenStream(screenMedia));
+    }
     setBusy(false);
     setPickerOpen(false);
     const ts = Date.now();

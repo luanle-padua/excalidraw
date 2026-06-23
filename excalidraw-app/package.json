@@ -36,6 +36,7 @@
     "@schedule-x/theme-default": "2.36.0",
     "@sentry/browser": "9.0.1",
     "@supabase/supabase-js": "2.107.0",
+    "buffer": "5.7.1",
     "callsites": "4.2.0",
     "dxf-viewer": "1.0.47",
     "firebase": "11.3.1",
@@ -49,6 +50,7 @@
     "react-dom": "19.0.0",
     "socket.io-client": "4.7.2",
     "three": "0.161.0",
+    "ts-ebml": "3.0.2",
     "uqr": "0.1.2",
     "vite-plugin-html": "3.2.2",
     "web-ifc": "0.0.68"
