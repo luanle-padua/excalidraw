@@ -232,6 +232,7 @@ export const ko: Widened<typeof vi> = {
     sectionInternal: "내부",
     sectionWorkspace: "워크스페이스",
     sectionProjectsActive: "진행 중 프로젝트",
+    sectionProjectsHold: "보류",
     sectionProjectsDone: "완료 / 보관",
     sectionProjectsInvited: "초대됨",
     clientLabel: "고객: {name}",
@@ -693,6 +694,18 @@ export const ko: Widened<typeof vi> = {
     filterDone: "완료",
     filterCancelled: "취소됨",
     memberAddFailed: "구성원을 추가하지 못했습니다 (내부 이메일만 가능).",
+  },
+
+  // ---------------- Project status (canonical lifecycle) ------------
+  projStatus: {
+    label: "상태",
+    prepare: "준비 중",
+    ongoing: "진행 중",
+    "on-hold": "보류",
+    finished: "완료",
+    cancelled: "취소됨",
+    archived: "보관",
+    changeFailed: "프로젝트 상태를 변경하지 못했습니다.",
   },
 
   // ---------------- Project management page --------------------------

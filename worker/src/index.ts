@@ -1811,6 +1811,85 @@ app.patch("/v1/projects/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// Canonical project lifecycle, stored in the existing free-text `stage` column
+// (no migration). Mirrors PROJECT_STATUSES in the client (data/projects.ts).
+const PROJECT_STATUSES = [
+  "prepare",
+  "ongoing",
+  "on-hold",
+  "finished",
+  "cancelled",
+  "archived",
+] as const;
+type ProjectStatusValue = typeof PROJECT_STATUSES[number];
+
+// Set a project's canonical lifecycle status — written to `stage`. LEADERSHIP
+// only (admin / project leader / leading-division HEAD; a delegated co-operator
+// can edit metadata but does NOT change the project's status). Returns the
+// updated project (with the viewer's computed role flags) so the client can
+// patch its list in place. Separate route from the metadata PATCH so the
+// stricter leadership gate is explicit and self-documenting.
+app.post("/v1/projects/:id/status", async (c) => {
+  const id = c.req.param("id");
+  const email = c.get("email");
+  const role = c.get("role");
+  if (!(await isProjectLeadership(c.env.DB, id, email, role))) {
+    return c.json({ error: "leadership only" }, 403);
+  }
+  const b = await c.req
+    .json<{ status?: string }>()
+    .catch(() => ({} as { status?: string }));
+  const status = (b.status ?? "").trim() as ProjectStatusValue;
+  if (!(PROJECT_STATUSES as readonly string[]).includes(status)) {
+    return c.json({ error: "invalid status" }, 400);
+  }
+  const ts = now();
+  const res = await c.env.DB.prepare(
+    `UPDATE project SET stage = ?2, updated_at = ?3 WHERE id = ?1`,
+  )
+    .bind(id, status, ts)
+    .run();
+  if (!res.meta.changes) {
+    return c.json({ error: "not found" }, 404);
+  }
+  await logAudit(c.env.DB, email, "project.status", id, { status });
+  // Re-read the row + the viewer's role flags so the client patches in place
+  // without a refetch (same shape the GET /v1/projects member arm emits).
+  const e = (email ?? "").toLowerCase();
+  const row = await c.env.DB.prepare(
+    `SELECT p.id, p.name, p.host_email, p.leader_email, p.lead_division_id,
+            p.code, p.client, p.location, p.stage, p.type, p.branch, p.cover,
+            p.description, p.color, p.icon, p.created_at, p.updated_at,
+            pm.role AS my_role,
+            (lower(p.leader_email) = ?2) AS is_leader,
+            (lower(d.head_email) = ?2) AS is_head
+       FROM project p
+       LEFT JOIN division d ON d.id = p.lead_division_id
+       LEFT JOIN project_member pm ON pm.project_id = p.id AND pm.email = ?2
+      WHERE p.id = ?1`,
+  )
+    .bind(id, e)
+    .first<Record<string, unknown>>();
+  if (!row) {
+    return c.json({ ok: true });
+  }
+  const isAdmin = isAdminish(role);
+  const project = {
+    ...row,
+    my_role: isAdmin ? "admin" : row.my_role ?? undefined,
+    can_manage:
+      isAdmin ||
+      row.my_role === "owner" ||
+      row.my_role === "manager" ||
+      !!row.is_leader ||
+      !!row.is_head,
+    is_leadership:
+      isAdmin || row.my_role === "owner" || !!row.is_leader || !!row.is_head,
+    can_assign_leader: isAdmin || !!row.is_head,
+  };
+  return c.json({ ok: true, project });
+});
+
 // Delete a project (LEADERSHIP — admin, leader, or leading-division head; NOT a
 // delegated manager). A non-admin can only delete an EMPTY project — its
 // meetings must be disposed of first through the meeting lifecycle (cancel →

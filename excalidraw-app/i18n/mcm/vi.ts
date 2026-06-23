@@ -254,8 +254,9 @@ export const vi = {
     // Top group — personal surfaces that aren't tied to a project.
     sectionInternal: "Nội bộ",
     sectionWorkspace: "Quản lý",
-    // Project status groups (bucketed from the free-text project stage).
+    // Project status groups (bucketed from the canonical project status).
     sectionProjectsActive: "Dự án đang chạy",
+    sectionProjectsHold: "Tạm dừng",
     sectionProjectsDone: "Đã xong / Lưu trữ",
     sectionProjectsInvited: "Được mời",
     // Per-project client line (a project's external client / company).
@@ -732,6 +733,20 @@ export const vi = {
     filterDone: "Đã xong",
     filterCancelled: "Đã hủy",
     memberAddFailed: "Không thêm được thành viên (chỉ email nội bộ).",
+  },
+
+  // ---------------- Trạng thái dự án (vòng đời chuẩn) ----------------
+  // Giá trị chuẩn lưu trong cột `stage`. Chỉ quản trị phòng ban / trưởng dự án
+  // (hoặc admin) đổi được; thành viên thường chỉ thấy nhãn.
+  projStatus: {
+    label: "Trạng thái",
+    prepare: "Chuẩn bị",
+    ongoing: "Đang chạy",
+    "on-hold": "Tạm dừng",
+    finished: "Hoàn thành",
+    cancelled: "Đã hủy",
+    archived: "Lưu trữ",
+    changeFailed: "Không đổi được trạng thái dự án.",
   },
 
   // ---------------- Trang quản lý dự án -----------------------------

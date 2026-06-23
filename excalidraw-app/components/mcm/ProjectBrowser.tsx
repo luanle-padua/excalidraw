@@ -36,6 +36,7 @@ import {
   getMeeting,
   listMeetingsChecked,
   listProjectsChecked,
+  projectStatusOf,
   updateMeeting,
   updateProject,
 } from "../../data/projects";
@@ -66,6 +67,7 @@ import { SharedWithMe } from "./SharedWithMe";
 import { buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
+import type { McmKey } from "../../i18n/mcm";
 
 // "all" = my whole calendar · "invited" = invitations · "shared" = recap
 // packages shared with me (Meeting Package recipient surface) · "myfiles" = the
@@ -156,22 +158,33 @@ const invToSummary = (i: MyInvitation): MeetingSummary => ({
   has_recap: i.has_recap ?? false,
 });
 
-// Project lifecycle bucket for the sidebar grouping. Projects carry a
-// FREE-TEXT `stage` (no enum), so we classify by matching done/archived
-// keywords (vi · en · ko) — anything else is treated as "active". An
-// invitee-access project (mời vào 1 cuộc họp của phòng khác) is its own
-// bucket regardless of stage: it isn't ours to manage.
-type ProjectBucket = "active" | "done" | "invited";
-
-const DONE_STAGE_RE =
-  /(xong|hoàn\s*thành|nghiệm\s*thu|bàn\s*giao|lưu\s*tr|đóng|kết\s*thúc|done|complete|finish|archiv|closed|wrap|완료|보관|종료|마감)/i;
+// ── PROJECT-STATUS GROUPING (owned by the project-status feature) ──────────
+// Sidebar lifecycle bucket, mapped EXACTLY from the canonical project status
+// (data/projects.ts), which is stored in the `stage` column. No more keyword
+// heuristics: prepare+ongoing → "active", on-hold → "hold", finished+archived+
+// cancelled → "done"; anything else (no status / legacy free-text stage) falls
+// back to "active" so a project is never hidden. An invitee-access project is
+// its own bucket regardless of status: it isn't ours to manage.
+type ProjectBucket = "active" | "hold" | "done" | "invited";
 
 const projectBucket = (p: Project): ProjectBucket => {
   if (p.access === "invitee") {
     return "invited";
   }
-  return p.stage && DONE_STAGE_RE.test(p.stage) ? "done" : "active";
+  switch (projectStatusOf(p.stage)) {
+    case "on-hold":
+      return "hold";
+    case "finished":
+    case "archived":
+    case "cancelled":
+      return "done";
+    case "prepare":
+    case "ongoing":
+    default:
+      return "active";
+  }
 };
+// ── END PROJECT-STATUS GROUPING ────────────────────────────────────────────
 
 // "Shared with me" unread tracking — which package ids the user has already
 // seen, persisted locally. The badge counts published packages NOT in this set;
@@ -260,7 +273,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // Keyed by bucket so each group remembers its own state for the session.
   const [collapsedGroups, setCollapsedGroups] = useState<
     Record<ProjectBucket, boolean>
-  >({ active: false, done: true, invited: true });
+  >({ active: false, hold: false, done: true, invited: true });
 
   useEffect(() => {
     let alive = true;
@@ -739,10 +752,17 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           )}
         </span>
         {/* Invited-only access (no membership): badge instead of the stage —
-            the folder shows just their meetings. */}
+            the folder shows just their meetings. Otherwise show the canonical
+            status label (or the legacy free-text stage as a fallback). */}
         {p.access === "invitee"
           ? null
-          : p.stage && <span className="mcm-nav__item-stage">{p.stage}</span>}
+          : (() => {
+              const s = projectStatusOf(p.stage);
+              const label = s ? t(`projStatus.${s}` as McmKey) : p.stage;
+              return label ? (
+                <span className="mcm-nav__item-stage">{label}</span>
+              ) : null;
+            })()}
       </button>
     </li>
   );
@@ -792,8 +812,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     );
   };
 
-  // Partition projects into the three sidebar buckets (already name-sorted).
+  // Partition projects into the sidebar status buckets (already name-sorted).
   const activeProjects = projects.filter((p) => projectBucket(p) === "active");
+  const holdProjects = projects.filter((p) => projectBucket(p) === "hold");
   const doneProjects = projects.filter((p) => projectBucket(p) === "done");
   const invitedProjects = projects.filter(
     (p) => projectBucket(p) === "invited",
@@ -899,6 +920,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                 t("nav.sectionProjectsActive"),
                 activeProjects,
               )}
+              {projectGroup("hold", t("nav.sectionProjectsHold"), holdProjects)}
               {projectGroup("done", t("nav.sectionProjectsDone"), doneProjects)}
               {projectGroup(
                 "invited",
@@ -935,11 +957,16 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                 once, with just the stage pill and a ⚙ shortcut into the
                 management page's detail (hidden for invitee folders —
                 nothing there for them to administer). */}
-            {selectedProject && selectedProject.stage && (
-              <span className="mcm-nav__item-stage">
-                {selectedProject.stage}
-              </span>
-            )}
+            {selectedProject &&
+              selectedProject.stage &&
+              (() => {
+                const s = projectStatusOf(selectedProject.stage);
+                return (
+                  <span className="mcm-nav__item-stage">
+                    {s ? t(`projStatus.${s}` as McmKey) : selectedProject.stage}
+                  </span>
+                );
+              })()}
             {selectedProject && isMemberProject(selectedProject) && (
               <button
                 type="button"

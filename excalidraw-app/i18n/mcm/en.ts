@@ -225,6 +225,7 @@ export const en: Widened<typeof vi> = {
     sectionInternal: "Internal",
     sectionWorkspace: "Workspace",
     sectionProjectsActive: "Active projects",
+    sectionProjectsHold: "On hold",
     sectionProjectsDone: "Done / Archived",
     sectionProjectsInvited: "Invited",
     clientLabel: "Client: {name}",
@@ -687,6 +688,18 @@ export const en: Widened<typeof vi> = {
     filterDone: "Done",
     filterCancelled: "Cancelled",
     memberAddFailed: "Couldn't add member (internal emails only).",
+  },
+
+  // ---------------- Project status (canonical lifecycle) ------------
+  projStatus: {
+    label: "Status",
+    prepare: "Preparing",
+    ongoing: "Ongoing",
+    "on-hold": "On hold",
+    finished: "Finished",
+    cancelled: "Cancelled",
+    archived: "Archived",
+    changeFailed: "Couldn't change the project status.",
   },
 
   // ---------------- Project management page --------------------------

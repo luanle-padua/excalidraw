@@ -10,6 +10,38 @@
 
 import { fetchWithAuth } from "./fetchWithAuth";
 
+// ---------------- Project status (canonical lifecycle) ----------------
+// The project's lifecycle, stored as a CANONICAL value in the existing
+// free-text `stage` column (no migration). A division admin (division HEAD)
+// or the project leader picks it; the sidebar groups projects on it instead
+// of the old keyword heuristic. Legacy projects whose `stage` holds free text
+// simply don't match a canonical value — they fall back to the default group.
+export const PROJECT_STATUSES = [
+  "prepare",
+  "ongoing",
+  "on-hold",
+  "finished",
+  "cancelled",
+  "archived",
+] as const;
+
+export type ProjectStatus = typeof PROJECT_STATUSES[number];
+
+/** Narrow an arbitrary `stage` string to a canonical status, or null when it
+ *  is empty / a legacy free-text value. Centralised so the sidebar grouping,
+ *  the badge, and the picker all read the column the same way. */
+export const projectStatusOf = (
+  stage: string | null | undefined,
+): ProjectStatus | null =>
+  stage && (PROJECT_STATUSES as readonly string[]).includes(stage)
+    ? (stage as ProjectStatus)
+    : null;
+
+/** i18n key for a status' label (translated at render time via `t()`). Kept
+ *  here so every surface shows the same wording. */
+export const projectStatusLabelKey = (status: ProjectStatus): string =>
+  `projStatus.${status}`;
+
 // Tunnel mode → same-origin via the Vite `/v1` proxy (base = ""); local
 // dev → absolute worker URL. Mirrors storage.ts / Collab's socket handling.
 export const STORAGE_URL =
@@ -189,6 +221,31 @@ export const updateProject = async (
     return res.ok;
   } catch {
     return false;
+  }
+};
+
+// Set a project's canonical lifecycle status (written to the `stage` column).
+// The worker gates this to the division admin (division HEAD) / project leader
+// / platform admin — NOT a plain member or a delegated co-operator. Returns the
+// updated project on success so the caller can patch its list in place.
+export const setProjectStatus = async (
+  projectId: string,
+  status: ProjectStatus,
+): Promise<Project | null> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    return null;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/projects/${encodeURIComponent(projectId)}/status`,
+      { method: "POST", headers: json, body: JSON.stringify({ status }) },
+    );
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()).project ?? null;
+  } catch {
+    return null;
   }
 };
 

@@ -410,6 +410,35 @@
     &--invited {
       color: var(--mcm-accent);
     }
+
+    // Canonical project-status badge — short labels, so let it size to content
+    // and tint by lifecycle so the status reads at a glance.
+    &--status {
+      max-width: none;
+
+      &.mcm-pmgr__tag--status-prepare {
+        color: var(--mcm-accent);
+      }
+      &.mcm-pmgr__tag--status-ongoing {
+        color: #1f9d55;
+      }
+      &.mcm-pmgr__tag--status-on-hold {
+        color: #b7791f;
+      }
+      &.mcm-pmgr__tag--status-finished,
+      &.mcm-pmgr__tag--status-archived {
+        color: var(--mcm-text-faint);
+      }
+      &.mcm-pmgr__tag--status-cancelled {
+        color: #c53030;
+      }
+    }
+  }
+
+  // Status picker in the detail (segmented buttons wrap on narrow panels).
+  .mcm-segmented--status {
+    flex-wrap: wrap;
+    margin-top: 4px;
   }
 
   // Project icon (emoji accent) — sits just before the name on rows + cards.

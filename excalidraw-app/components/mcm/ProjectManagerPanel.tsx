@@ -34,8 +34,12 @@ import { showAppToast } from "../../data/appToast";
 import {
   deleteProject,
   listDivisions,
+  projectStatusOf,
+  PROJECT_STATUSES,
+  setProjectStatus,
   updateProject,
   type Division,
+  type ProjectStatus,
 } from "../../data/projects";
 import { sessionAtom } from "../../data/session";
 import { useT } from "../../i18n/mcm";
@@ -47,7 +51,15 @@ import { ProjectMemberRoster } from "./ProjectMemberRoster";
 import "./ProjectManager.scss";
 
 import type { Project } from "../../data/projects";
+import type { McmKey } from "../../i18n/mcm";
 import type { ReactNode } from "react";
+
+/** The translator returned by useT — re-typed for the small helpers below so a
+ *  dynamically-built status key (`projStatus.${status}`) typechecks. */
+type Translate = (
+  key: McmKey,
+  params?: Record<string, string | number>,
+) => string;
 
 type Props = {
   projects: Project[];
@@ -66,11 +78,12 @@ type Props = {
   onEdit: (p: Project) => void;
   /** A mutation happened here (delete) — parent refreshes the list. */
   onProjectsChanged: () => void;
-  /** Cosmetic colour/icon saved — parent patches its list IN PLACE (no
-   *  refetch flash; same pattern as the meeting cards' assignColor). */
+  /** Cosmetic colour/icon (or canonical `stage`) saved — parent patches its
+   *  list IN PLACE (no refetch flash; same pattern as the meeting cards'
+   *  assignColor). */
   onPatchProject: (
     id: string,
-    patch: { color?: string | null; icon?: string | null },
+    patch: { color?: string | null; icon?: string | null; stage?: string },
   ) => void;
 };
 
@@ -89,6 +102,91 @@ const saveCosmetic = async (
     wire.icon = patch.icon ?? "";
   }
   return updateProject(id, wire);
+};
+
+// Read-only canonical-status badge. Renders nothing for a legacy free-text
+// `stage` that isn't a canonical value (the picker still lets leadership set
+// one) — callers fall back to showing the raw stage where they already did.
+const ProjectStatusBadge = ({
+  status,
+  t,
+}: {
+  status: ProjectStatus;
+  t: Translate;
+}) => (
+  <span
+    className={`mcm-pmgr__tag mcm-pmgr__tag--status mcm-pmgr__tag--status-${status}`}
+  >
+    {t(`projStatus.${status}` as McmKey)}
+  </span>
+);
+
+// Status control for the project detail: a segmented picker for leadership
+// (division admin / project leader / admin), a read-only badge for everyone
+// else. Writes the canonical value to the `stage` column via setProjectStatus
+// and hands the updated project back so the parent patches its list in place.
+const ProjectStatusControl = ({
+  project,
+  canEdit,
+  t,
+  onUpdated,
+}: {
+  project: Project;
+  canEdit: boolean;
+  t: Translate;
+  onUpdated: (p: Project) => void;
+}) => {
+  const [busy, setBusy] = useState(false);
+  const current = projectStatusOf(project.stage);
+
+  if (!canEdit) {
+    // Read-only: canonical badge, or the raw free-text stage if it's legacy.
+    return current ? (
+      <ProjectStatusBadge status={current} t={t} />
+    ) : project.stage ? (
+      <span className="mcm-pmgr__tag">{project.stage}</span>
+    ) : null;
+  }
+
+  const pick = async (status: ProjectStatus) => {
+    if (busy || status === current) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const updated = await setProjectStatus(project.id, status);
+      if (updated) {
+        onUpdated(updated);
+      } else {
+        showAppToast(t("projStatus.changeFailed"));
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="mcm-segmented mcm-segmented--status"
+      role="group"
+      aria-label={t("projStatus.label")}
+    >
+      {PROJECT_STATUSES.map((s) => (
+        <button
+          key={s}
+          type="button"
+          className={`mcm-segmented__btn${
+            s === current ? " mcm-segmented__btn--active" : ""
+          }`}
+          onClick={() => void pick(s)}
+          disabled={busy}
+          aria-pressed={s === current ? "true" : "false"}
+        >
+          {t(`projStatus.${s}` as McmKey)}
+        </button>
+      ))}
+    </div>
+  );
 };
 
 const fmtCreated = (ms: number): string =>
@@ -184,6 +282,10 @@ export const ProjectManagerPanel = ({
           onProjectsChanged();
         }}
         onAssignCosmetic={(patch) => void assignCosmetic(detail.id, patch)}
+        // Status changed (leadership only) — patch the new canonical stage into
+        // the parent's list in place so the badge + sidebar group update with
+        // no refetch flash.
+        onStatusUpdated={(p) => onPatchProject(p.id, { stage: p.stage ?? "" })}
       />
     );
   }
@@ -278,6 +380,11 @@ export const ProjectManagerPanel = ({
                   <span className="mcm-pmgr__tag mcm-pmgr__tag--invited">
                     {t("folder.invitedBadge")}
                   </span>
+                ) : projectStatusOf(p.stage) ? (
+                  <ProjectStatusBadge
+                    status={projectStatusOf(p.stage)!}
+                    t={t}
+                  />
                 ) : (
                   p.stage && <span className="mcm-pmgr__tag">{p.stage}</span>
                 )}
@@ -333,6 +440,11 @@ export const ProjectManagerPanel = ({
                   <span className="mcm-pmgr__tag mcm-pmgr__tag--invited">
                     {t("folder.invitedBadge")}
                   </span>
+                ) : projectStatusOf(p.stage) ? (
+                  <ProjectStatusBadge
+                    status={projectStatusOf(p.stage)!}
+                    t={t}
+                  />
                 ) : (
                   p.stage && <span className="mcm-pmgr__tag">{p.stage}</span>
                 )}
@@ -510,6 +622,7 @@ const ProjectDetail = ({
   onEdit,
   onDeleted,
   onAssignCosmetic,
+  onStatusUpdated,
 }: {
   project: Project;
   /** Admin / leader / leading-division head (NOT a co-operator) — delete +
@@ -528,6 +641,9 @@ const ProjectDetail = ({
     color?: string | null;
     icon?: string | null;
   }) => void;
+  /** Canonical status changed (leadership only) — hand back the updated
+   *  project so the parent patches its list in place. */
+  onStatusUpdated: (p: Project) => void;
 }) => {
   const t = useT();
   const [deleting, setDeleting] = useState(false);
@@ -645,8 +761,16 @@ const ProjectDetail = ({
               {project.name}
             </h2>
           )}
-          {project.stage && (
-            <span className="mcm-pmgr__tag">{project.stage}</span>
+          {/* Read-only status badge in the hero (canonical, or the legacy
+              free-text stage). The editable picker lives in the Info section
+              below, shown only to leadership. */}
+          {!isInvitee && (
+            <ProjectStatusControl
+              project={project}
+              canEdit={false}
+              t={t}
+              onUpdated={onStatusUpdated}
+            />
           )}
           {project.code && (
             <span className="mcm-pdetail__code">{project.code}</span>
@@ -726,6 +850,22 @@ const ProjectDetail = ({
       )}
 
       <Section title={t("pmgr.sectionInfo")}>
+        {/* Canonical lifecycle status — leadership (division admin / project
+            leader / admin) gets the segmented picker; everyone else just sees
+            the badge in the hero above. */}
+        {isLeadership && !isInvitee && (
+          <div className="mcm-pdetail__meta-cell" style={{ marginBottom: 12 }}>
+            <span className="mcm-pdetail__meta-label">
+              {t("projStatus.label")}
+            </span>
+            <ProjectStatusControl
+              project={project}
+              canEdit
+              t={t}
+              onUpdated={onStatusUpdated}
+            />
+          </div>
+        )}
         <div className="mcm-pdetail__metagrid">
           {metaCells.map(([label, value]) => (
             <div className="mcm-pdetail__meta-cell" key={label}>
