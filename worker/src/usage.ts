@@ -92,6 +92,30 @@ export const dailyCostUsdRange = (
 };
 
 /**
+ * Daily cloud RECORDING list pricing — PER RECORDED-MINUTE (not per participant;
+ * one composited file is billed once regardless of headcount). Verified
+ * 2026-06-23 against https://www.daily.co/pricing/video-sdk/ (see
+ * docs/plans/recording-cost-estimate.md §1):
+ *   cloud recording:  $0.01349 / recorded-min
+ *   Daily-side store: $0.003   / recorded-min (avoided once we copy to R2 and
+ *                                delete the Daily copy — Phase 5 pipeline)
+ * We bill the recording-only rate ($0.01349): the copy job deletes the Daily
+ * copy right after the R2 put, so the storage surcharge is effectively zero.
+ */
+export const DAILY_RECORDING_MIN_USD = 0.01349;
+
+/**
+ * Estimated USD cost of one Daily cloud recording from its duration in SECONDS.
+ * (seconds / 60) * per-recorded-minute rate. Missing/garbage → 0. Single value
+ * (not a range): the recorded-minute rate is a published flat rate, unlike the
+ * unverified participant-minute tier.
+ */
+export const dailyRecordingCostUsd = (seconds: number | undefined): number => {
+  const s = Number.isFinite(seconds) ? (seconds as number) : 0;
+  return (s / 60) * DAILY_RECORDING_MIN_USD;
+};
+
+/**
  * Best-effort write of ONE usage_events row (Admin Console P0). Called after a
  * SUCCESSFUL billable upstream call (Gemini generateContent / Deepgram STT). It
  * stamps a UUID + now() timestamps and NEVER throws — a metering failure (table

@@ -41,6 +41,7 @@ import { handleSttUpgrade } from "./stt";
 import {
   logUsageEvent,
   dailyCostUsdRange,
+  dailyRecordingCostUsd,
   DAILY_PARTICIPANT_MIN_USD_LOW,
   DAILY_PARTICIPANT_MIN_USD_HIGH,
   DAILY_FREE_MINUTES,
@@ -66,6 +67,13 @@ type Bindings = {
   // Local: worker/.dev.vars · Prod: `wrangler secret put DAILY_API_KEY`.
   DAILY_API_KEY?: string;
   DAILY_DOMAIN?: string;
+  // Daily webhook signing secret (Phase 5 recording). The `hmac` value Daily
+  // returns when you register the webhook; used to verify POST /v1/webhooks/daily
+  // is genuinely from Daily (HMAC-SHA256 over "<X-Webhook-Timestamp>.<rawBody>",
+  // secret is base64-decoded first). A SECRET: `wrangler secret put
+  // DAILY_WEBHOOK_SECRET` (local: worker/.dev.vars). Unset ⇒ the webhook 503s
+  // (we refuse to ingest unverifiable recording events).
+  DAILY_WEBHOOK_SECRET?: string;
   // Supabase project URL — used to build the JWT issuer + JWKS endpoint for
   // verifying user access tokens. (No secret needed: tokens are ES256-signed,
   // verified against the public JWKS.)
@@ -374,6 +382,13 @@ app.use("/v1/*", async (c, next) => {
   // email) and avatars are shown to every signed-in user anyway. The PUT upload
   // (`/v1/me/avatar`, no sub-segment) stays gated.
   if (c.req.method === "GET" && /^\/v1\/me\/avatar\/[^/]+$/.test(c.req.path)) {
+    return next();
+  }
+  // Daily recording webhook (Phase 5). Daily POSTs server-to-server with NO
+  // Supabase JWT — it can't carry our bearer. So this path is exempt from the
+  // JWT gate and authenticated INSTEAD by an HMAC signature over the raw body
+  // (verified inside the handler). Only this exact POST is exempt.
+  if (c.req.method === "POST" && c.req.path === "/v1/webhooks/daily") {
     return next();
   }
   return jwtGate(c, next);
@@ -8261,6 +8276,516 @@ app.get("/v1/portal/me", async (c) => {
       company: row.company,
       country: row.country,
       logo_url: row.logo_key ? `/v1/portal/guests/${row.id}/logo` : null,
+    },
+  });
+});
+
+// ===========================================================================
+// Meeting Recording (Phase 5) — Daily cloud recording → webhook → R2 → playback
+// ===========================================================================
+//
+// Routes (the shared API contract the client team calls — keep the paths exact):
+//   POST /v1/recordings/:roomId/start  — host-gated; Daily REST start
+//   POST /v1/recordings/:roomId/stop   — host-gated; Daily REST stop
+//   POST /v1/webhooks/daily            — HMAC-verified (NOT JWT); copies to R2
+//   GET  /v1/recordings/:roomId        — host/leadership-gated list for a meeting
+//   GET  /v1/recordings/:id            — host/leadership-gated MP4 stream (Range)
+//
+// Recording is server-readable in R2 (NOT E2E) by deliberate policy — the
+// org-compliance / Chairman-AI surface (docs/specs/video-and-recording.md §3.6).
+// The Daily room CREATION + enable_recording lives in the /v1/daily/token
+// `createRoom` block above and is owned by the room-merge team — untouched here.
+
+// R2 key for a recording's MP4: recordings/<meetingId>/<recordingId>.mp4. The
+// prefix is the already-reserved server-readable `recordings/` namespace
+// (excluded from the project-archive JSON by design — see index ~4213).
+const recordingKey = (meetingId: string, recordingId: string): string =>
+  `recordings/${meetingId}/${recordingId}.mp4`;
+
+// The Daily room we RECORD is the merged call room. Today the voice/camera room
+// is "<meetingId>-audio" (DailyAudio.ts) and screen is "<meetingId>"; the
+// room-merge team is unifying these into ONE recordable room. We resolve the
+// recordable room name from the meeting id in ONE place so that when the merge
+// lands the only change is here. Until then we record the "-audio" room (voice +
+// camera) per the analysis MVP fallback; the merge team flips this constant.
+const recordableRoomName = (meetingId: string): string => `${meetingId}-audio`;
+
+// Conversely, map a Daily room_name from a webhook back to the meeting id by
+// stripping the "-audio" suffix (mirrors the token-mint strip at /v1/daily/token).
+const meetingIdFromRoomName = (roomName: string): string =>
+  roomName.replace(/-audio$/, "");
+
+// Low-bitrate composited layout for SMALL files — recordings are for review /
+// project docs, NOT broadcast (owner decision §7.6: minimum size). 480p-ish,
+// modest fps. Daily's `recording_settings`/`properties` accept width/height/fps
+// + a preset; we pass a conservative box. Tuning lives in one place.
+const RECORDING_PROPS = {
+  width: 854,
+  height: 480,
+  fps: 15,
+  // single-tile / active-speaker composite keeps the file small vs. a grid.
+  layout: { preset: "active-participant" as const },
+};
+
+// Host-level gate shared by start/stop/list/stream: admin · organizer · host ·
+// co-host · project authority (leader / leading-division head). Exactly the
+// "meeting authority" set (isMeetingManager) — NOT every participant (owner
+// decision §7.2). External guests never pass (recording is org-compliance).
+const canManageRecording = (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  meetingId: string,
+): Promise<boolean> =>
+  isMeetingManager(c.env.DB, meetingId, c.get("email"), c.get("role"));
+
+// ---- POST /v1/recordings/:roomId/start -----------------------------------
+// Host presses Record. Gated on meeting authority. Calls Daily REST to start a
+// cloud recording on the recordable room with a low-bitrate layout for small
+// files. Daily returns {"status":"sent"} (async) — the recording_id arrives
+// later via the webhook, so there is no row to write here yet. The consent
+// banner / RECORDING_STATE broadcast is the client team's concern.
+app.post("/v1/recordings/:roomId/start", async (c) => {
+  if (c.env.DAILY_ENABLED === "off") {
+    return c.json({ error: "daily temporarily disabled" }, 503);
+  }
+  const apiKey = cleanSecret(c.env.DAILY_API_KEY);
+  if (!apiKey) {
+    return c.json({ error: "daily not configured" }, 503);
+  }
+  const meetingId = meetingIdFromRoomName(c.req.param("roomId"));
+  if (!(await canManageRecording(c, meetingId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // No recording in a finished meeting (review = look-only) — server backstop.
+  if (await isFinishedLocked(c.env.DB, meetingId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
+  const room = recordableRoomName(meetingId);
+  const res = await fetch(
+    `${DAILY_API}/rooms/${encodeURIComponent(room)}/recordings/start`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "cloud",
+        layout: RECORDING_PROPS.layout,
+        properties: {
+          width: RECORDING_PROPS.width,
+          height: RECORDING_PROPS.height,
+          fps: RECORDING_PROPS.fps,
+        },
+      }),
+    },
+  );
+  if (!res.ok) {
+    return c.json(
+      { error: "recording start failed", detail: await res.text() },
+      502,
+    );
+  }
+  return c.json({ ok: true, status: "sent" });
+});
+
+// ---- POST /v1/recordings/:roomId/stop ------------------------------------
+// Host presses Stop. Same authority gate. Daily REST stop on the recordable
+// room. Daily then composites the file and fires recording.ready-to-download.
+app.post("/v1/recordings/:roomId/stop", async (c) => {
+  const apiKey = cleanSecret(c.env.DAILY_API_KEY);
+  if (!apiKey) {
+    return c.json({ error: "daily not configured" }, 503);
+  }
+  const meetingId = meetingIdFromRoomName(c.req.param("roomId"));
+  if (!(await canManageRecording(c, meetingId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const room = recordableRoomName(meetingId);
+  const res = await fetch(
+    `${DAILY_API}/rooms/${encodeURIComponent(room)}/recordings/stop`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ type: "cloud" }),
+    },
+  );
+  // 400 = "no recording running" — treat as a no-op success so a double-stop or
+  // a stop after Daily auto-ended doesn't surface a scary error to the host.
+  if (!res.ok && res.status !== 400) {
+    return c.json(
+      { error: "recording stop failed", detail: await res.text() },
+      502,
+    );
+  }
+  return c.json({ ok: true });
+});
+
+// Verify a Daily webhook signature. Daily signs HMAC-SHA256 over
+// "<X-Webhook-Timestamp>.<rawBody>" with the BASE64-DECODED `hmac` secret, and
+// sends the result (base64) in X-Webhook-Signature. We must hash the RAW body
+// bytes (not a re-serialized JSON) so the signature matches byte-for-byte.
+// Constant-time compare. Returns false on any missing piece (fail closed).
+const verifyDailyWebhook = async (
+  secret: string,
+  timestamp: string | undefined,
+  rawBody: string,
+  signature: string | undefined,
+): Promise<boolean> => {
+  if (!secret || !timestamp || !signature) {
+    return false;
+  }
+  try {
+    // The secret is base64; Daily HMACs with the DECODED key bytes.
+    const keyBytes = Uint8Array.from(atob(secret), (ch) => ch.charCodeAt(0));
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const mac = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(`${timestamp}.${rawBody}`),
+    );
+    // base64 of the MAC bytes
+    let bin = "";
+    const bytes = new Uint8Array(mac);
+    for (let i = 0; i < bytes.length; i++) {
+      bin += String.fromCharCode(bytes[i]);
+    }
+    const expected = btoa(bin);
+    // constant-time compare
+    if (expected.length !== signature.length) {
+      return false;
+    }
+    let diff = 0;
+    for (let i = 0; i < expected.length; i++) {
+      diff |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+    }
+    return diff === 0;
+  } catch {
+    return false;
+  }
+};
+
+// Copy a finished Daily cloud recording into R2 and index it in D1. Runs in
+// waitUntil AFTER the webhook returns 200 (Daily needs a fast 2xx or it retries).
+// Idempotent on recording_id: a retry re-runs this harmlessly (ON CONFLICT
+// upsert, and the R2 put just overwrites the same key). Steps:
+//   1. seed/refresh a 'processing' row so a list query shows it immediately
+//   2. GET Daily access-link → signed S3 download URL
+//   3. fetch(download_link) → stream the bytes into R2 (never buffer in RAM)
+//   4. upsert the row to 'ready' with r2_key / bytes / duration / ready_at
+//   5. DELETE the Daily-side copy (stop double storage billing)
+//   6. meter recording-minutes into usage_events (admin Cost tab)
+const copyRecordingToR2 = async (
+  env: Bindings,
+  payload: {
+    recording_id?: string;
+    room_name?: string;
+    duration?: number;
+    start_ts?: number;
+  },
+): Promise<void> => {
+  const recordingId = payload.recording_id;
+  const roomName = payload.room_name;
+  if (!recordingId || !roomName) {
+    return;
+  }
+  const apiKey = cleanSecret(env.DAILY_API_KEY);
+  if (!apiKey) {
+    return;
+  }
+  const headers = { Authorization: `Bearer ${apiKey}` };
+  const meetingId = meetingIdFromRoomName(roomName);
+  const key = recordingKey(meetingId, recordingId);
+  const duration = Number.isFinite(payload.duration)
+    ? Math.round(payload.duration as number)
+    : null;
+  try {
+    // Denormalise project_id + organizer (started_by best-effort) from meeting.
+    const meta = await env.DB.prepare(
+      `SELECT project_id, organizer_email FROM meeting WHERE id = ?1`,
+    )
+      .bind(meetingId)
+      .first<{ project_id: string | null; organizer_email: string | null }>();
+
+    // 1) Seed a 'processing' row (idempotent). If a retry already flipped it to
+    // 'ready'/'deleted', COALESCE keeps the stronger state — never regress.
+    await env.DB.prepare(
+      `INSERT INTO recording
+         (id, meeting_id, project_id, duration, status, started_by, created_at)
+       VALUES (?1, ?2, ?3, ?4, 'processing', ?5, ?6)
+       ON CONFLICT(id) DO UPDATE SET
+         duration = COALESCE(excluded.duration, recording.duration),
+         project_id = COALESCE(recording.project_id, excluded.project_id)`,
+    )
+      .bind(
+        recordingId,
+        meetingId,
+        meta?.project_id ?? null,
+        duration,
+        meta?.organizer_email ?? null,
+        now(),
+      )
+      .run();
+
+    // 2) Access link → signed download URL for the composited file.
+    const linkRes = await fetch(
+      `${DAILY_API}/recordings/${encodeURIComponent(recordingId)}/access-link`,
+      { headers },
+    );
+    if (!linkRes.ok) {
+      throw new Error(`access-link ${linkRes.status}`);
+    }
+    const { download_link } = (await linkRes.json()) as {
+      download_link?: string;
+    };
+    if (!download_link) {
+      throw new Error("no download_link");
+    }
+
+    // 3) Stream the bytes from Daily/S3 straight into R2 (egress-free on R2).
+    const fileRes = await fetch(download_link);
+    if (!fileRes.ok || !fileRes.body) {
+      throw new Error(`download ${fileRes.status}`);
+    }
+    await env.BUCKET.put(key, fileRes.body, {
+      httpMetadata: { contentType: "video/mp4" },
+    });
+
+    // Size the stored object (content-length may be absent on the streamed
+    // response; fall back to a HEAD on R2). Best-effort — bytes is non-critical.
+    let bytes: number | null = null;
+    const head = await env.BUCKET.head(key);
+    if (head?.size) {
+      bytes = head.size;
+    } else {
+      const cl = fileRes.headers.get("content-length");
+      bytes = cl ? parseInt(cl, 10) || null : null;
+    }
+
+    // 4) Flip the row to 'ready' with the R2 location.
+    await env.DB.prepare(
+      `UPDATE recording
+          SET r2_key = ?2, bytes = ?3, duration = COALESCE(?4, duration),
+              status = 'ready', ready_at = ?5
+        WHERE id = ?1`,
+    )
+      .bind(recordingId, key, bytes, duration, now())
+      .run();
+
+    // 5) Delete the Daily-side copy to stop double storage billing. Best-effort
+    // — the R2 copy + D1 row are already durable, so a failed delete is fine.
+    try {
+      await fetch(
+        `${DAILY_API}/recordings/${encodeURIComponent(recordingId)}`,
+        { method: "DELETE", headers },
+      );
+    } catch {
+      /* best-effort cleanup */
+    }
+
+    // 6) Meter recording-minutes (provider 'daily', kind 'recording') so the
+    // admin Cost tab reports real recording spend instead of 0.
+    if (duration && duration > 0) {
+      await logUsageEvent(
+        env.DB,
+        "daily",
+        "recording",
+        0,
+        0,
+        duration,
+        dailyRecordingCostUsd(duration),
+        meetingId,
+        meta?.organizer_email ?? undefined,
+      );
+    }
+  } catch {
+    // Mark the row 'failed' so an operator can see the stuck copy. Best-effort;
+    // the row stays 'processing' if even this write fails (the status sweep
+    // index finds it). Never throw — waitUntil must not surface errors.
+    try {
+      await env.DB.prepare(
+        `UPDATE recording SET status = 'failed'
+          WHERE id = ?1 AND status = 'processing'`,
+      )
+        .bind(recordingId)
+        .run();
+    } catch {
+      /* give up — operational sweep on ix_recording_status will catch it */
+    }
+  }
+};
+
+// ---- POST /v1/webhooks/daily ---------------------------------------------
+// Daily server-to-server webhook. NOT JWT-gated (Daily can't carry our bearer) —
+// exempted from the gate above and authenticated here by HMAC over the raw body.
+// Returns 200 IMMEDIATELY and does the heavy copy in waitUntil (Daily retries on
+// a slow/!2xx response). Idempotent end-to-end on recording_id.
+app.post("/v1/webhooks/daily", async (c) => {
+  const secret = cleanSecret(c.env.DAILY_WEBHOOK_SECRET);
+  if (!secret) {
+    // No secret configured → we cannot verify, so we refuse to ingest. 503 (not
+    // 200) so Daily retries once the secret is set, rather than dropping events.
+    return c.json({ error: "webhook not configured" }, 503);
+  }
+  // RAW body bytes are what Daily signed — read once, verify, then parse.
+  const raw = await c.req.text();
+  const ts = c.req.header("X-Webhook-Timestamp");
+  const sig = c.req.header("X-Webhook-Signature");
+  if (!(await verifyDailyWebhook(secret, ts, raw, sig))) {
+    return c.json({ error: "invalid signature" }, 401);
+  }
+  // Parse the envelope. Daily wraps events as { type, event_ts, payload }; older
+  // shapes send the fields flat. Read defensively so either works.
+  let event: {
+    type?: string;
+    payload?: Record<string, unknown>;
+    [k: string]: unknown;
+  };
+  try {
+    event = JSON.parse(raw);
+  } catch {
+    return c.json({ error: "bad json" }, 400);
+  }
+  const type = event.type;
+  const body = (event.payload ?? event) as {
+    recording_id?: string;
+    room_name?: string;
+    duration?: number;
+    start_ts?: number;
+  };
+  if (type === "recording.ready-to-download") {
+    // Return 200 NOW; copy in the background. Daily only needs a fast 2xx.
+    c.executionCtx.waitUntil(copyRecordingToR2(c.env, body));
+  }
+  // Always 200 for a verified event (including unhandled types) so Daily stops
+  // retrying — we acknowledged receipt.
+  return c.json({ ok: true });
+});
+
+// ---- GET /v1/recordings/:roomId  (LIST) ----------------------------------
+// List a meeting's recordings (review-mode "Recordings" section). Same authority
+// gate as start/stop — host / organizer / co-host / project leadership / admin.
+// Excludes soft-deleted rows. Note: this and GET /v1/recordings/:id share the
+// `/v1/recordings/:x` shape; Hono resolves "/start" / "/stop" first (registered
+// above) and these by registration order — the list takes a roomId, the stream a
+// recording id, and both run the same gate, so an id collision only mis-routes
+// between two surfaces the SAME caller is already authorized for.
+app.get("/v1/recordings/:roomId", async (c) => {
+  const meetingId = meetingIdFromRoomName(c.req.param("roomId"));
+  if (!(await canManageRecording(c, meetingId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, meeting_id, project_id, duration, bytes, status, started_by,
+            created_at, ready_at
+       FROM recording
+      WHERE meeting_id = ?1 AND status <> 'deleted'
+      ORDER BY created_at DESC`,
+  )
+    .bind(meetingId)
+    .all();
+  return c.json({ recordings: results ?? [] });
+});
+
+// ---- GET /v1/recordings/:id  (STREAM / DOWNLOAD) -------------------------
+// Stream the MP4 from R2, gated to the meeting's authority set. Supports HTTP
+// Range so a <video> element can seek. `?download=1` flips it to an attachment.
+// NOT a public link — every read goes through this Worker gate.
+//
+// Routed at /v1/recordings/:id, the SAME pattern as the list above. To avoid the
+// param-name clash we register the stream at a distinct sub-path so Hono never
+// confuses a meeting list with a media stream: /v1/recordings/:id/media.
+app.get("/v1/recordings/:id/media", async (c) => {
+  const id = c.req.param("id");
+  const row = await c.env.DB.prepare(
+    `SELECT meeting_id, r2_key, status FROM recording WHERE id = ?1`,
+  )
+    .bind(id)
+    .first<{ meeting_id: string; r2_key: string | null; status: string }>();
+  if (!row || row.status === "deleted") {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (!(await canManageRecording(c, row.meeting_id))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  if (row.status !== "ready" || !row.r2_key) {
+    // Still copying (or failed) — no bytes to serve yet.
+    return c.json({ error: "recording not ready", status: row.status }, 409);
+  }
+
+  const download = c.req.query("download") === "1";
+  const filename = `recording-${id}.mp4`;
+  const disposition = download
+    ? `attachment; filename="${filename}"`
+    : `inline; filename="${filename}"`;
+
+  // Honour a Range request so <video> can seek without pulling the whole file.
+  const rangeHeader = c.req.header("Range");
+  if (rangeHeader) {
+    const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+    if (m) {
+      const headObj = await c.env.BUCKET.head(row.r2_key);
+      const size = headObj?.size ?? 0;
+      let start = m[1] ? parseInt(m[1], 10) : 0;
+      let end = m[2] ? parseInt(m[2], 10) : size - 1;
+      if (
+        size > 0 &&
+        Number.isFinite(start) &&
+        Number.isFinite(end) &&
+        start <= end &&
+        start < size
+      ) {
+        end = Math.min(end, size - 1);
+        const obj = await c.env.BUCKET.get(row.r2_key, {
+          range: { offset: start, length: end - start + 1 },
+        });
+        if (obj) {
+          return new Response(obj.body, {
+            status: 206,
+            headers: {
+              "content-type":
+                obj.httpMetadata?.contentType ?? "video/mp4",
+              "content-range": `bytes ${start}-${end}/${size}`,
+              "content-length": String(end - start + 1),
+              "accept-ranges": "bytes",
+              "content-disposition": disposition,
+              etag: obj.httpEtag,
+              "cache-control": "private, no-store",
+            },
+          });
+        }
+      }
+      // Unsatisfiable range.
+      return new Response(null, {
+        status: 416,
+        headers: {
+          "content-range": `bytes */${size}`,
+          "accept-ranges": "bytes",
+        },
+      });
+    }
+  }
+
+  const obj = await c.env.BUCKET.get(row.r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type": obj.httpMetadata?.contentType ?? "video/mp4",
+      "content-length": String(obj.size),
+      "accept-ranges": "bytes",
+      "content-disposition": disposition,
+      etag: obj.httpEtag,
+      "cache-control": "private, no-store",
     },
   });
 });
