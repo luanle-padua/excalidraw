@@ -1188,6 +1188,40 @@ export const vi = {
     redownloadAria: "Tải lại bản ghi",
   },
 
+  // ---------------- Cloud recording (Phase 5) -----------------------
+  cloudRecording: {
+    startTitle: "Ghi cuộc họp (lưu trên máy chủ — chỉ host)",
+    startAria: "Ghi cuộc họp",
+    startNow: "Bắt đầu ghi",
+    pickerTitle: "Ghi nội dung gì?",
+    contentAudio: "Tiếng",
+    contentVideo: "Hình (camera + màn hình)",
+    contentCanvas: "Bảng vẽ",
+    canvasHint:
+      "Bảng vẽ được lưu sẵn theo dòng thời gian — xem lại trong chế độ review, không tạo file video.",
+    joinHint: "Vào audio call trước để ghi tiếng + hình.",
+    willRecord: "Sẽ ghi: {what}",
+    pickContent: "Chọn ít nhất tiếng hoặc hình để ghi.",
+    startFailed: "Không thể bắt đầu ghi",
+    stopFailed: "Không thể dừng ghi — thử lại",
+    notAllowed: "Chỉ host / tổ chức / lãnh đạo dự án mới ghi được",
+    stopTooltip: "Đang ghi · {time} — bấm để dừng",
+    rec: "REC",
+    indicatorBy: "{name} đang ghi cuộc họp",
+    someone: "Host",
+  },
+
+  // ---------------- Recordings (review mode) ------------------------
+  recordings: {
+    loading: "Đang tải bản ghi…",
+    empty: "Chưa có bản ghi nào cho cuộc họp này.",
+    processing: "Đang xử lý bản ghi…",
+    failed: "Ghi thất bại",
+    refresh: "Tải lại",
+    count: "{count} bản ghi",
+    download: "Tải về",
+  },
+
   // ---------------- Canvas text translate ---------------------------
   textTranslate: {
     aria: "Dịch văn bản",
@@ -1508,6 +1542,7 @@ export const vi = {
     metaSegmentsPlural: "{count} segments",
     tabTranscript: "Biên bản",
     tabSummary: "Tóm tắt",
+    tabRecordings: "Bản ghi",
     closeAria: "Đóng",
     emptyTranscript: "Chưa có biên bản nào. Vào call + bật STT để bắt đầu ghi.",
     emptySummary:

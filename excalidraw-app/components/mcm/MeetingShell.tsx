@@ -58,6 +58,7 @@ import { MeetingDueNotice } from "./MeetingDueNotice";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
 import { MeetingLogModal } from "./MeetingLogModal";
+import { RecordingFrameGlow } from "./RecordingIndicator";
 import { ProjectFolder, projectFolderOpenAtom } from "./ProjectFolder";
 import { ScreenShareSelfView } from "./ScreenShareSelfView";
 import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
@@ -451,6 +452,11 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
             area, NOT the FrameViewPane. */}
         <div className="mcm-shell__canvas-area">
           {children}
+          {/* Phase 5 — very faint red glow around the meeting frame while a
+              cloud recording is active. pointer-events:none, self-hides when
+              idle. Reads the same shared roomRecordingAtom as the header REC
+              indicator. */}
+          <RecordingFrameGlow />
           {viewOnly && (
             <div className="mcm-review-banner" role="status">
               <Eye size={15} strokeWidth={1.75} />

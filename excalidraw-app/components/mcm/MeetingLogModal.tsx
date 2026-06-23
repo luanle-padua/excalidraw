@@ -31,10 +31,16 @@ import {
   transcriptionLogAtom,
 } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
-import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
+import { sessionAtom } from "../../data/session";
+import {
+  meetingViewerAuthorityAtom,
+  peerProfilesAtom,
+  userProfileAtom,
+} from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
+import { RecordingsSection } from "./RecordingsSection";
 import { personColor } from "./meetingColors";
 import { shortDisplayName } from "./animalEmoji";
 
@@ -171,7 +177,7 @@ const downloadMarkdown = (filename: string, content: string): void => {
 
 // --- modal -----------------------------------------------------------
 
-type Tab = "transcript" | "summary";
+type Tab = "transcript" | "summary" | "recordings";
 
 export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const t = useT();
@@ -228,6 +234,16 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   // no regenerating the stored AI summary. Download/export stays — that's
   // the "extract-only" half of the review contract.
   const viewOnly = useAtomValue(meetingViewOnlyAtom);
+
+  // Phase 5 — the Recordings tab is gated to host / leadership / admin (anh Luân
+  // 06-23 §7.2), NOT every participant. viewerAuthority is the server-computed
+  // project-authority flag (leader / leading-division head); session.isAdmin /
+  // isOwner cover the admin tier. The worker re-enforces on the list + stream
+  // routes, so this is the UX half — a non-authority viewer never sees the tab.
+  const session = useAtomValue(sessionAtom);
+  const viewerAuthority = useAtomValue(meetingViewerAuthorityAtom);
+  const canSeeRecordings =
+    viewerAuthority || !!session?.isAdmin || !!session?.isOwner;
 
   const roomId = collabAPI?.portal.roomId ?? null;
   const meetingTitle = useMemo(() => {
@@ -426,6 +442,19 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 <span className="mcm-log-modal__tab-dot" aria-hidden="true" />
               )}
             </button>
+            {/* Phase 5 — Recordings tab, host/leadership/admin only. */}
+            {canSeeRecordings && (
+              <button
+                type="button"
+                role="tab"
+                className={`mcm-log-modal__tab${
+                  tab === "recordings" ? " mcm-log-modal__tab--active" : ""
+                }`}
+                onClick={() => setTab("recordings")}
+              >
+                {t("log.tabRecordings")}
+              </button>
+            )}
           </div>
           <button
             type="button"
@@ -593,6 +622,9 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 </>
               )}
             </>
+          )}
+          {tab === "recordings" && canSeeRecordings && (
+            <RecordingsSection roomId={roomId} />
           )}
         </div>
 

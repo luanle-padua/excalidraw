@@ -22,6 +22,7 @@ import {
   meetingViewOnlyAtom,
   screenShareStateAtom,
 } from "../collab/Collab";
+import { screenShareRoomName } from "../audio/callRoom";
 import { getDailyToken } from "../data/projects";
 
 import { DailyScreenShare } from "./DailyScreenShare";
@@ -65,9 +66,17 @@ export const ScreenShareController = () => {
       return;
     }
     const userName = collabAPI.getUsername() || "Guest";
-    console.info(`[screenshare] controller provisioning manager (${roomId})`);
+    // ⚠ ROOM MERGE (Phase 5): the screen share now joins the same Daily room as
+    // voice + camera (the call room "<id>-audio") so ONE Daily cloud recording
+    // composites everything. screenShareRoomName centralises this; flip
+    // MERGE_SCREEN_INTO_CALL_ROOM in audio/callRoom.ts to fall back to the
+    // legacy split room if a live test regresses screen share.
+    const shareRoomId = screenShareRoomName(roomId);
+    console.info(
+      `[screenshare] controller provisioning manager (${shareRoomId})`,
+    );
     const manager = new DailyScreenShare({
-      roomId,
+      roomId: shareRoomId,
       userName,
       getToken: (rid, name) => getDailyToken(rid, name),
       events: {

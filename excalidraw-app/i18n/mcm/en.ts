@@ -1122,6 +1122,40 @@ export const en: Widened<typeof vi> = {
     redownloadAria: "Re-download recording",
   },
 
+  // ---------------- Cloud recording (Phase 5) -----------------------
+  cloudRecording: {
+    startTitle: "Record the meeting (saved server-side — host only)",
+    startAria: "Record the meeting",
+    startNow: "Start recording",
+    pickerTitle: "Record what?",
+    contentAudio: "Audio",
+    contentVideo: "Video (camera + screen)",
+    contentCanvas: "Canvas",
+    canvasHint:
+      "The canvas is already saved as a timeline — replay it in review mode; no video file is made.",
+    joinHint: "Join the audio call first to record audio + video.",
+    willRecord: "Will record: {what}",
+    pickContent: "Pick at least audio or video to record.",
+    startFailed: "Couldn't start recording",
+    stopFailed: "Couldn't stop recording — try again",
+    notAllowed: "Only the host / organizer / project leadership can record",
+    stopTooltip: "Recording · {time} — click to stop",
+    rec: "REC",
+    indicatorBy: "{name} is recording the meeting",
+    someone: "Host",
+  },
+
+  // ---------------- Recordings (review mode) ------------------------
+  recordings: {
+    loading: "Loading recordings…",
+    empty: "No recordings yet for this meeting.",
+    processing: "Processing recording…",
+    failed: "Recording failed",
+    refresh: "Refresh",
+    count: "{count} recording(s)",
+    download: "Download",
+  },
+
   // ---------------- Canvas text translate ---------------------------
   textTranslate: {
     aria: "Translate text",
@@ -1430,6 +1464,7 @@ export const en: Widened<typeof vi> = {
     metaSegmentsPlural: "{count} segments",
     tabTranscript: "Transcript",
     tabSummary: "Summary",
+    tabRecordings: "Recordings",
     closeAria: "Close",
     emptyTranscript:
       "No transcript yet. Join a call + turn on STT to start recording.",

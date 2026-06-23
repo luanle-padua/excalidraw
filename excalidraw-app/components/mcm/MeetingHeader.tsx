@@ -58,6 +58,7 @@ import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LayoutSwitcher } from "./LayoutSwitcher";
 import { MeetingCallControls } from "./MeetingCallControls";
+import { RecordingIndicator } from "./RecordingIndicator";
 import { MetadataEditor } from "./MetadataEditor";
 import { buildMeetingFields } from "./metadataFields";
 import { canManageMeeting, isEditableMeetingStatus } from "./meetingStatus";
@@ -586,6 +587,12 @@ export const MeetingHeader = ({
             </span>
           )}
         </button>
+
+        {/* Phase 5 — elegant REC indicator, visible to EVERYONE while a cloud
+            recording is active (legally required). Self-hides when nothing is
+            recording. Reads the shared roomRecordingAtom the host's controls
+            broadcast over RECORDING_STATE. */}
+        <RecordingIndicator />
       </div>
 
       {/* Elastic gap — pushes the action groups to the right and lets the left

@@ -27,6 +27,7 @@ import Daily from "@daily-co/daily-js";
 
 import { appJotaiStore } from "../app-jotai";
 
+import { callRoomName } from "./callRoom";
 import { fatalErrorKindFor } from "./audioState";
 import {
   lifecycleFromConnectionEvent,
@@ -309,7 +310,10 @@ export class DailyAudio {
     getToken: DailyTokenFetcher;
     events: AudioRoomEvents;
   }) {
-    this.roomId = `${opts.roomId}-audio`;
+    // The CALL room (voice + camera). Post Phase-5 merge the screen share
+    // joins this SAME room (see audio/callRoom.ts) so one Daily cloud recording
+    // composites voice + camera + screen into one file.
+    this.roomId = callRoomName(opts.roomId);
     this.userName = opts.userName;
     this.getSocketId = opts.getSocketId;
     this.getToken = opts.getToken;

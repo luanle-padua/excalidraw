@@ -6095,11 +6095,19 @@ app.get("/v1/daily/token", async (c) => {
           ...(adaptiveSimulcast
             ? { enable_multiparty_adaptive_simulcast: true }
             : {}),
-          // TODO(recording, July v1): recording is not shipped yet (Phase 5,
-          // see /v1/admin/daily recording_minutes:0). When it lands, add
-          // `enable_recording` here with the agreed scope ('cloud'/'local') and
-          // a matching token permission — deferred until there is a clear
-          // recording pattern to mirror, per Phase 7 guidance.
+          // Phase 5 — RECORDING. Every room is created recording-CAPABLE
+          // (`enable_recording: "cloud"`) so the host can later start a
+          // server-side composited recording via POST /v1/recordings/:id/start.
+          // This only ENABLES the feature on the room; nothing records until the
+          // host explicitly presses Record (default OFF — anh Luân 06-23 §7.3).
+          // The token already carries canSend audio/video/screenVideo, so a
+          // single composited file captures voice + camera + screen once the
+          // screen-share call object is merged onto this same room
+          // (DailyScreenShare now joins "<id>-audio" — see §room-merge below).
+          // The recording layout/resolution (720p/480p low-bitrate, file-size
+          // first — anh Luân 06-23 §7.6) is set at start-recording time by the
+          // recordings/start route (sibling-owned), NOT here.
+          enable_recording: "cloud",
         },
       }),
     });

@@ -1128,6 +1128,40 @@ export const ko: Widened<typeof vi> = {
     redownloadAria: "녹음 다시 받기",
   },
 
+  // ---------------- Cloud recording (Phase 5) -----------------------
+  cloudRecording: {
+    startTitle: "회의 녹화 (서버 저장 — 호스트 전용)",
+    startAria: "회의 녹화",
+    startNow: "녹화 시작",
+    pickerTitle: "무엇을 녹화하나요?",
+    contentAudio: "오디오",
+    contentVideo: "영상 (카메라 + 화면)",
+    contentCanvas: "캔버스",
+    canvasHint:
+      "캔버스는 타임라인으로 이미 저장돼요 — 리뷰 모드에서 재생하며, 영상 파일은 만들지 않아요.",
+    joinHint: "오디오 + 영상을 녹화하려면 먼저 통화에 참여하세요.",
+    willRecord: "녹화 대상: {what}",
+    pickContent: "오디오 또는 영상 중 하나 이상을 선택하세요.",
+    startFailed: "녹화를 시작할 수 없어요",
+    stopFailed: "녹화를 멈출 수 없어요 — 다시 시도하세요",
+    notAllowed: "호스트 / 주최자 / 프로젝트 리더만 녹화할 수 있어요",
+    stopTooltip: "녹화 중 · {time} — 클릭하면 멈춰요",
+    rec: "REC",
+    indicatorBy: "{name} 님이 회의를 녹화 중이에요",
+    someone: "호스트",
+  },
+
+  // ---------------- Recordings (review mode) ------------------------
+  recordings: {
+    loading: "녹화본 불러오는 중…",
+    empty: "이 회의의 녹화본이 아직 없어요.",
+    processing: "녹화본 처리 중…",
+    failed: "녹화 실패",
+    refresh: "새로고침",
+    count: "녹화본 {count}개",
+    download: "다운로드",
+  },
+
   // ---------------- Canvas text translate ---------------------------
   textTranslate: {
     aria: "텍스트 번역",
@@ -1436,6 +1470,7 @@ export const ko: Widened<typeof vi> = {
     metaSegmentsPlural: "{count}개",
     tabTranscript: "회의록",
     tabSummary: "요약",
+    tabRecordings: "녹화본",
     closeAria: "닫기",
     emptyTranscript:
       "아직 회의록이 없습니다. 통화 참여 + STT를 켜서 기록을 시작하세요.",

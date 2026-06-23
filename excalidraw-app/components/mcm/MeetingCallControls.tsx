@@ -46,7 +46,7 @@ import {
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
 
-import { RecordingButton } from "./RecordingControls";
+import { CloudRecordingControls } from "./CloudRecordingControls";
 
 // Icon system: ALL call-control glyphs are lucide-react at size 18, matching the
 // rest of the meeting header (MeetingHeader.tsx, LayoutSwitcher, LangTheme). This
@@ -380,9 +380,13 @@ export const MeetingCallControls = () => {
           )}
         </div>
 
-        {/* Recording — host gets an active record/stop control; non-host sees
-            it disabled with a tooltip naming the host. */}
-        <RecordingButton />
+        {/* Phase 5 — CLOUD recording: host-only Record/Stop + content picker.
+            Drives a server-side Daily cloud recording of the merged call room
+            (voice + camera + screen → one MP4) and broadcasts RECORDING_STATE
+            so everyone sees the REC indicator (rendered in the header). Non-host
+            renders nothing here. (The legacy host-local audio recorder
+            RecordingControls.tsx stays in the tree but is no longer wired in.) */}
+        <CloudRecordingControls />
       </>
     );
   }
