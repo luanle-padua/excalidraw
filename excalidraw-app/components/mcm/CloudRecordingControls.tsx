@@ -1,23 +1,23 @@
-// Phase 5 — CLOUD recording controls (host-only) + content picker.
+// Recording controls (host-only) + content picker — CLIENT-SIDE (06-23 pivot).
 //
-// This is the Phase-5 server-side Daily cloud recording control, distinct from
-// the legacy host-local audio MediaRecorder (RecordingControls.tsx, still in
-// the tree but no longer wired into the call bar). Here the host presses Record
-// → the WORKER starts a Daily cloud recording of the merged call room (voice +
-// camera + screen, one composited MP4) → on stop, the worker copies the file to
-// R2 and indexes it; the host/leadership later review it in finished-meeting
-// review (RecordingsSection).
+// Pivoted OFF Daily cloud recording: the host presses Record → a MediaRecorder
+// IN THE HOST'S BROWSER (audio/clientRecording.ts) captures mixed audio (mic +
+// every peer) PLUS the live screen-share video track when a share is active →
+// on Stop, the WebM blob is uploaded to R2 (PUT /v1/recordings/:roomId/upload)
+// and indexed in the `recording` table → the host/leadership review it in
+// finished-meeting review (RecordingsSection), exactly as before — same table,
+// same R2, same gated stream route, just a .webm.
 //
 // What this component owns:
 //   • a host-only Record / Stop button in the call-controls cluster,
-//   • a small CONTENT PICKER (audio / video[camera+screen] / canvas) the host
-//     ticks before recording (anh Luân 06-23 §7.4),
-//   • calling startRecording / stopRecording (data/recordings.ts contract),
+//   • a small CONTENT PICKER (audio / screen) the host ticks before recording.
+//     The canvas is NOT recorded (owner: it reopens any time); the screen is
+//     captured live only when someone is actually sharing.
+//   • driving the local ClientMeetingRecorder lifecycle,
 //   • driving the SHARED roomRecordingAtom + broadcasting RECORDING_STATE over
 //     the DO realtime channel so EVERYONE sees the REC indicator (legally
-//     required — anh Luân 06-23 §7.5). The elegant indicator itself is rendered
-//     by RecordingIndicator (header) + the frame glow, both reading the same
-//     atom.
+//     required — anh Luân 06-23 §7.5). The indicator itself is rendered by
+//     RecordingIndicator (header) + the frame glow, both reading the same atom.
 //
 // Default OFF: nothing records until the host clicks Record (§7.3).
 
@@ -25,12 +25,10 @@ import { Disc, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
-import { audioStateAtom } from "../../audio/audioState";
+import { audioRoomInstanceAtom, audioStateAtom } from "../../audio/audioState";
+import { ClientMeetingRecorder } from "../../audio/clientRecording";
 import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
-import {
-  startRecording as startCloudRecording,
-  stopRecording as stopCloudRecording,
-} from "../../data/recordings";
+import { uploadRecording } from "../../data/recordings";
 import {
   resetRoomRecording,
   roomRecordingAtom,
@@ -41,18 +39,25 @@ import {
   mySocketIdAtom,
   userProfileAtom,
 } from "../../data/userProfile";
+import { screenShareMediaAtom } from "../../screenshare/screenShareState";
 import { useT } from "../../i18n/mcm";
 
-/** What the recording captures — the host's pre-record picker. `audio` + `video`
- *  are real Daily tracks; `canvas` is metadata-only for the MVP (the canvas is
- *  replayed from the event-log in review, not a Daily track). */
-type RecordContent = { audio: boolean; video: boolean; canvas: boolean };
+/** What the recording captures — the host's pre-record picker. `audio` is the
+ *  mixed mic+peers track; `screen` opts in to capturing the live screen-share
+ *  video when a share is active (audio-only file otherwise). The canvas is never
+ *  recorded — it reopens any time. */
+type RecordContent = { audio: boolean; screen: boolean };
 
 const DEFAULT_CONTENT: RecordContent = {
   audio: true,
-  video: true,
-  canvas: false,
+  screen: true,
 };
+
+/** Pick the active screen-share stream to record: prefer OUR OWN share, else the
+ *  remote presenter we're viewing. Null when no one is sharing. */
+const activeScreenStream = (
+  media: { localStream: MediaStream | null; remoteStream: MediaStream | null },
+): MediaStream | null => media.localStream ?? media.remoteStream ?? null;
 
 const extractRoomId = (link: string | null | undefined): string | null =>
   link?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
@@ -94,6 +99,8 @@ export const CloudRecordingControls = () => {
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioState = useAtomValue(audioStateAtom);
+  const audioRoom = useAtomValue(audioRoomInstanceAtom);
+  const screenMedia = useAtomValue(screenShareMediaAtom);
   const roomRecording = useAtomValue(roomRecordingAtom);
   const mySocketId = useAtomValue(mySocketIdAtom);
   const hostSocketId = useAtomValue(hostSocketIdAtom);
@@ -111,6 +118,25 @@ export const CloudRecordingControls = () => {
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+
+  // The live client recorder + whether the host opted to capture screen. Held in
+  // refs so the start-time choice survives re-renders and the unload handler can
+  // flush without a stale closure.
+  const recorderRef = useRef<ClientMeetingRecorder | null>(null);
+  const captureScreenRef = useRef(false);
+
+  // Live-attach / detach the screen-share video track while recording, so a
+  // share that starts (or stops) AFTER Record was pressed is captured without
+  // restarting the recorder. No-op when the host opted out of screen capture or
+  // when nothing is recording.
+  const screenStream = activeScreenStream(screenMedia);
+  useEffect(() => {
+    const rec = recorderRef.current;
+    if (!rec || !isRecording || !captureScreenRef.current) {
+      return;
+    }
+    rec.setScreenStream(screenStream);
+  }, [screenStream, isRecording]);
 
   // Close the content picker on outside click / Escape (same pattern as the
   // reactions popover in MeetingCallControls).
@@ -145,24 +171,59 @@ export const CloudRecordingControls = () => {
     if (!roomId || !collabAPI) {
       return;
     }
-    // At least one Daily-track content type must be selected (canvas alone is
-    // captured via the event-log, not Daily — recording just audio+video would
-    // be empty). Allow audio-only or video-only; block "canvas only".
-    if (!content.audio && !content.video) {
+    // Audio is the mandatory track — a recording is the mixed call audio plus,
+    // optionally, the screen. (The canvas is never recorded.)
+    if (!content.audio) {
       setErrorMessage(t("cloudRecording.pickContent"));
       return;
     }
     setBusy(true);
     setErrorMessage(null);
-    // startRecording(roomId) is fail-soft → boolean (false covers 403/any
-    // error). The content picker stays a UI/metadata affordance for MVP — the
-    // worker records the merged room at a fixed low-bitrate layout.
-    const ok = await startCloudRecording(roomId);
-    setBusy(false);
-    if (!ok) {
+
+    // Build the recorder: mix local mic + every peer's audio (the proven
+    // MeetingRecorder recipe), then attach the live screen-share track if the
+    // host opted in and someone is sharing right now.
+    const rec = new ClientMeetingRecorder();
+    let audioInputs = 0;
+    const localStream = audioRoom?.getLocalStream();
+    if (localStream) {
+      rec.addLocalStream(localStream);
+      audioInputs += 1;
+    }
+    for (const { socketId, stream } of audioRoom?.getPeerStreams() ?? []) {
+      rec.addStream(socketId, stream);
+      audioInputs += 1;
+    }
+    if (audioInputs === 0) {
+      // No mic and no peers → an empty audio mix. Bail before MediaRecorder runs
+      // so the host gets a clear error instead of a 0-byte file.
+      rec.close();
+      setBusy(false);
       setErrorMessage(t("cloudRecording.startFailed"));
       return;
     }
+    captureScreenRef.current = content.screen;
+    if (content.screen) {
+      // Attach whatever is being shared at start; the useEffect above keeps it
+      // in sync if the share starts/stops mid-record.
+      rec.setScreenStream(activeScreenStream(screenMedia));
+    }
+
+    try {
+      await rec.start();
+    } catch (err) {
+      rec.close();
+      setBusy(false);
+      const detail = (err as Error)?.message;
+      setErrorMessage(
+        detail
+          ? `${t("cloudRecording.startFailed")} (${detail})`
+          : t("cloudRecording.startFailed"),
+      );
+      return;
+    }
+    recorderRef.current = rec;
+    setBusy(false);
     setPickerOpen(false);
     const ts = Date.now();
     // Drive the SHARED atom locally (the host's own broadcast doesn't echo back
@@ -177,38 +238,65 @@ export const CloudRecordingControls = () => {
     collabAPI.publishRecordingState({ recording: true, startedAt: ts });
   }, [
     activeRoomLink,
+    audioRoom,
     collabAPI,
     content,
     mySocketId,
     myProfile?.username,
+    screenMedia,
     t,
   ]);
 
   const stop = useCallback(async () => {
     const roomId = extractRoomId(activeRoomLink);
-    if (!roomId || !collabAPI) {
+    const rec = recorderRef.current;
+    if (!roomId || !collabAPI || !rec) {
       return;
     }
     setBusy(true);
     setErrorMessage(null);
-    const ok = await stopCloudRecording(roomId);
-    setBusy(false);
-    if (!ok) {
-      // Stop failed server-side — keep the indicator up (Daily may still be
-      // recording) and let the host retry rather than silently clearing it.
-      setErrorMessage(t("cloudRecording.stopFailed"));
-      return;
+    // The recorder is LOCAL — stopping always succeeds quickly. Clear the
+    // indicator for everyone as soon as recording ends; the upload happens after
+    // and only its failure is surfaced (the bytes are not lost on a failed
+    // upload — they're in the returned blob, but we have no retry UI yet).
+    let durationSec: number | undefined;
+    let blob: Blob | null = null;
+    try {
+      const result = await rec.stop();
+      durationSec = Math.round(result.durationMs / 1000);
+      blob = result.blob.size > 0 ? result.blob : null;
+    } catch {
+      // Recorder failed to flush — nothing to upload.
+    } finally {
+      rec.close();
+      recorderRef.current = null;
+      captureScreenRef.current = false;
+      resetRoomRecording();
+      collabAPI.publishRecordingState({ recording: false, startedAt: null });
     }
-    resetRoomRecording();
-    collabAPI.publishRecordingState({ recording: false, startedAt: null });
+    if (blob) {
+      const ok = await uploadRecording(roomId, blob, durationSec);
+      if (!ok) {
+        setErrorMessage(t("cloudRecording.uploadFailed"));
+      }
+    }
+    setBusy(false);
   }, [activeRoomLink, collabAPI, t]);
 
   // Best-effort: clear the room indicator for peers if the host's tab closes
-  // mid-recording (Daily keeps recording server-side until `exp`, but the
-  // banner shouldn't dangle). Mirrors RecordingControls' beforeunload.
+  // mid-recording. The in-flight bytes are lost (we cannot await an async
+  // stop()/upload in beforeunload), but the banner shouldn't dangle. Mirrors
+  // RecordingControls' beforeunload.
   const broadcastStopRef = useRef<(() => void) | null>(null);
   broadcastStopRef.current = () => {
     if (isRecording && isHost) {
+      // Synchronously stop the local MediaRecorder so the mic/screen capture
+      // releases; bytes can't be uploaded from an unloading tab.
+      try {
+        recorderRef.current?.close();
+      } catch {
+        // ignore
+      }
       collabAPI?.publishRecordingState({ recording: false, startedAt: null });
     }
   };
@@ -264,8 +352,7 @@ export const CloudRecordingControls = () => {
   const audioReady = audioState.status === "live";
   const summary = [
     content.audio && t("cloudRecording.contentAudio"),
-    content.video && t("cloudRecording.contentVideo"),
-    content.canvas && t("cloudRecording.contentCanvas"),
+    content.screen && t("cloudRecording.contentScreen"),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -307,29 +394,19 @@ export const CloudRecordingControls = () => {
           <label className="mcm-cloudrec__opt">
             <input
               type="checkbox"
-              checked={content.video}
+              checked={content.screen}
               onChange={(e) =>
-                setContent((c) => ({ ...c, video: e.target.checked }))
+                setContent((c) => ({ ...c, screen: e.target.checked }))
               }
             />
-            <span>{t("cloudRecording.contentVideo")}</span>
+            <span>{t("cloudRecording.contentScreen")}</span>
           </label>
-          <label className="mcm-cloudrec__opt">
-            <input
-              type="checkbox"
-              checked={content.canvas}
-              onChange={(e) =>
-                setContent((c) => ({ ...c, canvas: e.target.checked }))
-              }
-            />
-            <span>{t("cloudRecording.contentCanvas")}</span>
-          </label>
-          <p className="mcm-cloudrec__hint">{t("cloudRecording.canvasHint")}</p>
+          <p className="mcm-cloudrec__hint">{t("cloudRecording.screenHint")}</p>
           <button
             type="button"
             className="mcm-cloudrec__go"
             onClick={() => void start()}
-            disabled={busy || (!content.audio && !content.video)}
+            disabled={busy || !content.audio}
           >
             {busy ? (
               <span className="mcm-call-controls__spinner" />

@@ -69,6 +69,42 @@ export const stopRecording = async (roomId: string): Promise<boolean> => {
   }
 };
 
+/** Host: upload a CLIENT-SIDE recording (06-23 pivot off Daily cloud recording).
+ *  The host's browser records mixed audio + the screen-share video into a single
+ *  WebM blob (audio/clientRecording.ts), then PUTs it here. The Worker stores it
+ *  in R2 and inserts a `recording` row (status 'ready'), so review-mode lists +
+ *  plays it through the SAME gated routes the old Daily MP4 used — only the
+ *  container changed (.webm). Host-gated server-side; fail-soft → boolean.
+ *
+ *  `durationSec` is the client-measured length (MediaRecorder gives no reliable
+ *  duration); it is passed as a query param so the row + UI can show it. */
+export const uploadRecording = async (
+  roomId: string,
+  blob: Blob,
+  durationSec?: number,
+): Promise<boolean> => {
+  if (!IS_PROJECTS_CONFIGURED || !roomId || blob.size === 0) {
+    return false;
+  }
+  try {
+    const qs =
+      durationSec != null && Number.isFinite(durationSec)
+        ? `?duration=${Math.max(0, Math.round(durationSec))}`
+        : "";
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/recordings/${encodeURIComponent(roomId)}/upload${qs}`,
+      {
+        method: "PUT",
+        headers: { "content-type": blob.type || "video/webm" },
+        body: blob,
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 /** List a meeting's recordings (review-mode "Recordings" section), newest first.
  *  Same authority gate as start/stop. Returns [] on any error / no access. */
 export const listRecordings = async (roomId: string): Promise<Recording[]> => {

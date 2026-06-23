@@ -8448,6 +8448,94 @@ app.post("/v1/recordings/:roomId/stop", async (c) => {
   return c.json({ ok: true });
 });
 
+// ---- PUT /v1/recordings/:roomId/upload -----------------------------------
+// CLIENT-SIDE recording upload (06-23 pivot OFF Daily cloud recording). The host
+// records mixed audio + the screen-share video into a WebM blob IN THE BROWSER
+// (excalidraw-app/audio/clientRecording.ts) and PUTs the raw bytes here. We store
+// the blob in R2 and INSERT a 'ready' recording row, so review-mode lists + plays
+// it through the EXISTING gated list/media routes — the SAME `recording` table,
+// the SAME R2 bucket, the SAME GET /v1/recordings/:id/media stream — only the
+// container changed (.webm instead of Daily's composited .mp4).
+//
+// Host-gated exactly like start/stop/list (meeting-authority set; external guests
+// never pass). No Daily involvement: the bytes arrive directly from the host.
+//
+// R2 key mirrors the Daily path's `recordings/<meetingId>/<id>` namespace but
+// with a .webm extension (the media route serves whatever contentType the object
+// carries, so .webm streams + plays the same way).
+const recordingWebmKey = (meetingId: string, recordingId: string): string =>
+  `recordings/${meetingId}/${recordingId}.webm`;
+
+// Generous cap for a review-grade screen+audio capture. A 480p-ish screen +
+// opus audio WebM is small, but a long meeting adds up — bound it so a runaway
+// upload can't blow R2. 2 GB is well above any expected review recording.
+const MAX_RECORDING_BYTES = 2 * 1024 * 1024 * 1024;
+
+app.put("/v1/recordings/:roomId/upload", async (c) => {
+  const meetingId = meetingIdFromRoomName(c.req.param("roomId"));
+  if (!(await canManageRecording(c, meetingId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // No recording into a finished meeting (review = look-only) — server backstop,
+  // mirrors the Daily start route.
+  if (await isFinishedLocked(c.env.DB, meetingId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (body.byteLength > MAX_RECORDING_BYTES) {
+    return c.json({ error: "recording too large" }, 413);
+  }
+  const contentType =
+    (c.req.header("content-type") ?? "").split(";")[0].trim() || "video/webm";
+  const durationParam = c.req.query("duration");
+  const duration = durationParam
+    ? Math.max(0, parseInt(durationParam, 10)) || null
+    : null;
+
+  const recordingId = crypto.randomUUID();
+  const key = recordingWebmKey(meetingId, recordingId);
+  const startedBy = c.get("email")?.toLowerCase() ?? null;
+
+  // Store the bytes first; only index the row once the object is durable.
+  await c.env.BUCKET.put(key, body, {
+    httpMetadata: { contentType },
+  });
+
+  // Denormalise project_id from the meeting (leadership / department filtering),
+  // matching the webhook path's row shape.
+  const meta = await c.env.DB.prepare(
+    `SELECT project_id FROM meeting WHERE id = ?1`,
+  )
+    .bind(meetingId)
+    .first<{ project_id: string | null }>();
+
+  const ts = now();
+  // status='ready' immediately — unlike the Daily path there is no async
+  // compositing step; the bytes are already in R2.
+  await c.env.DB.prepare(
+    `INSERT INTO recording
+       (id, meeting_id, project_id, r2_key, duration, bytes, status,
+        started_by, created_at, ready_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'ready', ?7, ?8, ?8)`,
+  )
+    .bind(
+      recordingId,
+      meetingId,
+      meta?.project_id ?? null,
+      key,
+      duration,
+      body.byteLength,
+      startedBy,
+      ts,
+    )
+    .run();
+
+  return c.json({ ok: true, id: recordingId });
+});
+
 // Verify a Daily webhook signature. Daily signs HMAC-SHA256 over
 // "<X-Webhook-Timestamp>.<rawBody>" with the BASE64-DECODED `hmac` secret, and
 // sends the result (base64) in X-Webhook-Signature. We must hash the RAW body
@@ -8747,7 +8835,10 @@ app.get("/v1/recordings/:id/media", async (c) => {
   }
 
   const download = c.req.query("download") === "1";
-  const filename = `recording-${id}.mp4`;
+  // Extension follows the stored object (client-side recordings are .webm; the
+  // dormant Daily path wrote .mp4) so a download lands with the right suffix.
+  const ext = row.r2_key.endsWith(".webm") ? "webm" : "mp4";
+  const filename = `recording-${id}.${ext}`;
   const disposition = download
     ? `attachment; filename="${filename}"`
     : `inline; filename="${filename}"`;
