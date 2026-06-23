@@ -8368,6 +8368,21 @@ app.post("/v1/recordings/:roomId/start", async (c) => {
     return c.json({ error: "meeting finished (review only)" }, 409);
   }
   const room = recordableRoomName(meetingId);
+  // Ensure the room is recording-CAPABLE before starting. Rooms created before
+  // the Phase-5 enable_recording deploy are cached on Daily WITHOUT it, so
+  // recordings/start would 400 ("recording is not enabled for this room").
+  // POST /rooms/:name is an idempotent room update — set enable_recording here
+  // so existing rooms self-heal; ignore its result (the start call below
+  // surfaces the real error if the Daily DOMAIN/plan itself lacks cloud
+  // recording, which is an account-level setting, not fixable in code).
+  await fetch(`${DAILY_API}/rooms/${encodeURIComponent(room)}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ properties: { enable_recording: "cloud" } }),
+  }).catch(() => {});
   const res = await fetch(
     `${DAILY_API}/rooms/${encodeURIComponent(room)}/recordings/start`,
     {
@@ -8388,10 +8403,11 @@ app.post("/v1/recordings/:roomId/start", async (c) => {
     },
   );
   if (!res.ok) {
-    return c.json(
-      { error: "recording start failed", detail: await res.text() },
-      502,
-    );
+    const detail = await res.text();
+    // Surfaced in `wrangler tail` so the real Daily reason (room vs domain vs
+    // plan) is visible when "!" shows on the client.
+    console.warn("[recording] Daily start failed", res.status, detail);
+    return c.json({ error: "recording start failed", detail }, 502);
   }
   return c.json({ ok: true, status: "sent" });
 });
