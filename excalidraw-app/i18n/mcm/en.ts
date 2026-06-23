@@ -243,6 +243,8 @@ export const en: Widened<typeof vi> = {
     join: "Join",
     review: "Review",
     empty: "No meetings yet — MAP will add you here.",
+    recapsTitle: "Shared recaps",
+    recapsEmpty: "No recaps have been shared with you yet.",
   },
 
   // ---------------- Review (finished meeting) ----------------------

@@ -7369,6 +7369,25 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 }
 
+// Tasteful empty line for the "Shared recaps" section when nothing has been
+// shared yet (the guest still has meetings, so the section header stays).
+.mcm-portal__recaps-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px;
+  border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, var(--mcm-text-soft) 35%, transparent);
+  background: color-mix(in srgb, var(--mcm-surface) 40%, transparent);
+  font-size: 13px;
+  color: var(--mcm-text-soft);
+
+  svg {
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+}
+
 .mcm-portal__hint {
   padding: 40px 24px;
   text-align: center;

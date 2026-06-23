@@ -1,4 +1,4 @@
-import { CalendarClock, Eye, LogIn } from "lucide-react";
+import { CalendarClock, Eye, FileText, LogIn, Package } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
@@ -6,12 +6,17 @@ import { collabAPIAtom } from "../../collab/Collab";
 import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
 import { getMyMeetingsChecked, type CalMeeting } from "../../data/calendar";
+import {
+  listMyPackages,
+  type MeetingPackageListItem,
+} from "../../data/packages";
 import { getMeeting } from "../../data/projects";
 import { type Session } from "../../data/session";
 import { useT } from "../../i18n/mcm";
 
 import { ClientCalendar } from "./ClientCalendar";
 import { statusBucket } from "./meetingColors";
+import { MeetingPackageViewer } from "./MeetingPackageViewer";
 import { isFinishedStatus, meetingStatusLabel } from "./meetingStatus";
 import { PortalBackdrop } from "./PortalBackdrop";
 
@@ -42,6 +47,22 @@ const fmtWhen = (m: CalMeeting): string => {
   });
 };
 
+// Recap packages carry a coarse published date (no clock time) — show just the
+// day so the row meta stays calm.
+const fmtRecapWhen = (ms: number | null): string => {
+  if (!ms) {
+    return "";
+  }
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString(undefined, {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
+};
+
 export const ClientPortal = ({ session }: { session: Session }) => {
   const t = useT();
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -50,6 +71,10 @@ export const ClientPortal = ({ session }: { session: Session }) => {
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Shared recap packages addressed to this guest (server audience-gated via
+  // /v1/me/packages → listMyPackages). null = still loading, [] = none shared.
+  const [recaps, setRecaps] = useState<MeetingPackageListItem[] | null>(null);
+  const [viewPkgId, setViewPkgId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -60,6 +85,10 @@ export const ClientPortal = ({ session }: { session: Session }) => {
     } finally {
       setLoading(false);
     }
+    // Recaps load alongside meetings (and re-pull on focus): a revoked recipient
+    // stops seeing the package, mirroring revoke = kick for live meetings.
+    const pkgs = await listMyPackages();
+    setRecaps(pkgs);
   }, []);
 
   useEffect(() => {
@@ -160,6 +189,44 @@ export const ClientPortal = ({ session }: { session: Session }) => {
     );
   };
 
+  // A shared-recap row — reuses the meeting row's glass styling but opens the
+  // MeetingPackageViewer (recap iframe + .zip download) instead of joining.
+  const recapRow = (p: MeetingPackageListItem) => {
+    const meta = [
+      fmtRecapWhen(p.published_at),
+      p.file_count ? t("pkg.selectedCount", { count: p.file_count }) : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return (
+      <li key={p.id} className="mcm-portal__row">
+        <span className="mcm-portal__row-main">
+          <span className="mcm-portal__row-title">
+            {p.title?.trim() || t("pkg.viewerTitle")}
+          </span>
+          {meta && (
+            <span className="mcm-portal__row-meta">
+              <span className="mcm-portal__row-when">{meta}</span>
+            </span>
+          )}
+        </span>
+        <button
+          type="button"
+          className="mcm-btn mcm-btn--sm"
+          onClick={() => setViewPkgId(p.id)}
+        >
+          <FileText size={15} /> {t("pkg.open")}
+        </button>
+      </li>
+    );
+  };
+
+  // The recap surface stands on its own — a guest may have shared recaps even
+  // when they have no current/past meetings, so it must not be gated behind the
+  // meetings list.
+  const hasRecaps = (recaps?.length ?? 0) > 0;
+  const noMeetings = meetings.length === 0;
+
   return (
     <div className="mcm-portal">
       <PortalBackdrop />
@@ -187,7 +254,7 @@ export const ClientPortal = ({ session }: { session: Session }) => {
                 {t("errors.retry")}
               </button>
             </div>
-          ) : meetings.length === 0 ? (
+          ) : noMeetings && !hasRecaps ? (
             <div className="mcm-portal__empty">
               <CalendarClock size={30} strokeWidth={1.5} />
               <p>{t("portal.empty")}</p>
@@ -214,11 +281,38 @@ export const ClientPortal = ({ session }: { session: Session }) => {
                   </ul>
                 </section>
               )}
+              {/* Shared recaps — packages a host published to this guest. Hidden
+                  while empty UNLESS the guest has no meetings either (then we
+                  still show the section with a tasteful empty line so the page
+                  isn't blank). */}
+              {(hasRecaps || noMeetings) && (
+                <section className="mcm-portal__section">
+                  <h2 className="mcm-portal__section-title">
+                    {t("portal.recapsTitle")}
+                  </h2>
+                  {hasRecaps ? (
+                    <ul className="mcm-portal__list">
+                      {(recaps ?? []).map((p) => recapRow(p))}
+                    </ul>
+                  ) : (
+                    <div className="mcm-portal__recaps-empty">
+                      <Package size={18} strokeWidth={1.5} aria-hidden="true" />
+                      <span>{t("portal.recapsEmpty")}</span>
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
         </div>
         <ClientCalendar meetings={meetings} />
       </div>
+      {viewPkgId && (
+        <MeetingPackageViewer
+          pkgId={viewPkgId}
+          onClose={() => setViewPkgId(null)}
+        />
+      )}
     </div>
   );
 };

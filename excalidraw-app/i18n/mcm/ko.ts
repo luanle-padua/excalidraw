@@ -250,6 +250,8 @@ export const ko: Widened<typeof vi> = {
     join: "참여",
     review: "다시 보기",
     empty: "아직 회의가 없습니다 — MAP이 여기에 추가해 드립니다.",
+    recapsTitle: "공유된 요약",
+    recapsEmpty: "아직 공유된 요약이 없습니다.",
   },
 
   // ---------------- Review (finished meeting) ----------------------

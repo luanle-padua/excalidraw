@@ -271,6 +271,8 @@ export const vi = {
     join: "Tham gia",
     review: "Xem lại",
     empty: "Chưa có cuộc họp nào — MAP sẽ thêm bạn vào đây.",
+    recapsTitle: "Bản tổng kết được chia sẻ",
+    recapsEmpty: "Chưa có bản tổng kết nào được chia sẻ với bạn.",
   },
 
   // ---------------- Review (finished meeting) ----------------------
