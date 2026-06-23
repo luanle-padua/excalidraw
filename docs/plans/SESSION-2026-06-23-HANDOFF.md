@@ -30,6 +30,7 @@
 - Còn sót (minor, KHÔNG block xóa): R2 blobs `packages/<id>/...` và rows `project_file` không được dọn khi xóa project (orphan; giữ theo moat "revoke≠delete"). Để sau nếu cần.
 
 ## ⏳ PENDING / BUGS cho ngày mai (PHẦN QUAN TRỌNG NHẤT)
+0. **[UI] "Manage projects" → mục STATUS bị ĐÈ CHỮ.** Trong trang chi tiết Manage projects (component `excalidraw-app/components/mcm/ProjectManagerPanel.tsx`), hàng STATUS render TẤT CẢ option chồng lên nhau cùng 1 vị trí (Preparing/Ongoing/On hold/Finished/Cancelled/Archived đè lên nhau, không đọc được) — lỗi layout CSS (pills không xếp ngang có gap; nghi absolute/zero-width/flex sai). Fix: cho hàng status pill xếp ngang, có khoảng cách, wrap đẹp, highlight đúng status hiện tại. Owner muốn "1 team khác fix UI của manage projects". (Owner đang dùng project "Vietnam"/MAP_VN_0000 status=Concept để test.)
 1. **Canvas-Replay — ĐÃ REVERT hôm nay** (revert commit trên master; bản gốc là feature replay: capture canvas evolution + scrub player). **LÝ DO revert: gây REGRESSION** —
    - (a) **phantom guests**: hàng chục entry "guest" cứ hiện cho NGƯỜI KHÁC khi review (nghi do player mount Excalidraw THỨ HAI + vòng lặp reload → re-join phòng lặp → presence ma);
    - (b) **reload loop**: replay "load đi load lại" khi vào lại, chỉ lần mở đầu chạy;
