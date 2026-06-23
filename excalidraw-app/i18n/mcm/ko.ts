@@ -1691,5 +1691,24 @@ export const ko: Widened<typeof vi> = {
     download: "다운로드 (.zip)",
     downloadFailed:
       "패키지를 다운로드하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
+    // --- Management (0034): 작성자가 기존 / 공유된 패키지를 관리 ---
+    manage: "관리",
+    unshare: "공유 해제",
+    unshareConfirmTitle: "이 요약 공유를 해제할까요?",
+    unshareConfirmMsg:
+      "수신자가 더 이상 이 요약을 볼 수 없습니다. 나중에 다시 게시할 수 있어요.",
+    deleteTitle: "패키지 삭제",
+    deleteConfirmTitle: "이 요약을 삭제할까요?",
+    deleteConfirmMsg:
+      "모든 곳에서 숨겨집니다. 기록 보존을 위해 데이터는 유지됩니다(영구 삭제 아님).",
+    delete: "삭제",
+    manageRecipients: "수신자",
+    recipientsManageTitle: "수신자",
+    recipientsManageEmpty: "이 패키지에는 아직 수신자가 없습니다.",
+    revoke: "철회",
+    restore: "복원",
+    revoked: "철회됨",
+    manageFailed: "처리하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
+    statusDraftBadge: "초안",
   },
 };

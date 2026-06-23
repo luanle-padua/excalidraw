@@ -3648,6 +3648,72 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     font-size: 12px;
     color: var(--mcm-text-soft);
   }
+
+  // --- Package MANAGEMENT (0034): curator row = the package button + an
+  // actions strip (Unshare / Delete / Manage recipients) + an expandable
+  // recipient panel. ---
+  &-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--mcm-surface-2);
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 12px;
+  }
+
+  // Inside a manage row the package button is borderless/transparent (the row
+  // carries the card frame), so it reads as a header, not a nested card.
+  &-row &-main &.mcm-mdp__pkg,
+  &-row .mcm-mdp__pkg {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+
+    &:hover {
+      border-color: transparent;
+    }
+  }
+
+  &-badge {
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  &-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &-recips {
+    border-top: 1px solid var(--mcm-hairline);
+    padding-top: 8px;
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+
+  &-recip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+    color: var(--mcm-text);
+
+    &-email--revoked {
+      color: var(--mcm-text-soft);
+      text-decoration: line-through;
+    }
+  }
 }
 
 @keyframes mcm-log-pop {

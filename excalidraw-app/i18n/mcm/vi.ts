@@ -1754,5 +1754,24 @@ export const vi = {
     recapFrameTitle: "Nội dung tổng kết",
     download: "Tải gói (.zip)",
     downloadFailed: "Không tải được gói — kiểm tra mạng rồi thử lại.",
+    // --- Management (0034): curator quản lý gói đã tạo / đã chia sẻ ---
+    manage: "Quản lý",
+    unshare: "Thu hồi chia sẻ",
+    unshareConfirmTitle: "Thu hồi chia sẻ?",
+    unshareConfirmMsg:
+      "Người nhận sẽ không còn thấy bản tổng kết này. Bạn có thể phát hành lại sau.",
+    deleteTitle: "Xoá gói",
+    deleteConfirmTitle: "Xoá bản tổng kết?",
+    deleteConfirmMsg:
+      "Gói sẽ bị ẩn khỏi mọi nơi. Dữ liệu vẫn được lưu lại (không xoá vĩnh viễn) để giữ lịch sử.",
+    delete: "Xoá",
+    manageRecipients: "Người nhận",
+    recipientsManageTitle: "Người nhận",
+    recipientsManageEmpty: "Gói này chưa có người nhận nào.",
+    revoke: "Thu hồi",
+    restore: "Khôi phục",
+    revoked: "Đã thu hồi",
+    manageFailed: "Thao tác không thành công — kiểm tra mạng rồi thử lại.",
+    statusDraftBadge: "Nháp",
   },
 } as const;

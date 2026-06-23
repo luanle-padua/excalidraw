@@ -46,7 +46,7 @@ import {
   DAILY_FREE_MINUTES,
 } from "./usage";
 
-import type { MiddlewareHandler } from "hono";
+import type { Context, MiddlewareHandler } from "hono";
 
 // Re-exported so the AI cost helper is reachable as "the logUsageEvent in
 // index.ts" (Admin Console P0) even though the implementation lives in usage.ts
@@ -2820,14 +2820,21 @@ type PackageRow = {
   created_by: string | null;
   created_at: number;
   published_at: number | null;
+  // 0034: soft-delete marker. NULL = live; a timestamp = soft-deleted (rows +
+  // R2 kept for provenance — "revoke != delete"). Every read/list filters this.
+  deleted_at: number | null;
 };
 
 // Shared loader for the package-scoped routes (edit/publish/file/recap/get/
 // export). Returns the package row + the meeting's organizer/host/conf so the
-// authority gate doesn't re-query. NULL = no such package.
+// authority gate doesn't re-query. NULL = no such package (or soft-deleted).
 const loadPackage = async (
   db: D1Database,
   pkgId: string,
+  // Include soft-deleted rows (default false). Only the manage routes that act
+  // ON a deleted package (restore) pass true; every normal read keeps it false
+  // so a soft-deleted package is invisible everywhere ("revoke != delete").
+  includeDeleted = false,
 ): Promise<
   | (PackageRow & {
       organizer_email: string | null;
@@ -2841,7 +2848,7 @@ const loadPackage = async (
       `SELECT pkg.*, m.organizer_email, m.host_email, m.confidentiality
          FROM meeting_package pkg
          JOIN meeting m ON m.id = pkg.meeting_id
-        WHERE pkg.id = ?1`,
+        WHERE pkg.id = ?1${includeDeleted ? "" : " AND pkg.deleted_at IS NULL"}`,
     )
     .bind(pkgId)
     .first();
@@ -3146,6 +3153,157 @@ app.post("/v1/packages/:id/publish", async (c) => {
     );
   }
   return c.json({ ok: true, published_at: now() });
+});
+
+// ---- Meeting Package MANAGEMENT (0034) -----------------------------------
+// Once a package exists / has been shared, the curator manages it. Every route
+// here is gated by the SAME host-level edit gate (canEditMeeting, resolved
+// through the package's meeting — only organizer/host/project authority/admin).
+// Per "revoke != delete" NOTHING is hard-deleted: unshare flips status back to
+// draft, delete sets a soft-delete timestamp (rows + R2 kept for provenance),
+// and recipient revoke/restore just flips meeting_package_recipient.status.
+
+// Shared edit-gate guard for the manage routes. Loads the package (optionally
+// including soft-deleted), 404s if missing, 403s if the caller isn't an editor.
+// Returns the package row on success, or a Response to short-circuit.
+const loadManageablePackage = async (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  pkgId: string,
+  includeDeleted = false,
+): Promise<
+  | (PackageRow & {
+      organizer_email: string | null;
+      host_email: string | null;
+      confidentiality: string | null;
+    })
+  | Response
+> => {
+  const pkg = await loadPackage(c.env.DB, pkgId, includeDeleted);
+  if (!pkg) {
+    return c.json({ error: "not found" }, 404);
+  }
+  if (
+    !(await canEditMeeting(
+      c.env.DB,
+      pkg.meeting_id,
+      c.get("email"),
+      c.get("role"),
+      pkg,
+    ))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  return pkg;
+};
+
+// Unshare: published -> draft. The audience instantly stops seeing it (GET +
+// both lists already hide non-published from non-editors). Reversible — the
+// editor can re-publish. No-op-safe on a draft.
+app.post("/v1/packages/:id/unpublish", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"));
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package SET status = 'draft', published_at = NULL
+      WHERE id = ?1`,
+  )
+    .bind(pkg.id)
+    .run();
+  return c.json({ ok: true });
+});
+
+// SOFT delete: stamp deleted_at = now(). The package vanishes from every read /
+// list (all filter deleted_at IS NULL) but its rows + R2 blobs are KEPT for
+// provenance (the AI knowledge graph — anh Luân: never hard-delete). Reversible
+// via /restore. No-op-safe if already deleted (loadPackage excludes it, so a
+// second call 404s — fine).
+app.delete("/v1/packages/:id", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"));
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package SET deleted_at = ?2 WHERE id = ?1`,
+  )
+    .bind(pkg.id, now())
+    .run();
+  return c.json({ ok: true });
+});
+
+// Restore a soft-deleted package (clear deleted_at). Loads WITH deleted rows so
+// the editor can reach it. The package returns to whatever status it held.
+app.post("/v1/packages/:id/restore", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"), true);
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package SET deleted_at = NULL WHERE id = ?1`,
+  )
+    .bind(pkg.id)
+    .run();
+  return c.json({ ok: true });
+});
+
+// List a package's named recipients (audience='list') for the manage UI. Editor-
+// gated. Returns BOTH active + revoked rows (revoked stay visible as the audit
+// trail), newest first.
+app.get("/v1/packages/:id/recipients", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"));
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT email, status, added_at FROM meeting_package_recipient
+      WHERE package_id = ?1 ORDER BY added_at DESC`,
+  )
+    .bind(pkg.id)
+    .all<{ email: string; status: string; added_at: number }>();
+  return c.json({ recipients: results ?? [] });
+});
+
+// Revoke a recipient: flip their row to status='revoked' (revoke != delete —
+// the row stays, so provenance survives and canSeePackage / the email fan-out
+// both already honour `status <> 'revoked'`). Editor-gated.
+app.post("/v1/packages/:id/recipients/revoke", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"));
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  const b = await c.req.json<{ email?: string }>();
+  const email = (b.email ?? "").trim().toLowerCase();
+  if (!email.includes("@")) {
+    return c.json({ error: "bad email" }, 400);
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package_recipient SET status = 'revoked'
+      WHERE package_id = ?1 AND email = ?2`,
+  )
+    .bind(pkg.id, email)
+    .run();
+  return c.json({ ok: true });
+});
+
+// Restore a revoked recipient: flip the row back to status='active'. Editor-
+// gated. The row already exists (revoke never deleted it).
+app.post("/v1/packages/:id/recipients/restore", async (c) => {
+  const pkg = await loadManageablePackage(c, c.req.param("id"));
+  if (pkg instanceof Response) {
+    return pkg;
+  }
+  const b = await c.req.json<{ email?: string }>();
+  const email = (b.email ?? "").trim().toLowerCase();
+  if (!email.includes("@")) {
+    return c.json({ error: "bad email" }, 400);
+  }
+  await c.env.DB.prepare(
+    `UPDATE meeting_package_recipient SET status = 'active'
+      WHERE package_id = ?1 AND email = ?2`,
+  )
+    .bind(pkg.id, email)
+    .run();
+  return c.json({ ok: true });
 });
 
 // Best-effort "a recap package was shared with you" email to the active (non-
@@ -3502,7 +3660,7 @@ app.get("/v1/meetings/:roomId/packages", async (c) => {
               WHERE f.package_id = pkg.id) AS file_count
        FROM meeting_package pkg
        JOIN meeting m ON m.id = pkg.meeting_id
-      WHERE pkg.meeting_id = ?1
+      WHERE pkg.meeting_id = ?1 AND pkg.deleted_at IS NULL
       ORDER BY pkg.created_at DESC`,
   )
     .bind(roomId)
@@ -3555,6 +3713,7 @@ app.get("/v1/me/packages", async (c) => {
              AND lower(iv.email) = ?1
              AND iv.status <> 'revoked'
       WHERE pkg.status = 'published'
+        AND pkg.deleted_at IS NULL
         AND (r.email IS NOT NULL OR iv.email IS NOT NULL
              OR lower(pkg.created_by) = ?1)
       ORDER BY pkg.published_at DESC`,

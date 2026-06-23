@@ -2,12 +2,14 @@ import {
   ArrowLeft,
   CalendarClock,
   CircleSlash,
+  EyeOff,
   FolderOpen,
   Package,
   Pencil,
   RotateCcw,
   Sparkles,
   Trash2,
+  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -22,14 +24,21 @@ import {
   type MeetingParticipant,
 } from "../../data/invite";
 import {
+  deletePackage,
   listMeetingPackages,
+  listPackageRecipients,
+  restoreRecipient,
+  revokeRecipient,
+  unpublishPackage,
   type MeetingPackageListItem,
+  type PackageRecipient,
 } from "../../data/packages";
 import { deleteMeeting, getMeeting, updateMeeting } from "../../data/projects";
 import { isInternalEmail, sessionAtom } from "../../data/session";
 import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
 
+import { ConfirmModal } from "./ConfirmModal";
 import { MeetingPackageBuilder } from "./MeetingPackageBuilder";
 import { MeetingPackageViewer } from "./MeetingPackageViewer";
 import { statusBucket } from "./meetingColors";
@@ -104,6 +113,12 @@ export const MeetingDetailPreview = ({
   // + the one currently opened in the viewer modal.
   const [packages, setPackages] = useState<MeetingPackageListItem[]>([]);
   const [viewPkgId, setViewPkgId] = useState<string | null>(null);
+  // Package MANAGEMENT (curator): a pending confirm (unshare/delete) + the
+  // package whose recipient panel is expanded.
+  const [pkgConfirm, setPkgConfirm] = useState<{
+    kind: "unshare" | "delete";
+    pkg: MeetingPackageListItem;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -186,6 +201,27 @@ export const MeetingDetailPreview = ({
     status === "finished"
       ? packages.filter((p) => p.status === "published")
       : [];
+  // Curator management list: every package of this finished meeting (drafts +
+  // published) the editor can manage. The server already returns drafts only to
+  // the edit set, so when canManage is false this is naturally empty.
+  const managePackages =
+    canManage && status === "finished" ? packages : [];
+
+  // Run the confirmed unshare/delete, then refresh the list.
+  const runPkgConfirm = async () => {
+    if (!pkgConfirm) {
+      return;
+    }
+    const { kind, pkg } = pkgConfirm;
+    const ok =
+      kind === "unshare"
+        ? await unpublishPackage(pkg.id)
+        : await deletePackage(pkg.id);
+    if (!ok) {
+      window.alert(t("pkg.manageFailed"));
+    }
+    await refresh();
+  };
 
   const saveReschedule = async () => {
     if (!dateStr || busy) {
@@ -565,7 +601,37 @@ export const MeetingDetailPreview = ({
                 the audience discovers it here and opens the viewer (recap +
                 download). Only published packages the viewer passes the
                 server's audience gate for appear. */}
-            {sharedPackages.length > 0 && (
+            {/* Curator management list (editors only): every package of this
+                finished meeting with per-package manage actions — Unshare (if
+                published), Delete (soft), and Manage recipients (list audience).
+                Non-editors fall through to the read-only "Shared recap" list
+                below. */}
+            {managePackages.length > 0 && (
+              <section className="mcm-mdp__zone">
+                <h4 className="mcm-mdp__sec">
+                  <Package size={13} aria-hidden="true" /> {t("pkg.sharedTitle")}
+                  <span className="mcm-mdp__sec-n">
+                    {managePackages.length}
+                  </span>
+                </h4>
+                <ul className="mcm-mdp__pkgs">
+                  {managePackages.map((p) => (
+                    <PackageManageRow
+                      key={p.id}
+                      pkg={p}
+                      t={t}
+                      onOpen={() => setViewPkgId(p.id)}
+                      onUnshare={() =>
+                        setPkgConfirm({ kind: "unshare", pkg: p })
+                      }
+                      onDelete={() => setPkgConfirm({ kind: "delete", pkg: p })}
+                    />
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {!canManage && sharedPackages.length > 0 && (
               <section className="mcm-mdp__zone">
                 <h4 className="mcm-mdp__sec">
                   <Package size={13} aria-hidden="true" /> {t("pkg.sharedTitle")}
@@ -705,7 +771,186 @@ export const MeetingDetailPreview = ({
           onClose={() => setViewPkgId(null)}
         />
       )}
+
+      {pkgConfirm && (
+        <ConfirmModal
+          title={t(
+            pkgConfirm.kind === "unshare"
+              ? "pkg.unshareConfirmTitle"
+              : "pkg.deleteConfirmTitle",
+          )}
+          message={t(
+            pkgConfirm.kind === "unshare"
+              ? "pkg.unshareConfirmMsg"
+              : "pkg.deleteConfirmMsg",
+          )}
+          confirmLabel={t(
+            pkgConfirm.kind === "unshare" ? "pkg.unshare" : "pkg.delete",
+          )}
+          danger={pkgConfirm.kind === "delete"}
+          onConfirm={runPkgConfirm}
+          onClose={() => setPkgConfirm(null)}
+        />
+      )}
     </div>
+  );
+};
+
+// Per-package management row (curator view of a finished meeting's packages).
+// Shows the title + status, an Open affordance (reuses the viewer), and the
+// editor actions: Unshare (if published), Delete (soft), and an expandable
+// Manage-recipients panel for audience_kind='list'. Recipients are loaded
+// lazily on first expand; revoke/restore flip status in place ("revoke !=
+// delete" — a revoked row stays visible as the audit trail).
+const PackageManageRow = ({
+  pkg,
+  t,
+  onOpen,
+  onUnshare,
+  onDelete,
+}: {
+  pkg: MeetingPackageListItem;
+  t: ReturnType<typeof useT>;
+  onOpen: () => void;
+  onUnshare: () => void;
+  onDelete: () => void;
+}) => {
+  const [showRecipients, setShowRecipients] = useState(false);
+  const [recipients, setRecipients] = useState<PackageRecipient[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const isPublished = pkg.status === "published";
+  const hasList = pkg.audience_kind === "list";
+
+  const loadRecipients = useCallback(async () => {
+    setRecipients(await listPackageRecipients(pkg.id));
+  }, [pkg.id]);
+
+  const toggleRecipients = async () => {
+    const next = !showRecipients;
+    setShowRecipients(next);
+    if (next && recipients === null) {
+      await loadRecipients();
+    }
+  };
+
+  const flipRecipient = async (email: string, revoke: boolean) => {
+    if (busy) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = revoke
+        ? await revokeRecipient(pkg.id, email)
+        : await restoreRecipient(pkg.id, email);
+      if (!ok) {
+        window.alert(t("pkg.manageFailed"));
+        return;
+      }
+      await loadRecipients();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li className="mcm-mdp__pkg-row">
+      <div className="mcm-mdp__pkg-main">
+        <button
+          type="button"
+          className="mcm-mdp__pkg"
+          onClick={onOpen}
+        >
+          <span className="mcm-mdp__pkg-ico" aria-hidden="true">
+            <Package size={16} />
+          </span>
+          <span className="mcm-mdp__pkg-text">
+            <span className="mcm-mdp__pkg-title">
+              {pkg.title || t("pkg.viewerTitle")}
+              {!isPublished && (
+                <span className="mcm-pill mcm-pill--neutral mcm-mdp__pkg-badge">
+                  {t("pkg.statusDraftBadge")}
+                </span>
+              )}
+            </span>
+            <span className="mcm-mdp__pkg-meta">
+              {pkg.file_count
+                ? t("pkg.selectedCount", { count: pkg.file_count })
+                : t("pkg.noFiles")}
+              {pkg.published_at ? ` · ${fmtMs(pkg.published_at)}` : ""}
+            </span>
+          </span>
+        </button>
+      </div>
+      <div className="mcm-mdp__pkg-acts">
+        {hasList && (
+          <button
+            type="button"
+            className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+            onClick={() => void toggleRecipients()}
+          >
+            <Users size={14} /> {t("pkg.manageRecipients")}
+          </button>
+        )}
+        {isPublished && (
+          <button
+            type="button"
+            className="mcm-btn mcm-btn--secondary mcm-btn--sm"
+            onClick={onUnshare}
+          >
+            <EyeOff size={14} /> {t("pkg.unshare")}
+          </button>
+        )}
+        <button
+          type="button"
+          className="mcm-btn mcm-btn--sm mcm-btn--danger"
+          onClick={onDelete}
+        >
+          <Trash2 size={14} /> {t("pkg.delete")}
+        </button>
+      </div>
+
+      {hasList && showRecipients && (
+        <div className="mcm-mdp__pkg-recips">
+          {recipients === null ? (
+            <p className="mcm-admin__note">{t("admin.loading")}</p>
+          ) : recipients.length === 0 ? (
+            <p className="mcm-admin__note">{t("pkg.recipientsManageEmpty")}</p>
+          ) : (
+            <ul>
+              {recipients.map((r) => {
+                const revoked = r.status === "revoked";
+                return (
+                  <li key={r.email} className="mcm-mdp__pkg-recip">
+                    <span
+                      className={
+                        revoked ? "mcm-mdp__pkg-recip-email--revoked" : ""
+                      }
+                    >
+                      {r.email}
+                      {revoked && (
+                        <span className="mcm-pill mcm-pill--neutral mcm-mdp__pkg-badge">
+                          {t("pkg.revoked")}
+                        </span>
+                      )}
+                    </span>
+                    <button
+                      type="button"
+                      className={`mcm-btn mcm-btn--sm ${
+                        revoked ? "mcm-btn--secondary" : "mcm-btn--danger"
+                      }`}
+                      disabled={busy}
+                      onClick={() => void flipRecipient(r.email, !revoked)}
+                    >
+                      {revoked ? t("pkg.restore") : t("pkg.revoke")}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </li>
   );
 };
 

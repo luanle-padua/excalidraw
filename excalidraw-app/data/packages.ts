@@ -295,6 +295,134 @@ export const exportPackageZip = async (
   }
 };
 
+// === Meeting Package MANAGEMENT (0034) ====================================
+// Curator-facing management of an existing/shared package. All routes are
+// editor-gated server-side (canEditMeeting via the package's meeting). Per
+// "revoke != delete": unpublish flips status back to draft, delete is a SOFT
+// delete (rows + R2 kept), recipient revoke/restore flips a status flag.
+
+/** A named recipient row of an audience='list' package (for the manage UI).
+ *  Revoked recipients stay in the list as the audit trail. */
+export type PackageRecipient = {
+  email: string;
+  status: "active" | "revoked";
+  added_at: number;
+};
+
+/** Unshare a published package (published -> draft). The audience stops seeing
+ *  it; the editor can re-publish later. */
+export const unpublishPackage = async (pkgId: string): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(pkgId)}/unpublish`,
+      { method: "POST" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Soft-delete a package (sets deleted_at server-side; rows + R2 kept for
+ *  provenance). It disappears from every list/read but can be restored. */
+export const deletePackage = async (pkgId: string): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(pkgId)}`,
+      { method: "DELETE" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Restore a soft-deleted package (clears deleted_at). */
+export const restorePackage = async (pkgId: string): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(pkgId)}/restore`,
+      { method: "POST" },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** List a package's named recipients (audience='list'), active + revoked, for
+ *  the manage UI. Editor-gated; empty on failure. */
+export const listPackageRecipients = async (
+  pkgId: string,
+): Promise<PackageRecipient[]> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return [];
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(pkgId)}/recipients`,
+    );
+    if (!res.ok) {
+      return [];
+    }
+    const body = (await res.json()) as { recipients?: PackageRecipient[] };
+    return body.recipients ?? [];
+  } catch {
+    return [];
+  }
+};
+
+/** Revoke a recipient (flip to status='revoked'; row stays — revoke != delete). */
+export const revokeRecipient = async (
+  pkgId: string,
+  email: string,
+): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(
+        pkgId,
+      )}/recipients/revoke`,
+      { method: "POST", headers: json, body: JSON.stringify({ email }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/** Restore a revoked recipient (flip back to status='active'). */
+export const restoreRecipient = async (
+  pkgId: string,
+  email: string,
+): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(
+        pkgId,
+      )}/recipients/restore`,
+      { method: "POST", headers: json, body: JSON.stringify({ email }) },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 // --- client-side packaging helpers ----------------------------------------
 
 // Decode a `data:<mime>;base64,<payload>` URL into raw bytes + the embedded

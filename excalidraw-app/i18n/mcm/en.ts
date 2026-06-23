@@ -1683,5 +1683,24 @@ export const en: Widened<typeof vi> = {
     download: "Download (.zip)",
     downloadFailed:
       "Couldn't download the package — check your network and retry.",
+    // --- Management (0034): curator manages an existing / shared package ---
+    manage: "Manage",
+    unshare: "Unshare",
+    unshareConfirmTitle: "Unshare this recap?",
+    unshareConfirmMsg:
+      "Recipients will stop seeing this recap. You can publish it again later.",
+    deleteTitle: "Delete package",
+    deleteConfirmTitle: "Delete this recap?",
+    deleteConfirmMsg:
+      "It will be hidden everywhere. The data is kept (not permanently deleted) to preserve history.",
+    delete: "Delete",
+    manageRecipients: "Recipients",
+    recipientsManageTitle: "Recipients",
+    recipientsManageEmpty: "This package has no recipients yet.",
+    revoke: "Revoke",
+    restore: "Restore",
+    revoked: "Revoked",
+    manageFailed: "That didn't work — check your network and retry.",
+    statusDraftBadge: "Draft",
   },
 };
