@@ -40,7 +40,6 @@ import {
 import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
-import { CanvasReplaySection } from "./CanvasReplaySection";
 import { RecordingsSection } from "./RecordingsSection";
 import { personColor } from "./meetingColors";
 import { shortDisplayName } from "./animalEmoji";
@@ -178,7 +177,7 @@ const downloadMarkdown = (filename: string, content: string): void => {
 
 // --- modal -----------------------------------------------------------
 
-type Tab = "transcript" | "summary" | "replay" | "recordings";
+type Tab = "transcript" | "summary" | "recordings";
 
 export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const t = useT();
@@ -247,9 +246,6 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
     viewerAuthority || !!session?.isAdmin || !!session?.isOwner;
 
   const roomId = collabAPI?.portal.roomId ?? null;
-  // Room key (from the URL hash, never sent to the server) — the replay player
-  // decrypts the E2E canvas-history blob client-side with it.
-  const roomKey = collabAPI?.portal.roomKey ?? null;
   const meetingTitle = useMemo(() => {
     if (roomId) {
       return t("log.titleWithId", { id: roomId.slice(0, 6) });
@@ -446,18 +442,6 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 <span className="mcm-log-modal__tab-dot" aria-hidden="true" />
               )}
             </button>
-            {/* Canvas Replay — scrub/play back how the whiteboard evolved.
-                Available to anyone in review (E2E: they hold the room key). */}
-            <button
-              type="button"
-              role="tab"
-              className={`mcm-log-modal__tab${
-                tab === "replay" ? " mcm-log-modal__tab--active" : ""
-              }`}
-              onClick={() => setTab("replay")}
-            >
-              {t("log.tabReplay")}
-            </button>
             {/* Phase 5 — Recordings tab, host/leadership/admin only. */}
             {canSeeRecordings && (
               <button
@@ -638,9 +622,6 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 </>
               )}
             </>
-          )}
-          {tab === "replay" && (
-            <CanvasReplaySection roomId={roomId} roomKey={roomKey} />
           )}
           {tab === "recordings" && canSeeRecordings && (
             <RecordingsSection roomId={roomId} />

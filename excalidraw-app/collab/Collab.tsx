@@ -96,15 +96,6 @@ import {
   saveTranscriptToFirebase,
 } from "../data/firebase";
 import {
-  canvasHistory,
-  recordCanvasHistory,
-  type CanvasHistoryEntry,
-} from "../data/canvasHistory";
-import {
-  loadCanvasHistoryFromStorage,
-  saveCanvasHistoryToStorage,
-} from "../data/storage";
-import {
   importUsernameFromLocalStorage,
   saveUsernameToLocalStorage,
 } from "../data/localStorage";
@@ -790,16 +781,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       this.librarySaveTimer = null;
       this.saveLibraryNow(roomId, roomKey);
     }
-    // Canvas replay log: always flush on leave/End (not only when a debounce is
-    // pending) so the final burst of edits captured inside the recorder's
-    // throttle window reaches R2 for replay. No-ops if there's nothing recorded.
-    if (this.canvasHistorySaveTimer) {
-      clearTimeout(this.canvasHistorySaveTimer);
-      this.canvasHistorySaveTimer = null;
-    }
-    if (!appJotaiStore.get(meetingViewOnlyAtom)) {
-      this.saveCanvasHistoryNow(roomId, roomKey);
-    }
   };
 
   private destroySocketClient = (opts?: { isUnload: boolean }) => {
@@ -809,14 +790,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.flushPendingRoomSaves();
     this.portal.close();
     this.fileManager.reset();
-    // Canvas replay log is per-room and in-memory; clear it so the next room
-    // (or a review session) starts from its own persisted log, not this one's
-    // frames. flushPendingRoomSaves above already pushed the final state to R2.
-    if (this.canvasHistorySaveTimer) {
-      clearTimeout(this.canvasHistorySaveTimer);
-      this.canvasHistorySaveTimer = null;
-    }
-    canvasHistory.reset();
     if (this.chatSaveTimer) {
       clearTimeout(this.chatSaveTimer);
       this.chatSaveTimer = null;
@@ -979,9 +952,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       void this.loadChatHistory(sRoomId, sRoomKey);
       void this.loadLibrary(sRoomId, sRoomKey);
       void this.loadTranscriptHistory(sRoomId, sRoomKey);
-      // Review opens the replay log too, so the finished-meeting Replay surface
-      // can scrub the canvas evolution.
-      void this.loadCanvasHistory(sRoomId, sRoomKey);
       const stealthScene = resolvablePromise<
         | (ImportedDataState & {
             elements: readonly OrderedExcalidrawElement[];
@@ -1284,10 +1254,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
         existingRoomLinkData.roomKey,
       );
       void this.loadTranscriptHistory(
-        existingRoomLinkData.roomId,
-        existingRoomLinkData.roomKey,
-      );
-      void this.loadCanvasHistory(
         existingRoomLinkData.roomId,
         existingRoomLinkData.roomKey,
       );
@@ -2217,16 +2183,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     }
     this.broadcastElements(elements);
     this.queueSaveToFirebase();
-
-    // CANVAS REPLAY (passive observer): record a throttled, delta-encoded frame
-    // of the scene so a finished meeting can be scrubbed/played back in review.
-    // This only READS `elements` (the array we just broadcast/saved) — it never
-    // mutates an element, bumps a version, or touches the broadcast/save path,
-    // and swallows its own errors, so it cannot affect live collaboration. We
-    // never capture in read-only review (review never reaches syncElements; the
-    // App.onChange guard and the central review seal both gate it).
-    recordCanvasHistory(elements);
-    this.persistCanvasHistory();
   };
 
   queueBroadcastAllElements = throttle(() => {
@@ -2388,64 +2344,6 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       const merged = Array.from(byId.values()).sort((a, b) => a.ts - b.ts);
       appJotaiStore.set(transcriptionLogAtom, merged);
       saveTranscriptLog(roomId, merged);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  // --- Canvas replay history persistence (delta log → R2, E2E room key) ----
-  // Mirrors the chat / transcript persistence: the in-memory recorder (fed
-  // passively from syncElements) is debounced to R2 as one encrypted blob, so a
-  // finished meeting reviewed on ANY machine can scrub/replay the canvas
-  // evolution. Never writes in read-only review. Debounced wide (10s) — replay
-  // tolerates coarse persistence and edits arrive in bursts.
-  private canvasHistorySaveTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveCanvasHistoryNow = (roomId: string, roomKey: string) => {
-    // Flush any frame still inside the recorder's capture throttle so the latest
-    // edits make it into the blob.
-    canvasHistory.flush();
-    const entries = canvasHistory.snapshot();
-    if (!entries.length) {
-      return;
-    }
-    void saveCanvasHistoryToStorage(roomId, roomKey, entries).catch((error) => {
-      console.error(error);
-    });
-  };
-
-  private persistCanvasHistory = () => {
-    if (appJotaiStore.get(meetingViewOnlyAtom)) {
-      return;
-    }
-    const { roomId, roomKey } = this.portal;
-    if (!roomId || !roomKey) {
-      return;
-    }
-    if (this.canvasHistorySaveTimer) {
-      clearTimeout(this.canvasHistorySaveTimer);
-    }
-    this.canvasHistorySaveTimer = setTimeout(() => {
-      this.canvasHistorySaveTimer = null;
-      this.saveCanvasHistoryNow(roomId, roomKey);
-    }, 10000);
-  };
-
-  /** Seed the recorder from R2 on join so a reopen keeps appending to (not
-   *  overwriting) the prior replay log. Never overwrites a recorder that already
-   *  holds frames from THIS live session. */
-  private loadCanvasHistory = async (roomId: string, roomKey: string) => {
-    try {
-      if (canvasHistory.size() > 0) {
-        return;
-      }
-      const history = await loadCanvasHistoryFromStorage<CanvasHistoryEntry>(
-        roomId,
-        roomKey,
-      );
-      if (!history?.length || this.portal.roomId !== roomId) {
-        return;
-      }
-      canvasHistory.hydrate(history);
     } catch (error) {
       console.error(error);
     }

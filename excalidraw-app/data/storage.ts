@@ -264,7 +264,7 @@ export const loadFromStorage = async (
 //   [u8 ivLength][iv bytes][ciphertext bytes]
 
 const saveJsonBlob = async (
-  kind: "chats" | "library" | "transcripts" | "canvas-history",
+  kind: "chats" | "library" | "transcripts",
   roomId: string,
   roomKey: string,
   value: unknown,
@@ -293,7 +293,7 @@ const saveJsonBlob = async (
 };
 
 const loadJsonBlob = async <T = unknown>(
-  kind: "chats" | "library" | "transcripts" | "canvas-history",
+  kind: "chats" | "library" | "transcripts",
   roomId: string,
   roomKey: string,
 ): Promise<T | null> => {
@@ -347,22 +347,6 @@ export const loadTranscriptFromStorage = <T = unknown>(
   roomId: string,
   roomKey: string,
 ): Promise<T[] | null> => loadJsonBlob<T[]>("transcripts", roomId, roomKey);
-
-// Canvas replay history — the time-ordered, delta-encoded log of how the
-// whiteboard evolved (see data/canvasHistory.ts). Same E2E blob treatment as the
-// chat / transcript log: encrypted client-side with the room key, server stores
-// only ciphertext, so a finished meeting reviewed on any machine can be SCRUBBED
-// and played back. The server never reads it (E2E for the MVP).
-export const saveCanvasHistoryToStorage = (
-  roomId: string,
-  roomKey: string,
-  entries: readonly unknown[],
-): Promise<void> => saveJsonBlob("canvas-history", roomId, roomKey, entries);
-
-export const loadCanvasHistoryFromStorage = <T = unknown>(
-  roomId: string,
-  roomKey: string,
-): Promise<T[] | null> => loadJsonBlob<T[]>("canvas-history", roomId, roomKey);
 
 // Full meeting library (source bytes + metadata for DXF / IFC / PDF / images)
 // as one blob, so a reopen on any browser — no peer, empty IndexedDB —

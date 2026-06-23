@@ -13,9 +13,6 @@
 //   Library manifest blob (encrypted DXF/IFC/PDF source + metadata):
 //     PUT  /v1/library/:roomId         body = encrypted library bytes
 //     GET  /v1/library/:roomId         -> encrypted bytes | 404
-//   Canvas replay history blob (encrypted delta log of canvas evolution):
-//     PUT  /v1/canvas-history/:roomId  body = encrypted history bytes
-//     GET  /v1/canvas-history/:roomId  -> encrypted bytes | 404
 //   Project folders + meeting registry — powers the "folder → meetings
 //   → pull content" UX:
 //     POST /v1/projects                {name, hostEmail?}            -> project
@@ -499,8 +496,6 @@ const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
 const chatKey = (roomId: string) => `chats/${roomId}/current`;
 const libraryKey = (roomId: string) => `library/${roomId}/current`;
 const transcriptKey = (roomId: string) => `transcripts/${roomId}/current`;
-const canvasHistoryKey = (roomId: string) =>
-  `canvas-history/${roomId}/current`;
 const userFileKey = (email: string, fileId: string) =>
   `userfiles/${email}/${fileId}`;
 // Small downscaled-WebP thumb sits alongside the original under the same
@@ -1323,7 +1318,6 @@ app.use("/v1/chats/*", roomGate);
 app.use("/v1/library/*", roomGate);
 app.use("/v1/files/*", roomGate);
 app.use("/v1/transcripts/*", roomGate);
-app.use("/v1/canvas-history/*", roomGate);
 app.use("/v1/meetings/:roomId", roomGate);
 app.use("/v1/meetings/:roomId/*", roomGate);
 
@@ -1468,41 +1462,6 @@ app.get("/v1/transcripts/:roomId", async (c) => {
 
 app.get("/v1/chats/:roomId", async (c) => {
   const obj = await c.env.BUCKET.get(chatKey(c.req.param("roomId")));
-  if (!obj) {
-    return c.body(null, 204);
-  }
-  return new Response(obj.body, {
-    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
-  });
-});
-
-// ---- Canvas replay history blob ------------------------------------------
-// The time-ordered, delta-encoded log of how the whiteboard evolved during the
-// meeting (see excalidraw-app/data/canvasHistory.ts). E2E-encrypted with the
-// room key exactly like the chat / transcript log — the server relays bytes and
-// never reads them. A finished meeting's review opens this blob and SCRUBS /
-// plays back the canvas evolution; this is a vector replay, not a video. The
-// server-readable (AI / leadership) variant is a later option tied to the
-// event-log; this MVP is E2E only.
-
-app.put("/v1/canvas-history/:roomId", async (c) => {
-  const roomId = c.req.param("roomId");
-  if (await isDeletedMeeting(c.env.DB, roomId)) {
-    return c.json({ error: "meeting deleted" }, 410);
-  }
-  if (await isFinishedLocked(c.env.DB, roomId)) {
-    return c.json({ error: "meeting finished (review only)" }, 409);
-  }
-  const body = await c.req.arrayBuffer();
-  if (!body.byteLength) {
-    return c.json({ error: "empty body" }, 400);
-  }
-  await c.env.BUCKET.put(canvasHistoryKey(roomId), body);
-  return c.json({ ok: true });
-});
-
-app.get("/v1/canvas-history/:roomId", async (c) => {
-  const obj = await c.env.BUCKET.get(canvasHistoryKey(c.req.param("roomId")));
   if (!obj) {
     return c.body(null, 204);
   }

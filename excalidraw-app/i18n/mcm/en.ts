@@ -1466,7 +1466,6 @@ export const en: Widened<typeof vi> = {
     metaSegmentsPlural: "{count} segments",
     tabTranscript: "Transcript",
     tabSummary: "Summary",
-    tabReplay: "Replay",
     tabRecordings: "Recordings",
     closeAria: "Close",
     emptyTranscript:
@@ -1496,22 +1495,6 @@ export const en: Widened<typeof vi> = {
     summaryCooldown: "Try again in {sec}s",
     mdTitleSummary: "{title} — Summary",
     mdNoTranscript: "(no transcript)",
-  },
-
-  // Canvas Replay — scrub/play back how the whiteboard evolved during the
-  // meeting (a vector timeline reconstructed from the canvas-history log).
-  replay: {
-    loading: "Loading replay…",
-    error: "Couldn't load the canvas replay.",
-    empty:
-      "No canvas replay for this meeting. Drawing during a meeting is captured automatically — older meetings won't have a replay.",
-    play: "Play",
-    pause: "Pause",
-    restart: "Restart",
-    speed: "Speed",
-    scrubAria: "Scrub the canvas timeline",
-    stepOf: "Step {cur} / {total}",
-    spanLabel: "Span:",
   },
 
   pin: {
