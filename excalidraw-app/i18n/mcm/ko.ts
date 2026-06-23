@@ -449,6 +449,8 @@ export const ko: Widened<typeof vi> = {
     confirmDeleteProject:
       '"{name}" 프로젝트를 영구 삭제할까요?\n\n회의 {count}개(캔버스, 파일, 채팅)와 구성원 목록이 함께 삭제되며 복구할 수 없습니다.\n\n확인을 위해 프로젝트 이름을 정확히 입력하세요:',
     deleteProjectMismatch: "프로젝트 이름이 일치하지 않아 취소했습니다.",
+    deleteProjectFailed:
+      "프로젝트를 삭제하지 못했습니다 — 서버가 거부했거나 시간 초과되었습니다. 아무것도 삭제되지 않았으니 다시 시도하세요.",
     noMembers: "아직 구성원이 없습니다",
     mOrganizer: "주최자",
     mHost: "호스트",

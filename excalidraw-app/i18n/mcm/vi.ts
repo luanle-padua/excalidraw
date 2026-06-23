@@ -479,6 +479,8 @@ export const vi = {
     confirmDeleteProject:
       'XOÁ VĨNH VIỄN dự án "{name}"?\n\nToàn bộ {count} cuộc họp (canvas, file, chat) và danh sách thành viên sẽ bị xoá theo — không khôi phục được.\n\nGõ đúng tên dự án để xác nhận:',
     deleteProjectMismatch: "Tên dự án không khớp — đã huỷ.",
+    deleteProjectFailed:
+      "Không xoá được dự án — máy chủ từ chối hoặc quá thời gian. Chưa xoá gì cả, vui lòng thử lại.",
     noMembers: "Chưa có thành viên",
     mOrganizer: "Người tổ chức",
     mHost: "Host",

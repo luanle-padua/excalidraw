@@ -442,6 +442,8 @@ export const en: Widened<typeof vi> = {
     confirmDeleteProject:
       'PERMANENTLY delete project "{name}"?\n\nAll {count} meetings (canvas, files, chat) and the member list will be deleted with it — this cannot be undone.\n\nType the exact project name to confirm:',
     deleteProjectMismatch: "Project name did not match — cancelled.",
+    deleteProjectFailed:
+      "Couldn't delete the project — the server rejected or timed out. Nothing was deleted; please try again.",
     noMembers: "No members yet",
     mOrganizer: "Organizer",
     mHost: "Host",

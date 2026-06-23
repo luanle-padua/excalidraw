@@ -6637,6 +6637,7 @@ app.get("/v1/admin/projects", async (c) => {
 // Admin force-delete: cascades every meeting (tombstoned), members, the row.
 app.delete("/v1/admin/projects/:id", async (c) => {
   const id = c.req.param("id");
+  const actor = c.get("email");
   const exists = await c.env.DB.prepare(`SELECT 1 FROM project WHERE id = ?1`)
     .bind(id)
     .first();
@@ -6648,25 +6649,62 @@ app.delete("/v1/admin/projects/:id", async (c) => {
   )
     .bind(id)
     .all<{ id: string }>();
+
+  // STEP 1 — delete every DB row (all meetings' children + meeting rows +
+  // tombstones, then the project's members/notes/row) as ONE set of batched
+  // statements. This is the USER-VISIBLE state — the project + its meetings
+  // vanish from every list — and it's cheap + atomic, so it ALWAYS completes
+  // within the Worker's limits, even for a project with dozens of meetings. The
+  // OLD code ran the full per-meeting cascade (hundreds of R2/DO/Daily
+  // subrequests) inline BEFORE deleting the project row, so a big project blew
+  // past the subrequest/wall-clock limit and 500'd with the project never
+  // deleted (the "delete does nothing, project stays" bug). We batch in chunks
+  // so even a huge project stays under D1's per-batch statement ceiling.
+  const stmts: D1PreparedStatement[] = [];
   for (const m of meetings) {
-    await deleteMeetingCascade(c.env, m.id, c.get("email"));
+    stmts.push(...meetingDeleteStatements(c.env, m.id, actor));
   }
-  await c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`)
-    .bind(id)
-    .run();
-  // Project-scoped notes (scope='project', ref=projectId) — avoid orphans
-  // (audit leak fix), same as the leadership delete route.
-  await c.env.DB.prepare(
-    `DELETE FROM note WHERE scope = 'project' AND ref = ?1`,
-  )
-    .bind(id)
-    .run();
-  await c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id).run();
-  await logAudit(c.env.DB, c.get("email"), "project.delete", id, {
+  stmts.push(
+    c.env.DB.prepare(`DELETE FROM project_member WHERE project_id = ?1`).bind(
+      id,
+    ),
+    // Project-scoped notes (scope='project', ref=projectId) — avoid orphans
+    // (audit leak fix), same as the leadership delete route.
+    c.env.DB.prepare(
+      `DELETE FROM note WHERE scope = 'project' AND ref = ?1`,
+    ).bind(id),
+    c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id),
+  );
+  const BATCH_CHUNK = 50;
+  for (let i = 0; i < stmts.length; i += BATCH_CHUNK) {
+    await c.env.DB.batch(stmts.slice(i, i + BATCH_CHUNK));
+  }
+
+  // STEP 2 — background, best-effort: soft-delete each meeting's R2 blobs (to
+  // trash/), wipe its DO storage, drop its Daily rooms. This is the expensive
+  // part (hundreds of subrequests for a big project), so it runs AFTER the
+  // response via waitUntil and must never block or fail the delete. A blob the
+  // background pass can't reach becomes an orphaned live object (inaccessible —
+  // its meeting row is gone); the scheduled trash/orphan sweep is the backstop.
+  if (meetings.length) {
+    c.executionCtx.waitUntil(
+      (async () => {
+        for (const m of meetings) {
+          try {
+            await cleanupMeetingBlobs(c.env, m.id);
+          } catch (err) {
+            console.warn(`[admin-delete] blob cleanup failed ${m.id}`, err);
+          }
+        }
+      })(),
+    );
+  }
+
+  await logAudit(c.env.DB, actor, "project.delete", id, {
     meetings: meetings.length,
     forced: true,
   });
-  return c.json({ ok: true, deleted: id });
+  return c.json({ ok: true, deleted: id, meetings: meetings.length });
 });
 
 // ---- Admin: BACKUP + ARCHIVE (docs/runbooks/backup.md) -------------------
@@ -6959,10 +6997,16 @@ const meterDailyMeeting = async (
   }
 };
 
-const deleteMeetingCascade = async (
+// Non-DB cleanup for a deleted meeting: soft-delete its R2 blobs to `trash/`,
+// wipe its Durable Object storage, drop both Daily rooms. This is the EXPENSIVE
+// half (many R2 list/get/put/delete + DO + Daily subrequests per meeting), split
+// out of deleteMeetingCascade so the admin project-delete can run it in the
+// BACKGROUND (waitUntil) for every meeting — running it inline for a project
+// with dozens of meetings blew past the Worker subrequest/wall-clock limit and
+// 500'd BEFORE the rows were deleted (the "delete does nothing" bug).
+const cleanupMeetingBlobs = async (
   env: Bindings,
   roomId: string,
-  actor?: string,
 ): Promise<void> => {
   // Soft-delete blobs (B9): R2 has NO S3-style versioning, so a hard delete is
   // PERMANENT. Move each blob to a `trash/<deletedAt>/...` prefix instead —
@@ -7002,23 +7046,6 @@ const deleteMeetingCascade = async (
       cursor = listed.truncated ? listed.cursor : undefined;
     } while (cursor);
   }
-  await env.DB.prepare(`DELETE FROM file WHERE meeting_id = ?1`)
-    .bind(roomId)
-    .run();
-  await env.DB.prepare(`DELETE FROM meeting_invitee WHERE meeting_id = ?1`)
-    .bind(roomId)
-    .run();
-  await env.DB.prepare(`DELETE FROM meeting_participant WHERE meeting_id = ?1`)
-    .bind(roomId)
-    .run();
-  // Waiting-room knock rows (migration 0025) — keyed by the base meeting id.
-  await env.DB.prepare(`DELETE FROM meeting_knock WHERE room_id = ?1`)
-    .bind(roomId)
-    .run();
-  await env.DB.prepare(`DELETE FROM note WHERE scope = 'meeting' AND ref = ?1`)
-    .bind(roomId)
-    .run();
-  await env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId).run();
   // Wipe the room's Durable Object storage (audit leak fix). The realtime DO
   // persists per-room key/value (roomEverInitialized + the reaper alarm); a hard
   // meeting delete should leave nothing behind. Best-effort RPC to the DO's
@@ -7034,14 +7061,47 @@ const deleteMeetingCascade = async (
   // Cost cleanup: drop both Daily rooms (screen-share <id> + audio <id>-audio).
   await deleteDailyRoom(env, roomId);
   await deleteDailyRoom(env, `${roomId}-audio`);
-  // Tombstone: deleted stays deleted — the upsert PUT/POST routes check this
-  // so a client still holding the room open can't resurrect the meeting.
-  await env.DB.prepare(
-    `INSERT OR REPLACE INTO deleted_meeting (id, deleted_by, deleted_at)
-     VALUES (?1, ?2, ?3)`,
-  )
-    .bind(roomId, actor ?? null, now())
-    .run();
+};
+
+// The D1-row half of a meeting delete (children + meeting + resurrection
+// tombstone), returned as prepared statements so callers can run them inline
+// (single-meeting routes) OR fold them into one batch (project delete — cheap +
+// atomic, always completes within the Worker's limits).
+const meetingDeleteStatements = (
+  env: Bindings,
+  roomId: string,
+  actor?: string,
+): D1PreparedStatement[] => [
+  env.DB.prepare(`DELETE FROM file WHERE meeting_id = ?1`).bind(roomId),
+  env.DB.prepare(`DELETE FROM meeting_invitee WHERE meeting_id = ?1`).bind(
+    roomId,
+  ),
+  env.DB.prepare(`DELETE FROM meeting_participant WHERE meeting_id = ?1`).bind(
+    roomId,
+  ),
+  // Waiting-room knock rows (migration 0025) — keyed by the base meeting id.
+  env.DB.prepare(`DELETE FROM meeting_knock WHERE room_id = ?1`).bind(roomId),
+  env.DB.prepare(`DELETE FROM note WHERE scope = 'meeting' AND ref = ?1`).bind(
+    roomId,
+  ),
+  env.DB.prepare(`DELETE FROM meeting WHERE id = ?1`).bind(roomId),
+  // Tombstone: deleted stays deleted — the upsert PUT/POST routes check this so
+  // a client still holding the room open can't resurrect the meeting.
+  env.DB
+    .prepare(
+      `INSERT OR REPLACE INTO deleted_meeting (id, deleted_by, deleted_at)
+       VALUES (?1, ?2, ?3)`,
+    )
+    .bind(roomId, actor ?? null, now()),
+];
+
+const deleteMeetingCascade = async (
+  env: Bindings,
+  roomId: string,
+  actor?: string,
+): Promise<void> => {
+  await cleanupMeetingBlobs(env, roomId);
+  await env.DB.batch(meetingDeleteStatements(env, roomId, actor));
 };
 
 // Delete a meeting + cascade (admin — any meeting, any state).

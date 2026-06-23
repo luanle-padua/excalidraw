@@ -48,10 +48,18 @@ import { makeWebmSeekable } from "./makeWebmSeekable";
 // to plain audio webm if the browser only supports audio (so an audio-only
 // meeting still records). MediaRecorder happily records an audio-only stream
 // under a video/* mime — the container simply carries no video track.
+//
+// VP8 BEFORE VP9 — ON PURPOSE. Audio-only recordings (no video encoder) capture
+// audio fine, but recordings WITH the screen-compositor video track came out
+// SILENT. Root cause: Chromium's real-time VP9 encoder, under load, fails to
+// interleave the Opus audio track into the muxed WebM → video-but-no-audio. The
+// lighter VP8 encoder doesn't starve the audio path, so the SAME mixed-audio
+// track that worked audio-only now survives alongside video. (We keep vp9 as a
+// last-ditch entry only if a browser somehow lacks vp8.)
 const PREFERRED_MIME_TYPES = [
-  "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
   "video/webm;codecs=vp8",
+  "video/webm;codecs=vp9,opus",
   "video/webm",
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -406,15 +414,41 @@ export class ClientMeetingRecorder {
     this.outputStream = new MediaStream(tracks);
 
     const mimeType = pickMimeType();
+    // Explicit bitrates. The software VP9 path enforces NO peak bitrate and
+    // overshoots ~4x, which is one of the ways the video encoder saturates and
+    // starves the Opus audio interleave (the silent-with-screen bug). Capping the
+    // video rate keeps the encoder out of runaway mode, and pinning the audio
+    // rate guarantees the muxer always allocates an Opus stream. Audio only;
+    // video bitrate is set only when we actually carry the canvas video track.
+    const recorderOptions: MediaRecorderOptions = {
+      audioBitsPerSecond: 128_000,
+    };
+    if (mimeType) {
+      recorderOptions.mimeType = mimeType;
+    }
+    if (options.screen && this.compositorOn) {
+      recorderOptions.videoBitsPerSecond = 1_500_000; // ~480p15 screen share
+    }
     try {
-      this.recorder = mimeType
-        ? new MediaRecorder(this.outputStream, { mimeType })
-        : new MediaRecorder(this.outputStream);
+      this.recorder = new MediaRecorder(this.outputStream, recorderOptions);
     } catch (err) {
       throw new Error(
         `MediaRecorder init failed: ${(err as Error)?.message ?? err}`,
       );
     }
+    // Diagnostic: surface the codec actually negotiated. If a browser lacks VP8
+    // and fell through to a UA-default (possibly VP9) container, this is where a
+    // silent-audio recording would originate — log it so it's visible in support.
+    if (this.outputStream.getAudioTracks().length === 0) {
+      console.warn(
+        "[client-recorder] no audio track on output stream at start — recording will be silent",
+      );
+    }
+    console.info(
+      `[client-recorder] recording mimeType=${this.recorder.mimeType} ` +
+        `audioTracks=${this.outputStream.getAudioTracks().length} ` +
+        `videoTracks=${this.outputStream.getVideoTracks().length}`,
+    );
     this.chunks = [];
     this.startedAt = performance.now();
     this.recorder.ondataavailable = (e) => {

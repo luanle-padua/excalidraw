@@ -380,7 +380,14 @@ export const AdminConsole = () => {
     }
     setBusy(true);
     try {
-      await deleteAdminProject(p.id);
+      const ok = await deleteAdminProject(p.id);
+      if (!ok) {
+        // Surface the failure instead of silently refreshing — the old code
+        // ignored the result, so a server-side error (e.g. a heavy delete that
+        // timed out) looked like "nothing happened, project still there".
+        window.alert(t("admin.deleteProjectFailed"));
+        return;
+      }
       setProjectDetail(null);
       await refreshProjects();
     } finally {
