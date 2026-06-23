@@ -3558,6 +3558,98 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   color: var(--mcm-accent);
 }
 
+// ---- Meeting Package VIEWER (recipient-facing) ----------------------------
+.mcm-pkgv-modal {
+  width: min(720px, 100%);
+}
+
+.mcm-pkgv-body {
+  // Keep the recap iframe + file list from blowing the modal off-screen.
+  max-height: min(76vh, 640px);
+}
+
+// Sandboxed iframe rendering the server-stored recap.html. White card so the
+// recap's own light styling reads cleanly regardless of the Glass-Desk theme.
+.mcm-pkgv-recap {
+  width: 100%;
+  min-height: 340px;
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.mcm-pkgv-summary {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--mcm-text);
+}
+
+// Non-interactive file row inside the viewer (no checkbox — read-only list).
+.mcm-pkgv-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 10px;
+}
+
+// ---- Shared-recap surface inside MeetingDetailPreview ---------------------
+.mcm-mdp__pkgs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mcm-mdp__pkg {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--mcm-surface-2);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+
+  &:hover {
+    border-color: var(--mcm-accent);
+  }
+
+  &-ico {
+    display: inline-flex;
+    color: var(--mcm-accent);
+  }
+
+  &-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &-meta {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+  }
+}
+
 @keyframes mcm-log-pop {
   from {
     opacity: 0;

@@ -1663,5 +1663,16 @@ export const ko: Widened<typeof vi> = {
     needTitle: "패키지 제목을 입력하세요.",
     statusDraft: "초안",
     statusPublished: "게시됨",
+    // --- Distribution / recipient-facing viewer ---
+    sharedTitle: "공유된 요약",
+    noFiles: "파일 없음",
+    viewerTitle: "요약",
+    viewerSubtitle: "주최자가 정리한 회의 후 공유 요약이에요.",
+    viewerLoading: "요약을 여는 중…",
+    viewerUnavailable: "이 요약을 열 수 없어요 — 더 이상 접근 권한이 없을 수 있어요.",
+    viewerNoRecap: "이 요약에는 아직 내용이 없어요.",
+    recapFrameTitle: "요약 내용",
+    download: "다운로드 (.zip)",
+    downloadFailed: "패키지를 다운로드하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
   },
 };

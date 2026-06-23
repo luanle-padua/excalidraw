@@ -47,6 +47,92 @@ export type MeetingPackage = {
   published_at: number | null;
 };
 
+/** Compact package row from the LIST endpoints (no summary/recap body). */
+export type MeetingPackageListItem = {
+  id: string;
+  meeting_id: string;
+  project_id: string | null;
+  title: string | null;
+  audience_kind: PackageAudience | null;
+  status: "draft" | "published" | null;
+  created_by: string | null;
+  created_at: number;
+  published_at: number | null;
+  file_count: number;
+};
+
+/** Full package payload returned by GET /v1/packages/:id (metadata + the
+ *  curated file list + the server-stored recap HTML). */
+export type PackageDetail = {
+  package: MeetingPackage;
+  files: MeetingFileRow[];
+  recap_html: string | null;
+};
+
+/** List the packages of a meeting the caller can see. The curator (host /
+ *  project authority / admin) gets drafts + published; the audience gets only
+ *  PUBLISHED packages they pass the server's audience gate for. Empty on any
+ *  failure (a non-visible meeting / no packages both read as "nothing to show").
+ */
+export const listMeetingPackages = async (
+  roomId: string,
+): Promise<MeetingPackageListItem[]> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return [];
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}/packages`,
+    );
+    if (!res.ok) {
+      return [];
+    }
+    const body = (await res.json()) as { packages?: MeetingPackageListItem[] };
+    return body.packages ?? [];
+  } catch {
+    return [];
+  }
+};
+
+/** Published packages addressed to the current user across meetings ("Shared
+ *  with me"). Empty on failure. */
+export const listMyPackages = async (): Promise<MeetingPackageListItem[]> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return [];
+  }
+  try {
+    const res = await fetchWithAuth(`${STORAGE_URL}/v1/me/packages`);
+    if (!res.ok) {
+      return [];
+    }
+    const body = (await res.json()) as { packages?: MeetingPackageListItem[] };
+    return body.packages ?? [];
+  } catch {
+    return [];
+  }
+};
+
+/** Read one package (metadata + files + recap_html), audience-gated server
+ *  side. Returns null on a missing / forbidden package. */
+export const getPackage = async (
+  pkgId: string,
+): Promise<PackageDetail | null> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return null;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(pkgId)}`,
+    );
+    if (!res.ok) {
+      return null;
+    }
+    return (await res.json()) as PackageDetail;
+  } catch {
+    return null;
+  }
+};
+
 /** List a meeting's files for the package builder's picker. */
 export const listMeetingFiles = async (
   roomId: string,

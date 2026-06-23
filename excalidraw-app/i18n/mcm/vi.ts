@@ -1729,5 +1729,17 @@ export const vi = {
     needTitle: "Nhập tiêu đề cho gói.",
     statusDraft: "Nháp",
     statusPublished: "Đã phát hành",
+    // --- Distribution / recipient-facing viewer ---
+    sharedTitle: "Bản tổng kết được chia sẻ",
+    noFiles: "Không có file",
+    viewerTitle: "Bản tổng kết",
+    viewerSubtitle: "Bản chia sẻ sau họp do người chủ trì biên soạn.",
+    viewerLoading: "Đang mở bản tổng kết…",
+    viewerUnavailable:
+      "Không mở được bản tổng kết này — có thể bạn không còn quyền xem.",
+    viewerNoRecap: "Bản tổng kết này chưa có nội dung.",
+    recapFrameTitle: "Nội dung tổng kết",
+    download: "Tải gói (.zip)",
+    downloadFailed: "Không tải được gói — kiểm tra mạng rồi thử lại.",
   },
 } as const;

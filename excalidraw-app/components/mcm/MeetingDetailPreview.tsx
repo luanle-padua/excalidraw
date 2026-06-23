@@ -21,12 +21,17 @@ import {
   type MeetingInvitee,
   type MeetingParticipant,
 } from "../../data/invite";
+import {
+  listMeetingPackages,
+  type MeetingPackageListItem,
+} from "../../data/packages";
 import { deleteMeeting, getMeeting, updateMeeting } from "../../data/projects";
 import { isInternalEmail, sessionAtom } from "../../data/session";
 import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
 
 import { MeetingPackageBuilder } from "./MeetingPackageBuilder";
+import { MeetingPackageViewer } from "./MeetingPackageViewer";
 import { statusBucket } from "./meetingColors";
 import {
   canManageMeeting,
@@ -95,6 +100,10 @@ export const MeetingDetailPreview = ({
   const [aiExpanded, setAiExpanded] = useState(false);
   // Meeting Package builder modal (curate a post-meeting deliverable).
   const [showPackage, setShowPackage] = useState(false);
+  // Published packages the viewer can see for this meeting (recipient surface)
+  // + the one currently opened in the viewer modal.
+  const [packages, setPackages] = useState<MeetingPackageListItem[]>([]);
+  const [viewPkgId, setViewPkgId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -105,18 +114,20 @@ export const MeetingDetailPreview = ({
     setTimeStr("09:00");
     setDuration("60");
     setRescheduling(false);
-    const [m, iv, pp, directory, clientList] = await Promise.all([
+    const [m, iv, pp, directory, clientList, pkgs] = await Promise.all([
       getMeeting(roomId),
       listInvitees(roomId),
       listParticipants(roomId),
       getDirectory(),
       listClients(),
+      listMeetingPackages(roomId),
     ]);
     setD(m);
     setInvitees(iv);
     setParticipants(pp);
     setDir(directory);
     setClients(clientList);
+    setPackages(pkgs);
     setLoading(false);
     if (m?.scheduled_at) {
       const dt = new Date(m.scheduled_at);
@@ -168,6 +179,13 @@ export const MeetingDetailPreview = ({
   // Meeting Package: curate a shareable recap from a FINISHED meeting. Host /
   // project authority only (canManage), and only once the meeting is done.
   const showPackageBtn = !!d && canManage && status === "finished";
+  // Recipient surface: published packages this viewer can see for a FINISHED
+  // meeting. The server already audience-gated the list; we only filter to
+  // published (an editor's list may also carry their own drafts).
+  const sharedPackages =
+    status === "finished"
+      ? packages.filter((p) => p.status === "published")
+      : [];
 
   const saveReschedule = async () => {
     if (!dateStr || busy) {
@@ -542,6 +560,46 @@ export const MeetingDetailPreview = ({
               </section>
             )}
 
+            {/* ZONE 1.6 — SHARED RECAP / PACKAGE. The recipient entry point:
+                once the host publishes a Package from this finished meeting,
+                the audience discovers it here and opens the viewer (recap +
+                download). Only published packages the viewer passes the
+                server's audience gate for appear. */}
+            {sharedPackages.length > 0 && (
+              <section className="mcm-mdp__zone">
+                <h4 className="mcm-mdp__sec">
+                  <Package size={13} aria-hidden="true" /> {t("pkg.sharedTitle")}
+                  <span className="mcm-mdp__sec-n">{sharedPackages.length}</span>
+                </h4>
+                <ul className="mcm-mdp__pkgs">
+                  {sharedPackages.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        className="mcm-mdp__pkg"
+                        onClick={() => setViewPkgId(p.id)}
+                      >
+                        <span className="mcm-mdp__pkg-ico" aria-hidden="true">
+                          <Package size={16} />
+                        </span>
+                        <span className="mcm-mdp__pkg-text">
+                          <span className="mcm-mdp__pkg-title">
+                            {p.title || t("pkg.viewerTitle")}
+                          </span>
+                          <span className="mcm-mdp__pkg-meta">
+                            {p.file_count
+                              ? t("pkg.selectedCount", { count: p.file_count })
+                              : t("pkg.noFiles")}
+                            {p.published_at ? ` · ${fmtMs(p.published_at)}` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
             {/* ZONE 2 — PROPERTIES. Quiet Notion-style label/value grid;
                 Row hides empty values so the grid never shows blanks.
                 (Schedule, duration and project live in the hero now.) */}
@@ -633,7 +691,18 @@ export const MeetingDetailPreview = ({
           isConfidential={
             (d.confidentiality ?? "").toLowerCase() === "confidential"
           }
-          onClose={() => setShowPackage(false)}
+          onClose={() => {
+            setShowPackage(false);
+            // A just-published package should surface immediately.
+            void refresh();
+          }}
+        />
+      )}
+
+      {viewPkgId && (
+        <MeetingPackageViewer
+          pkgId={viewPkgId}
+          onClose={() => setViewPkgId(null)}
         />
       )}
     </div>

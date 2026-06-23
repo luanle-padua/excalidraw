@@ -3140,6 +3140,139 @@ app.get("/v1/packages/:id/export", async (c) => {
   });
 });
 
+// ---- Meeting Package DISTRIBUTION (list / discovery) ---------------------
+// The other half of the Package feature: once a host publishes a package, the
+// audience needs a way to FIND it. These two list endpoints answer "what
+// packages can *I* see?" — one scoped to a meeting (the recipient-facing recap
+// surface on a finished meeting), one across meetings ("Shared with me").
+
+// Compact row returned by the list endpoints (no recap/summary body — those
+// are pulled by GET /v1/packages/:id when a viewer opens one).
+type PackageListRow = PackageRow & {
+  organizer_email: string | null;
+  host_email: string | null;
+  confidentiality: string | null;
+  file_count: number;
+};
+
+const shapePackageListItem = (p: PackageListRow) => ({
+  id: p.id,
+  meeting_id: p.meeting_id,
+  project_id: p.project_id,
+  title: p.title,
+  audience_kind: p.audience_kind,
+  status: p.status,
+  created_by: p.created_by,
+  created_at: p.created_at,
+  published_at: p.published_at,
+  file_count: p.file_count,
+});
+
+// List the packages of one meeting that the caller may see. The host-level
+// edit set (organizer / host / project authority / admin) sees BOTH drafts and
+// published (so a curator finds their work-in-progress); everyone else sees
+// only PUBLISHED packages they pass `canSeePackage` for (audience gate). This
+// is the entry point the recipient UI hits to render a "Shared recap" surface.
+app.get("/v1/meetings/:roomId/packages", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email");
+  const role = c.get("role");
+  const m = await c.env.DB.prepare(
+    `SELECT organizer_email, host_email, confidentiality, project_id
+       FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{
+      organizer_email: string | null;
+      host_email: string | null;
+      confidentiality: string | null;
+      project_id: string | null;
+    }>();
+  if (!m) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const isEditor = await canEditMeeting(c.env.DB, roomId, email, role, m);
+  // A non-editor must at least be able to SEE the meeting before we reveal that
+  // any package exists for it (a package is never more visible than the meeting
+  // it belongs to, beyond the audience gate applied per-row below).
+  if (!isEditor && !(await canSeeMeeting(c.env.DB, email, role, roomId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT pkg.*, m.organizer_email, m.host_email, m.confidentiality,
+            (SELECT COUNT(*) FROM meeting_package_file f
+              WHERE f.package_id = pkg.id) AS file_count
+       FROM meeting_package pkg
+       JOIN meeting m ON m.id = pkg.meeting_id
+      WHERE pkg.meeting_id = ?1
+      ORDER BY pkg.created_at DESC`,
+  )
+    .bind(roomId)
+    .all<PackageListRow>();
+  const rows = results ?? [];
+  const visible: ReturnType<typeof shapePackageListItem>[] = [];
+  for (const p of rows) {
+    if (isEditor) {
+      // Editor sees everything (drafts + published).
+      visible.push(shapePackageListItem(p));
+      continue;
+    }
+    // Audience: only PUBLISHED packages, and only ones they pass the gate for.
+    if (p.status !== "published") {
+      continue;
+    }
+    if (await canSeePackage(c.env.DB, email, role, p)) {
+      visible.push(shapePackageListItem(p));
+    }
+  }
+  return c.json({ packages: visible });
+});
+
+// "Shared with me": PUBLISHED packages addressed to the current user across
+// meetings. Conservatively scoped to the LOW-RISK audiences — `list` packages
+// the caller is a non-revoked recipient of, and `meeting` packages of meetings
+// they were invited to (participant). We deliberately do NOT fan project-wide
+// packages in here (that would need a per-project membership sweep); those stay
+// reachable through the meeting surface. Each candidate is still re-checked
+// through `canSeePackage`, so this can never widen access.
+app.get("/v1/me/packages", async (c) => {
+  const email = c.get("email");
+  const role = c.get("role");
+  const me = email?.toLowerCase();
+  if (!me && !isAdminish(role)) {
+    return c.json({ packages: [] });
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT DISTINCT pkg.*, m.organizer_email, m.host_email, m.confidentiality,
+            (SELECT COUNT(*) FROM meeting_package_file f
+              WHERE f.package_id = pkg.id) AS file_count
+       FROM meeting_package pkg
+       JOIN meeting m ON m.id = pkg.meeting_id
+       LEFT JOIN meeting_package_recipient r
+              ON r.package_id = pkg.id
+             AND lower(r.email) = ?1
+             AND r.status <> 'revoked'
+       LEFT JOIN meeting_invitee iv
+              ON iv.meeting_id = pkg.meeting_id
+             AND lower(iv.email) = ?1
+             AND iv.status <> 'revoked'
+      WHERE pkg.status = 'published'
+        AND (r.email IS NOT NULL OR iv.email IS NOT NULL
+             OR lower(pkg.created_by) = ?1)
+      ORDER BY pkg.published_at DESC`,
+  )
+    .bind(me ?? "")
+    .all<PackageListRow>();
+  const rows = results ?? [];
+  const visible: ReturnType<typeof shapePackageListItem>[] = [];
+  for (const p of rows) {
+    if (await canSeePackage(c.env.DB, email, role, p)) {
+      visible.push(shapePackageListItem(p));
+    }
+  }
+  return c.json({ packages: visible });
+});
+
 // ---- Invite / membership (Phase 4.5) -------------------------------------
 // Invite people to a meeting. Internal staff + admins can invite (dev rule).
 // Each invitee gets a meeting_invitee row (the per-meeting grant). `addToProject`

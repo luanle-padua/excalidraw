@@ -1657,5 +1657,17 @@ export const en: Widened<typeof vi> = {
     needTitle: "Enter a title for the package.",
     statusDraft: "Draft",
     statusPublished: "Published",
+    // --- Distribution / recipient-facing viewer ---
+    sharedTitle: "Shared recap",
+    noFiles: "No files",
+    viewerTitle: "Recap",
+    viewerSubtitle: "The post-meeting recap curated by the host.",
+    viewerLoading: "Opening the recap…",
+    viewerUnavailable:
+      "Couldn't open this recap — you may no longer have access.",
+    viewerNoRecap: "This recap has no content yet.",
+    recapFrameTitle: "Recap content",
+    download: "Download (.zip)",
+    downloadFailed: "Couldn't download the package — check your network and retry.",
   },
 };
