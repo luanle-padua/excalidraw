@@ -5,6 +5,7 @@ import {
   Folder,
   FolderHeart,
   FolderKanban,
+  History,
   LayoutGrid,
   List as ListIcon,
   LogIn,
@@ -1241,7 +1242,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                                 {isLive ? (
                                   <LogIn size={15} />
                                 ) : isDone ? (
-                                  <Eye size={15} />
+                                  <History size={15} />
                                 ) : (
                                   <DoorOpen size={15} />
                                 )}{" "}
