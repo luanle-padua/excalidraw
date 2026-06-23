@@ -154,14 +154,13 @@ export const CloudRecordingControls = () => {
     }
     setBusy(true);
     setErrorMessage(null);
-    const res = await startCloudRecording(roomId, content);
+    // startRecording(roomId) is fail-soft → boolean (false covers 403/any
+    // error). The content picker stays a UI/metadata affordance for MVP — the
+    // worker records the merged room at a fixed low-bitrate layout.
+    const ok = await startCloudRecording(roomId);
     setBusy(false);
-    if (!res.ok) {
-      setErrorMessage(
-        res.status === 403
-          ? t("cloudRecording.notAllowed")
-          : t("cloudRecording.startFailed"),
-      );
+    if (!ok) {
+      setErrorMessage(t("cloudRecording.startFailed"));
       return;
     }
     setPickerOpen(false);
@@ -192,9 +191,9 @@ export const CloudRecordingControls = () => {
     }
     setBusy(true);
     setErrorMessage(null);
-    const res = await stopCloudRecording(roomId);
+    const ok = await stopCloudRecording(roomId);
     setBusy(false);
-    if (!res.ok) {
+    if (!ok) {
       // Stop failed server-side — keep the indicator up (Daily may still be
       // recording) and let the host retry rather than silently clearing it.
       setErrorMessage(t("cloudRecording.stopFailed"));

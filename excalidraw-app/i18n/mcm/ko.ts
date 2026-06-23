@@ -1160,6 +1160,7 @@ export const ko: Widened<typeof vi> = {
     refresh: "새로고침",
     count: "녹화본 {count}개",
     download: "다운로드",
+    play: "재생",
   },
 
   // ---------------- Canvas text translate ---------------------------

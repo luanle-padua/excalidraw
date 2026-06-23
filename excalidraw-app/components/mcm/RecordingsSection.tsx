@@ -9,14 +9,21 @@
 // the worker auth-gating the list + stream routes (a non-authority caller gets
 // [] / 403). The media is streamed from R2 behind the worker gate — there is no
 // public link.
+//
+// MEDIA AUTH: the stream route is JWT-gated and a <video src> can't attach the
+// bearer, so we lazily fetch each recording through fetchRecordingObjectUrl
+// (fetchWithAuth → blob → object URL) only when the viewer clicks Play, and
+// revoke the object URLs on unmount. Download goes through downloadRecording
+// (same gated fetch → disk). See data/recordings.ts for the rationale.
 
-import { Download, Film, RotateCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Download, Film, Play, RotateCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  downloadRecording,
+  fetchRecordingObjectUrl,
   listRecordings,
-  recordingStreamUrl,
-  type RecordingRow,
+  type Recording,
 } from "../../data/recordings";
 import { useT } from "../../i18n/mcm";
 
@@ -57,8 +64,14 @@ const fmtWhen = (ms: number | null): string => {
 
 export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
   const t = useT();
-  const [rows, setRows] = useState<RecordingRow[]>([]);
+  const [rows, setRows] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
+  // Object URL per recording id, loaded on Play (so we don't buffer every file
+  // up front). Revoked on unmount.
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const mediaUrlsRef = useRef<Record<string, string>>({});
+  mediaUrlsRef.current = mediaUrls;
 
   const load = useCallback(async () => {
     if (!roomId) {
@@ -75,6 +88,25 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Free every blob the player created when the section unmounts.
+  useEffect(
+    () => () => {
+      Object.values(mediaUrlsRef.current).forEach((u) =>
+        URL.revokeObjectURL(u),
+      );
+    },
+    [],
+  );
+
+  const play = useCallback(async (id: string) => {
+    setLoadingId(id);
+    const url = await fetchRecordingObjectUrl(id);
+    setLoadingId(null);
+    if (url) {
+      setMediaUrls((prev) => ({ ...prev, [id]: url }));
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -119,41 +151,57 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
         {rows.map((r) => {
           const ready = r.status === "ready";
           const meta = [
-            fmtWhen(r.readyAt ?? r.createdAt),
+            fmtWhen(r.ready_at ?? r.created_at),
             fmtDuration(r.duration),
             fmtSize(r.bytes),
-            r.startedBy,
+            r.started_by,
           ]
             .filter(Boolean)
             .join(" · ");
+          const mediaUrl = mediaUrls[r.id];
           return (
             <li key={r.id} className="mcm-recordings__item">
-              {ready ? (
-                <video
-                  className="mcm-recordings__video"
-                  src={recordingStreamUrl(r.id)}
-                  controls
-                  preload="metadata"
-                  playsInline
-                />
-              ) : (
+              {!ready ? (
                 <div className="mcm-recordings__processing">
                   <span className="mcm-log-modal__spinner" />{" "}
                   {r.status === "failed"
                     ? t("recordings.failed")
                     : t("recordings.processing")}
                 </div>
+              ) : mediaUrl ? (
+                <video
+                  className="mcm-recordings__video"
+                  src={mediaUrl}
+                  controls
+                  autoPlay
+                  preload="metadata"
+                  playsInline
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="mcm-recordings__play"
+                  onClick={() => void play(r.id)}
+                  disabled={loadingId === r.id}
+                >
+                  {loadingId === r.id ? (
+                    <span className="mcm-log-modal__spinner" />
+                  ) : (
+                    <Play size={18} />
+                  )}{" "}
+                  {t("recordings.play")}
+                </button>
               )}
               <div className="mcm-recordings__row">
                 <span className="mcm-recordings__meta">{meta}</span>
                 {ready && (
-                  <a
+                  <button
+                    type="button"
                     className="mcm-recordings__download"
-                    href={recordingStreamUrl(r.id, true)}
-                    download
+                    onClick={() => void downloadRecording(r.id)}
                   >
                     <Download size={14} /> {t("recordings.download")}
-                  </a>
+                  </button>
                 )}
               </div>
             </li>

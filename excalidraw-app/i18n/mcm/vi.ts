@@ -1220,6 +1220,7 @@ export const vi = {
     refresh: "Tải lại",
     count: "{count} bản ghi",
     download: "Tải về",
+    play: "Phát",
   },
 
   // ---------------- Canvas text translate ---------------------------

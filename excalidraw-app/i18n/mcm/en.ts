@@ -1154,6 +1154,7 @@ export const en: Widened<typeof vi> = {
     refresh: "Refresh",
     count: "{count} recording(s)",
     download: "Download",
+    play: "Play",
   },
 
   // ---------------- Canvas text translate ---------------------------
