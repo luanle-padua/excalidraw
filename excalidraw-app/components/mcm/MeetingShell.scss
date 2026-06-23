@@ -10709,6 +10709,23 @@ body:has(.excalidraw.theme--dark) {
     background: var(--mcm-surface-2);
     color: var(--mcm-text-faint);
   }
+  // Unread "new" count on a nav item (Shared with me) — accent pill at the
+  // row end. The label has flex:1, so this sits flush right without extra
+  // margin. Tabular digits keep single/double-digit counts steady.
+  &__badge {
+    flex-shrink: 0;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcm-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
   &__empty {
     list-style: none;
     padding: 14px 16px;

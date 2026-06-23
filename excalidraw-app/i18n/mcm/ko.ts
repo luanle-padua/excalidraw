@@ -1668,6 +1668,7 @@ export const ko: Widened<typeof vi> = {
     // "Shared with me" dashboard surface (recipient-facing package list).
     sharedWithMe: "나와 공유됨",
     sharedEmpty: "아직 공유된 요약이 없어요.",
+    sharedNew: "새로 공유된 항목 {count}개",
     open: "열기",
     noFiles: "파일 없음",
     viewerTitle: "요약",

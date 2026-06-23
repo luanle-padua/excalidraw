@@ -1662,6 +1662,7 @@ export const en: Widened<typeof vi> = {
     // "Shared with me" dashboard surface (recipient-facing package list).
     sharedWithMe: "Shared with me",
     sharedEmpty: "No recaps have been shared with you yet.",
+    sharedNew: "{count} newly shared",
     open: "Open",
     noFiles: "No files",
     viewerTitle: "Recap",

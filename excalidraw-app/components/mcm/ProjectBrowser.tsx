@@ -25,6 +25,7 @@ import { getCollaborationLink } from "../../data";
 import { showAppToast } from "../../data/appToast";
 import { getMyMeetingsChecked, type CalMeeting } from "../../data/calendar";
 import { getMyInvitationsChecked, type MyInvitation } from "../../data/invite";
+import { listMyPackages } from "../../data/packages";
 import {
   createProject,
   getMeeting,
@@ -147,6 +148,28 @@ const invToSummary = (i: MyInvitation): MeetingSummary => ({
   project_name: i.project_name,
 });
 
+// "Shared with me" unread tracking — which package ids the user has already
+// seen, persisted locally. The badge counts published packages NOT in this set;
+// opening the tab marks the current set seen (clears the badge). Client-only —
+// no server "read receipt" needed for a lightweight "you have something new" cue.
+const SHARED_SEEN_KEY = "mcm:sharedSeen:v1";
+const readSharedSeen = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(SHARED_SEEN_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+};
+const writeSharedSeen = (ids: string[]): void => {
+  try {
+    localStorage.setItem(SHARED_SEEN_KEY, JSON.stringify(ids));
+  } catch {
+    // localStorage unavailable (private mode / quota) — the badge just won't
+    // persist its cleared state; harmless.
+  }
+};
+
 /**
  * Unified home (Notion-style 3 columns): a sidebar (calendar / invited / the
  * project list) on the LEFT, the selected context's meeting cards in the
@@ -198,6 +221,26 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // Bumped on any meeting change so the calendar (which self-fetches) re-pulls
   // and its event colours stay in sync with the cards.
   const [calRefresh, setCalRefresh] = useState(0);
+  // "Shared with me" badge: ids of packages shared with me + how many are NEW
+  // (not yet seen). Drives the unread count on the sidebar nav item.
+  const [sharedIds, setSharedIds] = useState<string[]>([]);
+  const [sharedNewCount, setSharedNewCount] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    void listMyPackages().then((rows) => {
+      if (!alive) {
+        return;
+      }
+      const ids = rows.map((p) => p.id);
+      setSharedIds(ids);
+      const seen = readSharedSeen();
+      setSharedNewCount(ids.filter((id) => !seen.has(id)).length);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [calRefresh]);
 
   const refreshProjects = useCallback(async () => {
     const r = await listProjectsChecked();
@@ -632,10 +675,24 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             onClick={() => {
               setView("shared");
               resetSubViews();
+              // Entering the tab = the user has now seen what's shared → clear
+              // the badge and remember the current set as seen.
+              if (sharedIds.length) {
+                writeSharedSeen(sharedIds);
+              }
+              setSharedNewCount(0);
             }}
           >
             <Inbox size={14} className="mcm-nav__item-icon" />
             <span className="mcm-nav__item-label">{t("pkg.sharedWithMe")}</span>
+            {sharedNewCount > 0 && (
+              <span
+                className="mcm-nav__badge"
+                aria-label={t("pkg.sharedNew", { count: sharedNewCount })}
+              >
+                {sharedNewCount}
+              </span>
+            )}
           </button>
           {/* Personal document shelf — internal staff only (the Worker
               also gates /v1/me/files to internal accounts). */}

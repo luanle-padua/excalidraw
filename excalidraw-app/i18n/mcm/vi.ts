@@ -1734,6 +1734,7 @@ export const vi = {
     // "Shared with me" dashboard surface (recipient-facing package list).
     sharedWithMe: "Đã chia sẻ với tôi",
     sharedEmpty: "Chưa có bản tổng kết nào được chia sẻ với bạn.",
+    sharedNew: "{count} mục mới được chia sẻ",
     open: "Mở",
     noFiles: "Không có file",
     viewerTitle: "Bản tổng kết",
