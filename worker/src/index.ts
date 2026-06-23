@@ -35,7 +35,7 @@ import { cors } from "hono/cors";
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from "jose";
 
 import { aiRoutes } from "./ai";
-import { guestInviteEmail, sendEmail } from "./email";
+import { guestInviteEmail, packageShareEmail, sendEmail } from "./email";
 import { RoomDO } from "./roomDO";
 import { handleSttUpgrade } from "./stt";
 import {
@@ -79,6 +79,12 @@ type Bindings = {
   // RESEND_FROM is a plain var in wrangler.jsonc ("Canvas M <addr>").
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
+  // Public app origin used to build links in outbound email (e.g. the package
+  // "Shared with me" notify). Optional plain var, e.g. "https://app.mapgroup.co.kr".
+  // When unset we fall back to the request's own Origin header (the publishing
+  // host's browser), so this needs no value during the dev/test phase — set it
+  // once the custom domain lands; no code change.
+  APP_BASE_URL?: string;
   // CORS allowlist (B6) — comma-separated extra origins permitted to call /v1
   // (e.g. the production app origin). localhost / *.pages.dev / *.workers.dev /
   // quick-tunnel are always allowed; everything else is rejected. Plain var in
@@ -2932,8 +2938,93 @@ app.post("/v1/packages/:id/publish", async (c) => {
   )
     .bind(pkg.id, now())
     .run();
+  // Email-notify an audience='list' package's named recipients. FAIL-SOFT: a
+  // mail problem must NEVER break publish (mirrors the avatar-metadata mirror),
+  // so we await the best-effort send but swallow every error inside it.
+  if (pkg.audience_kind === "list") {
+    await notifyListRecipients(
+      c.env,
+      pkg,
+      c.get("email"),
+      c.req.header("origin") ?? null,
+    );
+  }
   return c.json({ ok: true, published_at: now() });
 });
+
+// Best-effort "a recap package was shared with you" email to the active (non-
+// revoked) recipients of an audience='list' package. Runs right after publish.
+//
+// DOMAIN LIMITATION (06-23): RESEND_FROM is Resend's shared test sender
+// `onboarding@resend.dev`, which Resend only delivers to the ACCOUNT'S OWN
+// verified address — mail to arbitrary external recipients is dropped/bounced
+// until a real sending domain is verified (team's custom domain pending ~Aug).
+// So this is wired correctly but won't actually reach external recipients yet.
+// When the domain lands, only RESEND_FROM in wrangler.jsonc changes — no code
+// edit. The whole step is FAIL-SOFT: every failure is caught + audited, never
+// thrown, so publishing always succeeds even with Resend unconfigured/erroring.
+const notifyListRecipients = async (
+  env: Bindings,
+  pkg: PackageRow,
+  actorEmail: string | undefined,
+  originHeader: string | null,
+): Promise<void> => {
+  try {
+    if (!env.RESEND_API_KEY || !env.RESEND_FROM) {
+      // No mail provider configured — nothing to do (publish already succeeded).
+      return;
+    }
+    const { results } = await env.DB.prepare(
+      `SELECT email FROM meeting_package_recipient
+        WHERE package_id = ?1 AND status <> 'revoked'`,
+    )
+      .bind(pkg.id)
+      .all<{ email: string }>();
+    const recipients = (results ?? [])
+      .map((r) => (r.email || "").trim())
+      .filter((e) => e.includes("@"));
+    if (!recipients.length) {
+      return;
+    }
+    // Build the viewer link. Recipients land on the dashboard's "Shared with me"
+    // surface (no standalone deep-link route exists yet), so we link the app
+    // home. Prefer the configured public origin; fall back to the request's own
+    // Origin (the publishing host's browser) so this works without extra config.
+    const origin = (env.APP_BASE_URL || originHeader || "").replace(/\/$/, "");
+    if (!origin) {
+      return;
+    }
+    const { subject, html, text } = packageShareEmail({
+      packageTitle: pkg.title ?? undefined,
+      link: origin,
+      appName: "Canvas M",
+    });
+    let sent = 0;
+    let failed = 0;
+    for (const to of recipients) {
+      const r = await sendEmail(
+        {
+          RESEND_API_KEY: env.RESEND_API_KEY ?? "",
+          RESEND_FROM: env.RESEND_FROM ?? "",
+        },
+        { to, subject, html, text },
+      );
+      if (r.ok) {
+        sent++;
+      } else {
+        failed++;
+      }
+    }
+    // Audit the attempt (sent/failed counts) — visible in the Admin Audit tab.
+    await logAudit(env.DB, actorEmail, "package.notify_list", pkg.id, {
+      recipients: recipients.length,
+      sent,
+      failed,
+    });
+  } catch {
+    // FAIL-SOFT: never let an email/DB hiccup break publish.
+  }
+};
 
 // AUDIENCE gate for reading a published package. Admin always; otherwise by
 // audience_kind:

@@ -1665,6 +1665,10 @@ export const ko: Widened<typeof vi> = {
     statusPublished: "게시됨",
     // --- Distribution / recipient-facing viewer ---
     sharedTitle: "공유된 요약",
+    // "Shared with me" dashboard surface (recipient-facing package list).
+    sharedWithMe: "나와 공유됨",
+    sharedEmpty: "아직 공유된 요약이 없어요.",
+    open: "열기",
     noFiles: "파일 없음",
     viewerTitle: "요약",
     viewerSubtitle: "주최자가 정리한 회의 후 공유 요약이에요.",

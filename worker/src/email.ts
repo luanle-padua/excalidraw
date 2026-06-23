@@ -159,3 +159,69 @@ Vào phòng họp: ${link}
 
   return { subject, html, text };
 }
+
+export type PackageShareOpts = {
+  packageTitle?: string;
+  link: string;
+  appName?: string;
+};
+
+/**
+ * Compose a "a recap package was shared with you" email (subject + html + text)
+ * for an audience='list' package publish. Plain inline-styled HTML, no external
+ * assets. Vietnamese primary copy, mirrors guestInviteEmail.
+ */
+export function packageShareEmail(opts: PackageShareOpts): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const app = opts.appName ?? "Canvas M";
+  const title = opts.packageTitle?.trim() || "bản tổng kết cuộc họp";
+  const link = opts.link;
+
+  const subject = opts.packageTitle
+    ? `[${app}] Đã chia sẻ: ${opts.packageTitle}`
+    : `[${app}] Bản tổng kết cuộc họp được chia sẻ với bạn`;
+
+  const html = `<!doctype html>
+<html lang="vi">
+  <body style="margin:0;padding:0;background:#f3f4f6;">
+    <div style="max-width:520px;margin:0 auto;padding:32px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+      <div style="background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <h1 style="margin:0 0 4px;font-size:18px;color:#111827;">${esc(
+          app,
+        )}</h1>
+        <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+          ${esc(title)} đã được chia sẻ với bạn.
+        </p>
+        <a href="${esc(link)}"
+           style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 24px;border-radius:10px;">
+          Xem bản tổng kết
+        </a>
+        <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;word-break:break-all;">
+          Hoặc mở liên kết: <a href="${esc(link)}" style="color:#4f46e5;">${esc(
+    link,
+  )}</a>
+        </p>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0 16px;" />
+        <p style="margin:0;font-size:11px;color:#9ca3af;">
+          Thư tự động từ ${esc(
+            app,
+          )}. Mở mục “Đã chia sẻ với tôi” sau khi đăng nhập để xem.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>`;
+
+  const text = `${app}
+
+${title} đã được chia sẻ với bạn.
+
+Xem bản tổng kết: ${link}
+
+— Thư tự động từ ${app}. Mở mục "Đã chia sẻ với tôi" sau khi đăng nhập để xem.`;
+
+  return { subject, html, text };
+}

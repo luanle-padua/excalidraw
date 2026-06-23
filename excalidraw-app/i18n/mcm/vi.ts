@@ -1731,6 +1731,10 @@ export const vi = {
     statusPublished: "Đã phát hành",
     // --- Distribution / recipient-facing viewer ---
     sharedTitle: "Bản tổng kết được chia sẻ",
+    // "Shared with me" dashboard surface (recipient-facing package list).
+    sharedWithMe: "Đã chia sẻ với tôi",
+    sharedEmpty: "Chưa có bản tổng kết nào được chia sẻ với bạn.",
+    open: "Mở",
     noFiles: "Không có file",
     viewerTitle: "Bản tổng kết",
     viewerSubtitle: "Bản chia sẻ sau họp do người chủ trì biên soạn.",

@@ -6,6 +6,7 @@ import {
   FolderHeart,
   FolderKanban,
   History,
+  Inbox,
   LayoutGrid,
   List as ListIcon,
   LogIn,
@@ -54,15 +55,24 @@ import { MetadataEditor } from "./MetadataEditor";
 import { MyFilesPanel } from "./MyFilesPanel";
 import { ProjectManagerPanel } from "./ProjectManagerPanel";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
+import { SharedWithMe } from "./SharedWithMe";
 import { buildProjectFields } from "./metadataFields";
 
 import type { MeetingSummary, Project } from "../../data/projects";
 
-// "all" = my whole calendar · "invited" = invitations · "myfiles" = the
+// "all" = my whole calendar · "invited" = invitations · "shared" = recap
+// packages shared with me (Meeting Package recipient surface) · "myfiles" = the
 // personal document shelf (internal only) · "guests" = the centralized guest
 // manager (internal only) · "projects" = the project management page (reserved
 // id — never collides with project UUIDs) · else a project id (meeting list).
-type View = "all" | "invited" | "myfiles" | "guests" | "projects" | string;
+type View =
+  | "all"
+  | "invited"
+  | "shared"
+  | "myfiles"
+  | "guests"
+  | "projects"
+  | string;
 
 // Middle-column presentation controls (persisted in component state).
 type ViewMode = "grid" | "list";
@@ -208,7 +218,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const refreshCards = useCallback(async () => {
     setLoadingCards(true);
     try {
-      if (view === "myfiles" || view === "guests" || view === "projects") {
+      if (
+        view === "myfiles" ||
+        view === "guests" ||
+        view === "projects" ||
+        view === "shared"
+      ) {
         // These panels self-manage — no meeting cards in these views.
         setCards([]);
         setCardsFailed(false);
@@ -247,6 +262,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const selectedProject =
     view === "all" ||
     view === "invited" ||
+    view === "shared" ||
     view === "myfiles" ||
     view === "guests" ||
     view === "projects"
@@ -275,6 +291,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     ? selectedProject.name
     : view === "invited"
     ? t("invited.title")
+    : view === "shared"
+    ? t("pkg.sharedWithMe")
     : view === "myfiles"
     ? t("myfiles.title")
     : view === "guests"
@@ -603,6 +621,22 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         <div className="mcm-nav__section">
           {navItem("all", t("cal.myMeetings"))}
           {navItem("invited", t("invited.title"))}
+          {/* "Shared with me" — published recap packages addressed to this
+              user across meetings (Meeting Package recipient surface). Open to
+              everyone: a recipient can be internal staff or an invited guest. */}
+          <button
+            type="button"
+            className={`mcm-nav__item${
+              view === "shared" ? " mcm-nav__item--active" : ""
+            }`}
+            onClick={() => {
+              setView("shared");
+              resetSubViews();
+            }}
+          >
+            <Inbox size={14} className="mcm-nav__item-icon" />
+            <span className="mcm-nav__item-label">{t("pkg.sharedWithMe")}</span>
+          </button>
           {/* Personal document shelf — internal staff only (the Worker
               also gates /v1/me/files to internal accounts). */}
           {isInternal && (
@@ -769,6 +803,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           {view !== "myfiles" &&
             view !== "guests" &&
             view !== "projects" &&
+            view !== "shared" &&
             !detailRoomId &&
             !meetingFormOpen &&
             !editRoomId && (
@@ -846,6 +881,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               </div>
             )}
           {view !== "invited" &&
+            view !== "shared" &&
             view !== "myfiles" &&
             view !== "guests" &&
             view !== "projects" &&
@@ -865,7 +901,9 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
-          {view === "myfiles" ? (
+          {view === "shared" ? (
+            <SharedWithMe />
+          ) : view === "myfiles" ? (
             <MyFilesPanel />
           ) : view === "guests" ? (
             <GuestManager />

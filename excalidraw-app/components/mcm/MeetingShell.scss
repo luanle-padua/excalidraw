@@ -9171,6 +9171,37 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+// ===== "Shared with me" — Meeting Package recipient surface ==================
+// Reuses the .mcm-invited__list / __card / __meta / __join card styling; only
+// adds the package icon chip + the empty state. Lives in the ProjectBrowser
+// middle column (the "shared" view).
+.mcm-shared {
+  &__icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    color: var(--mcm-accent, #6965db);
+    background: color-mix(
+      in srgb,
+      var(--mcm-accent, #6965db) 14%,
+      transparent
+    );
+  }
+  &__empty {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    @include t-caption;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    padding: 18px 4px;
+    margin: 0;
+  }
+}
+
 // ===== ProjectBrowser enrichment: card actions, schedule, detail drawer =====
 .mcm-folder {
   &__card-actions {

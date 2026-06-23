@@ -1659,6 +1659,10 @@ export const en: Widened<typeof vi> = {
     statusPublished: "Published",
     // --- Distribution / recipient-facing viewer ---
     sharedTitle: "Shared recap",
+    // "Shared with me" dashboard surface (recipient-facing package list).
+    sharedWithMe: "Shared with me",
+    sharedEmpty: "No recaps have been shared with you yet.",
+    open: "Open",
     noFiles: "No files",
     viewerTitle: "Recap",
     viewerSubtitle: "The post-meeting recap curated by the host.",
