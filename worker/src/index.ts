@@ -2292,8 +2292,26 @@ app.get("/v1/meetings/:roomId", async (c) => {
         .bind(row.id as string, me)
         .first());
   }
+  // Has the viewer already accepted the join-time recording/AI notice for this
+  // meeting? The client uses this to decide whether to show the consent gate.
+  // We surface the accepted VERSION (not just a bool) so a later wording bump
+  // (new CONSENT_VERSION) re-prompts even a user who accepted an older one.
+  let viewer_consent_version: string | null = null;
+  if (me) {
+    const cr = await c.env.DB.prepare(
+      `SELECT version FROM meeting_consent WHERE meeting_id = ?1 AND email = ?2`,
+    )
+      .bind(row.id as string, me)
+      .first<{ version: string | null }>();
+    viewer_consent_version = cr?.version ?? null;
+  }
   return c.json({
-    meeting: { ...row, viewer_is_authority, viewer_can_start },
+    meeting: {
+      ...row,
+      viewer_is_authority,
+      viewer_can_start,
+      viewer_consent_version,
+    },
   });
 });
 
@@ -2610,6 +2628,179 @@ app.post("/v1/meetings/:roomId/participant", async (c) => {
   return c.json({ ok: true });
 });
 
+// ---- Meeting Event Log (P1 MVP) ------------------------------------------
+// A unified, SERVER-READABLE timeline of one meeting so an AI can later read the
+// FLOW of what happened and leadership can read that project information. NOT
+// surveillance: there is NO per-person scoring/profiling here — just a record of
+// what was said / typed / written, with attribution + timestamps. E2E content
+// (transcript/chat/canvas text) arrives as PLAINTEXT the client decrypted with
+// the room key and POSTs in one batch at End-for-all (consolidate-on-end), the
+// same trade-off Meeting Package already makes. See docs/plans/meeting-event-log.md.
+
+// Kinds the CLIENT may write in P1 (the E2E-content events it decrypted). The
+// allow-list keeps a logged-in member from stuffing arbitrary server-derived
+// kinds (presence/host/file) into the log — those are LATER phases, server-only.
+const CLIENT_EVENT_KINDS = new Set([
+  "transcript.segment",
+  "chat.message",
+  "canvas.text",
+]);
+// Bound a single batch + each payload so one client can't blow up D1. ~500
+// events × small payloads is plenty for a meeting's transcript + chat.
+const MAX_EVENTS_PER_BATCH = 500;
+const MAX_PAYLOAD_CHARS = 8_000;
+
+// POST a BATCH of meeting events. Gated by canSeeMeeting — only someone who can
+// see the meeting may write its log (admins/authorities pass too, but they'd
+// have no room key, so in practice it's the in-room members consolidating on
+// end). Idempotent: each event carries a stable id ("<meetingId>:<kind>:<seq>"),
+// upserted by PK, so a re-run (or retry) never duplicates.
+app.post("/v1/meetings/:roomId/events", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
+    return c.json({ error: "not a member of this meeting" }, 403);
+  }
+  let body: { events?: unknown };
+  try {
+    body = await c.req.json<{ events?: unknown }>();
+  } catch {
+    return c.json({ error: "invalid json" }, 400);
+  }
+  const events = Array.isArray(body.events) ? body.events : null;
+  if (!events) {
+    return c.json({ error: "events[] required" }, 400);
+  }
+  if (events.length > MAX_EVENTS_PER_BATCH) {
+    return c.json({ error: "batch too large" }, 413);
+  }
+  // project_id is taken from the registry (server-side), NEVER from the client —
+  // it's the department-wall key, so it must not be spoofable.
+  const meta = await c.env.DB.prepare(
+    `SELECT project_id FROM meeting WHERE id = ?1`,
+  )
+    .bind(roomId)
+    .first<{ project_id: string | null }>();
+  if (!meta) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const actor = c.get("email")?.toLowerCase() ?? null;
+  const insertedAt = now();
+  const stmt = c.env.DB.prepare(
+    `INSERT INTO meeting_event
+       (id, meeting_id, project_id, ts, seq, actor_email, kind, payload_json,
+        r2_ref, source, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, 'client', ?9)
+     ON CONFLICT(id) DO NOTHING`,
+  );
+  const batch: D1PreparedStatement[] = [];
+  for (const raw of events) {
+    const e = raw as {
+      kind?: unknown;
+      ts?: unknown;
+      seq?: unknown;
+      payload?: unknown;
+      actor_email?: unknown;
+    };
+    const kind = typeof e.kind === "string" ? e.kind : "";
+    if (!CLIENT_EVENT_KINDS.has(kind)) {
+      // Skip unknown / server-only kinds rather than fail the whole batch.
+      continue;
+    }
+    const ts =
+      typeof e.ts === "number" && isFinite(e.ts)
+        ? Math.floor(e.ts)
+        : insertedAt;
+    const seq =
+      typeof e.seq === "number" && isFinite(e.seq) ? Math.floor(e.seq) : 0;
+    let payload = "";
+    if (e.payload != null) {
+      try {
+        payload = JSON.stringify(e.payload).slice(0, MAX_PAYLOAD_CHARS);
+      } catch {
+        payload = "";
+      }
+    }
+    // Stable, deterministic id → idempotent across retries / re-runs.
+    const id = `${roomId}:${kind}:${seq}`;
+    // The actor is whoever the client attributes the line to (a speaker / chat
+    // sender), falling back to the authenticated caller; provenance is still
+    // pinned to 'client' + the caller's session via the gate above.
+    const evActor =
+      typeof e.actor_email === "string" && e.actor_email
+        ? e.actor_email.toLowerCase()
+        : actor;
+    batch.push(
+      stmt.bind(
+        id,
+        roomId,
+        meta.project_id,
+        ts,
+        seq,
+        evActor,
+        kind,
+        payload || null,
+        insertedAt,
+      ),
+    );
+  }
+  if (batch.length) {
+    await c.env.DB.batch(batch);
+  }
+  return c.json({ ok: true, written: batch.length });
+});
+
+// GET the meeting's event timeline, ordered (ts, seq). Gated by canSeeMeeting —
+// which already admits admins + project authorities, so this IS the leadership /
+// AI read path for "what happened in this meeting and why".
+app.get("/v1/meetings/:roomId/events", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
+    return c.json({ error: "not a member of this meeting" }, 403);
+  }
+  const rows = await c.env.DB.prepare(
+    `SELECT id, meeting_id, project_id, ts, seq, actor_email, kind,
+            payload_json, r2_ref, source, created_at
+       FROM meeting_event
+      WHERE meeting_id = ?1
+      ORDER BY ts ASC, seq ASC`,
+  )
+    .bind(roomId)
+    .all<Record<string, unknown>>();
+  return c.json({ events: rows.results ?? [] });
+});
+
+// Record join-time CONSENT (the disclosed recording/AI notice the user accepts
+// to proceed). Gated by canSeeMeeting; the email is taken from the verified JWT
+// (never the body). Idempotent upsert on (meeting_id, email) — re-accepting the
+// same version just refreshes accepted_at, so we don't nag on every entry.
+app.post("/v1/meetings/:roomId/consent", async (c) => {
+  const roomId = c.req.param("roomId");
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "no email" }, 400);
+  }
+  if (!(await canSeeMeeting(c.env.DB, c.get("email"), c.get("role"), roomId))) {
+    return c.json({ error: "not a member of this meeting" }, 403);
+  }
+  let version = "";
+  try {
+    version = (await c.req.json<{ version?: string }>()).version ?? "";
+  } catch {
+    // body optional → empty version
+  }
+  version = (version || "1").slice(0, 32);
+  await c.env.DB.prepare(
+    `INSERT INTO meeting_consent (meeting_id, email, version, accepted_at)
+     VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(meeting_id, email) DO UPDATE SET
+       version = ?3,
+       accepted_at = ?4`,
+  )
+    .bind(roomId, email, version, now())
+    .run();
+  return c.json({ ok: true, version });
+});
+
 // ---- Meeting Package (curated post-meeting deliverable) ------------------
 // A Package is a server-readable, hand-curated copy of a FINISHED meeting:
 // an editable summary + a chosen subset of files, scoped to an audience. The
@@ -2674,7 +2865,12 @@ app.get("/v1/meetings/:roomId/files", async (c) => {
       ORDER BY created_at ASC`,
   )
     .bind(c.req.param("roomId"))
-    .all<{ id: string; kind: string | null; name: string | null; size: number | null }>();
+    .all<{
+      id: string;
+      kind: string | null;
+      name: string | null;
+      size: number | null;
+    }>();
   return c.json({ files: results ?? [] });
 });
 
@@ -2821,8 +3017,8 @@ app.put("/v1/packages/:id", async (c) => {
     b.audience_kind === undefined
       ? null
       : b.audience_kind === "project" || b.audience_kind === "list"
-        ? b.audience_kind
-        : "meeting";
+      ? b.audience_kind
+      : "meeting";
   await c.env.DB.prepare(
     `UPDATE meeting_package SET
        title = COALESCE(?2, title),
@@ -3109,7 +3305,12 @@ app.get("/v1/packages/:id", async (c) => {
       WHERE pf.package_id = ?1`,
   )
     .bind(pkg.id)
-    .all<{ id: string; kind: string | null; name: string | null; size: number | null }>();
+    .all<{
+      id: string;
+      kind: string | null;
+      name: string | null;
+      size: number | null;
+    }>();
   const recapObj = await c.env.BUCKET.get(packageRecapKey(pkg.id));
   const recap_html = recapObj ? await recapObj.text() : null;
   return c.json({
@@ -3149,7 +3350,10 @@ const CONTENT_TYPE_EXT: Record<string, string> = {
   "text/plain": "txt",
   "application/json": "json",
 };
-const withExtension = (name: string, contentType: string | undefined): string => {
+const withExtension = (
+  name: string,
+  contentType: string | undefined,
+): string => {
   // Already ends with a short alnum extension → keep the author's name.
   if (/\.[a-z0-9]{1,5}$/i.test(name)) {
     return name;
@@ -3195,7 +3399,10 @@ app.get("/v1/packages/:id/export", async (c) => {
     }
     // Ensure a usable extension (stored name is often extension-less, e.g. an
     // `ifc-snap-…` id) so the file opens when extracted.
-    const baseName = withExtension(f.name || f.id, obj.httpMetadata?.contentType);
+    const baseName = withExtension(
+      f.name || f.id,
+      obj.httpMetadata?.contentType,
+    );
     // De-dupe names inside the zip so two files sharing a name don't collide.
     let entryName = `files/${baseName}`;
     if (used.has(entryName)) {

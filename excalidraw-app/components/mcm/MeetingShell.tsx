@@ -53,6 +53,7 @@ import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
 import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
 import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
+import { MeetingConsentGate } from "./MeetingConsentGate";
 import { MeetingDueNotice } from "./MeetingDueNotice";
 import { MeetingHeader } from "./MeetingHeader";
 import { MeetingLobby } from "./MeetingLobby";
@@ -508,6 +509,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       {/* Guest knock-to-join lobby — renders above the canvas when an external
           guest joins a LIVE meeting they haven't been admitted to yet. */}
       <WaitingRoom />
+      {/* Join-time consent notice (recording / AI-as-project-data disclosure).
+          Renders above the canvas the first time a logged-in user joins a real
+          meeting (or once per consent version); self-hides otherwise. */}
+      <MeetingConsentGate roomId={roomId} viewOnly={viewOnly} />
       {/* "Meeting tới giờ" toast — nudges the user to join a scheduled
           meeting whose time has arrived. Hides itself while collaborating
           so the in-meeting canvas stays clean. */}

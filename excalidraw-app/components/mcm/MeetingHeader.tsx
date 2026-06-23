@@ -38,6 +38,10 @@ import { clearLastMeeting } from "../../data/lastMeeting";
 import { aiBackendUrl } from "../../data/aiBackend";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
+  postMeetingEvents,
+  type MeetingEventInput,
+} from "../../data/meetingEventLog";
+import {
   getMeeting,
   registerMeeting,
   saveMeetingAiSummary,
@@ -410,6 +414,58 @@ export const MeetingHeader = ({
     [log, chatMessages, preferredLang, excalidrawAPI, t],
   );
 
+  // Consolidate-on-end (meeting-event-log P1 MVP): at End-for-all the host's
+  // client holds the room key and already has the whole meeting log loaded
+  // (transcript + chat + canvas text). Parse it into a server-readable event
+  // timeline so an AI can later read the FLOW of the meeting and leadership can
+  // read that project information. This is a DERIVED, plaintext copy — NO
+  // per-person scoring/profiling, just attributed "what was said / typed /
+  // written" lines. Idempotent (stable server-side ids) so a re-run can't
+  // duplicate; fire-and-forget / fail-soft so it never blocks ending.
+  const consolidateMeetingLog = useCallback(
+    async (targetRoomId: string) => {
+      const events: MeetingEventInput[] = [];
+      // Transcript segments — one event per finalized utterance, ordered.
+      log.forEach((s, i) => {
+        events.push({
+          kind: "transcript.segment",
+          ts: s.ts,
+          seq: i,
+          payload: {
+            speaker: s.username,
+            text: s.text,
+            lang: s.lang,
+            segIdx: i,
+          },
+        });
+      });
+      // Chat messages — one event per message.
+      chatMessages.forEach((m, i) => {
+        events.push({
+          kind: "chat.message",
+          ts: m.ts,
+          seq: i,
+          payload: { speaker: m.username, text: m.text },
+        });
+      });
+      // Canvas text — a few human-meaningful notes people wrote on the board.
+      // collectCanvasText already dedupes, author-prefixes, caps + truncates.
+      const endTs = Date.now();
+      collectCanvasText(excalidrawAPI).forEach((text, i) => {
+        events.push({
+          kind: "canvas.text",
+          ts: endTs,
+          seq: i,
+          payload: { text },
+        });
+      });
+      if (events.length) {
+        await postMeetingEvents(targetRoomId, events);
+      }
+    },
+    [log, chatMessages, excalidrawAPI],
+  );
+
   const handleEndMeeting = useCallback(async () => {
     if (!roomId || !canEndMeeting) {
       return;
@@ -429,6 +485,14 @@ export const MeetingHeader = ({
     void generateAiSummary(roomId).catch((error) => {
       console.warn("AI summary generation failed (non-blocking):", error);
     });
+    // …and consolidate the meeting log into the server-readable event timeline
+    // (same fire-and-forget contract — idempotent, must never block ending)…
+    void consolidateMeetingLog(roomId).catch((error) => {
+      console.warn(
+        "Meeting event-log consolidation failed (non-blocking):",
+        error,
+      );
+    });
     // …drop our own "Resume" pointer right away — a finished meeting must
     // never be offered for resume, and the lobby's status re-check shouldn't
     // be the only line of defense on the ender's own browser…
@@ -438,7 +502,15 @@ export const MeetingHeader = ({
     // …and switch ourselves too.
     markReviewRoom(roomId);
     setViewOnly(true);
-  }, [roomId, canEndMeeting, collabAPI, setViewOnly, generateAiSummary, t]);
+  }, [
+    roomId,
+    canEndMeeting,
+    collabAPI,
+    setViewOnly,
+    generateAiSummary,
+    consolidateMeetingLog,
+    t,
+  ]);
 
   return (
     <header className="mcm-header">
@@ -549,7 +621,9 @@ export const MeetingHeader = ({
                 reads truer than a flip-chart and won't be mistaken for a
                 whiteboard/slides tool. */}
             <ScreenShare size={18} />
-            <span className="mcm-header__icon-label">{t("header.present")}</span>
+            <span className="mcm-header__icon-label">
+              {t("header.present")}
+            </span>
           </button>
         </div>
 
@@ -620,7 +694,9 @@ export const MeetingHeader = ({
               aria-label={t("header.files")}
             >
               <Files size={18} />
-              <span className="mcm-header__icon-label">{t("header.files")}</span>
+              <span className="mcm-header__icon-label">
+                {t("header.files")}
+              </span>
             </button>
           )}
           {/* Inviting is MEETING-MANAGEMENT (anh Luân 06-15: "mời đúng chuẩn

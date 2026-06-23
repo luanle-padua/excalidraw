@@ -785,6 +785,14 @@ export const en: Widened<typeof vi> = {
     knocking: "Knocking…",
   },
 
+  // ---------------- Join-time consent notice -----------------------
+  consent: {
+    title: "Before you join",
+    body: "This meeting may be recorded and processed by AI as project data. Continuing means you consent.",
+    accept: "I agree, join the meeting",
+    accepting: "Joining…",
+  },
+
   // ---------------- Meeting list view controls ---------------------
   view: {
     label: "View",
@@ -1673,6 +1681,7 @@ export const en: Widened<typeof vi> = {
     viewerNoRecap: "This recap has no content yet.",
     recapFrameTitle: "Recap content",
     download: "Download (.zip)",
-    downloadFailed: "Couldn't download the package — check your network and retry.",
+    downloadFailed:
+      "Couldn't download the package — check your network and retry.",
   },
 };

@@ -823,6 +823,14 @@ export const vi = {
     knocking: "Đang gõ cửa…",
   },
 
+  // ---------------- Join-time consent notice -----------------------
+  consent: {
+    title: "Trước khi vào họp",
+    body: "Cuộc họp này có thể được ghi âm/ghi hình và xử lý bằng AI để làm dữ liệu dự án. Tiếp tục nghĩa là bạn đồng ý.",
+    accept: "Tôi đồng ý, vào họp",
+    accepting: "Đang vào…",
+  },
+
   // ---------------- Meeting list view controls ---------------------
   view: {
     label: "Hiển thị",

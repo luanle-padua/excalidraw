@@ -12,7 +12,7 @@ import { fetchWithAuth } from "./fetchWithAuth";
 
 // Tunnel mode → same-origin via the Vite `/v1` proxy (base = ""); local
 // dev → absolute worker URL. Mirrors storage.ts / Collab's socket handling.
-const STORAGE_URL =
+export const STORAGE_URL =
   import.meta.env.VITE_DEV_TUNNEL === "true"
     ? ""
     : (import.meta.env.VITE_APP_STORAGE_URL || "").replace(/\/$/, "");
@@ -330,6 +330,12 @@ export type Meeting = {
    *  (anh Luân 06-16: a meeting belongs to its department; another department
    *  can't start it). */
   viewer_can_start?: boolean;
+  /** Server-computed: the consent-notice VERSION this viewer has already
+   *  accepted for the meeting (recording / AI-as-project-data disclosure), or
+   *  null if they never have. The join-time consent gate shows itself when this
+   *  doesn't match the current CONSENT_VERSION — so a wording bump re-prompts,
+   *  but an unchanged version never nags. See data/meetingConsent.ts. */
+  viewer_consent_version?: string | null;
   /** RUNTIME per-meeting realtime backend selector (DO migration, 06-17).
    *  Team A stamps this on the meeting row in D1: "do" routes the realtime
    *  collab through the Cloudflare Durable Object (raw WebSocket transport);

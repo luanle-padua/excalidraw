@@ -791,6 +791,14 @@ export const ko: Widened<typeof vi> = {
     knocking: "노크 중…",
   },
 
+  // ---------------- Join-time consent notice -----------------------
+  consent: {
+    title: "회의 참여 전 안내",
+    body: "이 회의는 녹음/녹화되어 프로젝트 데이터로서 AI가 처리할 수 있습니다. 계속하면 이에 동의하는 것입니다.",
+    accept: "동의하고 회의 참여",
+    accepting: "참여 중…",
+  },
+
   // ---------------- Meeting list view controls ---------------------
   view: {
     label: "보기",
@@ -1404,7 +1412,8 @@ export const ko: Widened<typeof vi> = {
     summaryError: "요약 실패",
     // 429 rate-limit UX (06-23): friendly note + button cooldown instead of
     // the raw "Too many requests" error.
-    summaryRateLimited: "방금 요약을 생성했습니다 — 잠시 후 다시 시도해 주세요.",
+    summaryRateLimited:
+      "방금 요약을 생성했습니다 — 잠시 후 다시 시도해 주세요.",
     summaryCooldown: "{sec}초 후 다시 시도",
     mdTitleSummary: "{title} — 요약",
     mdNoTranscript: "(회의록 없음)",
@@ -1659,7 +1668,8 @@ export const ko: Widened<typeof vi> = {
     draftSaved: "초안을 저장했어요.",
     published: "요약 패키지를 게시했어요.",
     packaging: "파일을 패키징하는 중…",
-    saveFailed: "패키지를 저장하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
+    saveFailed:
+      "패키지를 저장하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
     needTitle: "패키지 제목을 입력하세요.",
     statusDraft: "초안",
     statusPublished: "게시됨",
@@ -1674,10 +1684,12 @@ export const ko: Widened<typeof vi> = {
     viewerTitle: "요약",
     viewerSubtitle: "주최자가 정리한 회의 후 공유 요약이에요.",
     viewerLoading: "요약을 여는 중…",
-    viewerUnavailable: "이 요약을 열 수 없어요 — 더 이상 접근 권한이 없을 수 있어요.",
+    viewerUnavailable:
+      "이 요약을 열 수 없어요 — 더 이상 접근 권한이 없을 수 있어요.",
     viewerNoRecap: "이 요약에는 아직 내용이 없어요.",
     recapFrameTitle: "요약 내용",
     download: "다운로드 (.zip)",
-    downloadFailed: "패키지를 다운로드하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
+    downloadFailed:
+      "패키지를 다운로드하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
   },
 };
