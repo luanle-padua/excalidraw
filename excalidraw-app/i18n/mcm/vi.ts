@@ -813,6 +813,27 @@ export const vi = {
     kindOther: "Khác",
   },
 
+  // ---------------- Project Files (tủ tài liệu CHUNG của dự án) -----
+  // Khác "Tài liệu của tôi" (riêng từng người): mọi thành viên dự án
+  // upload chung, mọi thành viên đều thấy. Xoá: người upload hoặc quản lý.
+  projFiles: {
+    tabMeetings: "Cuộc họp",
+    tabFiles: "Tài liệu",
+    tabsLabel: "Cuộc họp hoặc tài liệu dự án",
+    subtitle: "Tài liệu dùng chung cho cả dự án",
+    emptyTitle: "Tủ tài liệu chung của dự án",
+    emptyDesc:
+      "Mọi thành viên dự án có thể upload tài liệu ở đây và ai trong dự án cũng thấy. Đưa vào cuộc họp sẽ tạo bản sao — xoá ở đây không ảnh hưởng cuộc họp đã sao chép.",
+    dropHint: "Kéo thả file vào đây hoặc bấm để chọn",
+    dropActive: "Thả file để tải lên",
+    uploading: "Đang tải lên…",
+    uploadFailed: "Tải lên không thành công: {name}",
+    tooLarge: "File quá lớn (tối đa 50MB): {name}",
+    deleteConfirm:
+      'Xoá "{name}" khỏi tủ tài liệu dự án?\n\nCác cuộc họp đã sao chép file này không bị ảnh hưởng.',
+    delete: "Xoá",
+  },
+
   // ---------------- Meeting status (vòng đời chuẩn) -----------------
   // scheduled → live → finished | cancelled (host-and-scheduling.md)
   status: {

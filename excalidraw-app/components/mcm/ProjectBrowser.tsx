@@ -59,6 +59,7 @@ import {
 } from "./meetingStatus";
 import { MetadataEditor } from "./MetadataEditor";
 import { MyFilesPanel } from "./MyFilesPanel";
+import { ProjectFiles } from "./ProjectFiles";
 import { ProjectManagerPanel } from "./ProjectManagerPanel";
 import { ScheduleMeetingForm } from "./ScheduleMeetingForm";
 import { SharedWithMe } from "./SharedWithMe";
@@ -236,6 +237,11 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "live" | "upcoming" | "done" | "cancelled"
   >("all");
+  // ===== project-files region (sibling-owned: ProjectFiles only) ===========
+  // Per-project view tab: the meeting list ("meetings") or the shared file
+  // shelf ("files"). Only meaningful while a specific project is selected.
+  const [projTab, setProjTab] = useState<"meetings" | "files">("meetings");
+  // ===== end project-files region ==========================================
   // The card whose colour-swatch menu is open (one at a time), by room id.
   const [colorMenuFor, setColorMenuFor] = useState<string | null>(null);
   const [colorMenuAnchor, setColorMenuAnchor] = useState<DOMRect | null>(null);
@@ -663,6 +669,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setMeetingFormOpen(null);
     setEditRoomId(null);
     setManageProjectId(null);
+    // project-files: leaving/switching a context always lands on the meeting tab.
+    setProjTab("meetings");
   };
 
   // Top-level destination row — icon + label, optional trailing badge.
@@ -948,12 +956,50 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
               </button>
             )}
           </div>
+          {/* ===== project-files region: per-project Meetings | Files tabs =====
+              Shown only inside a member project's view (not the all/invited/etc.
+              system views, and not while a detail/create/edit form is open). */}
+          {selectedProject &&
+            isMemberProject(selectedProject) &&
+            !detailRoomId &&
+            !meetingFormOpen &&
+            !editRoomId && (
+              <div
+                className="mcm-segmented mcm-projfiles__tabs"
+                role="group"
+                aria-label={t("projFiles.tabsLabel")}
+              >
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    projTab === "meetings" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setProjTab("meetings")}
+                  aria-pressed={projTab === "meetings" ? "true" : "false"}
+                >
+                  {t("projFiles.tabMeetings")}
+                </button>
+                <button
+                  type="button"
+                  className={`mcm-segmented__btn${
+                    projTab === "files" ? " mcm-segmented__btn--active" : ""
+                  }`}
+                  onClick={() => setProjTab("files")}
+                  aria-pressed={projTab === "files" ? "true" : "false"}
+                >
+                  {t("projFiles.tabFiles")}
+                </button>
+              </div>
+            )}
+          {/* ===== end project-files region ===== */}
           {/* Toolbar — view toggle + sort. Only meaningful on the card list,
               so it hides while a detail/create/edit form occupies the column. */}
           {view !== "myfiles" &&
             view !== "guests" &&
             view !== "projects" &&
             view !== "shared" &&
+            // project-files: the card toolbar is meaningless on the Files tab.
+            projTab === "meetings" &&
             !detailRoomId &&
             !meetingFormOpen &&
             !editRoomId && (
@@ -1035,6 +1081,8 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
             view !== "myfiles" &&
             view !== "guests" &&
             view !== "projects" &&
+            // project-files: no "new meeting" CTA while the Files tab is open.
+            projTab === "meetings" &&
             targetProject &&
             !detailRoomId &&
             !editRoomId &&
@@ -1051,7 +1099,21 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
         </div>
 
         <div className="mcm-3col__middle-body mcm-scroll">
-          {view === "shared" ? (
+          {/* project-files: the shared shelf for the open project (Files tab).
+              Takes precedence over the meeting list, but never over an open
+              detail/create/edit sub-form. */}
+          {selectedProject &&
+          isMemberProject(selectedProject) &&
+          projTab === "files" &&
+          !detailRoomId &&
+          !meetingFormOpen &&
+          !editRoomId ? (
+            <ProjectFiles
+              projectId={selectedProject.id}
+              myEmail={session?.email ?? undefined}
+              isManager={canManageProj(selectedProject)}
+            />
+          ) : view === "shared" ? (
             <SharedWithMe />
           ) : view === "myfiles" ? (
             <MyFilesPanel />

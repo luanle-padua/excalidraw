@@ -774,6 +774,25 @@ export const ko: Widened<typeof vi> = {
     kindOther: "기타",
   },
 
+  // ---------------- Project Files (프로젝트 공유 문서함) ------------
+  projFiles: {
+    tabMeetings: "회의",
+    tabFiles: "문서",
+    tabsLabel: "프로젝트 회의 또는 문서",
+    subtitle: "프로젝트 전체가 공유하는 문서",
+    emptyTitle: "프로젝트 공유 문서함",
+    emptyDesc:
+      "프로젝트 멤버라면 누구나 여기에 파일을 올릴 수 있고, 프로젝트의 모든 사람이 볼 수 있습니다. 회의에 추가하면 사본이 만들어지므로, 여기서 삭제해도 이미 복사한 회의에는 영향이 없습니다.",
+    dropHint: "여기로 파일을 끌어다 놓거나 클릭하여 선택",
+    dropActive: "파일을 놓아 업로드",
+    uploading: "업로드 중…",
+    uploadFailed: "업로드 실패: {name}",
+    tooLarge: "파일이 너무 큽니다 (최대 50MB): {name}",
+    deleteConfirm:
+      '"{name}"을(를) 프로젝트 문서함에서 삭제할까요?\n\n이미 이 파일을 복사한 회의에는 영향이 없습니다.',
+    delete: "삭제",
+  },
+
   // ---------------- Meeting status (canonical lifecycle) ------------
   status: {
     scheduled: "예정됨",

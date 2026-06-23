@@ -768,6 +768,27 @@ export const en: Widened<typeof vi> = {
     kindOther: "Other",
   },
 
+  // ---------------- Project Files (SHARED per-project shelf) --------
+  // Unlike "My Files" (private to each user): every project member uploads
+  // here and every member sees them. Delete: the uploader or a manager.
+  projFiles: {
+    tabMeetings: "Meetings",
+    tabFiles: "Files",
+    tabsLabel: "Project meetings or files",
+    subtitle: "Shared documents for the whole project",
+    emptyTitle: "The project's shared document shelf",
+    emptyDesc:
+      "Any project member can upload files here, and everyone in the project sees them. Adding a file to a meeting makes a copy — deleting it here never affects a meeting that already copied it.",
+    dropHint: "Drag files here or click to choose",
+    dropActive: "Drop files to upload",
+    uploading: "Uploading…",
+    uploadFailed: "Upload failed: {name}",
+    tooLarge: "File too large (max 50MB): {name}",
+    deleteConfirm:
+      'Delete "{name}" from the project shelf?\n\nMeetings that already copied this file are unaffected.',
+    delete: "Delete",
+  },
+
   // ---------------- Meeting status (canonical lifecycle) ------------
   status: {
     scheduled: "Scheduled",

@@ -13969,6 +13969,37 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+// Project Files — the SHARED per-project shelf. Reuses every .mcm-myfiles__*
+// rule for layout (drop-zone, list/grid, cards); these are the only extras:
+// the per-project Meetings|Files tab and the small "who uploaded" label that
+// the personal shelf doesn't need.
+.mcm-projfiles {
+  // The uploaded-by chip — compact, muted, sits in the meta row / card body.
+  &__uploader {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--mcm-text-soft);
+    font-size: 11px;
+    font-weight: 600;
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    svg {
+      flex: 0 0 auto;
+      opacity: 0.75;
+    }
+  }
+}
+
+// Per-project Meetings|Files tab toggle in the middle-column header. Reuses the
+// .mcm-segmented look; just a touch of inline spacing where it sits.
+.mcm-projfiles__tabs {
+  margin-left: 8px;
+}
+
 // In-meeting shelf picker ("Từ tủ của tôi" in the meeting library): a small
 // inline panel under the upload button listing the user's shelf files;
 // clicking a row copies the document into the meeting via the normal

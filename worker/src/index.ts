@@ -490,6 +490,14 @@ const userFileKey = (email: string, fileId: string) =>
 const userFileThumbKey = (email: string, fileId: string) =>
   `${userFileKey(email, fileId)}/thumb`;
 
+// Project Files (shared per-project shelf) R2 keys — server-readable (no room
+// key outside a meeting), mirroring the userfiles/* layout but keyed by the
+// PROJECT, not a single owner. Any member uploads here; every member reads it.
+const projectFileKey = (projectId: string, fileId: string) =>
+  `project-files/${projectId}/${fileId}`;
+const projectFileThumbKey = (projectId: string, fileId: string) =>
+  `${projectFileKey(projectId, fileId)}/thumb`;
+
 // Meeting Package R2 keys (server-readable copies — NOT room-key encrypted).
 // The chosen meeting files are decrypted client-side and re-uploaded here as
 // plaintext; the recap + offline zip live alongside. See meeting-package.md.
@@ -5539,6 +5547,230 @@ app.delete("/v1/me/files/:fileId", async (c) => {
   }
   await c.env.DB.prepare(`DELETE FROM user_file WHERE id = ?1`)
     .bind(c.req.param("fileId"))
+    .run();
+  return c.json({ ok: true });
+});
+
+// ===== Project Files — a PER-PROJECT SHARED document shelf ==================
+// Distinct from "My Files" (user_file, private to one owner): ANY member of a
+// project may upload a file here, and EVERY member of the project sees it.
+// Bytes live SERVER-READABLE under project-files/<projectId>/<fileId> (no room
+// key exists outside a meeting); the index row is the project_file table. All
+// routes are gated to project MEMBERS via projectAccess === "full" (a "partial"
+// invitee — someone merely invited to a meeting of the project — does NOT reach
+// the shared shelf; folders stay confidential by construction). DELETE narrows
+// further to the uploader OR a project manager (canManageProject), following the
+// project's existing permission model.
+
+const MAX_PROJECT_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_PROJECT_FILE_THUMB_BYTES = 512 * 1024;
+
+// Shared gate: TRUE only for a full project member (admin / member / leader /
+// leading-division head). Reused by every read/upload route below.
+const isProjectMember = async (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  projectId: string,
+): Promise<boolean> =>
+  (await projectAccess(c.env.DB, c.get("email"), c.get("role"), projectId)) ===
+  "full";
+
+app.get("/v1/projects/:id/files", async (c) => {
+  const projectId = c.req.param("id");
+  if (!(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, name, kind, size, uploaded_by, created_at,
+            (thumb_r2_key IS NOT NULL) AS has_thumb
+       FROM project_file
+      WHERE project_id = ?1 ORDER BY created_at DESC LIMIT 500`,
+  )
+    .bind(projectId)
+    .all();
+  return c.json({ files: results });
+});
+
+app.put("/v1/projects/:id/files/:fileId", async (c) => {
+  const projectId = c.req.param("id");
+  if (!(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const email = c.get("email")?.toLowerCase();
+  if (!email) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (body.byteLength > MAX_PROJECT_FILE_BYTES) {
+    return c.json({ error: "file too large (max 50MB)" }, 413);
+  }
+  const key = projectFileKey(projectId, fileId);
+  // Keep the real mime on the object — the copy-into-meeting client rebuilds a
+  // File from these bytes and ingest's image detection is mime-based.
+  await c.env.BUCKET.put(key, body, {
+    httpMetadata: {
+      contentType: c.req.header("content-type") ?? "application/octet-stream",
+    },
+  });
+  // Upsert keyed by id; pin project_id + uploaded_by on conflict so a re-PUT to
+  // the same id can't re-home a file under another project or steal authorship.
+  await c.env.DB.prepare(
+    `INSERT INTO project_file (id, project_id, name, kind, size, r2_key, uploaded_by, created_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name, kind = excluded.kind,
+       size = excluded.size, r2_key = excluded.r2_key
+     WHERE project_file.project_id = excluded.project_id
+       AND project_file.uploaded_by = excluded.uploaded_by`,
+  )
+    .bind(
+      fileId,
+      projectId,
+      c.req.header("x-name") ?? null,
+      c.req.header("x-kind") ?? null,
+      body.byteLength,
+      key,
+      email,
+      now(),
+    )
+    .run();
+  return c.json({ ok: true, id: fileId });
+});
+
+app.get("/v1/projects/:id/files/:fileId/content", async (c) => {
+  const projectId = c.req.param("id");
+  if (!(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  // Bind the row to BOTH id and project_id so a forged fileId can't read out of
+  // another project's prefix (membership is per-project).
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key FROM project_file WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(c.req.param("fileId"), projectId)
+    .first<{ r2_key: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type":
+        obj.httpMetadata?.contentType ?? "application/octet-stream",
+      etag: obj.httpEtag,
+    },
+  });
+});
+
+// Store a small downscaled-WebP thumb for a shared image (any member may upload,
+// so any member may store the thumb for one). The owning row must already exist
+// and belong to this project, so a forged fileId can't write into another
+// project's prefix.
+app.put("/v1/projects/:id/files/:fileId/thumb", async (c) => {
+  const projectId = c.req.param("id");
+  if (!(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const fileId = c.req.param("fileId");
+  const row = await c.env.DB.prepare(
+    `SELECT id FROM project_file WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(fileId, projectId)
+    .first<{ id: string }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  if (body.byteLength > MAX_PROJECT_FILE_THUMB_BYTES) {
+    return c.json({ error: "thumb too large" }, 413);
+  }
+  const thumbKey = projectFileThumbKey(projectId, fileId);
+  await c.env.BUCKET.put(thumbKey, body, {
+    httpMetadata: { contentType: "image/webp" },
+  });
+  await c.env.DB.prepare(
+    `UPDATE project_file SET thumb_r2_key = ?1 WHERE id = ?2 AND project_id = ?3`,
+  )
+    .bind(thumbKey, fileId, projectId)
+    .run();
+  return c.json({ ok: true });
+});
+
+// Serve the small stored thumbnail (member-gated via the project, mirroring the
+// content route). 404 when no thumb yet so the client backfills/icons. Cached
+// HARD: a file's bytes never change in place (a re-upload is a new id).
+app.get("/v1/projects/:id/files/:fileId/thumb", async (c) => {
+  const projectId = c.req.param("id");
+  if (!(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT thumb_r2_key FROM project_file WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(c.req.param("fileId"), projectId)
+    .first<{ thumb_r2_key: string | null }>();
+  if (!row || !row.thumb_r2_key) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const obj = await c.env.BUCKET.get(row.thumb_r2_key);
+  if (!obj) {
+    return c.json({ error: "not found" }, 404);
+  }
+  return new Response(obj.body, {
+    headers: {
+      "content-type": obj.httpMetadata?.contentType ?? "image/webp",
+      etag: obj.httpEtag,
+      "cache-control": "private, max-age=31536000, immutable",
+    },
+  });
+});
+
+// Delete a shared file. Tighter than view/upload: only the UPLOADER, or a
+// project MANAGER (canManageProject — owner/manager/leader/leading-division
+// head), may remove it. A plain member can't delete a teammate's upload.
+app.delete("/v1/projects/:id/files/:fileId", async (c) => {
+  const projectId = c.req.param("id");
+  const email = c.get("email")?.toLowerCase();
+  if (!email || !(await isProjectMember(c, projectId))) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  const row = await c.env.DB.prepare(
+    `SELECT r2_key, thumb_r2_key, uploaded_by
+       FROM project_file WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(c.req.param("fileId"), projectId)
+    .first<{
+      r2_key: string;
+      thumb_r2_key: string | null;
+      uploaded_by: string;
+    }>();
+  if (!row) {
+    return c.json({ error: "not found" }, 404);
+  }
+  const isUploader = row.uploaded_by.toLowerCase() === email;
+  if (
+    !isUploader &&
+    !(await canManageProject(c.env.DB, projectId, email, c.get("role")))
+  ) {
+    return c.json({ error: "forbidden" }, 403);
+  }
+  await c.env.BUCKET.delete(row.r2_key);
+  if (row.thumb_r2_key) {
+    await c.env.BUCKET.delete(row.thumb_r2_key);
+  }
+  await c.env.DB.prepare(
+    `DELETE FROM project_file WHERE id = ?1 AND project_id = ?2`,
+  )
+    .bind(c.req.param("fileId"), projectId)
     .run();
   return c.json({ ok: true });
 });
