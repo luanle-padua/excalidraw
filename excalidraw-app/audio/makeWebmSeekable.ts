@@ -27,12 +27,13 @@
 // duration-patched blob — a recording is never lost to a remux hiccup. The
 // caller also RACES this against a timeout so Stop can never hang on it.
 
-// IMPORTANT: import the Buffer polyfill FIRST so the global is installed before
-// ts-ebml (and its int64-buffer dep, which captures Buffer at module-eval) is
-// evaluated. ESM evaluates imports in source order.
-import "./bufferPolyfill";
-
-import { Decoder, Reader, tools } from "ts-ebml";
+// ts-ebml + its Buffer polyfill are LAZY-loaded inside makeWebmSeekable (dynamic
+// import) so the heavy EBML remux code lands in a SEPARATE chunk fetched only
+// when a recording is stopped — it must NOT bloat the main app bundle (which is
+// PWA-precached under a size limit; ts-ebml + buffer pushed it over). The
+// polyfill is awaited FIRST at call time so the Buffer global is installed
+// before ts-ebml's module evaluates (its int64-buffer dep captures Buffer at
+// module-eval).
 
 /**
  * Re-mux a MediaRecorder WebM blob into a SEEKABLE WebM (adds SeekHead + Cues +
@@ -46,6 +47,11 @@ export const makeWebmSeekable = async (source: Blob): Promise<Blob | null> => {
     if (source.size === 0 || !source.type.includes("webm")) {
       return null;
     }
+
+    // Lazy-load: Buffer polyfill FIRST, then ts-ebml — keeps both out of the
+    // main bundle (separate chunk, fetched only on stop-recording).
+    await import("./bufferPolyfill");
+    const { Decoder, Reader, tools } = await import("ts-ebml");
 
     const buffer = await source.arrayBuffer();
 

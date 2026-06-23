@@ -294,8 +294,10 @@ export default defineConfig(({ mode }) => {
             },
           ],
           // mcm: main chunk + IFC bake worker grew past the old 2.3MB cap,
-          // which fails the whole build (workbox throws on oversized assets)
-          maximumFileSizeToCacheInBytes: 4 * 1024 ** 2, // 4MB
+          // which fails the whole build (workbox throws on oversized assets).
+          // ts-ebml is now lazy-loaded (separate chunk) so the main bundle is
+          // back under the limit; keep headroom at 5MB.
+          maximumFileSizeToCacheInBytes: 5 * 1024 ** 2, // 5MB
         },
         manifest: {
           short_name: "Canvas M",
