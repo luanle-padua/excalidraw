@@ -2,7 +2,9 @@
 
 > Chốt 2026-06-15 bởi team 4 agent (3 lăng kính: mất-gì-khi-xoá · access-vs-data · retention/PII → 1 tổng hợp). Yêu cầu anh Luân: cần **full dữ liệu lịch sử**; câu hỏi: có nên dọn bớt/xoá guest user về sau không? — **phân tích + plan, KHÔNG code.**
 
-> ⚠️ **HIỆN TRẠNG (cần sửa):** cả "Revoke" (`worker/src/index.ts` ~L1953) lẫn "Clean all guests" (~L1988) đang **HARD-DELETE** — `DELETE /admin/users/{supaId}` (Supabase) **+ `DELETE FROM project_guest`**. Không có cascade nên `meeting_invitee` / `meeting_participant` / blob R2 **mồ côi**, trỏ về email không còn resolve. **Đây là hành vi phá history** — trái với yêu cầu "full history" + phá AI moat. Plan này = đổi sang **revoke-không-delete**.
+> ✅ **ĐÃ SHIP (verify code 2026-06-23):** plan này đã được thực thi — KHÔNG còn hard-delete guest. `DELETE /v1/projects/:projectId/guests/:id` (`worker/src/index.ts:4332`) giờ là **soft-revoke**: `UPDATE project_guest SET status='revoked', revoked_at=…` + Supabase **BAN** (`ban_duration`) thay vì DELETE + **cascade `meeting_invitee` → status='revoked'** (đóng cửa "revoke=kick" ngay request kế). `POST /v1/projects/:projectId/guests/clean` (`index.ts:4387`) retire tất cả = loop ban+revoke, comment ghi thẳng "NEVER deletes — … attendance/attribution, and the AI moat are preserved". Phần CÒN để sau: route `anonymize-on-erasure` cho GDPR (§4), `status='purged'` cho junk row, snapshot label vào `meeting_invitee` (§5.6). Phần phân tích bên dưới giữ nguyên làm cơ sở thiết kế.
+>
+> ⚠️ _(LỊCH SỬ — trạng thái cũ trước khi sửa)_ Trước 06-23 cả "Revoke" lẫn "Clean all guests" **HARD-DELETE** — `DELETE /admin/users/{supaId}` (Supabase) **+ `DELETE FROM project_guest`**, không cascade nên `meeting_invitee`/`meeting_participant`/blob R2 mồ côi. Plan này đã đổi nó sang revoke-không-delete (đã ship).
 
 ## Câu trả lời thẳng: KHÔNG xoá guest theo vòng đời dự án
 

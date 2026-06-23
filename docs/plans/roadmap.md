@@ -2,9 +2,9 @@
 
 > **🎯 HAI MỐC GO-LIVE (chốt 06-17):** **Tháng 7 = TEST NỘI BỘ** (chỉ @mapgroup) · **Tháng 8 = MỞ KHÁCH NGOÀI**. Tháng 7 gồm Recording (P5) + full Admin Console (P-A) + Phase 6 hardening (B1–B11), **trừ 1b** (canvas-relay-auth = chấp nhận tạm cho nội bộ). Tháng 8 thêm **1b auth room server + email-verify + cohost server-validation** trước khi mở external. Chi tiết blocker: memory `mcm-july-v1-scope` + audit task `wztvf5jk8`.
 
-> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-19** — **STT THỰC SỰ CHẠY** (root-cause `[object Blob]` = `server.binaryType="arraybuffer"`, fix 1 dòng trị mọi provider) + **đại tu hiển thị caption** (`captionSurfaceAtom` 1-surface/view, Caption Dock per-viewer, Full/Compact, auto-scroll) + **share-window resilience** + **audio optimize** (chống ồn + latency 250→100ms) + đồng bộ UI Glass-Desk. **Hạ tầng đã chốt** tóm tắt ở **`specs/infrastructure.md`** (mới). Trước đó: app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects (06-17); I-1 (AI/STT → Worker) DONE, B10 (Pages) DONE, B9 DR DONE, B7 AI rate-limit DONE. **CÒN NỢ chặn tháng 7: B1 spend-cap (Luân) + B3 rotate (Luân) + B5 daily-token-room cap + B8 STT-OFF/consent + Recording MVP.** Chairman = spec xong, CHƯA code. Chi tiết: `logs/2026-06-17.md` → `2026-06-19.md`.
+> Nguồn tham chiếu **chuẩn duy nhất** cho các phase. Chi tiết kỹ thuật từng phase nằm ở daily log (`docs/logs/YYYY-MM-DD.md`) + memory. Cập nhật lần cuối: **2026-06-23** — **Meeting Package full feature** (curate → recap board-PNG+chat+file+attachment → audience+member-picker → publish → distribution Shared-with-me + Client-portal + badge "Recap" → management unpublish/soft-delete/recipient-revoke → export zip in-worker; migration **0032**+**0034**) + **Event-Log P1 MVP + consent gate** (bảng `meeting_event`+`meeting_consent`, migration **0033**, consolidate-on-end, `MeetingConsentGate` lúc join có language switcher) + **REFRAME chủ sản phẩm**: event-log/Chairman = **tầng thông tin/kiến thức dự án**, KHÔNG phải giám sát — **BỎ** stealth + chấm điểm hành vi per-person (kèm phân tích pháp lý `event-log-privacy-analysis.md`) + dashboard sidebar IA + nhiều fix. **Migration 0031–0034 đã apply remote.** Trước đó (06-19): STT thực sự chạy, caption per-view, audio optimize. Hạ tầng chốt ở **`specs/infrastructure.md`**. app LIVE trên Cloudflare Pages (https://map-canvasm.pages.dev) + realtime 100% Durable Objects (06-17). **CÒN NỢ chặn tháng 7: B1 spend-cap (Luân) + B3 rotate (Luân) + B5 daily-token-room cap + Recording MVP.** **B8 STT-default-OFF = ✅ (verified) + consent gate ship 06-23 ⇒ B8 GIỜ ĐÃ CƠ BẢN ĐÓNG** (xem delta). Chairman = spec REFRAME, CHƯA code (cố ý). Chi tiết: `logs/2026-06-17.md` → `2026-06-23.md`.
 
-> **📊 ĐÁNH GIÁ NHANH (06-17 cuối ngày) — đứng đâu:** **Hạ tầng + tiền-mặt-tích-cực phần lớn đã khoá.** 8/11 blocker B1–B11 đã đóng (B2,B4,B6,B7,B9,B10 ✅; B11 huỷ). 3 việc còn lại đều **ngắn**: **B1** (đặt trần chi GCP/Deepgram/Daily — 30', việc Luân, làm TRƯỚC) · **B3** (rotate secrets — việc Luân) · **B5+B8** (chặn auto-tạo Daily room + STT-default-OFF — code S). **Tháng 7 (test nội bộ) gần sẵn sàng**; rủi ro còn lại là *soft host-control* (chấp nhận cho nội bộ). **Tháng 8 (khách ngoài)** cần thêm: cohost server-validation (kick/mute) qua DO, email-verify out-of-band, guest data-lifecycle (revoke≠delete) — xem cuối doc.
+> **📊 ĐÁNH GIÁ NHANH (06-23) — đứng đâu:** **Hạ tầng + tiền + bảo mật phần lớn đã khoá; tuần 06-20→23 đẩy mạnh lớp SẢN PHẨM (post-meeting deliverable + knowledge layer).** Blocker B1–B11: B2,B4,B6,B7,B9,B10 ✅; B11 huỷ; **B8 giờ cơ bản đóng** (STT default-OFF ✅ verified + consent gate đã ship). Còn nợ tháng 7: **B1** (trần chi GCP/Deepgram/Daily — việc Luân, làm TRƯỚC) · **B3** (rotate secrets — việc Luân) · **B5** (chặn auto-tạo Daily room — code M) · **Recording MVP** (feature lớn còn lại). **Tháng 7 (test nội bộ) gần sẵn sàng**; rủi ro còn lại là *soft host-control* (chấp nhận cho nội bộ). **Tháng 8 (khách ngoài)** cần thêm: cohost server-validation (kick/mute qua DO — ⏳ verified CHƯA làm, DO vẫn relay byte), email-verify out-of-band, ~~guest data-lifecycle~~ (**revoke≠delete giờ đã SHIP** — verify code, xem cuối doc) — xem cuối doc.
 
 ## 🔼 Delta 06-18 → 06-19 (cập nhật trạng thái)
 
@@ -29,25 +29,45 @@
 - **Cohost server-validation** (kick/mute live qua DO) — tháng 8, track I-2.
 - _(Merge branch `fix/live-bugs-video-audio-stt-translate` về master — 06-19 đã làm thẳng trên master, dải `d75e7588…7dd1f407`.)_
 
+## 🔼 Delta 06-20 → 06-23 (cập nhật trạng thái)
+
+> Tuần này đẩy lớp **SẢN PHẨM** (post-meeting deliverable + knowledge/info layer) thay vì hạ-tầng. Hai cột mốc lớn (**Meeting Package** đủ vòng đời + **Event-Log P1 + consent**) + một **quyết-định-sản-phẩm gốc rễ** (REFRAME "giám sát" → "thông tin dự án"). Làm thẳng trên `master`, dải `dd073366…8ab8b063`. Migration **0031–0034 đã apply remote**. Log chi tiết: `logs/2026-06-23.md`. Spec sống đã cập nhật (KHÔNG lặp lại ở đây): [meeting-package.md](meeting-package.md) (SHIPPED), [meeting-event-log.md](meeting-event-log.md) (P1 LIVE), [event-log-privacy-analysis.md](event-log-privacy-analysis.md), [../specs/chairman-account.md](../specs/chairman-account.md) (REFRAME/SUPERSEDED).
+
+**✅ DONE thêm (06-20 → 06-23):**
+- **Meeting Package — full feature** _(`dd073366` → `8ab8b063`)_. Vòng đời: **curate** (chọn file deliverable, loại file canvas nội bộ) → **recap** (`recap.html` self-contained: **board PNG dark** + summary + **chat đã giải mã** + file list; trước chỉ là danh sách file) + **local attachment** (kéo file máy vào, materialise thành `file` row) + **tên mặc định** → **audience** `meeting`/`project`/`list` + **member picker** → **publish/draft** → **distribution** (`SharedWithMe.tsx` nội bộ nhóm theo project/meeting + unread badge; `ClientPortal.tsx` khách ngoài; **badge "Recap"** trên meeting card; email-notify audience `list`) → **management** (unpublish, **soft-delete + restore**, recipient **revoke + restore**) → **export STORE-zip in-worker** (`GET /v1/packages/:id/export`, tự thêm đuôi file đúng + cache R2). _Verify schema: `worker/schema/0032_meeting_package.sql` (3 bảng) + `0034_meeting_package_manage.sql` (`ADD COLUMN deleted_at`). Verify routes: `index.ts` `/v1/meetings/:roomId/packages`, `/v1/packages/:id` (+`/files/:fileId`,`/recap`,`/publish`,`/unpublish`,`/export`,`/restore`,`/recipients…`), `/v1/me/packages`; gate `canEditMeeting`(write)/`canSeePackage`(read); tạo 409 nếu cuộc chưa `finished`. Mọi read filter `deleted_at IS NULL`; recipient revoke = flip `status`, KHÔNG hard-delete._
+- **Meeting Event-Log P1 MVP + consent gate** _(`07ed97a4`, `fe0baf72`)_. Bảng `meeting_event` (timeline server-đọc-được, id ổn định `<meetingId>:<kind>:<seq>` idempotent upsert) + `meeting_consent` (bảng RIÊNG, compliance fact). **Consolidate-on-end**: lúc End-for-all client (giữ room-key) đọc blob chat+transcript đã flush → parse `transcript.segment`+`chat.message` plaintext → POST cả lô (0 đổi luồng live, chạy 1 lần; `data/meetingEventLog.ts`). `POST/GET /v1/meetings/:roomId/events` (gate `canSeeMeeting`) + `POST .../consent`. **`MeetingConsentGate.tsx`** hiện lúc join (có **language switcher** vi/en/ko, version hoá `CONSENT_VERSION`). _Verify: `worker/schema/0033_meeting_event.sql` (2 bảng, comment ghi thẳng "NO per-person behavioral scoring/sentiment/profiling/covert monitoring"); `index.ts:2688/2785/2806`; component `excalidraw-app/components/mcm/MeetingConsentGate.tsx`._
+- **REFRAME chủ sản phẩm** _(`64bb449f`, `ff27cda3`, `ac56e74c`)_ — event-log + tài khoản "Chairman" cũ **KHÔNG phải giám sát nhân viên** → đóng khung lại thành **tầng thông tin/kiến thức dự án** (AI hiểu dòng chảy + lãnh đạo đọc thông tin dự án **CÓ CÔNG BỐ** qua gate). **BỎ**: stealth/tàng hình → đọc-có-công-bố (consent gate đã ship); chấm điểm hành vi per-person (`chairman_insight`) → BỎ; "quyền tối thượng kể cả 1:1/HR" → disclosure+consent+retention. Kèm **phân tích pháp lý** (KR PIPA/CSA hình sự với 1:1, PH NPC, VN PDPL 2025, EU GDPR Đ.22) ở `plans/event-log-privacy-analysis.md`. `specs/chairman-account.md` đã dán banner SUPERSEDED.
+- **Dashboard sidebar IA redesign** _(`056b8466`)_ — `ProjectBrowser.tsx` chia lại sidebar trái (Internal / Workspace / Projects-by-status) + fix scroll/overlap Shared-with-me.
+- **Fix gói nhỏ:** avatar phục vụ public không cần JWT (`e1f6ab84`); meeting-card redesign action-luôn-hiện state-aware + icon Review≠Details (`1c33764e`,`a65975e3`); package modal portal+background (`283552b5`,`90e3a0fb`); **AI summary tổng hợp cả cuộc** (transcript+chat+canvas) + UX 429 cooldown (`377fb213`); khách hết họp graceful tức thì (`b4b7254a`); scrollbar portal sections (`fe0baf72`).
+
+**⏳ CÒN NỢ / PHASE SAU (cập nhật 06-23):**
+- **B8 STT default-OFF + consent** — **GIỜ CƠ BẢN ĐÓNG.** STT default-OFF ✅ _verified `excalidraw-app/data/transcription.ts:72` `atom<boolean>(readBool(..., false))` + comment "Default OFF — … privacy decision each user should opt into per device"_; **consent gate** lúc join đã ship 06-23 (notice ghi-âm + AI-xử-lý, version hoá, language switcher) ⇒ disclosure cần cho đa quốc gia đã có. _(Còn tinh chỉnh: alert phút/ngày Deepgram là nice-to-have.)_
+- **Guest data-lifecycle (revoke ≠ delete)** — **GIỜ ĐÃ SHIP** (verify code, không còn hard-delete guest): `DELETE /v1/projects/:projectId/guests/:id` (`index.ts:4332`) làm **soft-revoke** (`UPDATE project_guest SET status='revoked', revoked_at` + Supabase **BAN** không DELETE + cascade `meeting_invitee` → revoke=kick) + `POST .../guests/clean` retire-không-delete (`index.ts:4387`, comment "NEVER deletes"). Plan `guest-data-lifecycle.md` banner "cần sửa/hard-delete" nay STALE — đã cập nhật.
+- **Recording MVP** (Phase 5, tháng 7) — vẫn CHƯA build.
+- **Chairman MVP** — spec đã REFRAME (disclosed + leadership-read), CHƯA code (cố ý: chờ exec quyết có build trước tháng 8 không).
+- **B1 spend-cap** (Luân) + **B3 rotate secrets** (Luân) + **B5 chặn auto-tạo Daily room** — vẫn CÒN.
+- **Cohost server-validation** (kick/mute live qua DO) — ⏳ verify CHƯA làm: `roomDO.ts` chỉ relay byte, host election vẫn **client-side** (`roomDO.ts:124` "host-election dedup key, client-side"); DO không validate `HOST_COMMAND`. Tháng 8, track I-2.
+- **Gemini Live STT** skeleton — vẫn chưa wire xong; **design-system unification** (`plans/design-system-unification.md`) chưa thực thi.
+
 ---
 
 ## 🎯 Ưu tiên 1–2 tuần tới (chốt 06-17 cuối ngày)
 
+> _(Cập nhật 06-23: **B8 đã cơ bản đóng** (STT default-OFF ✅ + consent gate ship) — gỡ khỏi MUST. **Guest data-lifecycle đã ship** (soft-revoke, verify code) — gỡ khỏi CAN-WAIT.)_
+
 **MUST cho THÁNG 7 (test nội bộ) — theo thứ tự:**
 1. **B1 spend-cap** (Luân, 30') — đặt budget/quota GCP-Gemini + Deepgram + Daily. *Hàng rào tiền cứng, làm TRƯỚC tất cả.*
 2. **B3 rotate secrets** (Luân) — xoay toàn bộ key đã từng commit.
-3. **B8 STT default-OFF + banner consent** (code S) — đặc biệt cho đa quốc gia/Phi.
-4. **B5 chặn auto-tạo Daily room** + rate-limit `/daily/token` (code M) — chống loop đốt phí.
-5. **Phase 5 Recording → R2** (feature lớn còn lại của tháng 7) — Daily cloud recording → webhook → R2 auth-gated → xem trong review-mode.
-6. **Smoke-test DO 2-client thật** + test 2-account (invite→magic-link→auto-join, revoke=kick ≤60s) trên prod.
-7. **R2 lifecycle rule trên `trash/`** (Luân) + dọn Daily-room orphan trong cascade.
+3. **B5 chặn auto-tạo Daily room** + rate-limit `/daily/token` (code M) — chống loop đốt phí.
+4. **Phase 5 Recording → R2** (feature lớn còn lại của tháng 7) — Daily cloud recording → webhook → R2 auth-gated → xem trong review-mode.
+5. **Smoke-test DO 2-client thật** + test 2-account (invite→magic-link→auto-join, revoke=kick ≤60s) trên prod.
+6. **R2 lifecycle rule trên `trash/`** (Luân) + dọn Daily-room orphan trong cascade.
 
 **CAN-WAIT cho THÁNG 8 (khách ngoài):**
-8. **Cohost server-validation (kick/mute live qua DO)** — đóng nốt host-control client-soft (track I-2).
-9. **Email-verify out-of-band** cho khách thật.
-10. **Guest data-lifecycle (revoke ≠ delete)** — sửa chỗ hard-delete → soft-revoke.
-11. **(tuỳ exec) Chairman account MVP** — nếu lãnh đạo muốn oversight; spec đã sẵn.
-12. **Regenerate architecture.md** (đang stale 06-11).
+7. **Cohost server-validation (kick/mute live qua DO)** — đóng nốt host-control client-soft (track I-2). _(⏳ verify CHƯA làm.)_
+8. **Email-verify out-of-band** cho khách thật.
+9. **(tuỳ exec) Chairman account MVP** — spec đã REFRAME (disclosed + leadership-read, bỏ stealth/scoring); nếu lãnh đạo muốn oversight thì build.
+10. **Regenerate architecture.md** (bản hiện tại 06-19 — stale so với 06-20→23: thiếu Meeting Package / Event-Log / consent).
 
 ---
 
@@ -142,7 +162,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 
 **Tuần 1 — chặn tiền + bảo mật + dữ liệu (gần như toàn Luân):**
 - **B1 · Spend-cap** GCP/Gemini + Deepgram + Daily quota (30', hàng rào tiền *duy nhất app-bug không vượt được* — làm TRƯỚC mọi rate-limit). **S** ⏳ _**CÒN — việc anh Luân (ưu tiên #1 cho tháng 7).** Rate-limit per-isolate ở Worker đã có (B7 ✅) nhưng đó KHÔNG phải trần tiền cứng — vẫn cần đặt budget/quota ở dashboard GCP + Deepgram + Daily._
-- **B2 · Migration remote** ✅ _06-17: áp **0017–0027** lên remote D1, **27/27** schema_version khớp (knock `0025` + usage `0026` + `realtime_backend` `0027`)._
+- **B2 · Migration remote** ✅ _06-17: áp **0017–0027** lên remote D1, **27/27** schema_version khớp (knock `0025` + usage `0026` + `realtime_backend` `0027`). **Cập nhật 06-23: 0028–0034 cũng đã apply remote** (usage `0028`, client-branding `0029`, owner-audit `0030`, file-thumb `0031`, **meeting_package `0032`**, **meeting_event/consent `0033`**, **package-manage `0034`**)._
 - **B3 · Rotate toàn bộ secrets** (Gemini/Deepgram/Supabase/Daily/Resend) — key đã commit = coi như lộ; thay `*.example` + pre-commit hook chặn `.env.development`/`.dev.vars`. Rotate = cách thật duy nhất (hook chỉ chặn commit mới). **S** ⏳ _CÒN — việc anh Luân; key 06-17 đã set sạch BOM nhưng VẪN phải xoay trước external._
 - **B4 · Bỏ password khỏi email mời** (`/v1/guests/send-invite` nhúng `password` → magic-link). **S** ✅ _verified lỗ có thật → đã fix._
 - **B6 · Khoá CORS** Worker `origin:"*"` → allowlist (bearer-not-cookie; **đừng** thêm CSRF token). **S** ✅ _06-17: allowlist + cho private-LAN (RFC1918) để dev qua LAN gọi Worker online y hệt prod._
@@ -156,7 +176,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 **Tuần 3 — cost guard:**
 - **B5 · Chặn `/v1/daily/token` auto-tạo room** → chỉ host/owner `POST .../daily-room` + rate-limit (~1 req/s/user). **M** ⏳ _CÒN — cost-guard tháng 7 (token đã gate `canSeeMeeting`+knock; chưa chặn auto-create room loop)._
 - **B7 · Auth + rate-limit AI/STT routes** ✅ _06-17: AI/STT dời lên Worker (I-1, `8e734411`) + **JWT-gate** (`9c72569b`, đóng lỗ cost-abuse public) + rate-limit **per-isolate** (đủ cho internal). Nâng DO/KV-limiter chỉ khi external lạm dụng thật._
-- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0028` ✅ applied remote 06-17). **S** ⏳ _CÒN: usage đã đo + hiện trên admin Cost/Status tab (06-17); **chưa** set STT default-OFF + banner consent. Nhẹ — làm cho tháng 7 (consent đặc biệt cần khi đi đa quốc gia/Phi)._
+- **B8 · STT default OFF** + banner consent + alert phút/ngày (Deepgram tính phút×người); log usage vào `usage_events` (migration `0028` ✅ applied remote 06-17). **S** ✅ _CƠ BẢN ĐÓNG 06-23: **STT default-OFF** ✅ verified (`excalidraw-app/data/transcription.ts:72`, atom mặc định `false` + comment "privacy decision … opt into per device"); **consent gate** lúc join đã ship (`MeetingConsentGate.tsx`, notice ghi-âm+AI-xử-lý, version hoá, language switcher vi/en/ko) → disclosure cho đa quốc gia ĐÃ CÓ; usage đo + hiện trên admin Cost/Status tab. Còn nice-to-have: alert phút/ngày Deepgram._
 
 **Tuần 4 — runbook + verify:**
 - **(I-6) Runbooks** `docs/runbooks/`: deploy · key-rotation · incident (room crash→restart; data-loss→restore). Ngắn, cho PM tự làm.
@@ -169,8 +189,8 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - ~~**1b auth room server**~~ ✅ **đã đóng bởi DO handshake 06-17** — verify code: `handleRealtimeUpgrade` (`index.ts:5515`) verify **JWT + canSeeMeeting + isFinishedLocked + knock-admitted + WS-cap** TRƯỚC khi trả `101`. Lỗ relay-không-verify (socket.io không bao giờ vá) đã đóng.
 - ⏳ **Cohost server-validation (kick/mute live)** — DO chỉ relay byte, **KHÔNG** validate `HOST_COMMAND`; host election + kick/mute vẫn **client-soft** (`roomDO.ts:109` "client-side"). Khách ngoài có thể spoof host-claim → phải để DO đọc role cohost/host từ D1 + ép kick/mute server-side. **(blocker tháng 8, track I-2.)**
 - ⏳ **Email-verify out-of-band** (xác thực email khách thật trước khi cấp quyền).
-- ⏳ **Guest data-lifecycle (revoke ≠ delete)** — code hiện hard-delete guest ở vài đường; cần đổi sang soft-revoke giữ history (memory `mcm-guest-data-lifecycle`, plan `guest-data-lifecycle.md`). Quan trọng khi có khách thật + đa quốc gia.
-- ⏳ **(tuỳ chọn exec) Chairman account** — spec xong (`specs/chairman-account.md`), CHƯA code. Nếu lãnh đạo muốn giám sát/oversight xuyên dự án thì build trước tháng 8; nếu không, để sau.
+- ✅ **Guest data-lifecycle (revoke ≠ delete)** — **ĐÃ SHIP (verify code 06-23, không còn hard-delete):** `DELETE /v1/projects/:projectId/guests/:id` (`index.ts:4332`) = soft-revoke (`UPDATE project_guest SET status='revoked', revoked_at` + Supabase **BAN** không DELETE + cascade `meeting_invitee` revoke=kick); `POST .../guests/clean` (`index.ts:4387`) retire-không-delete (comment "NEVER deletes — … AI moat are preserved"). Plan `guest-data-lifecycle.md` banner "cần sửa" nay STALE → đã cập nhật. _(Còn để sau: route anonymize-on-erasure cho GDPR, nice-to-have.)_
+- ⏳ **(tuỳ chọn exec) Chairman account** — spec đã **REFRAME** (`specs/chairman-account.md`: disclosed + consent + leadership-read, BỎ stealth + per-person scoring), CHƯA code. Nếu lãnh đạo muốn đọc thông tin dự án xuyên-org (có công bố + audit) thì build trước tháng 8; nếu không, để sau. _(Event-log P1 + consent gate đã đặt nền cho hướng này.)_
 - _KHÔNG over-engineer: bỏ multi-region/k8s/E2E-crypto/SSO/CI-CD-deploy — xem audit mục 5._
 
 ### 🟣 Phase 7 — Serverless infra migration (June) — **BUILT + DEPLOYED LIVE 06-17**
@@ -196,7 +216,7 @@ Lớp back-office quản trị toàn hệ thống (KHÁC host). **Admin = accoun
 - **E2E key hardening** — `room_key` lưu D1 (server đọc được, không E2E thật). **Chủ ý giữ** (managed key = nền cho admin compliance + Chairman); chỉ ghi rõ là ranh giới *chính sách* không phải mật mã thuần — KHÔNG nâng lên client-only-key vì sẽ phá compliance/Chairman (xem `specs/chairman-account.md §4`).
 - **Gộp audio+screen 1 Daily room** (giờ 2 room `<id>` + `<id>-audio`) cho unified recording + giảm cost — làm chung với Phase 5.
 - **Data residency** (R2/Daily region) cho client xuyên quốc gia; **mời theo email cụ thể** + invite UI.
-- **Regenerate `docs/generated/architecture.md`** — đang STALE (06-11, banner đã cảnh báo): mô tả room-server socket.io đã khai tử, §5 known-gaps liệt kê nhiều thứ nay đã đóng (CORS, rate-limit, backup/DR, finished blob-PUT). Tạo lại bản 06-17 (đừng sửa tay).
+- **Regenerate `docs/generated/architecture.md`** — bản hiện tại **2026-06-19** (đã regen 1 lần ở `49f52375`), nhưng nay **STALE so với 06-20→23**: KHÔNG có Meeting Package (0032/0034), Event-Log + consent (0033), reframe Chairman, dashboard sidebar IA. Tạo lại bản 06-23 (file SINH TỰ ĐỘNG — **đừng hand-edit**, regenerate).
 
 ---
 
