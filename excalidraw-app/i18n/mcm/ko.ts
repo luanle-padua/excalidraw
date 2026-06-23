@@ -1471,6 +1471,7 @@ export const ko: Widened<typeof vi> = {
     metaSegmentsPlural: "{count}개",
     tabTranscript: "회의록",
     tabSummary: "요약",
+    tabReplay: "다시 보기",
     tabRecordings: "녹화본",
     closeAria: "닫기",
     emptyTranscript:
@@ -1500,6 +1501,21 @@ export const ko: Widened<typeof vi> = {
     summaryCooldown: "{sec}초 후 다시 시도",
     mdTitleSummary: "{title} — 요약",
     mdNoTranscript: "(회의록 없음)",
+  },
+
+  // ---------------- Canvas Replay ----------------------------------
+  replay: {
+    loading: "다시 보기 불러오는 중…",
+    error: "캔버스 다시 보기를 불러오지 못했습니다.",
+    empty:
+      "이 회의에는 캔버스 다시 보기가 없습니다. 회의 중 그리기는 자동으로 기록됩니다 — 이전 회의에는 없습니다.",
+    play: "재생",
+    pause: "일시정지",
+    restart: "처음부터",
+    speed: "속도",
+    scrubAria: "캔버스 타임라인 스크럽",
+    stepOf: "단계 {cur} / {total}",
+    spanLabel: "구간:",
   },
 
   pin: {

@@ -1543,6 +1543,7 @@ export const vi = {
     metaSegmentsPlural: "{count} segments",
     tabTranscript: "Biên bản",
     tabSummary: "Tóm tắt",
+    tabReplay: "Tua lại",
     tabRecordings: "Bản ghi",
     closeAria: "Đóng",
     emptyTranscript: "Chưa có biên bản nào. Vào call + bật STT để bắt đầu ghi.",
@@ -1570,6 +1571,23 @@ export const vi = {
     summaryCooldown: "Thử lại sau {sec}s",
     mdTitleSummary: "{title} — Tóm tắt",
     mdNoTranscript: "(no transcript)",
+  },
+
+  // ---------------- Canvas Replay ----------------------------------
+  // Tua lại quá trình bảng vẽ tiến triển trong cuộc họp (dòng thời gian
+  // vector dựng lại từ log canvas-history).
+  replay: {
+    loading: "Đang tải bản tua…",
+    error: "Không tải được bản tua canvas.",
+    empty:
+      "Cuộc họp này chưa có bản tua canvas. Vẽ trong lúc họp sẽ được ghi lại tự động — cuộc họp cũ sẽ không có.",
+    play: "Phát",
+    pause: "Tạm dừng",
+    restart: "Tua lại từ đầu",
+    speed: "Tốc độ",
+    scrubAria: "Kéo dòng thời gian canvas",
+    stepOf: "Bước {cur} / {total}",
+    spanLabel: "Khoảng:",
   },
 
   // ---------------- Pin / lock affordance --------------------------

@@ -3405,6 +3405,136 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 }
 
+// ---- Canvas Replay (review-mode whiteboard timeline) ----------------------
+// Glass Desk: a read-only Excalidraw stage with a scrubber + transport beneath,
+// inside the log-modal body. Sized so the canvas gets real height regardless of
+// the body's content padding.
+.mcm-replay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+
+  &__status {
+    padding: 48px 12px;
+    text-align: center;
+    color: var(--mcm-text-soft);
+    font-size: 13.5px;
+    line-height: 1.55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  &__stage {
+    position: relative;
+    flex: 1;
+    min-height: 360px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--mcm-surface-2);
+
+    // The embedded Excalidraw must fill the stage.
+    .excalidraw {
+      height: 100%;
+      width: 100%;
+    }
+  }
+
+  &__controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 12px;
+    background: var(--mcm-surface);
+    flex-wrap: wrap;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    border: 1px solid var(--mcm-hairline);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text);
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease;
+
+    &:hover {
+      background: var(--mcm-accent-soft);
+      border-color: var(--mcm-accent);
+      color: var(--mcm-accent);
+    }
+  }
+
+  &__time {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    min-width: 64px;
+  }
+
+  &__scrubber {
+    flex: 1;
+    min-width: 120px;
+    accent-color: var(--mcm-accent);
+    cursor: pointer;
+  }
+
+  &__meta {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  &__speeds {
+    display: inline-flex;
+    background: var(--mcm-surface-2);
+    border-radius: 9px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  &__speed {
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 9px;
+    border-radius: 7px;
+    transition: background-color 150ms ease, color 150ms ease;
+
+    &:hover {
+      color: var(--mcm-text);
+    }
+
+    &--active {
+      background: var(--mcm-accent);
+      color: #fff;
+    }
+  }
+
+  &__hint {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+}
+
 // ---- Meeting Package builder (reuses the log-modal shell) -----------------
 .mcm-pkg-modal {
   width: min(640px, 100%);
