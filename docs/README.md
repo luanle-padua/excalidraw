@@ -12,6 +12,10 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 6. **`plans/waiting-room.md`** — Phòng chờ knock-to-join (Phase 4, ship 06-16, chốt 1a về auth canvas relay + ghi chú bảo mật production).
 7. **`plans/client-portal.md`** — Thiết kế cổng khách (tách khỏi dashboard nhân viên, chốt 06-15; shell Glass-Desk đã ship 06-16, các panel cộng thêm materials/RSVP/recap còn hoãn).
 7b. **`plans/design-system-unification.md`** — Chiến lược hợp nhất design-system token dashboard(Glass-Desk)↔canvas (06-19, mới có plan, chưa thực thi; P0→P3, 2 quyết định P3 treo: accent hue + typography).
+7c. **`plans/meeting-package.md`** — Bản tổng kết sau họp (**SHIPPED 06-23**): curate → recap[board+summary+chat+files+attachment] → audience(+picker) → publish → distribution → management(unpublish/soft-delete/revoke) → export zip. Schema 0032+0034.
+7d. **`plans/meeting-event-log.md`** — Dòng thời gian thống nhất server-đọc-được (**P1 MVP LIVE 06-23**, schema 0033 + consent gate). **REFRAME 06-23: tầng THÔNG TIN DỰ ÁN, không phải giám sát.**
+7e. **`plans/event-log-privacy-analysis.md`** — Phân tích rủi ro PHÁP LÝ event-log + Chairman (06-23): covert + profiling = rủi ro cao; **disclosure + consent = đường an toàn**. Đọc TRƯỚC khi bật ra khách ngoài / Phi.
+7f. **`specs/chairman-account.md`** — ⚠️ **REVISED 06-23**: stealth/chấm-điểm-người/quyền-tối-thượng = **SUPERSEDED**; reframe sang lãnh đạo đọc thông tin dự án CÓ CÔNG BỐ + consent.
 8. **`audits/`** — Ảnh chụp đánh giá tại từng mốc (tên có ngày). Đọc khi cần hiểu "vì sao hồi đó quyết định vậy". KHÔNG coi là trạng thái hiện tại.
 9. **`logs/`** — Nhật ký từng phiên làm việc (tiếng Việt), chi tiết kỹ thuật
    - gotchas. Tra cứu khi cần biết "hôm đó đã làm gì, vướng gì".
@@ -34,6 +38,7 @@ Tool họp nội bộ trên nền Excalidraw fork: canvas chung realtime, chat +
 | 06-17 | **Durable Objects realtime BUILT + DEPLOYED LIVE** (100% DO, khai tử room server socket.io/Fly; đóng 1b/B12) · **I-1** AI/STT → Worker · **B10** app LIVE trên **Cloudflare Pages** (https://map-canvasm.pages.dev) · go-live ops (migration remote 27/27 · backup restore-tested · CORS · secrets) · debug production sau go-live (SUPABASE_URL méo · BOM trong secrets · end-for-all stale-replica) |
 | 06-18 | Test live PC↔iPad → dập cụm bug nền tảng: **audio** (iPad→PC nghe được, publish mic sau join) · **STT** (loại trừ ngôn ngữ nova-3, clone track iOS) · **guest deadlock** (portal-tile `room_key=null`) |
 | 06-19 | **STT THỰC SỰ CHẠY** — root-cause `[object Blob]` (`server.binaryType="arraybuffer"`, fix 1 dòng mọi provider) · đại tu caption (`captionSurfaceAtom` 1-surface/view · Caption Dock per-viewer · Full/Compact · auto-scroll) · audio optimize (chống ồn + latency) · share-window resilience · chiến lược design-system (`plans/design-system-unification.md`) · **hạ tầng đã chốt → `specs/infrastructure.md`** |
+| 06-23 | **Meeting Package full feature SHIPPED** (curate→recap[board+chat+files+attachment]→audience+picker→publish→distribution[Shared-with-me + Client portal + badge]→management[unpublish/soft-delete/revoke]→export zip; schema 0032+0034) · **Event-Log P1 MVP LIVE** (schema 0033 `meeting_event`+`meeting_consent`, consolidate-on-end, consent gate) · **REFRAME**: event-log/Chairman = **THÔNG TIN DỰ ÁN, không phải giám sát** (bỏ stealth + chấm-điểm-người; `event-log-privacy-analysis.md`) · dashboard sidebar IA + loạt fix (avatar public, meeting-card, AI summary cả cuộc) |
 
 ## Quy ước đặt file MỚI (từ 2026-06-11)
 

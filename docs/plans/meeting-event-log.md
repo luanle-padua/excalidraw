@@ -1,10 +1,33 @@
-# Meeting Event Log — dòng thời gian thống nhất, server-đọc-được cho AI suy luận
+# Meeting Event Log — dòng thời gian thống nhất, server-đọc-được (PROJECT KNOWLEDGE layer)
 
-**Trạng thái:** SPEC (2026-06-23) · **chưa build** · xếp sau Meeting Package + AI strategy Phase 0. KHÔNG có code trong doc này.
+**Cập nhật lần cuối: 2026-06-23**
+**Trạng thái: P1 MVP BUILT / LIVE** — migration **0033** đã apply remote (`meeting_event` + `meeting_consent`); routes `POST/GET /v1/meetings/:roomId/events`, `POST /v1/meetings/:roomId/consent`; client `data/meetingEventLog.ts` + `MeetingConsentGate.tsx` + `consolidateMeetingLog` on End. Các phase sau (canvas checkpoint, server-derived events, AI tiêu thụ) vẫn là roadmap.
+
+> ⚠️ **REFRAME (06-23, product owner) — đọc trước.** Event log **KHÔNG phải giám sát nhân viên.** Anh Luân đã đóng khung lại rõ ràng: đây là **tầng THÔNG TIN / KIẾN THỨC dự án** — cuộc họp được ghi lại **như dữ liệu dự án** để AI hiểu được **DÒNG CHẢY** cuộc họp, và **cấp lãnh đạo cao** đọc được thông tin dự án đó. **ĐÃ BỎ** thiết kế "chấm điểm hành vi per-person / sentiment / engagement" và "giám sát tàng hình" (vốn ở bản Chairman cũ). Bản chất ship ra là **ghi chép cuộc họp ĐÃ CÔNG BỐ + consent lúc vào phòng**, không profiling. Comment trong `0033_meeting_event.sql` nói thẳng: *"NO per-person behavioral scoring, sentiment, profiling or covert monitoring anywhere in this schema."* Rủi ro pháp lý của việc làm nội dung họp server-readable: xem `docs/plans/event-log-privacy-analysis.md` (covert + profiling = rủi ro cao; **disclosure + consent = đường an toàn**).
 
 > Mục tiêu gốc của anh Luân: một con AI sau này phải hiểu **"trong cuộc họp đã xảy ra GÌ và VÌ SAO kết quả lại như thế."** Hôm nay dữ liệu cuộc họp nằm rải rác (snapshot canvas mã hoá, chat/transcript blob mã hoá không có index, presence chỉ là số tổng) → **không có một dòng thời gian thống nhất** để model đọc và suy ra nhân-quả. Doc này thiết kế **một bảng sự kiện cuộc họp** (`meeting_event`) làm "nguồn sự thật theo thời gian", server-đọc-được, theo đúng pattern client-giải-mã-rồi-upload của [[meeting-package]] và đúng chiến lược retrieval-grounded của [[ai-project-knowledge-strategy]].
 
-Liên quan: `docs/plans/ai-project-knowledge-strategy.md` · `docs/plans/meeting-package.md` · `docs/specs/chairman-account.md` · `docs/plans/dev-phase-notes.md` · `docs/specs/meeting-lifecycle.md`.
+Liên quan: `docs/plans/event-log-privacy-analysis.md` · `docs/plans/ai-project-knowledge-strategy.md` · `docs/plans/meeting-package.md` · `docs/specs/chairman-account.md` · `docs/plans/dev-phase-notes.md` · `docs/specs/meeting-lifecycle.md`.
+
+---
+
+## ✅ Đã SHIP (P1 MVP) — 2026-06-23
+
+Phần này mô tả code thật đã LIVE; phần thiết kế bên dưới (§1–§8) giữ nguyên làm roadmap cho các phase sau.
+
+- **Schema `0033_meeting_event.sql` (apply remote):**
+  - `meeting_event(id, meeting_id, project_id, ts, seq, actor_email, kind, payload_json, r2_ref, source, created_at)` — id ổn định `"<meetingId>:<kind>:<seq>"` → idempotent upsert. Index `(meeting_id, ts, seq)`, `(project_id, ts)`, `(meeting_id, kind)`.
+  - `meeting_consent(meeting_id, email, version, accepted_at)` — bảng RIÊNG, **KHÔNG** là một `kind` của event (consent là compliance fact, không trộn vào timeline AI đọc). 1 dòng/(meeting, người); re-accept cùng version = no-op upsert.
+- **Routes (worker `index.ts`):**
+  - `POST /v1/meetings/:roomId/events` — nhận **mảng** events (batch, idempotent). Gate `canSeeMeeting`.
+  - `GET /v1/meetings/:roomId/events` — đọc timeline (ts, seq). Gate `canSeeMeeting` → **leadership/admin đọc được** thông tin dự án này (đúng reframe: "lãnh đạo đọc thông tin dự án").
+  - `POST /v1/meetings/:roomId/consent` — ghi nhận user accept notice (version từ client). Gate `canSeeMeeting`; email lấy từ JWT đã verify.
+- **Consolidate-on-end (MVP):** `consolidateMeetingLog` (`data/meetingEventLog.ts`) — lúc End-for-all, client (giữ room-key) đọc blob chat+transcript ĐÃ FLUSH, parse thành `transcript.segment` + `chat.message` plaintext, POST cả lô. 0 thay đổi luồng live, chạy 1 lần.
+- **Consent gate:** `MeetingConsentGate.tsx` — notice lúc join ("cuộc họp này được ghi & có thể được AI xử lý như dữ liệu dự án"), có **language switcher**, version hoá bằng `CONSENT_VERSION` (đổi text → mọi người được hỏi lại 1 lần). Wording ở i18n `consent.*`.
+
+**Còn lại (roadmap):** server-derived events (file/presence/host/summary), canvas checkpoint, nâng `/summarize` + AI tiêu thụ event log, live-append, retention/TTL. Chi tiết §3–§7 bên dưới.
+
+---
 
 ---
 
@@ -14,7 +37,7 @@ Liên quan: `docs/plans/ai-project-knowledge-strategy.md` · `docs/plans/meeting
 - **Giải pháp:** một bảng D1 **`meeting_event`** = mọi sự kiện đáng kể của 1 cuộc họp, mỗi dòng `{ts, actor_email, kind, payload_json, r2_ref?}`. Server-đọc-được. Nội dung E2E (transcript/chat) đi vào đây đúng cách Package làm: **client giải mã bằng room_key rồi POST plaintext**.
 - **Canvas:** KHÔNG lưu operation-log đầy đủ (đắt + E2E + nhiễu). Lưu **checkpoint có caption** — vài ảnh chụp mốc + 1 câu mô tả "đã thêm/đổi gì". Đủ cho "canvas tiến hoá thế nào", rẻ hơn nhiều.
 - **MVP:** lúc End-for-all, gộp chat+transcript đang-có-sẵn thành các dòng `meeting_event` server-đọc-được (consolidate-on-end). Sau đó mới thêm canvas checkpoint, presence, sự kiện host.
-- **Đánh đổi phải nói thẳng:** bảng này làm **nội dung cuộc họp trở nên server-đọc-được** — y như Package và Chairman đã vượt E2E. Đây là **quyết định chính sách**, gắn vào mô hình giám sát Chairman/Owner (`docs/specs/chairman-account.md` §4).
+- **Đánh đổi phải nói thẳng:** bảng này làm **nội dung cuộc họp trở nên server-đọc-được** — y như Package đã vượt E2E. Đây là **quyết định chính sách**: thông tin dự án được lãnh đạo + AI đọc lại. **Đường an toàn = CÔNG BỐ + CONSENT** (đã ship consent gate), KHÔNG phải giám sát ngầm. Phân tích pháp lý: `docs/plans/event-log-privacy-analysis.md`.
 
 ---
 

@@ -1,14 +1,46 @@
-# Tài khoản "Chairman" (Chủ tịch) — Giám sát vô hình + AI suy luận hành vi
+# Tài khoản lãnh đạo đọc thông tin dự án — ~~Giám sát vô hình + AI suy luận hành vi~~
 
-> Design doc, **chưa code** (anh Luân: "khoan viết code"). Mục tiêu: thiết kế một
-> vai trò **Chairman** cho Canvas M với 2 năng lực: (1) **giám sát vô hình** mọi
-> dự án/cuộc họp toàn tổ chức, read-only, không để lại dấu vết; (2) một **chế độ
-> AI khác** trên trang Chairman — AI **đọc cuộc họp + suy luận**: hiểu điều gì đã
-> xảy ra, hiểu **hành vi từng người tham gia**, tổng hợp xuyên cuộc họp / xuyên dự
-> án cho cấp điều hành.
+> ## ⛔ REFRAME LỚN (2026-06-23, product owner) — đọc TRƯỚC TOÀN BỘ doc
+>
+> Anh Luân (chủ sản phẩm) đã **đóng khung lại** tính năng này. Bản thiết kế cũ bên
+> dưới — tiêu đề *"Giám sát vô hình + AI suy luận hành vi"*, §2 **stealth/tàng
+> hình**, §3.3 **chấm điểm hành vi từng người** (sentiment/engagement/influence),
+> §4.5 *"quyền tối thượng kể cả 1:1/HR"* — **ĐÃ BỊ THAY THẾ (SUPERSEDED). KHÔNG
+> build theo bản đó.**
+>
+> **Khung MỚI (đúng với event-log đã ship):** đây là **tầng THÔNG TIN / KIẾN THỨC
+> dự án**, KHÔNG phải giám sát nhân viên. Cuộc họp được ghi lại **như dữ liệu dự
+> án** để (a) **AI hiểu DÒNG CHẢY cuộc họp** và (b) **cấp lãnh đạo cao đọc được
+> thông tin dự án đó**. Ba nguyên tắc thay cho 3 thứ đã bỏ:
+>
+> | ĐÃ BỎ (superseded) | THAY BẰNG |
+> |---|---|
+> | **Stealth / giám sát tàng hình** (đọc ngầm, không để dấu) | **Đọc CÓ CÔNG BỐ** — sự tồn tại của quyền lãnh đạo-đọc + AI xử lý phải được công bố (consent gate đã ship); leadership đọc qua gate `canSeeMeeting`, không phải đường ẩn. |
+> | **AI chấm điểm hành vi per-person** (`chairman_insight`: sentiment/engagement/influence) | **AI hiểu cuộc họp + thông tin DỰ ÁN**, KHÔNG hồ sơ cá nhân, KHÔNG chấm điểm người. Schema `0033` nói thẳng: *"NO per-person behavioral scoring, sentiment, profiling."* |
+> | **"Quyền tối thượng kể cả 1:1/HR", không tier nào chặn** | **Disclosure + consent + retention** là đối trọng; HR/1:1/sensitive cần consent riêng hoặc **loại khỏi** AI (xem `event-log-privacy-analysis.md` §3, §6). |
+>
+> **Vì sao đổi:** phân tích pháp lý `docs/plans/event-log-privacy-analysis.md`
+> (06-23) chỉ ra **giám sát NGẦM + AI profiling hành vi = rủi ro pháp lý CAO/RẤT
+> CAO** ở KR (PIPA + Comms-Secrets Act hình sự với 1:1), PH (NPC bác covert,
+> AO 2018-084), VN (PDPL 2025), EU (GDPR Đ.22 + DPIA). **Disclosure + consent =
+> đường an toàn.** Việc đã ship (`meeting_event` + `meeting_consent`,
+> `meeting-event-log.md`) đi đúng khung mới: disclosed, consent-by-notice, không
+> profiling.
+>
+> **Cách đọc doc này:** phần kỹ thuật vẫn còn giá trị **chỉ ở** chỗ "lãnh đạo cấp
+> cao đọc thông tin dự án xuyên cuộc họp" (org-wide read theo gate, audit truy
+> cập). Mọi đoạn nói **stealth / vô hình / chấm điểm người / quyền tối thượng vượt
+> consent** = **đã chết**, giữ lại chỉ để truy nguyên quyết định cũ. KHÔNG dùng làm
+> spec build.
+
+> ~~Design doc, **chưa code**~~. Bản gốc (dưới banner này) thiết kế một vai trò
+> **Chairman** với 2 năng lực: (1) ~~giám sát vô hình~~ → **đọc thông tin dự án
+> org-wide CÓ CÔNG BỐ**; (2) AI ~~suy luận hành vi~~ → **AI hiểu dòng chảy cuộc họp
+> + tổng hợp thông tin dự án** cho cấp điều hành.
 >
 > Doc này **bám hệ thống thật** đang chạy. Mọi tham chiếu file/hàm là code hiện
-> tại. Liên quan: `docs/generated/architecture.md`,
+> tại. Liên quan: `docs/plans/event-log-privacy-analysis.md`,
+> `docs/plans/meeting-event-log.md`, `docs/generated/architecture.md`,
 > `docs/plans/ai-project-knowledge-strategy.md`,
 > `docs/plans/project-permissions.md`, `docs/specs/user-data-model.md`.
 
@@ -129,7 +161,15 @@ Mô hình **3 tầng** (chốt 06-17):
 
 ---
 
-## 2. Giám sát vô hình (Invisible monitoring)
+## 2. ~~Giám sát vô hình (Invisible monitoring)~~ — ⛔ SUPERSEDED (06-23)
+
+> **CẢ MỤC NÀY ĐÃ BỎ.** "Giám sát vô hình / stealth / không để lại dấu vết" là
+> **thuộc tính sản phẩm bị loại** sau reframe 06-23 + phân tích pháp lý
+> (`event-log-privacy-analysis.md` §2: covert monitoring bất hợp pháp KR/PH, rủi ro
+> cao VN). **Thay bằng:** lãnh đạo cấp cao đọc thông tin dự án **qua gate
+> `canSeeMeeting` CÓ CÔNG BỐ** (consent gate đã ship), audit truy cập vẫn giữ. Sự
+> *tồn tại* của quyền đọc phải được công bố; KHÔNG đọc ngầm. Nội dung kỹ thuật dưới
+> đây giữ lại chỉ để truy nguyên — KHÔNG build "stealth".
 
 ### 2.1 Stealth pattern đã có sẵn — đây là nền
 
@@ -286,15 +326,22 @@ label canvas) — **không trích được thì không khẳng định**:
   decisionsReversed[]  // quyết định cuộc này lật quyết định trước (tín hiệu giàu nhất) }
 ```
 
-**(b) Per-person behavioral analysis** — cho từng participant:
+**(b) ~~Per-person behavioral analysis~~** — ⛔ **SUPERSEDED (06-23): ĐÃ BỎ HOÀN
+TOÀN.** Chấm điểm hành vi từng người (sentiment / engagement / influence /
+"blocked Y") = **profiling**, rủi ro pháp lý cao nhất (`event-log-privacy-analysis.md`
+§2.4: GDPR Đ.22 + DPIA, KR Đ.37-2, PH proportionality). Schema đã ship (`0033`) nói
+thẳng *"NO per-person behavioral scoring, sentiment, profiling."* **THAY BẰNG:** AI
+chỉ trích **thông tin DỰ ÁN** ở mức cuộc họp (quyết định, action item, chủ đề,
+turning-point) — KHÔNG hồ sơ cá nhân, KHÔNG điểm số người. Block JSON dưới đây giữ
+lại chỉ để truy nguyên, KHÔNG implement:
 ```
 { name,
-  roleInDiscussion,   // "drove decision X" | "blocked Y" | "clarified" | "observer"
-  influence,          // mức ảnh hưởng tới kết luận (có evidence)
-  contribution,       // đóng góp nội dung (đếm + chất)
-  sentiment,          // tích cực/trung tính/lo ngại (kèm câu nguồn)
-  engagement,         // chủ động/bị động/im lặng (so với thời lượng họp)
-  evidence[]          // BẮT BUỘC: trỏ segment cụ thể cho mỗi nhận định
+  roleInDiscussion,   // ❌ BỎ
+  influence,          // ❌ BỎ
+  contribution,       // ❌ BỎ
+  sentiment,          // ❌ BỎ
+  engagement,         // ❌ BỎ
+  evidence[]          // (grounding vẫn đúng cho thông tin dự án, không cho chấm người)
 }
 ```
 Attribution **đã khả thi** vì transcript per-speaker chính xác (architecture §2.6:
@@ -394,9 +441,15 @@ phẩm.
 **5. Giới hạn phạm vi (scope limits) — đề xuất.**
    - **Read-only tuyệt đối:** Chairman KHÔNG sửa/xoá gì (khác admin). Enforce ở Worker:
      `/v1/chairman/*` chỉ GET + POST reasoning, không có PATCH/DELETE nội dung.
-   - **KHÔNG loại trừ — Chairman có QUYỀN TỐI THƯỢNG (CHỐT 06-17, anh Luân):**
+   - **⛔ SUPERSEDED (06-23): "quyền tối thượng kể cả 1:1/HR" ĐÃ BỎ.** Đọc ngầm
+     1:1/HR/sensitive là điểm phơi nhiễm pháp lý nặng nhất (`event-log-privacy-analysis.md`
+     §3: KR Comms-Secrets Act = **hình sự**). **Khung mới:** HR/1:1/grievance cần
+     **consent riêng hoặc LOẠI khỏi** AI/leadership-read; truy cập (nếu có) đi qua
+     **break-glass có lý do + công bố sự tồn tại của quyền**. Đoạn cũ dưới đây
+     (giữ truy nguyên, KHÔNG build):
+     ~~**KHÔNG loại trừ — Chairman có QUYỀN TỐI THƯỢNG (CHỐT 06-17):**
      Chairman thấy **MỌI** cuộc họp, kể cả 1:1 / HR / đánh giá cá nhân / kỷ luật /
-     `confidential`. **Không có tier `private` nào chặn được Chairman.** → Hệ quả
+     `confidential`. Không có tier `private` nào chặn được Chairman.~~ → Hệ quả
      quan trọng: vì **không có nội dung nào ngoài tầm**, toàn bộ đối trọng (an toàn
      đạo đức/pháp lý) phải dồn sang **3 chỗ KHÁC, không phải việc giấu nội dung**:
      **(a)** `chairman_audit` audit-before-access — bên thứ ba (DPO/hội đồng) kiểm
