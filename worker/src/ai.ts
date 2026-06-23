@@ -949,6 +949,11 @@ aiRoutes.post("/summarize", async (c) => {
       60_000,
     )
   ) {
+    // Tell the client how long to wait so it can show a friendly cooldown
+    // instead of the raw error. The window is 60s (SUMMARIZE_PER_USER_PER_MIN
+    // is per-minute); we don't track the exact per-bucket remainder here, so
+    // the conservative full-window value is the right hint.
+    c.header("Retry-After", "60");
     return c.json({ error: "Too many requests, please slow down" }, 429);
   }
   const apiKey = c.env.GEMINI_API_KEY;

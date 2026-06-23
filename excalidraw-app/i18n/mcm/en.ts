@@ -1394,6 +1394,11 @@ export const en: Widened<typeof vi> = {
       "Clear transcript + summary for room {roomId}?\nThis can't be undone.",
     summaryFailedPrefix: "Summary failed",
     summaryError: "Summary failed",
+    // 429 rate-limit UX (06-23): friendly note + button cooldown instead of
+    // the raw "Too many requests" error.
+    summaryRateLimited:
+      "You just generated a summary — please wait a moment and try again.",
+    summaryCooldown: "Try again in {sec}s",
     mdTitleSummary: "{title} — Summary",
     mdNoTranscript: "(no transcript)",
   },

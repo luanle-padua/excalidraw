@@ -28,6 +28,7 @@ import {
   participantsPanelOpenAtom,
 } from "../../collab/Collab";
 import { showAppToast } from "../../data/appToast";
+import { collectCanvasText } from "../../data/canvasText";
 import {
   captionDockEnabledAtom,
   setCaptionDockEnabled,
@@ -342,8 +343,18 @@ export const MeetingHeader = ({
   const preferredLang = useAtomValue(preferredLanguageAtom);
   const generateAiSummary = useCallback(
     async (targetRoomId: string) => {
-      if (log.length === 0 && chatMessages.length === 0) {
-        return; // nothing was said or typed — no recap to make
+      // WHOLE-meeting recap (anh Luân 06-23): the summary must synthesize the
+      // entire meeting log — canvas notes + chat + transcript — not just
+      // speech. Canvas notes (labeled "Name: text") are real discussion
+      // content people wrote on the board, so a canvas-only meeting still
+      // warrants a recap.
+      const canvasText = collectCanvasText(excalidrawAPI);
+      if (
+        log.length === 0 &&
+        chatMessages.length === 0 &&
+        canvasText.length === 0
+      ) {
+        return; // nothing was said, typed, or written — no recap to make
       }
       const res = await fetchWithAuth(`${aiBackendUrl()}/summarize`, {
         method: "POST",
@@ -359,6 +370,7 @@ export const MeetingHeader = ({
             username: m.username,
             text: m.text,
           })),
+          canvasText,
           language: preferredLang,
         }),
       });
@@ -395,7 +407,7 @@ export const MeetingHeader = ({
         await saveMeetingAiSummary(targetRoomId, text);
       }
     },
-    [log, chatMessages, preferredLang, t],
+    [log, chatMessages, preferredLang, excalidrawAPI, t],
   );
 
   const handleEndMeeting = useCallback(async () => {

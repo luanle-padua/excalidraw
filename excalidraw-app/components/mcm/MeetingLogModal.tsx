@@ -11,12 +11,18 @@
 // Footer: download the transcript or summary as a Markdown file,
 // clear-with-confirm to wipe history for this room.
 
-import { useEffect, useMemo, useState } from "react";
+import { useExcalidrawAPI } from "@excalidraw/excalidraw";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAtom, useAtomValue, useSetAtom } from "../../app-jotai";
-import { collabAPIAtom, meetingViewOnlyAtom } from "../../collab/Collab";
+import {
+  chatMessagesAtom,
+  collabAPIAtom,
+  meetingViewOnlyAtom,
+} from "../../collab/Collab";
 import { withAiActivity } from "../../data/aiActivity";
 import { aiBackendUrl } from "../../data/aiBackend";
+import { collectCanvasText } from "../../data/canvasText";
 import { fetchWithAuth } from "../../data/fetchWithAuth";
 import {
   clearTranscriptLog,
@@ -173,6 +179,8 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const setLog = useSetAtom(transcriptionLogAtom);
   const [summary, setSummary] = useAtom(meetingSummaryAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
+  const chatMessages = useAtomValue(chatMessagesAtom);
+  const excalidrawAPI = useExcalidrawAPI();
   const preferredLang = useAtomValue(preferredLanguageAtom);
   // Profile lookup powers the avatar img + name override on each
   // speaker run. Self reads its own atom directly so renames pop
@@ -183,6 +191,39 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   const [tab, setTab] = useState<Tab>("transcript");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  // Rate-limit (429) cooldown: the worker caps /summarize at 1/user/min to
+  // hold down Gemini cost. Rather than surface the raw "Too many requests"
+  // error, we show a friendly localized note AND disable the Generate button
+  // for the cooldown so the user isn't tempted to hammer it. Seconds remaining;
+  // 0 = no cooldown. The interval is cleared on unmount.
+  const [cooldownSec, setCooldownSec] = useState(0);
+  const cooldownTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (cooldownTimerRef.current !== null) {
+        window.clearInterval(cooldownTimerRef.current);
+      }
+    },
+    [],
+  );
+  const startCooldown = (seconds: number) => {
+    setCooldownSec(seconds);
+    if (cooldownTimerRef.current !== null) {
+      window.clearInterval(cooldownTimerRef.current);
+    }
+    cooldownTimerRef.current = window.setInterval(() => {
+      setCooldownSec((prev) => {
+        if (prev <= 1) {
+          if (cooldownTimerRef.current !== null) {
+            window.clearInterval(cooldownTimerRef.current);
+            cooldownTimerRef.current = null;
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
   // Review = read the record, don't rewrite it: no clearing the cached log,
   // no regenerating the stored AI summary. Download/export stays — that's
   // the "extract-only" half of the review contract.
@@ -211,8 +252,20 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
   }, [onClose]);
 
   const handleGenerateSummary = async () => {
-    if (log.length === 0) {
+    // WHOLE-meeting recap (anh Luân 06-23): synthesize the entire meeting log
+    // — transcript + chat + canvas notes — not just speech. So allow the
+    // summary to run when ANY of those carry content (a canvas-only working
+    // session is still worth recapping).
+    const canvasText = collectCanvasText(excalidrawAPI);
+    if (
+      log.length === 0 &&
+      chatMessages.length === 0 &&
+      canvasText.length === 0
+    ) {
       return;
+    }
+    if (cooldownSec > 0) {
+      return; // still cooling down from a recent 429 — button is disabled too
     }
     setSummaryLoading(true);
     setSummaryError(null);
@@ -231,10 +284,29 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
               lang: s.lang,
               ts: s.ts,
             })),
+            // Send chat + canvas too (was transcript-only) so the on-demand
+            // recap matches the auto-recap and covers the whole meeting.
+            chat: chatMessages.map((m) => ({
+              username: m.username,
+              text: m.text,
+            })),
+            canvasText,
             language: preferredLang,
           }),
         }),
       );
+      if (res.status === 429) {
+        // Friendly, localized rate-limit message + a cooldown so the user
+        // understands they just generated a summary and should wait — instead
+        // of the raw "Too many requests" error. Honour Retry-After if the
+        // worker sends it, else default to the 60s window.
+        const retryAfter = Number(res.headers.get("Retry-After"));
+        const cooldown =
+          Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+        startCooldown(cooldown);
+        setSummaryError(t("log.summaryRateLimited"));
+        return;
+      }
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");
         throw new Error(
@@ -541,9 +613,23 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
               type="button"
               className="mcm-log-modal__btn mcm-log-modal__btn--accent"
               onClick={handleGenerateSummary}
-              disabled={summaryLoading || log.length === 0}
+              disabled={
+                summaryLoading ||
+                cooldownSec > 0 ||
+                // Allow generating from a meeting with NO transcript as long as
+                // there was chat (canvas notes are also valid, but they're not
+                // a reactive atom — the handler re-checks the canvas anyway).
+                (log.length === 0 && chatMessages.length === 0)
+              }
+              title={
+                cooldownSec > 0
+                  ? t("log.summaryCooldown", { sec: cooldownSec })
+                  : undefined
+              }
             >
-              {summary
+              {cooldownSec > 0
+                ? t("log.summaryCooldown", { sec: cooldownSec })
+                : summary
                 ? t("log.buttonRegenerateSummary")
                 : t("log.buttonGenerateSummary")}
             </button>

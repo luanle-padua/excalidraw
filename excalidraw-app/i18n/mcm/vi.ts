@@ -1461,6 +1461,10 @@ export const vi = {
       "Xoá biên bản + tóm tắt của room {roomId}?\nKhông thể hoàn tác.",
     summaryFailedPrefix: "Summary failed",
     summaryError: "Summary failed",
+    // 429 rate-limit UX (06-23): friendly note + button cooldown instead of
+    // the raw "Too many requests" error.
+    summaryRateLimited: "Bạn vừa tạo tóm tắt — đợi một chút rồi thử lại nhé.",
+    summaryCooldown: "Thử lại sau {sec}s",
     mdTitleSummary: "{title} — Tóm tắt",
     mdNoTranscript: "(no transcript)",
   },

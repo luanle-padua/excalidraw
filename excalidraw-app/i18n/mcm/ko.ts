@@ -1402,6 +1402,10 @@ export const ko: Widened<typeof vi> = {
       "{roomId} 방의 회의록 + 요약을 삭제하시겠습니까?\n되돌릴 수 없습니다.",
     summaryFailedPrefix: "요약 실패",
     summaryError: "요약 실패",
+    // 429 rate-limit UX (06-23): friendly note + button cooldown instead of
+    // the raw "Too many requests" error.
+    summaryRateLimited: "방금 요약을 생성했습니다 — 잠시 후 다시 시도해 주세요.",
+    summaryCooldown: "{sec}초 후 다시 시도",
     mdTitleSummary: "{title} — 요약",
     mdNoTranscript: "(회의록 없음)",
   },
