@@ -228,6 +228,18 @@ export const ko: Widened<typeof vi> = {
     shareCopied: "회의 링크 복사됨",
   },
 
+  nav: {
+    sectionInternal: "내부",
+    sectionWorkspace: "워크스페이스",
+    sectionProjectsActive: "진행 중 프로젝트",
+    sectionProjectsDone: "완료 / 보관",
+    sectionProjectsInvited: "초대됨",
+    clientLabel: "고객: {name}",
+    expand: "펼치기",
+    collapse: "접기",
+    groupCount: "프로젝트 {count}개",
+  },
+
   lobby: {
     tagline: "팀을 위한 실시간 회의 화이트보드",
     newMeeting: "새 회의",

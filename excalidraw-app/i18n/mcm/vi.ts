@@ -248,6 +248,25 @@ export const vi = {
     shareCopied: "Đã copy link cuộc họp",
   },
 
+  // ---------------- Sidebar navigation (ProjectBrowser) ------------
+  // Section headers + project-status grouping for the left sidebar.
+  nav: {
+    // Top group — personal surfaces that aren't tied to a project.
+    sectionInternal: "Nội bộ",
+    sectionWorkspace: "Quản lý",
+    // Project status groups (bucketed from the free-text project stage).
+    sectionProjectsActive: "Dự án đang chạy",
+    sectionProjectsDone: "Đã xong / Lưu trữ",
+    sectionProjectsInvited: "Được mời",
+    // Per-project client line (a project's external client / company).
+    clientLabel: "Khách: {name}",
+    // Collapsible group toggles (aria).
+    expand: "Mở rộng",
+    collapse: "Thu gọn",
+    // Count badge on a project group header (aria).
+    groupCount: "{count} dự án",
+  },
+
   // ---------------- Lobby (Zoom-style front door) ------------------
   lobby: {
     tagline: "Bảng vẽ họp realtime cho nhóm",

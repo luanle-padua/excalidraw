@@ -221,6 +221,18 @@ export const en: Widened<typeof vi> = {
     shareCopied: "Meeting link copied",
   },
 
+  nav: {
+    sectionInternal: "Internal",
+    sectionWorkspace: "Workspace",
+    sectionProjectsActive: "Active projects",
+    sectionProjectsDone: "Done / Archived",
+    sectionProjectsInvited: "Invited",
+    clientLabel: "Client: {name}",
+    expand: "Expand",
+    collapse: "Collapse",
+    groupCount: "{count} projects",
+  },
+
   lobby: {
     tagline: "A realtime meeting whiteboard for teams",
     newMeeting: "New meeting",

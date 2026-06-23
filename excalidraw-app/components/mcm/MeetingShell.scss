@@ -9350,6 +9350,31 @@ body:has(.excalidraw.theme--dark) {
 // adds the package icon chip + the empty state. Lives in the ProjectBrowser
 // middle column (the "shared" view).
 .mcm-shared {
+  // Fills the middle-body frame and scrolls ITSELF — same contract as
+  // .mcm-mcards-scroll / .mcm-myfiles. Without this the un-bounded section
+  // grew past the frame and the first card slid UNDER the floating header
+  // pane (the reported overlap). The 16px top padding clears the header's
+  // scroll-edge mask so the list always starts cleanly below it.
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--mcm-hairline) transparent;
+  &::-webkit-scrollbar {
+    width: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--mcm-hairline);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--mcm-text-faint);
+    background-clip: padding-box;
+  }
+
   &__icon {
     flex-shrink: 0;
     display: inline-flex;
@@ -12984,6 +13009,149 @@ body:has(.excalidraw.theme--dark) {
 .mcm-nav__item-icon {
   flex: none;
   opacity: 0.85;
+}
+
+// ===== Sidebar IA: status-grouped projects + clients-in-project ============
+// Layered on the base .mcm-nav rules. Adds collapsible project status groups
+// (Active / Done / Invited), a two-line project row that surfaces the client
+// beneath the name, and a sized colour dot.
+.mcm-nav {
+  // --- Collapsible project status group ---
+  &__group {
+    display: flex;
+    flex-direction: column;
+
+    & + & {
+      margin-top: 2px;
+    }
+  }
+  // Group header — a quiet, full-width toggle. Reads as a label, not a button,
+  // until hovered; the chevron rotates to encode open/closed state.
+  &__group-head {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: calc(100% - 16px);
+    margin: 2px 8px;
+    padding: 3px 8px;
+    border-radius: var(--mcm-radius-sm, 6px);
+    font: inherit;
+    color: var(--mcm-text-faint);
+    text-align: left;
+    transition: background 120ms, color 120ms;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-text) 5%, transparent);
+      color: var(--mcm-text-soft, var(--mcm-text));
+    }
+    &:focus-visible {
+      outline: 2px solid var(--mcm-accent);
+      outline-offset: 1px;
+    }
+  }
+  &__group-chevron {
+    flex: none;
+    color: var(--mcm-text-faint);
+    transition: transform var(--mcm-dur-base, 180ms) var(--mcm-ease, ease);
+
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+  &__group-label {
+    flex: 1;
+    min-width: 0;
+    @include t-label;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  // Count chip at the group-header end — how many projects in this bucket.
+  &__group-count {
+    flex: none;
+    min-width: 17px;
+    height: 16px;
+    padding: 0 5px;
+    border-radius: var(--mcm-radius-pill, 999px);
+    background: var(--mcm-surface-2);
+    color: var(--mcm-text-faint);
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // --- Project row (two-line variant with a client beneath) ---
+  &__project {
+    list-style: none;
+  }
+  // Project rows grow taller only when they carry a client sub-line; the
+  // plain rows keep the standard 32px height from the base .mcm-nav__item.
+  &__item--project {
+    align-items: center;
+  }
+  &__item--hasclient {
+    height: auto;
+    min-height: 38px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    align-items: flex-start;
+  }
+  // The name + client stack inside a project row.
+  &__item-stack {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    overflow: hidden;
+  }
+  // Client line beneath the project name — muted, one line, with a small
+  // building glyph. Surfaces the project's external client in the rail.
+  &__item-client {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    @include t-micro;
+    color: var(--mcm-text-faint);
+    line-height: 1.2;
+
+    svg {
+      flex: none;
+      opacity: 0.8;
+    }
+  }
+  &__item-client-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  // Colour dot — sized + reserves its slot even when a project has no colour
+  // (a hairline ring stands in) so every project name aligns on one column.
+  &__item-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--mcm-hairline);
+
+    // When tinted (inline background set), drop the placeholder ring.
+    &[style] {
+      box-shadow: none;
+    }
+  }
+  // A stacked project row aligns its dot to the first text line, not centre.
+  &__item--hasclient &__item-dot {
+    margin-top: 5px;
+  }
 }
 
 .mcm-myfiles {

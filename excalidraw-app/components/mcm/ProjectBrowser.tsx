@@ -1,5 +1,9 @@
 import {
   ArrowUpDown,
+  Building2,
+  CalendarClock,
+  CalendarDays,
+  ChevronRight,
   DoorOpen,
   Eye,
   Folder,
@@ -148,6 +152,23 @@ const invToSummary = (i: MyInvitation): MeetingSummary => ({
   project_name: i.project_name,
 });
 
+// Project lifecycle bucket for the sidebar grouping. Projects carry a
+// FREE-TEXT `stage` (no enum), so we classify by matching done/archived
+// keywords (vi · en · ko) — anything else is treated as "active". An
+// invitee-access project (mời vào 1 cuộc họp của phòng khác) is its own
+// bucket regardless of stage: it isn't ours to manage.
+type ProjectBucket = "active" | "done" | "invited";
+
+const DONE_STAGE_RE =
+  /(xong|hoàn\s*thành|nghiệm\s*thu|bàn\s*giao|lưu\s*tr|đóng|kết\s*thúc|done|complete|finish|archiv|closed|wrap|완료|보관|종료|마감)/i;
+
+const projectBucket = (p: Project): ProjectBucket => {
+  if (p.access === "invitee") {
+    return "invited";
+  }
+  return p.stage && DONE_STAGE_RE.test(p.stage) ? "done" : "active";
+};
+
 // "Shared with me" unread tracking — which package ids the user has already
 // seen, persisted locally. The badge counts published packages NOT in this set;
 // opening the tab marks the current set seen (clears the badge). Client-only —
@@ -225,6 +246,12 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
   // (not yet seen). Drives the unread count on the sidebar nav item.
   const [sharedIds, setSharedIds] = useState<string[]>([]);
   const [sharedNewCount, setSharedNewCount] = useState(0);
+  // Collapsible project groups in the sidebar. "Done/Archived" + "Invited"
+  // start collapsed (rarely-touched, keeps the rail tidy); "Active" is open.
+  // Keyed by bucket so each group remembers its own state for the session.
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<ProjectBucket, boolean>
+  >({ active: false, done: true, invited: true });
 
   useEffect(() => {
     let alive = true;
@@ -251,9 +278,7 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     if (r.ok) {
       // Stable, name-sorted order — so any "first managed project" resolution
       // is deterministic, never arbitrary server row order.
-      setProjects(
-        [...r.items].sort((a, b) => a.name.localeCompare(b.name)),
-      );
+      setProjects([...r.items].sort((a, b) => a.name.localeCompare(b.name)));
     }
   }, []);
 
@@ -637,17 +662,130 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
     setManageProjectId(null);
   };
 
-  const navItem = (key: View, label: string) => (
+  // Top-level destination row — icon + label, optional trailing badge.
+  const navItem = (
+    key: View,
+    label: string,
+    icon: React.ReactNode,
+    badge?: number,
+    onActivate?: () => void,
+  ) => (
     <button
       type="button"
       className={`mcm-nav__item${view === key ? " mcm-nav__item--active" : ""}`}
       onClick={() => {
         setView(key);
         resetSubViews();
+        onActivate?.();
       }}
     >
+      {icon}
       <span className="mcm-nav__item-label">{label}</span>
+      {badge != null && badge > 0 && (
+        <span
+          className="mcm-nav__badge"
+          aria-label={t("pkg.sharedNew", { count: badge })}
+        >
+          {badge}
+        </span>
+      )}
     </button>
+  );
+
+  // A single project row in a status group. Shows the colour dot + name,
+  // the invitee/stage trailing pill, and — when the project carries an
+  // external client — a muted client line beneath (surfacing clients WITHIN
+  // their project, not only in the separate Guests page).
+  const projectNavItem = (p: Project) => (
+    <li key={p.id} className="mcm-nav__project">
+      <button
+        type="button"
+        className={`mcm-nav__item mcm-nav__item--project${
+          view === p.id ? " mcm-nav__item--active" : ""
+        }${p.client ? " mcm-nav__item--hasclient" : ""}`}
+        onClick={() => {
+          setView(p.id);
+          resetSubViews();
+        }}
+      >
+        {/* Project colour dot — mirrors the card tint at a glance. */}
+        <span
+          className="mcm-nav__item-dot"
+          style={p.color ? { background: p.color } : undefined}
+          aria-hidden="true"
+        />
+        <span className="mcm-nav__item-stack">
+          <span className="mcm-nav__item-label">
+            {p.icon ? `${p.icon} ` : ""}
+            {p.name}
+          </span>
+          {/* Client within the project — only when one is set. */}
+          {p.client && (
+            <span className="mcm-nav__item-client" title={p.client}>
+              <Building2 size={11} aria-hidden="true" />
+              <span className="mcm-nav__item-client-name">{p.client}</span>
+            </span>
+          )}
+        </span>
+        {/* Invited-only access (no membership): badge instead of the stage —
+            the folder shows just their meetings. */}
+        {p.access === "invitee"
+          ? null
+          : p.stage && <span className="mcm-nav__item-stage">{p.stage}</span>}
+      </button>
+    </li>
+  );
+
+  // Collapsible project status group: a header (chevron + label + count) and,
+  // when expanded, its project rows. Empty groups render nothing so the rail
+  // never shows a bare header with no projects under it.
+  const projectGroup = (
+    bucket: ProjectBucket,
+    label: string,
+    items: Project[],
+  ) => {
+    if (items.length === 0) {
+      return null;
+    }
+    const collapsed = collapsedGroups[bucket];
+    return (
+      <div className="mcm-nav__group" key={bucket}>
+        <button
+          type="button"
+          className="mcm-nav__group-head"
+          aria-expanded={collapsed ? "false" : "true"}
+          aria-label={collapsed ? t("nav.expand") : t("nav.collapse")}
+          onClick={() =>
+            setCollapsedGroups((prev) => ({ ...prev, [bucket]: !collapsed }))
+          }
+        >
+          <ChevronRight
+            size={13}
+            className={`mcm-nav__group-chevron${
+              collapsed ? "" : " mcm-nav__group-chevron--open"
+            }`}
+            aria-hidden="true"
+          />
+          <span className="mcm-nav__group-label">{label}</span>
+          <span
+            className="mcm-nav__group-count"
+            aria-label={t("nav.groupCount", { count: items.length })}
+          >
+            {items.length}
+          </span>
+        </button>
+        {!collapsed && (
+          <ul className="mcm-nav__items">{items.map(projectNavItem)}</ul>
+        )}
+      </div>
+    );
+  };
+
+  // Partition projects into the three sidebar buckets (already name-sorted).
+  const activeProjects = projects.filter((p) => projectBucket(p) === "active");
+  const doneProjects = projects.filter((p) => projectBucket(p) === "done");
+  const invitedProjects = projects.filter(
+    (p) => projectBucket(p) === "invited",
   );
 
   return (
@@ -659,102 +797,76 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
           : undefined
       }
     >
-      {/* LEFT — sidebar nav */}
+      {/* LEFT — sidebar nav, grouped: INTERNAL surfaces · WORKSPACE tools ·
+          PROJECTS segmented by lifecycle (Active / Done / Invited). */}
       <aside className="mcm-3col__sidebar mcm-scroll">
+        {/* INTERNAL — meetings that aren't tied to a project: the user's own
+            calendar, meetings they were invited to, and recaps shared to them.
+            Kept apart from the project/client folders below so the two
+            mental models never blur. */}
         <div className="mcm-nav__section">
-          {navItem("all", t("cal.myMeetings"))}
-          {navItem("invited", t("invited.title"))}
+          <h3 className="mcm-nav__section-label">{t("nav.sectionInternal")}</h3>
+          {navItem(
+            "all",
+            t("cal.myMeetings"),
+            <CalendarDays size={14} className="mcm-nav__item-icon" />,
+          )}
+          {navItem(
+            "invited",
+            t("invited.title"),
+            <CalendarClock size={14} className="mcm-nav__item-icon" />,
+          )}
           {/* "Shared with me" — published recap packages addressed to this
               user across meetings (Meeting Package recipient surface). Open to
-              everyone: a recipient can be internal staff or an invited guest. */}
-          <button
-            type="button"
-            className={`mcm-nav__item${
-              view === "shared" ? " mcm-nav__item--active" : ""
-            }`}
-            onClick={() => {
-              setView("shared");
-              resetSubViews();
-              // Entering the tab = the user has now seen what's shared → clear
-              // the badge and remember the current set as seen.
+              everyone: a recipient can be internal staff or an invited guest.
+              Activating it also clears the unread badge. */}
+          {navItem(
+            "shared",
+            t("pkg.sharedWithMe"),
+            <Inbox size={14} className="mcm-nav__item-icon" />,
+            sharedNewCount,
+            () => {
               if (sharedIds.length) {
                 writeSharedSeen(sharedIds);
               }
               setSharedNewCount(0);
-            }}
-          >
-            <Inbox size={14} className="mcm-nav__item-icon" />
-            <span className="mcm-nav__item-label">{t("pkg.sharedWithMe")}</span>
-            {sharedNewCount > 0 && (
-              <span
-                className="mcm-nav__badge"
-                aria-label={t("pkg.sharedNew", { count: sharedNewCount })}
-              >
-                {sharedNewCount}
-              </span>
-            )}
-          </button>
-          {/* Personal document shelf — internal staff only (the Worker
-              also gates /v1/me/files to internal accounts). */}
-          {isInternal && (
-            <button
-              type="button"
-              className={`mcm-nav__item${
-                view === "myfiles" ? " mcm-nav__item--active" : ""
-              }`}
-              onClick={() => {
-                setView("myfiles");
-                resetSubViews();
-              }}
-            >
-              <FolderHeart size={14} className="mcm-nav__item-icon" />
-              <span className="mcm-nav__item-label">{t("myfiles.title")}</span>
-            </button>
-          )}
-          {/* Centralized guest manager — one place to issue/reset/revoke
-              project guests across every project the user can manage. Internal
-              staff only; the Worker scopes the list to project membership. */}
-          {isInternal && (
-            <button
-              type="button"
-              className={`mcm-nav__item${
-                view === "guests" ? " mcm-nav__item--active" : ""
-              }`}
-              onClick={() => {
-                setView("guests");
-                resetSubViews();
-              }}
-            >
-              <UsersRound size={14} className="mcm-nav__item-icon" />
-              <span className="mcm-nav__item-label">
-                {t("projGuest.manageNav")}
-              </span>
-            </button>
-          )}
-          {/* Project management page — create/metadata/members/delete all
-              live there; the per-project view below stays a clean meeting
-              list. Internal staff only, same gate as the shelf. */}
-          {isInternal && (
-            <button
-              type="button"
-              className={`mcm-nav__item${
-                view === "projects" ? " mcm-nav__item--active" : ""
-              }`}
-              onClick={() => {
-                setView("projects");
-                resetSubViews();
-              }}
-            >
-              <FolderKanban size={14} className="mcm-nav__item-icon" />
-              <span className="mcm-nav__item-label">{t("pmgr.navLabel")}</span>
-            </button>
+            },
           )}
         </div>
+
+        {/* WORKSPACE — cross-project management tools (internal staff only,
+            the Worker gates each route to internal accounts / membership). */}
+        {isInternal && (
+          <div className="mcm-nav__section">
+            <h3 className="mcm-nav__section-label">
+              {t("nav.sectionWorkspace")}
+            </h3>
+            {navItem(
+              "myfiles",
+              t("myfiles.title"),
+              <FolderHeart size={14} className="mcm-nav__item-icon" />,
+            )}
+            {navItem(
+              "guests",
+              t("projGuest.manageNav"),
+              <UsersRound size={14} className="mcm-nav__item-icon" />,
+            )}
+            {navItem(
+              "projects",
+              t("pmgr.navLabel"),
+              <FolderKanban size={14} className="mcm-nav__item-icon" />,
+            )}
+          </div>
+        )}
+
+        {/* PROJECTS — the project/client folders, segmented by lifecycle so a
+            long list of finished work doesn't bury what's active. Clients show
+            INSIDE their project row. */}
         <div className="mcm-nav__section">
           <h3 className="mcm-nav__section-label">{t("header.projects")}</h3>
-          <ul className="mcm-nav__items">
-            {projects.length === 0 &&
-              (projectsFailed ? (
+          {projects.length === 0 ? (
+            <ul className="mcm-nav__items">
+              {projectsFailed ? (
                 <li className="mcm-nav__empty">
                   {t("errors.loadFailed")}{" "}
                   <button
@@ -767,47 +879,25 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                 </li>
               ) : (
                 <li className="mcm-nav__empty">{t("folder.empty")}</li>
-              ))}
-            {projects.map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  className={`mcm-nav__item${
-                    view === p.id ? " mcm-nav__item--active" : ""
-                  }`}
-                  onClick={() => {
-                    setView(p.id);
-                    resetSubViews();
-                  }}
-                >
-                  {/* Project colour dot — mirrors the card tint at a glance. */}
-                  {p.color && (
-                    <span
-                      className="mcm-nav__item-dot"
-                      style={{ background: p.color }}
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="mcm-nav__item-label">
-                    {p.icon ? `${p.icon} ` : ""}
-                    {p.name}
-                  </span>
-                  {/* Invited-only access (no membership): badge instead of
-                      the stage — the folder shows just their meetings. */}
-                  {p.access === "invitee" ? (
-                    <span className="mcm-nav__item-stage mcm-nav__item-stage--invited">
-                      {t("folder.invitedBadge")}
-                    </span>
-                  ) : (
-                    p.stage && (
-                      <span className="mcm-nav__item-stage">{p.stage}</span>
-                    )
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+              )}
+            </ul>
+          ) : (
+            <>
+              {projectGroup(
+                "active",
+                t("nav.sectionProjectsActive"),
+                activeProjects,
+              )}
+              {projectGroup("done", t("nav.sectionProjectsDone"), doneProjects)}
+              {projectGroup(
+                "invited",
+                t("nav.sectionProjectsInvited"),
+                invitedProjects,
+              )}
+            </>
+          )}
         </div>
+
         {/* One create path with full metadata (the old quick-name input
             made half-configured projects) — same modal as the management
             page's button. Internal only, like project creation itself. */}
