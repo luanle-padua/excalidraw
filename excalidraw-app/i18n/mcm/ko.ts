@@ -1668,6 +1668,13 @@ export const ko: Widened<typeof vi> = {
     draftSaved: "초안을 저장했어요.",
     published: "요약 패키지를 게시했어요.",
     packaging: "파일을 패키징하는 중…",
+    renderingBoard: "보드 이미지를 렌더링하는 중…",
+    // Recap section headings (rendered into the self-contained recap.html).
+    recapBoard: "보드",
+    recapSummary: "요약",
+    recapChat: "채팅",
+    recapFiles: "파일",
+    recapMeeting: "회의",
     saveFailed:
       "패키지를 저장하지 못했어요 — 네트워크를 확인하고 다시 시도하세요.",
     needTitle: "패키지 제목을 입력하세요.",

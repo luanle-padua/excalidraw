@@ -1661,6 +1661,13 @@ export const en: Widened<typeof vi> = {
     draftSaved: "Draft saved.",
     published: "Recap package published.",
     packaging: "Packaging files…",
+    renderingBoard: "Rendering the board image…",
+    // Recap section headings (rendered into the self-contained recap.html).
+    recapBoard: "Board",
+    recapSummary: "Summary",
+    recapChat: "Chat",
+    recapFiles: "Files",
+    recapMeeting: "Meeting",
     saveFailed: "Couldn't save the package — check your network and retry.",
     needTitle: "Enter a title for the package.",
     statusDraft: "Draft",

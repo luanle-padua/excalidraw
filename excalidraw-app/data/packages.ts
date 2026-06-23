@@ -7,11 +7,18 @@
 // re-uploaded as PLAINTEXT under the package's R2 prefix. See
 // docs/plans/meeting-package.md.
 
+import { exportToBlob } from "@excalidraw/excalidraw";
 import { decompressData } from "@excalidraw/excalidraw/data/encode";
 
 import { fetchWithAuth } from "./fetchWithAuth";
+import {
+  loadChatFromStorage,
+  loadFilesFromStorage,
+  loadFromStorage,
+} from "./storage";
 
-import type { FileId } from "@excalidraw/element/types";
+import type { FileId, InitializedExcalidrawImageElement } from "@excalidraw/element/types";
+import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 
 // Same base-URL resolution as projects.ts / storage.ts.
 const STORAGE_URL =
@@ -235,6 +242,16 @@ export const uploadPackageFile = async (
     return false;
   }
 };
+
+/** Store the exported board PNG as a package asset (so the offline zip ships a
+ *  standalone board image alongside the in-recap data URL). Re-uses the same
+ *  per-file upload route under the package prefix, keyed by a reserved id. */
+export const PACKAGE_BOARD_FILE_ID = "__board__";
+export const uploadPackageBoard = async (
+  pkgId: string,
+  png: ArrayBuffer,
+): Promise<boolean> =>
+  uploadPackageFile(pkgId, PACKAGE_BOARD_FILE_ID, png, "image/png");
 
 /** Store the rendered recap.html for the package. */
 export const uploadPackageRecap = async (
@@ -493,6 +510,100 @@ export const decryptMeetingFile = async (
       bytes: data,
       mimeType: metadata?.mimeType || "application/octet-stream",
     };
+  } catch {
+    return null;
+  }
+};
+
+// --- recap board image + chat ---------------------------------------------
+
+/** One persisted chat line, as stored in the E2E `chats/<roomId>/current`
+ *  blob (the recap only needs sender + text + timestamp). */
+export type RecapChatMessage = { username: string; text: string; ts: number };
+
+/** Decrypt the meeting's chat log (room-key, E2E) into the minimal shape the
+ *  recap renders. Fail-soft: returns [] on a missing / undecryptable blob so a
+ *  chat hiccup never blocks publishing. */
+export const decryptMeetingChat = async (
+  roomId: string,
+  roomKey: string | null,
+): Promise<RecapChatMessage[]> => {
+  if (!IS_PACKAGES_CONFIGURED || !roomKey) {
+    return [];
+  }
+  try {
+    const history = await loadChatFromStorage<{
+      username?: string;
+      text?: string;
+      ts?: number;
+    }>(roomId, roomKey);
+    if (!history?.length) {
+      return [];
+    }
+    return history
+      .filter((m) => typeof m?.text === "string" && m.text.length > 0)
+      .map((m) => ({
+        username: m.username || "",
+        text: m.text || "",
+        ts: typeof m.ts === "number" ? m.ts : 0,
+      }));
+  } catch {
+    return [];
+  }
+};
+
+/** Headlessly export the whole meeting board (decrypted scene elements +
+ *  placed file snapshots) to a PNG. Returns the bytes + a data URL (the recap
+ *  embeds the data URL because it renders in a no-network sandboxed iframe).
+ *  Caps the longest side so the recap stays a sane size. Fail-soft: returns
+ *  null on any decrypt / export failure (recap still publishes without the
+ *  board image). */
+const BOARD_MAX_SIDE_PX = 2000;
+export const exportMeetingBoardPng = async (
+  roomId: string,
+  roomKey: string | null,
+): Promise<{ bytes: ArrayBuffer; dataUrl: string } | null> => {
+  if (!IS_PACKAGES_CONFIGURED || !roomKey) {
+    return null;
+  }
+  try {
+    // Decrypt the stored scene (deleted elements already dropped). `null`
+    // socket => no version-cache side effects.
+    const elements = await loadFromStorage(roomId, roomKey, null);
+    if (!elements || !elements.length) {
+      return null;
+    }
+    // Pull the bytes for every image element so placed file-snapshots render.
+    const fileIds = elements
+      .filter((el) => el.type === "image" && !el.isDeleted)
+      .map((el) => (el as InitializedExcalidrawImageElement).fileId)
+      .filter((id): id is FileId => Boolean(id));
+    let files: BinaryFiles = {};
+    if (fileIds.length) {
+      const { loadedFiles } = await loadFilesFromStorage(
+        `files/rooms/${roomId}`,
+        roomKey,
+        fileIds,
+      );
+      files = Object.fromEntries(loadedFiles.map((f) => [f.id, f]));
+    }
+    const blob = await exportToBlob({
+      elements: elements as Parameters<typeof exportToBlob>[0]["elements"],
+      files,
+      mimeType: "image/png",
+      // White board background + cap the longest side so the recap stays small.
+      appState: { exportBackground: true, viewBackgroundColor: "#ffffff" },
+      maxWidthOrHeight: BOARD_MAX_SIDE_PX,
+    });
+    const bytes = await blob.arrayBuffer();
+    // Encode to a base64 data URL (the sandboxed recap iframe can't fetch).
+    const u8 = new Uint8Array(bytes);
+    let binary = "";
+    for (let i = 0; i < u8.length; i++) {
+      binary += String.fromCharCode(u8[i]);
+    }
+    const dataUrl = `data:image/png;base64,${btoa(binary)}`;
+    return { bytes, dataUrl };
   } catch {
     return null;
   }

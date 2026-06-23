@@ -3560,19 +3560,22 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
 // ---- Meeting Package VIEWER (recipient-facing) ----------------------------
 .mcm-pkgv-modal {
-  width: min(720px, 100%);
+  // Wider than the builder: the recap now leads with a full board image, which
+  // reads far better with horizontal room.
+  width: min(900px, 100%);
 }
 
 .mcm-pkgv-body {
   // Keep the recap iframe + file list from blowing the modal off-screen.
-  max-height: min(76vh, 640px);
+  max-height: min(80vh, 760px);
 }
 
 // Sandboxed iframe rendering the server-stored recap.html. White card so the
 // recap's own light styling reads cleanly regardless of the Glass-Desk theme.
+// Taller min-height since the recap leads with the board image + chat.
 .mcm-pkgv-recap {
   width: 100%;
-  min-height: 340px;
+  min-height: min(70vh, 620px);
   border: 1px solid var(--mcm-hairline);
   border-radius: 12px;
   background: #fff;

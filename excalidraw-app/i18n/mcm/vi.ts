@@ -1733,6 +1733,13 @@ export const vi = {
     draftSaved: "Đã lưu nháp.",
     published: "Đã phát hành bản tổng kết.",
     packaging: "Đang đóng gói file…",
+    renderingBoard: "Đang dựng ảnh bảng họp…",
+    // Recap section headings (rendered into the self-contained recap.html).
+    recapBoard: "Bảng họp",
+    recapSummary: "Tóm tắt",
+    recapChat: "Trò chuyện",
+    recapFiles: "Tệp đính kèm",
+    recapMeeting: "Cuộc họp",
     saveFailed: "Không lưu được gói — kiểm tra mạng rồi thử lại.",
     needTitle: "Nhập tiêu đề cho gói.",
     statusDraft: "Nháp",

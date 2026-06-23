@@ -15,17 +15,20 @@ import { createPortal } from "react-dom";
 
 import {
   createPackage,
+  decryptMeetingChat,
   decryptMeetingFile,
+  exportMeetingBoardPng,
   exportPackageZip,
   listMeetingFiles,
   publishPackage,
-  updatePackage,
+  uploadPackageBoard,
   uploadPackageFile,
   uploadPackageRecap,
   type MeetingFileRow,
   type PackageAudience,
+  type RecapChatMessage,
 } from "../../data/packages";
-import { useT } from "../../i18n/mcm";
+import { useT, type McmKey } from "../../i18n/mcm";
 
 // Reasonable byte size formatter for the file rows.
 const fmtSize = (n: number | null | undefined): string => {
@@ -62,18 +65,47 @@ const esc = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-// Render the recap.html stored alongside the package (summary + file list +
-// provenance link back to the meeting). Kept deliberately self-contained
-// (inline styles) so it opens standalone, online or from the offline zip.
+// Render the recap.html stored alongside the package. Self-contained (inline
+// styles, inline data-URL board image) so it opens standalone — online in the
+// no-network sandboxed viewer iframe, or straight from the offline zip.
+//
+// Order: the board IMAGE (what the meeting visually WAS) → the editable
+// summary → the chat conversation → the file list. All user text is escaped.
 const renderRecapHtml = (args: {
   title: string;
   summary: string;
   files: MeetingFileRow[];
   meetingId: string;
+  /** Board PNG as a data URL (omitted on export/decrypt failure). */
+  boardDataUrl: string | null;
+  chat: RecapChatMessage[];
+  /** Localised section headings, resolved once at build time. */
+  labels: {
+    board: string;
+    summary: string;
+    chat: string;
+    files: string;
+    meeting: string;
+  };
 }): string => {
   const fileLis = args.files
     .map((f) => `<li>${esc(f.name || f.id)} <span>${fmtSize(f.size)}</span></li>`)
     .join("\n");
+  const boardSection = args.boardDataUrl
+    ? `<section class="board"><h2>${esc(args.labels.board)}</h2>
+  <img alt="${esc(args.labels.board)}" src="${args.boardDataUrl}" /></section>`
+    : "";
+  const chatSection = args.chat.length
+    ? `<section><h2>${esc(args.labels.chat)}</h2>
+  <div class="chat">${args.chat
+    .map(
+      (m) =>
+        `<div class="msg"><span class="who">${esc(
+          m.username || "—",
+        )}</span><span class="said">${esc(m.text)}</span></div>`,
+    )
+    .join("\n")}</div></section>`
+    : "";
   return `<!doctype html>
 <html lang="vi">
 <head>
@@ -82,9 +114,17 @@ const renderRecapHtml = (args: {
 <title>${esc(args.title)}</title>
 <style>
   body { font: 15px/1.6 -apple-system, system-ui, sans-serif; color: #1d1d1f;
-    max-width: 720px; margin: 48px auto; padding: 0 20px; }
+    max-width: 820px; margin: 48px auto; padding: 0 20px; }
   h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 32px 0 12px; }
+  .board img { width: 100%; height: auto; border: 1px solid #e5e5ea;
+    border-radius: 12px; background: #fff; display: block; }
   .summary { white-space: pre-wrap; margin: 24px 0; }
+  .chat { display: flex; flex-direction: column; gap: 8px; }
+  .msg { padding: 8px 12px; border: 1px solid #e5e5ea; border-radius: 12px;
+    background: #f7f7fa; }
+  .msg .who { font-weight: 600; margin-right: 8px; }
+  .msg .said { white-space: pre-wrap; }
   ul { list-style: none; padding: 0; }
   li { padding: 8px 12px; border: 1px solid #e5e5ea; border-radius: 10px;
     margin-bottom: 6px; display: flex; justify-content: space-between; }
@@ -94,9 +134,21 @@ const renderRecapHtml = (args: {
 </head>
 <body>
   <h1>${esc(args.title)}</h1>
-  <div class="summary">${esc(args.summary)}</div>
-  ${args.files.length ? `<h2>Files</h2><ul>${fileLis}</ul>` : ""}
-  <footer>Meeting: ${esc(args.meetingId)}</footer>
+  ${boardSection}
+  ${
+    args.summary
+      ? `<h2>${esc(args.labels.summary)}</h2><div class="summary">${esc(
+          args.summary,
+        )}</div>`
+      : ""
+  }
+  ${chatSection}
+  ${
+    args.files.length
+      ? `<h2>${esc(args.labels.files)}</h2><ul>${fileLis}</ul>`
+      : ""
+  }
+  <footer>${esc(args.labels.meeting)}: ${esc(args.meetingId)}</footer>
 </body>
 </html>`;
 };
@@ -226,6 +278,19 @@ export const MeetingPackageBuilder = ({
         }
       }
     }
+
+    // Capture what the meeting visually WAS: export the decrypted board to a
+    // PNG, and pull the chat conversation. Both are fail-soft — a failure here
+    // just omits that recap section, never blocks publishing/exporting.
+    setPhase(t("pkg.renderingBoard"));
+    const board = await exportMeetingBoardPng(roomId, roomKey);
+    if (board) {
+      // Also store the board as a standalone package asset (offline zip).
+      await uploadPackageBoard(pkgId, board.bytes);
+    }
+    const chat = await decryptMeetingChat(roomId, roomKey);
+
+    const label = (key: McmKey): string => t(key);
     await uploadPackageRecap(
       pkgId,
       renderRecapHtml({
@@ -233,6 +298,15 @@ export const MeetingPackageBuilder = ({
         summary,
         files: selectedFiles,
         meetingId: roomId,
+        boardDataUrl: board?.dataUrl ?? null,
+        chat,
+        labels: {
+          board: label("pkg.recapBoard"),
+          summary: label("pkg.recapSummary"),
+          chat: label("pkg.recapChat"),
+          files: label("pkg.recapFiles"),
+          meeting: label("pkg.recapMeeting"),
+        },
       }),
     );
     return pkgId;
