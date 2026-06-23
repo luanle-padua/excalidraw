@@ -613,6 +613,12 @@ export const vi = {
     createScheduled: "Tạo & gửi mời",
     createNow: "Tạo & vào họp",
     reopen: "Mở lại",
+    // Card action row (always-visible). `join` = vào cuộc gọi LIVE (chủ đích,
+    // nút nhấn mạnh) · `open` = mở phòng để chuẩn bị (chưa họp) · `review` =
+    // xem lại cuộc họp đã kết thúc (chỉ đọc).
+    joinCall: "Vào họp",
+    openRoom: "Mở phòng",
+    reviewMeeting: "Xem lại",
     meetingFallbackTitle: "Cuộc họp không tên",
     newMeetingDefaultTitle: "Cuộc họp mới",
     editProject: "Sửa dự án",

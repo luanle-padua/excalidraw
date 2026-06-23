@@ -11265,7 +11265,10 @@ body:has(.excalidraw.theme--dark) {
 
 .mcm-mcard {
   position: relative;
+  // Grid view: the card is a vertical stack — body on top, the always-visible
+  // labelled action row pinned to the bottom. (List view overrides to a row.)
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   overflow: hidden;
   // The meeting's colour now TINTS the whole card (not just a stripe) — a
@@ -11456,7 +11459,11 @@ body:has(.excalidraw.theme--dark) {
     }
   }
 
-  // Hover action cluster — colour / detail / edit. Top-right, fades in.
+  // Cosmetic cluster — colour / emoji / edit. These are LOW-STAKES, easily
+  // reversed personalisation controls, so they stay tucked top-right and fade
+  // in on hover/focus to keep the resting card calm. The committing actions
+  // (Join / Open / Review) do NOT live here — they're in the always-visible
+  // CTA row below, so nothing important is hidden behind hover.
   &__actions {
     position: absolute;
     top: 8px;
@@ -11471,7 +11478,7 @@ body:has(.excalidraw.theme--dark) {
     opacity: 1;
   }
 
-  // Each action button gets a solid backing so it stays legible over text.
+  // Each cosmetic button gets a solid backing so it stays legible over text.
   &__actions .mcm-icon-btn {
     background: var(--mcm-surface);
     border-color: var(--mcm-hairline);
@@ -11487,8 +11494,54 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
   }
 
+  // ----- Always-visible action row -----------------------------------------
+  // Two clear, LABELLED targets (Fitts: full-height mcm-btn--sm, generous hit
+  // area; signifiers: text + icon, never icon-only). Detail (safe) on the
+  // left; the state-aware primary (Join/Open/Review) on the right, pushed
+  // apart by the gap + margin-left:auto so the high-commitment "Join call" is
+  // never adjacent-and-identical to a safe action — a stray click can't drop
+  // you into a live call.
+  &__cta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto; // pin to the card's bottom in grid view
+    padding: 0 12px 12px;
+  }
+  &__cta-detail {
+    flex: 0 0 auto;
+  }
+  &__cta-go {
+    flex: 0 1 auto;
+    margin-left: auto; // separate the committing action from the safe one
+    min-width: 0;
+    max-width: 60%;
+  }
+
+  // LIVE primary = the deliberate, unmistakable "Join call" target. Solid
+  // green (success) fill — the one bold thing on the card, matching the live
+  // ring + pulsing dot so the live state reads as ONE coherent signal.
+  &__cta-go--live {
+    background: var(--mcm-success);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.25),
+      0 1px 2px color-mix(in srgb, var(--mcm-success) 30%, transparent);
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.05);
+    }
+    &:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--mcm-surface),
+        0 0 0 4px var(--mcm-success);
+    }
+  }
+
   // ----- List layout overrides -----
   .mcm-mcards--list & {
+    // Back to a horizontal row: body grows, the CTA row sits inline at the end.
+    flex-direction: row;
     align-items: center;
 
     .mcm-mcard__main {
@@ -11496,8 +11549,6 @@ body:has(.excalidraw.theme--dark) {
       align-items: center;
       gap: 12px;
       padding: 10px 13px;
-      // Leave room for the (always-reserved) action cluster on the right.
-      padding-right: 104px;
     }
 
     .mcm-mcard__title {
@@ -11516,8 +11567,24 @@ body:has(.excalidraw.theme--dark) {
       flex-shrink: 0;
       margin-left: auto;
     }
+    // Inline, right-aligned CTA — no bottom-pin, compact padding. It sits at
+    // the row's end; the cosmetic cluster fades in to ITS left (the hover
+    // overlay never covers these always-visible buttons).
+    .mcm-mcard__cta {
+      margin-top: 0;
+      flex-shrink: 0;
+      padding: 8px 12px;
+    }
+    .mcm-mcard__cta-go {
+      margin-left: 0; // already at the row's end; keep the buttons tight
+      max-width: none;
+    }
+    // Cosmetic cluster fades in just to the LEFT of the CTA buttons (which are
+    // ~150px wide), vertically centred — so it never overlaps the always-on
+    // Join / Open / Review targets.
     .mcm-mcard__actions {
       top: 50%;
+      right: 168px;
       transform: translateY(-50%);
     }
   }

@@ -1,11 +1,13 @@
 import {
   ArrowUpDown,
+  DoorOpen,
   Eye,
   Folder,
   FolderHeart,
   FolderKanban,
   LayoutGrid,
   List as ListIcon,
+  LogIn,
   Palette,
   Pencil,
   Plus,
@@ -1008,12 +1010,17 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                             aria-hidden="true"
                           />
                         )}
+                        {/* Card body = SAFE target. Clicking it opens the
+                            read-only detail preview, NEVER the live call — so a
+                            stray click on the card can't drop you into a
+                            meeting. The deliberate Join/Open/Review action is
+                            the labelled button in the always-visible CTA row
+                            below. */}
                         <button
                           type="button"
                           className="mcm-mcard__main"
-                          onClick={() => handleReopen(m)}
-                          disabled={busy}
-                          title={t("folder.reopen")}
+                          onClick={() => setDetailRoomId(m.id)}
+                          title={t("folder.detail")}
                         >
                           <span className="mcm-mcard__title">
                             {m.icon && (
@@ -1183,15 +1190,6 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                               />
                             )}
                           </div>
-                          <button
-                            type="button"
-                            className="mcm-icon-btn mcm-icon-btn--sm"
-                            onClick={() => setDetailRoomId(m.id)}
-                            title={t("folder.detail")}
-                            aria-label={t("folder.detail")}
-                          >
-                            <Eye size={14} />
-                          </button>
                           {canEditCard(m) && (
                             <button
                               type="button"
@@ -1204,6 +1202,54 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                             </button>
                           )}
                         </div>
+                        {/* Always-visible, labelled action row. The primary
+                            action is state-aware and visually SEPARATED from the
+                            safe "Details" button so a live call is never an
+                            accidental, adjacent-and-identical target:
+                              live      → Join call (accent fill, green = live)
+                              scheduled → Open room (neutral; prep the canvas)
+                              finished  → Review    (neutral; read-only) */}
+                        {(() => {
+                          const bucket = statusBucket(m.status);
+                          const isLive = bucket === "in-progress";
+                          const isDone =
+                            bucket === "completed" || bucket === "cancelled";
+                          const primaryLabel = isLive
+                            ? t("folder.joinCall")
+                            : isDone
+                            ? t("folder.reviewMeeting")
+                            : t("folder.openRoom");
+                          return (
+                            <div className="mcm-mcard__cta">
+                              <button
+                                type="button"
+                                className="mcm-btn mcm-btn--sm mcm-btn--secondary mcm-mcard__cta-detail"
+                                onClick={() => setDetailRoomId(m.id)}
+                              >
+                                <Eye size={15} /> {t("folder.detail")}
+                              </button>
+                              <button
+                                type="button"
+                                className={`mcm-btn mcm-btn--sm mcm-mcard__cta-go${
+                                  isLive
+                                    ? " mcm-mcard__cta-go--live"
+                                    : " mcm-btn--secondary"
+                                }`}
+                                onClick={() => handleReopen(m)}
+                                disabled={busy}
+                              >
+                                {isLive ? (
+                                  <LogIn size={15} />
+                                ) : isDone ? (
+                                  <Eye size={15} />
+                                ) : (
+                                  <DoorOpen size={15} />
+                                )}{" "}
+                                {primaryLabel}
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </li>
                     </Fragment>
                   );
