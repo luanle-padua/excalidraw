@@ -1550,30 +1550,60 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               // real Ends. The REGISTRY is the authority: verify finished
               // there, then flip to review. A spoofed broadcast verifies as
               // not-finished and does nothing.
-              // The ender's status='finished' write may not have reached the
-              // D1 read replica this verify hits yet (eventual consistency) — a
-              // single read can MISS it and strand everyone in the room until
-              // the slow 60s status poll ("ends a while later"). Retry the
-              // verify a few times with short backoff so a real End flips to
-              // review within ~1-2s; a spoofed broadcast still verifies as
-              // not-finished across all retries and gives up.
               const endedRoomId = this.portal.roomId;
-              if (endedRoomId) {
-                void (async () => {
-                  for (let attempt = 0; attempt < 5; attempt++) {
-                    const m = await getMeeting(endedRoomId);
-                    if (this.portal.roomId !== endedRoomId) {
-                      return;
-                    }
-                    if (isFinishedStatus(m?.status ?? null)) {
-                      appJotaiStore.set(meetingViewOnlyAtom, true);
-                      markReviewRoom(endedRoomId);
-                      return;
-                    }
-                    await new Promise((r) => setTimeout(r, 1000));
-                  }
-                })();
+              if (!endedRoomId) {
+                break;
               }
+              // EXTERNAL GUESTS get NO raw review after End (quyết định 06-11) —
+              // the host shares a packaged recap separately. So a guest must NOT
+              // wait on getMeeting()=200 (the worker 403s finished rooms for
+              // guests, so the verify can never confirm and they'd stay editable
+              // until the slow 60s access-recheck → cold "host removed you").
+              // The END_MEETING broadcast is host-authenticated; react to it
+              // INSTANTLY: park into the graceful "meeting has ended" gate card
+              // (same terminal card guests get when JOINING a finished meeting)
+              // and tear the live socket down so they can no longer chat/draw.
+              // Internal users fall through to the registry-verified review flip
+              // below — their review-on-every-path behaviour is unchanged.
+              if (appJotaiStore.get(sessionAtom)?.isGuest) {
+                const { roomKey } = this.portal;
+                // Close the portal FIRST: stops chat/draw broadcasts and the
+                // live socket (and clears review/waiting atoms). The gate is set
+                // AFTER so the teardown can't wipe it — destroySocketClient does
+                // NOT touch startGateAtom.
+                this.destroySocketClient();
+                appJotaiStore.set(startGateAtom, {
+                  roomId: endedRoomId,
+                  roomKey: roomKey ?? "",
+                  // Title is optional on the card; skip the network round-trip
+                  // so the transition is instant. The card reads fine without it.
+                  title: null,
+                  scheduledAt: null,
+                  status: "finished",
+                });
+                break;
+              }
+              // INTERNAL review path — unchanged. The ender's status='finished'
+              // write may not have reached the D1 read replica this verify hits
+              // yet (eventual consistency) — a single read can MISS it and strand
+              // everyone in the room until the slow 60s status poll ("ends a while
+              // later"). Retry the verify a few times with short backoff so a real
+              // End flips to review within ~1-2s; a spoofed broadcast still
+              // verifies as not-finished across all retries and gives up.
+              void (async () => {
+                for (let attempt = 0; attempt < 5; attempt++) {
+                  const m = await getMeeting(endedRoomId);
+                  if (this.portal.roomId !== endedRoomId) {
+                    return;
+                  }
+                  if (isFinishedStatus(m?.status ?? null)) {
+                    appJotaiStore.set(meetingViewOnlyAtom, true);
+                    markReviewRoom(endedRoomId);
+                    return;
+                  }
+                  await new Promise((r) => setTimeout(r, 1000));
+                }
+              })();
             } else if (action === "KICK" && target && target === mySocketId) {
               // The host removed me — MeetingShell watches this and leaves.
               appJotaiStore.set(kickedAtom, true);
