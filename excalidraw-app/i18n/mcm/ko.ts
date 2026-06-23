@@ -205,6 +205,7 @@ export const ko: Widened<typeof vi> = {
     leave: "나가기",
     share: "공유",
     transcript: "회의록",
+    meetingLog: "회의 기록",
     captionToggle: "자막 (CC)",
     captionOn: "자막 끄기 (CC)",
     captionOff: "자막 켜기 (CC)",

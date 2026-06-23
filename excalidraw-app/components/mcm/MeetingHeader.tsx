@@ -661,13 +661,10 @@ export const MeetingHeader = ({
             type="button"
             className="mcm-header__icon-btn mcm-tip"
             onClick={onOpenLog}
-            data-mcm-tip={t("header.transcript")}
-            aria-label={t("header.transcript")}
+            data-mcm-tip={t("header.meetingLog")}
+            aria-label={t("header.meetingLog")}
           >
             <FileText size={18} />
-            {log.length > 0 && (
-              <span className="mcm-header__btn-count">{log.length}</span>
-            )}
           </button>
         </div>
 

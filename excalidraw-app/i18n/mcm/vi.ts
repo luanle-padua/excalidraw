@@ -225,6 +225,7 @@ export const vi = {
     leave: "Rời",
     share: "Chia sẻ",
     transcript: "Biên bản",
+    meetingLog: "Hồ sơ họp",
     captionToggle: "Phụ đề (CC)",
     captionOn: "Tắt phụ đề (CC)",
     captionOff: "Bật phụ đề (CC)",

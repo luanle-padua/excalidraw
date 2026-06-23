@@ -198,6 +198,7 @@ export const en: Widened<typeof vi> = {
     leave: "Leave",
     share: "Share",
     transcript: "Transcript",
+    meetingLog: "Meeting log",
     captionToggle: "Captions (CC)",
     captionOn: "Turn off captions (CC)",
     captionOff: "Turn on captions (CC)",
