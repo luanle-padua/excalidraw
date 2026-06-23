@@ -606,6 +606,7 @@ export const ko: Widened<typeof vi> = {
     openRoom: "회의실 열기",
     reviewMeeting: "다시 보기",
     meetingFallbackTitle: "제목 없는 회의",
+    hasRecap: "요약본",
     newMeetingDefaultTitle: "새 회의",
     editProject: "프로젝트 편집",
     editMeeting: "회의 편집",

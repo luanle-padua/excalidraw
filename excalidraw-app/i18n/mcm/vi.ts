@@ -641,6 +641,8 @@ export const vi = {
     openRoom: "Mở phòng",
     reviewMeeting: "Xem lại",
     meetingFallbackTitle: "Cuộc họp không tên",
+    // Card footer badge — cuộc họp đã có gói tổng kết (Package) được chia sẻ.
+    hasRecap: "Bản tổng kết",
     newMeetingDefaultTitle: "Cuộc họp mới",
     editProject: "Sửa dự án",
     editMeeting: "Sửa cuộc họp",

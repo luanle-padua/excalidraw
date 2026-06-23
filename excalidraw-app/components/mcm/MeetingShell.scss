@@ -11348,6 +11348,18 @@ body:has(.excalidraw.theme--dark) {
     color: var(--mcm-accent);
   }
 
+  // Recap badge on a meeting card: subtle accent tint with a leading
+  // file glyph — flags meetings that have a published shared recap.
+  &--recap {
+    gap: 4px;
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
   // Inline tag pill (e.g. a user's rank chip next to their name): slightly
   // taller hit area, sits inline in a table cell.
   &--tag {

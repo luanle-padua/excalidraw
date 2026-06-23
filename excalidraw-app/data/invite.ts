@@ -33,6 +33,9 @@ export type MyInvitation = {
   created_by: string | null;
   project_name: string | null;
   my_role: string | null;
+  /** 1 when this meeting has a PUBLISHED recap package — drives the card's
+   *  "Recap" badge. SQLite EXISTS returns 0/1; absent on older payloads. */
+  has_recap?: number;
 };
 
 /** Internal staff directory for the invite picker. */

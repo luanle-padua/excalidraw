@@ -42,6 +42,9 @@ export type CalMeeting = {
    *  for the dashboard activity log. */
   my_invited_at?: number | null;
   my_joined_at?: number | null;
+  /** 1 when this meeting has a PUBLISHED recap package — drives the card's
+   *  "Recap" badge. SQLite EXISTS returns 0/1; absent on older payloads. */
+  has_recap?: number;
 };
 
 /** Every meeting the current user can see, for placement on the calendar.

@@ -204,6 +204,18 @@ type Variables = {
 const isAdminish = (role: string | undefined): boolean =>
   role === "admin" || role === "owner";
 
+// `has_recap` for a MeetingSummary row: does this meeting have a PUBLISHED,
+// not-deleted recap package? A cheap correlated EXISTS subquery (no JOIN, no
+// row fan-out) so the dashboard card can show a "Recap" badge. Aliased so every
+// list endpoint that builds a MeetingSummary emits the flag identically — keep
+// the `m`/`mm` alias of the outer meeting row in sync at each call site. SQLite
+// returns it as 0/1; the client coerces truthiness.
+const HAS_RECAP_COL = `EXISTS (
+            SELECT 1 FROM meeting_package mp_r
+             WHERE mp_r.meeting_id = m.id
+               AND mp_r.status = 'published'
+               AND mp_r.deleted_at IS NULL) AS has_recap`;
+
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // CORS (B6, 06-17): allowlist instead of wildcard. localhost / *.pages.dev /
@@ -2063,7 +2075,8 @@ app.get("/v1/projects/:projectId/meetings", async (c) => {
   const cols = `m.id, m.title, m.topic, m.type, m.status, m.created_by,
             m.organizer_email, m.thumbnail, m.participant_count, m.duration_s,
             m.scene_updated_at, m.updated_at, m.last_opened_at, m.discipline,
-            m.priority, m.confidentiality, m.scheduled_at, m.color, m.icon`;
+            m.priority, m.confidentiality, m.scheduled_at, m.color, m.icon,
+            ${HAS_RECAP_COL}`;
   // Confidential meetings stay invisible to plain project members in the
   // folder list too — only organizer/host/invitee (and admins) see the card.
   // Mirrors the canSeeMeeting enforcement (quyết định 06-10 #3).
@@ -4720,7 +4733,8 @@ app.get("/v1/me/invitations", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT m.id, m.title, m.topic, m.status, m.scheduled_at, m.duration_min,
-            m.created_by, p.name AS project_name, mi.role AS my_role
+            m.created_by, p.name AS project_name, mi.role AS my_role,
+            ${HAS_RECAP_COL}
      FROM meeting_invitee mi
      JOIN meeting m ON m.id = mi.meeting_id
      LEFT JOIN project p ON p.id = m.project_id
@@ -4965,7 +4979,8 @@ app.get("/v1/me/meetings", async (c) => {
   }
   const cols = `m.id, m.title, m.status, m.scheduled_at, m.created_at,
                 m.project_id, p.name AS project_name, m.created_by,
-                m.organizer_email, m.duration_min, m.color, m.icon`;
+                m.organizer_email, m.duration_min, m.color, m.icon,
+                ${HAS_RECAP_COL}`;
   const order = `ORDER BY COALESCE(m.scheduled_at, '') ASC, m.created_at DESC`;
   if (isAdmin) {
     // Bound the admin fan-out (audit): this endpoint is polled, and an admin

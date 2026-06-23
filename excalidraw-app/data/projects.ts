@@ -99,6 +99,13 @@ export type MeetingSummary = {
    *  that project's meeting list. Only adapters that know it (calendar)
    *  carry it; the invite shape has just the name. */
   project_id?: string | null;
+  /** True when this meeting has a PUBLISHED recap package (a shared
+   *  summary/file/transcript bundle). Computed server-side via an EXISTS
+   *  subquery on `meeting_package` (status='published', not deleted); the
+   *  card renders a "Recap" badge when set. Optional: calendar/invite
+   *  adapters that don't carry it default it to false. SQLite returns it
+   *  as 0/1, so the card coerces truthiness. */
+  has_recap?: boolean | number;
 };
 
 const json = { "content-type": "application/json" };

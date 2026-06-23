@@ -602,6 +602,7 @@ export const en: Widened<typeof vi> = {
     openRoom: "Open room",
     reviewMeeting: "Review",
     meetingFallbackTitle: "Untitled meeting",
+    hasRecap: "Recap",
     newMeetingDefaultTitle: "New meeting",
     editProject: "Edit project",
     editMeeting: "Edit meeting",

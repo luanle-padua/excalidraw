@@ -6,6 +6,7 @@ import {
   ChevronRight,
   DoorOpen,
   Eye,
+  FileText,
   Folder,
   FolderHeart,
   FolderKanban,
@@ -133,6 +134,7 @@ const calToSummary = (c: CalMeeting): MeetingSummary => ({
   icon: c.icon ?? null,
   project_name: c.project_name,
   project_id: c.project_id,
+  has_recap: c.has_recap ?? false,
 });
 
 const invToSummary = (i: MyInvitation): MeetingSummary => ({
@@ -150,6 +152,7 @@ const invToSummary = (i: MyInvitation): MeetingSummary => ({
   last_opened_at: null,
   scheduled_at: i.scheduled_at,
   project_name: i.project_name,
+  has_recap: i.has_recap ?? false,
 });
 
 // Project lifecycle bucket for the sidebar grouping. Projects carry a
@@ -1270,6 +1273,15 @@ export const ProjectBrowser = ({ onEntered }: { onEntered?: () => void }) => {
                                 {meetingStatusLabel(t, m.status)}
                               </span>
                             )}
+                            {m.has_recap ? (
+                              <span
+                                className="mcm-pill mcm-pill--recap"
+                                title={t("folder.hasRecap")}
+                              >
+                                <FileText size={11} aria-hidden="true" />
+                                {t("folder.hasRecap")}
+                              </span>
+                            ) : null}
                             {chipProject && (
                               <span
                                 className={`mcm-mcard__project${
