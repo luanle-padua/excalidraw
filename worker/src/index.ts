@@ -8391,14 +8391,15 @@ app.post("/v1/recordings/:roomId/start", async (c) => {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
+      // Daily's recordings/start takes width/height/fps/layout at the TOP level
+      // of the body (NOT nested under `properties` — that's the room-config
+      // shape). The earlier nesting made Daily 400 the request.
       body: JSON.stringify({
         type: "cloud",
         layout: RECORDING_PROPS.layout,
-        properties: {
-          width: RECORDING_PROPS.width,
-          height: RECORDING_PROPS.height,
-          fps: RECORDING_PROPS.fps,
-        },
+        width: RECORDING_PROPS.width,
+        height: RECORDING_PROPS.height,
+        fps: RECORDING_PROPS.fps,
       }),
     },
   );
