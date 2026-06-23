@@ -235,34 +235,52 @@ export class ClientMeetingRecorder {
         reject(new Error("recording was never started"));
         return;
       }
+      // The Stop flow MUST NEVER hang the UI. We resolve exactly once, from
+      // whichever path fires first: `onstop`, an already-inactive recorder (which
+      // would NOT fire onstop), a throwing stop(), or a hard safety timeout.
+      let settled = false;
       const finish = async () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         const mimeType = recorder.mimeType || pickMimeType() || "video/webm";
         const rawBlob = new Blob(this.chunks, { type: mimeType });
         const durationMs = performance.now() - this.startedAt;
-        // Patch the WebM container so VLC / ffprobe can read the duration +
-        // seek. fixWebmDuration walks the EBML Info section (container-level), so
-        // it works for both audio/webm and video/webm. Failure is non-fatal —
-        // it returns the original blob untouched on any parse error.
-        const blob = mimeType.includes("webm")
-          ? await fixWebmDuration(rawBlob, durationMs)
-          : rawBlob;
-        const result: ClientRecordingResult = {
-          blob,
-          mimeType: blob.type,
-          durationMs,
-        };
+        // Patch the WebM duration so players can seek — but RACE it against a
+        // short timeout and fall back to the raw blob, because fixWebmDuration
+        // (written for audio) can be slow / hang on a large video webm. Never
+        // let it block Stop.
+        let blob = rawBlob;
+        if (mimeType.includes("webm") && rawBlob.size > 0) {
+          try {
+            blob = await Promise.race([
+              fixWebmDuration(rawBlob, durationMs),
+              new Promise<Blob>((r) => window.setTimeout(() => r(rawBlob), 4000)),
+            ]);
+          } catch {
+            blob = rawBlob;
+          }
+        }
         this.chunks = [];
         this.recorder = null;
         this.startedAt = 0;
-        resolve(result);
+        resolve({ blob, mimeType: blob.type || mimeType, durationMs });
       };
-      recorder.onstop = finish;
-      try {
-        recorder.stop();
-      } catch {
-        // already stopped — flush whatever we have
-        finish();
+      recorder.onstop = () => void finish();
+      // A recorder already 'inactive' (auto-stopped on an error / an ended
+      // screen track) will NOT fire onstop when we call stop() → finish now.
+      if (recorder.state === "inactive") {
+        void finish();
+      } else {
+        try {
+          recorder.stop();
+        } catch {
+          void finish();
+        }
       }
+      // Hard safety net: resolve even if onstop somehow never fires.
+      window.setTimeout(() => void finish(), 8000);
     });
   }
 
