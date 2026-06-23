@@ -385,3 +385,15 @@ Theo thứ tự dependency. Mỗi mục ghi file/route đụng tới.
 - Access link: `GET /recordings/:recording_id/access-link` → `{download_link, expires}`
 - Delete: `DELETE /recordings/:recording_id` (S3-file-removal behaviour: confirm với Daily — D5)
 - Room property để bật: `enable_recording: "cloud"`
+
+---
+
+## 7. ✅ QUYẾT ĐỊNH CHỦ DỰ ÁN (anh Luân, 2026-06-23) — CHỐT cho team build chiều
+
+1. **Ghi phòng:** **GỘP mic+camera+screen vào 1 phòng Daily TRƯỚC** rồi mới ghi → video đủ tiếng + camera + màn hình (không ship bản chỉ -audio). (D1 → merge-to-one-room.)
+2. **Ai xem/tải:** **CHỈ host / organizer / lãnh đạo dự án / admin** (`canManageMeeting`/authority), KHÔNG phải mọi participant. (D4.)
+3. **Mặc định:** **TẮT** — host bấm **Record** mới ghi; consent gate join-time đã báo "có thể được ghi". (D6, hợp luật 2-bên đa quốc gia/Phi.)
+4. **🆕 CHỌN NỘI DUNG GHI (host tick trước khi Record):** **tiếng / hình (camera+screen) / canvas**.
+   - Tiếng + hình → Daily cloud recording.
+   - **⚠️ CANVAS KHÔNG phải track Daily** → cơ chế RIÊNG: (a) client `MediaRecorder` quay canvas thành video; (b) snapshot định kỳ → timelapse; (c) **replay từ event-log timeline** (đã có dữ liệu — rẻ nhất, không tốn storage). **Khuyến nghị MVP:** Daily lo tiếng+hình; canvas ưu tiên (c) replay trong review-mode, nâng (a) nếu cần file. Báo nếu canvas-as-video vượt scope buổi chiều.
+5. **🆕 BÁO + HIGHLIGHT ĐANG GHI:** khi Record bật, **broadcast cho MỌI người trong phòng** (event `RECORDING_STATE` qua DO) + một **chỉ báo "đang ghi" sang trọng & tinh tế** — gợi ý: chấm đỏ mạch đập nhẹ + chữ **REC** (+ tên người bật) ở header, viền/hào quang đỏ rất nhạt quanh khung họp; KHÔNG chói/giật. Đúng ngôn ngữ Glass Desk. Bắt buộc về pháp lý (mọi người phải biết đang được ghi).
