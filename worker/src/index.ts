@@ -2644,9 +2644,18 @@ const loadPackage = async (
 // just the index columns the picker needs — bytes are pulled per-file by the
 // client (which holds the room key) when it decrypts for upload.
 app.get("/v1/meetings/:roomId/files", async (c) => {
+  // Exclude MCM-internal canvas bookkeeping files (the baked snapshot images
+  // backing IFC/PDF/DXF anchors + decoration assets) — they're app-generated
+  // plumbing, not user documents, so they must never appear in the Package
+  // picker. Mirrors INTERNAL_FILE_ID_PREFIXES in MeetingLibrary.tsx.
   const { results } = await c.env.DB.prepare(
     `SELECT id, kind, name, size FROM file
-      WHERE meeting_id = ?1 ORDER BY created_at ASC`,
+      WHERE meeting_id = ?1
+        AND id NOT LIKE 'ifc-snap-%'
+        AND id NOT LIKE 'pdf-snap-%'
+        AND id NOT LIKE 'dxf-snap-%'
+        AND id NOT LIKE 'mcm-deco-%'
+      ORDER BY created_at ASC`,
   )
     .bind(c.req.param("roomId"))
     .all<{ id: string; kind: string | null; name: string | null; size: number | null }>();
@@ -3020,6 +3029,36 @@ app.get("/v1/packages/:id", async (c) => {
   });
 });
 
+// Map a stored content-type to a file extension, and ensure a filename ends
+// with one. Package files are often stored under an extension-less id (e.g.
+// `ifc-snap-<uuid>` baked from a canvas anchor), so without this the OS can't
+// tell a PNG from an opaque blob — the downloaded zip looks broken.
+const CONTENT_TYPE_EXT: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "application/pdf": "pdf",
+  "model/ifc": "ifc",
+  "application/x-step": "ifc",
+  "image/vnd.dxf": "dxf",
+  "application/dxf": "dxf",
+  "model/gltf-binary": "glb",
+  "text/plain": "txt",
+  "application/json": "json",
+};
+const withExtension = (name: string, contentType: string | undefined): string => {
+  // Already ends with a short alnum extension → keep the author's name.
+  if (/\.[a-z0-9]{1,5}$/i.test(name)) {
+    return name;
+  }
+  const ext = contentType
+    ? CONTENT_TYPE_EXT[contentType.split(";")[0].trim().toLowerCase()]
+    : undefined;
+  return ext ? `${name}.${ext}` : name;
+};
+
 // Offline export (P2): assemble a STORE-only zip (no compression — a valid,
 // universally-openable archive) in the Worker from packages/<id>/files/* +
 // recap.html, stream it back as bundle.zip. Same audience gate as GET. We
@@ -3053,10 +3092,13 @@ app.get("/v1/packages/:id/export", async (c) => {
     if (!obj) {
       continue;
     }
+    // Ensure a usable extension (stored name is often extension-less, e.g. an
+    // `ifc-snap-…` id) so the file opens when extracted.
+    const baseName = withExtension(f.name || f.id, obj.httpMetadata?.contentType);
     // De-dupe names inside the zip so two files sharing a name don't collide.
-    let entryName = `files/${f.name || f.id}`;
+    let entryName = `files/${baseName}`;
     if (used.has(entryName)) {
-      entryName = `files/${f.id}-${f.name || "file"}`;
+      entryName = `files/${f.id}-${baseName}`;
     }
     used.add(entryName);
     entries.push({

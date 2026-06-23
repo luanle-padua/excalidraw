@@ -640,6 +640,18 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       }
     }
 
+    // Call CTA — a gentle accent pulse so a first-time user reads "click here
+    // to join the call". Only the IDLE Call button carries this class; once
+    // joined the button swaps to the --active leave state and the pulse stops.
+    &--call-cta {
+      color: var(--mcm-accent);
+      animation: mcm-call-cta-pulse 2.2s var(--mcm-ease, ease) infinite;
+
+      &:hover {
+        animation: none; // settle the moment the user engages
+      }
+    }
+
     // Accent FILL — the one positive CTA in the rail (Invite). Mirrors the
     // lobby primary button so "the main action" reads the same everywhere.
     &--accent {
@@ -824,6 +836,32 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   50% {
     opacity: 0.6;
     transform: scale(0.85);
+  }
+}
+
+// Expanding accent ring for the idle "Call" CTA — draws the eye without
+// moving the button (box-shadow only, so layout never shifts).
+@keyframes mcm-call-cta-pulse {
+  0% {
+    background: var(--mcm-accent-soft);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-accent) 50%, transparent);
+  }
+  70% {
+    background: var(--mcm-accent-soft);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--mcm-accent) 0%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-accent) 0%, transparent);
+  }
+}
+
+// Respect reduced-motion: keep the accent tint as a static affordance, drop
+// the looping ring.
+@media (prefers-reduced-motion: reduce) {
+  .mcm-header__icon-btn--call-cta {
+    animation: none;
+    background: var(--mcm-accent-soft);
   }
 }
 

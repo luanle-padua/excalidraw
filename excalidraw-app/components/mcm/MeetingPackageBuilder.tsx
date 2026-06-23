@@ -11,6 +11,7 @@
 
 import { FileText, Image as ImageIcon, Package, Box } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   createPackage,
@@ -326,7 +327,11 @@ export const MeetingPackageBuilder = ({
     },
   ];
 
-  return (
+  // Portal to <body>: the meeting detail view lives inside the Glass Desk
+  // dashboard, whose backdrop-filter/transform ancestors trap `position:
+  // fixed` — without the portal the backdrop renders BEHIND the calendar
+  // instead of over the whole viewport.
+  return createPortal(
     <div
       className="mcm-log-modal-backdrop"
       role="dialog"
@@ -490,6 +495,7 @@ export const MeetingPackageBuilder = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

@@ -439,7 +439,7 @@ export const MeetingCallControls = () => {
   return (
     <button
       type="button"
-      className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
+      className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--call-cta"
       onClick={join}
       aria-label={t("callControls.call")}
       data-mcm-tip={t("callControls.call")}
