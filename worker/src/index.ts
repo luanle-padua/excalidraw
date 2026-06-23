@@ -486,6 +486,23 @@ const packageFileKey = (pkgId: string, fileId: string) =>
 const packageRecapKey = (pkgId: string) => `packages/${pkgId}/recap.html`;
 const packageBundleKey = (pkgId: string) => `packages/${pkgId}/bundle.zip`;
 
+// Map an added attachment's content-type to the `file.kind` bucket the picker
+// / viewer glyphs key off (same buckets as canvas files). Plaintext docs like a
+// biên bản PDF land in the generic "doc" bucket → a document glyph.
+const attachmentKind = (contentType: string): string => {
+  const ct = contentType.split(";")[0].trim().toLowerCase();
+  if (ct.startsWith("image/")) {
+    return "image";
+  }
+  if (ct === "model/ifc" || ct === "application/x-step") {
+    return "ifc";
+  }
+  if (ct === "model/gltf-binary") {
+    return "glb";
+  }
+  return "doc";
+};
+
 // Build a STORE-only (uncompressed) ZIP archive in-memory. We avoid a
 // compression dependency in the Worker — a store zip is a fully valid archive
 // every tool opens, and the package files (images/pdf/dxf/ifc) are already
@@ -2848,7 +2865,9 @@ const loadPackage = async (
       `SELECT pkg.*, m.organizer_email, m.host_email, m.confidentiality
          FROM meeting_package pkg
          JOIN meeting m ON m.id = pkg.meeting_id
-        WHERE pkg.id = ?1${includeDeleted ? "" : " AND pkg.deleted_at IS NULL"}`,
+        WHERE pkg.id = ?1${
+          includeDeleted ? "" : " AND pkg.deleted_at IS NULL"
+        }`,
     )
     .bind(pkgId)
     .first();
@@ -3075,15 +3094,55 @@ app.put("/v1/packages/:id/files/:fileId", async (c) => {
     return c.json({ error: "forbidden" }, 403);
   }
   const fileId = c.req.param("fileId");
+  const contentType =
+    c.req.header("content-type") || "application/octet-stream";
   const body = await c.req.arrayBuffer();
   if (!body.byteLength) {
     return c.json({ error: "empty body" }, 400);
   }
-  await c.env.BUCKET.put(packageFileKey(pkg.id, fileId), body, {
-    httpMetadata: {
-      contentType: c.req.header("content-type") || "application/octet-stream",
-    },
+  const r2Key = packageFileKey(pkg.id, fileId);
+  await c.env.BUCKET.put(r2Key, body, {
+    httpMetadata: { contentType },
   });
+  // Package-OWNED attachments (e.g. a biên bản PDF the curator adds from their
+  // computer) arrive here with an `attach-…` id and NO pre-existing `file` row.
+  // The recap list / export / viewer all JOIN meeting_package_file → file, so
+  // without a `file` row the attachment would silently vanish from every
+  // surface. Insert one (keyed by the same id, pointing at the package R2 key)
+  // so it flows through automatically. Re-uploaded MEETING files already own a
+  // `file` row — left untouched — and the reserved `__board__` asset keeps no
+  // row (it must NOT appear in the curated file list). (Change 1.)
+  if (fileId.startsWith("attach-")) {
+    // x-name carries the (possibly Unicode) display name URL-encoded for
+    // header-transport safety; decode it back for storage. Fall back to the
+    // raw header if it isn't valid percent-encoding.
+    const rawName = c.req.header("x-name") ?? null;
+    let name: string | null = rawName;
+    if (rawName) {
+      try {
+        name = decodeURIComponent(rawName);
+      } catch {
+        name = rawName;
+      }
+    }
+    await c.env.DB.prepare(
+      `INSERT INTO file (id, meeting_id, project_id, kind, name, size, r2_key, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+       ON CONFLICT(id) DO UPDATE SET
+         size = excluded.size, r2_key = excluded.r2_key, name = excluded.name`,
+    )
+      .bind(
+        fileId,
+        pkg.meeting_id,
+        null,
+        attachmentKind(contentType),
+        name,
+        body.byteLength,
+        r2Key,
+        now(),
+      )
+      .run();
+  }
   // Ensure the file is part of the package even if it wasn't pre-listed.
   await c.env.DB.prepare(
     `INSERT OR IGNORE INTO meeting_package_file (package_id, file_id)

@@ -17,7 +17,10 @@ import {
   loadFromStorage,
 } from "./storage";
 
-import type { FileId, InitializedExcalidrawImageElement } from "@excalidraw/element/types";
+import type {
+  FileId,
+  InitializedExcalidrawImageElement,
+} from "@excalidraw/element/types";
 import type { BinaryFiles } from "@excalidraw/excalidraw/types";
 
 // Same base-URL resolution as projects.ts / storage.ts.
@@ -243,6 +246,55 @@ export const uploadPackageFile = async (
   }
 };
 
+/** Mint a stable, collision-proof id for a package-owned attachment (a local
+ *  file the curator adds, e.g. a biên bản PDF). The `attach-` prefix is the
+ *  server's signal to create a backing `file` row (see PUT .../files/:fileId),
+ *  and keeps it clear of meeting file ids and the reserved `__board__` asset. */
+export const newAttachmentId = (): string =>
+  `attach-${
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36)
+  }`;
+
+/** Upload one package-OWNED attachment (already plaintext local bytes) under an
+ *  `attach-…` id, carrying its display name in `x-name`. Mirrors
+ *  uploadPackageFile but adds the name header so the server records a usable
+ *  `file.name` (the recap list / zip / viewer all read it). */
+export const uploadPackageAttachment = async (
+  pkgId: string,
+  fileId: string,
+  bytes: ArrayBuffer,
+  contentType: string,
+  name: string,
+): Promise<boolean> => {
+  if (!IS_PACKAGES_CONFIGURED) {
+    return false;
+  }
+  try {
+    const res = await fetchWithAuth(
+      `${STORAGE_URL}/v1/packages/${encodeURIComponent(
+        pkgId,
+      )}/files/${encodeURIComponent(fileId)}`,
+      {
+        method: "PUT",
+        headers: {
+          "content-type": contentType || "application/octet-stream",
+          // RFC-2047-free: header values must be latin1, so URL-encode the
+          // (possibly Unicode) filename and decode it server-side is overkill —
+          // the server stores it verbatim and it only feeds a display label /
+          // zip entry name. Encode to keep the header transport-safe.
+          "x-name": encodeURIComponent(name),
+        },
+        body: bytes,
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
 /** Store the exported board PNG as a package asset (so the offline zip ships a
  *  standalone board image alongside the in-recap data URL). Re-uses the same
  *  per-file upload route under the package prefix, keyed by a reserved id. */
@@ -293,9 +345,7 @@ export const publishPackage = async (pkgId: string): Promise<boolean> => {
 };
 
 /** Download the offline bundle (.zip) for a package. */
-export const exportPackageZip = async (
-  pkgId: string,
-): Promise<Blob | null> => {
+export const exportPackageZip = async (pkgId: string): Promise<Blob | null> => {
   if (!IS_PACKAGES_CONFIGURED) {
     return null;
   }
@@ -559,6 +609,12 @@ export const decryptMeetingChat = async (
  *  null on any decrypt / export failure (recap still publishes without the
  *  board image). */
 const BOARD_MAX_SIDE_PX = 2000;
+// The live meeting canvas is DARK (app theme defaults to dark; see
+// useHandleAppTheme + the PWA theme-color / --mcm-bg). The recap board image
+// must look like the dark board users actually saw, not an inverted white
+// sheet — so we export on this canvas-dark background with dark-mode element
+// rendering. Matches #121212 used for --mcm-bg and the PWA theme-color.
+const BOARD_DARK_BG = "#121212";
 export const exportMeetingBoardPng = async (
   roomId: string,
   roomKey: string | null,
@@ -591,8 +647,14 @@ export const exportMeetingBoardPng = async (
       elements: elements as Parameters<typeof exportToBlob>[0]["elements"],
       files,
       mimeType: "image/png",
-      // White board background + cap the longest side so the recap stays small.
-      appState: { exportBackground: true, viewBackgroundColor: "#ffffff" },
+      // DARK board background + dark-mode element rendering so the capture
+      // matches the dark canvas users saw. Cap the longest side so the recap
+      // stays small.
+      appState: {
+        exportBackground: true,
+        exportWithDarkMode: true,
+        viewBackgroundColor: BOARD_DARK_BG,
+      },
       maxWidthOrHeight: BOARD_MAX_SIDE_PX,
     });
     const bytes = await blob.arrayBuffer();

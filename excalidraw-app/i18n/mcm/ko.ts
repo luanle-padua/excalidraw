@@ -1651,6 +1651,13 @@ export const ko: Widened<typeof vi> = {
     filesEmpty: "이 회의에는 아직 파일이 없어요.",
     filesLoading: "파일 목록을 불러오는 중…",
     selectedCount: "{count}개 파일 선택됨",
+    // Additional attachments: local files the curator adds to the package
+    // (e.g. a meeting-minutes PDF) on top of the meeting's own files.
+    attachLabel: "추가 첨부 자료",
+    attachHint: "내 컴퓨터의 파일(예: 회의록 PDF)을 패키지에 추가하세요.",
+    attachAdd: "파일 추가…",
+    attachRemove: "제거",
+    attachUploading: "첨부 파일을 업로드하는 중…",
     audienceLabel: "공유 대상",
     audienceMeeting: "회의 참석자",
     audienceProject: "프로젝트 전체",

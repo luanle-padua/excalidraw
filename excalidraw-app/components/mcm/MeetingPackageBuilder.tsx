@@ -9,8 +9,15 @@
 // each chosen file is fetched + decrypted, then re-uploaded as PLAINTEXT into
 // the package's server-readable R2 prefix. The raw meeting is left untouched.
 
-import { FileText, Image as ImageIcon, Package, Box } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  FileText,
+  Image as ImageIcon,
+  Package,
+  Box,
+  X,
+  Plus,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -20,7 +27,9 @@ import {
   exportMeetingBoardPng,
   exportPackageZip,
   listMeetingFiles,
+  newAttachmentId,
   publishPackage,
+  uploadPackageAttachment,
   uploadPackageBoard,
   uploadPackageFile,
   uploadPackageRecap,
@@ -89,7 +98,9 @@ const renderRecapHtml = (args: {
   };
 }): string => {
   const fileLis = args.files
-    .map((f) => `<li>${esc(f.name || f.id)} <span>${fmtSize(f.size)}</span></li>`)
+    .map(
+      (f) => `<li>${esc(f.name || f.id)} <span>${fmtSize(f.size)}</span></li>`,
+    )
     .join("\n");
   const boardSection = args.boardDataUrl
     ? `<section class="board"><h2>${esc(args.labels.board)}</h2>
@@ -118,7 +129,7 @@ const renderRecapHtml = (args: {
   h1 { font-size: 26px; margin: 0 0 4px; }
   h2 { font-size: 17px; margin: 32px 0 12px; }
   .board img { width: 100%; height: auto; border: 1px solid #e5e5ea;
-    border-radius: 12px; background: #fff; display: block; }
+    border-radius: 12px; background: #121212; display: block; }
   .summary { white-space: pre-wrap; margin: 24px 0; }
   .chat { display: flex; flex-direction: column; gap: 8px; }
   .msg { padding: 8px 12px; border: 1px solid #e5e5ea; border-radius: 12px;
@@ -152,6 +163,13 @@ const renderRecapHtml = (args: {
 </body>
 </html>`;
 };
+
+// A package-OWNED attachment the curator adds from their computer (e.g. a biên
+// bản PDF) — separate from the meeting's own files. Held in component state
+// with a stable `attach-…` id and the raw File; the bytes are only uploaded on
+// save (publish/export), so removing one before save leaves NO orphan
+// rows/blobs server-side.
+type Attachment = { id: string; file: File };
 
 const downloadBlob = (filename: string, blob: Blob): void => {
   const url = URL.createObjectURL(blob);
@@ -189,6 +207,9 @@ export const MeetingPackageBuilder = ({
   const [files, setFiles] = useState<MeetingFileRow[]>([]);
   const [filesLoading, setFilesLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Extra local files the curator attaches on top of the meeting's own files.
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState<string | null>(null);
 
@@ -244,6 +265,27 @@ export const MeetingPackageBuilder = ({
     });
   };
 
+  // Pick local files to attach. Appended (not replaced) so repeated picks
+  // accumulate; the same File can be picked twice (distinct ids) — harmless.
+  const onAddFiles = (picked: FileList | null) => {
+    if (!picked || !picked.length) {
+      return;
+    }
+    const next: Attachment[] = [];
+    for (const file of Array.from(picked)) {
+      next.push({ id: newAttachmentId(), file });
+    }
+    setAttachments((prev) => [...prev, ...next]);
+    // Reset the input so re-picking the SAME file fires onChange again.
+    if (attachInputRef.current) {
+      attachInputRef.current.value = "";
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
   // Create-or-reuse a draft, upload the chosen (decrypted) files + recap, and
   // return the package id. Shared by Publish and Export. Returns null on a
   // hard failure (caller surfaces the error).
@@ -279,6 +321,25 @@ export const MeetingPackageBuilder = ({
       }
     }
 
+    // Upload the curator's extra local attachments as package-owned plaintext
+    // files. Each gets its stable `attach-…` id; the server creates the backing
+    // `file` row + meeting_package_file link, so they flow into the recap list,
+    // export zip, and viewer automatically (same JOIN as meeting files). Only
+    // uploaded HERE (on save), so an attachment removed before save never
+    // touches the server.
+    if (attachments.length) {
+      setPhase(t("pkg.attachUploading"));
+      for (const a of attachments) {
+        await uploadPackageAttachment(
+          pkgId,
+          a.id,
+          await a.file.arrayBuffer(),
+          a.file.type || "application/octet-stream",
+          a.file.name,
+        );
+      }
+    }
+
     // Capture what the meeting visually WAS: export the decrypted board to a
     // PNG, and pull the chat conversation. Both are fail-soft — a failure here
     // just omits that recap section, never blocks publishing/exporting.
@@ -290,13 +351,25 @@ export const MeetingPackageBuilder = ({
     }
     const chat = await decryptMeetingChat(roomId, roomKey);
 
+    // Recap file list = chosen meeting files + the curator's added attachments
+    // (shaped as MeetingFileRow so they render identically in the list).
+    const recapFiles: MeetingFileRow[] = [
+      ...selectedFiles,
+      ...attachments.map((a) => ({
+        id: a.id,
+        kind: "doc",
+        name: a.file.name,
+        size: a.file.size,
+      })),
+    ];
+
     const label = (key: McmKey): string => t(key);
     await uploadPackageRecap(
       pkgId,
       renderRecapHtml({
         title: title.trim() || meetingTitle,
         summary,
-        files: selectedFiles,
+        files: recapFiles,
         meetingId: roomId,
         boardDataUrl: board?.dataUrl ?? null,
         chat,
@@ -423,7 +496,9 @@ export const MeetingPackageBuilder = ({
             <h2 className="mcm-log-modal__title">
               <Package size={18} aria-hidden="true" /> {t("pkg.builderTitle")}
             </h2>
-            <span className="mcm-log-modal__meta">{t("pkg.builderSubtitle")}</span>
+            <span className="mcm-log-modal__meta">
+              {t("pkg.builderSubtitle")}
+            </span>
           </div>
         </div>
 
@@ -487,10 +562,55 @@ export const MeetingPackageBuilder = ({
           </div>
 
           <div className="mcm-pkg-field">
+            <span className="mcm-invite__label">{t("pkg.attachLabel")}</span>
+            <span className="mcm-pkg-attach__hint">{t("pkg.attachHint")}</span>
+            <input
+              ref={attachInputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => onAddFiles(e.target.files)}
+              disabled={busy}
+            />
+            <button
+              type="button"
+              className="mcm-btn mcm-btn--secondary mcm-pkg-attach__add"
+              onClick={() => attachInputRef.current?.click()}
+              disabled={busy}
+            >
+              <Plus size={15} aria-hidden="true" /> {t("pkg.attachAdd")}
+            </button>
+            {attachments.length > 0 && (
+              <ul className="mcm-pkg-files mcm-pkg-attach__list">
+                {attachments.map((a) => (
+                  <li key={a.id} className="mcm-pkg-file mcm-pkg-attach__item">
+                    <FileText size={15} aria-hidden="true" />
+                    <span className="mcm-pkg-file__name">{a.file.name}</span>
+                    <span className="mcm-pkg-file__size">
+                      {fmtSize(a.file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      className="mcm-pkg-attach__remove"
+                      aria-label={t("pkg.attachRemove")}
+                      title={t("pkg.attachRemove")}
+                      onClick={() => removeAttachment(a.id)}
+                      disabled={busy}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mcm-pkg-field">
             <span className="mcm-invite__label">{t("pkg.audienceLabel")}</span>
             <div className="mcm-pkg-audience">
               {AUDIENCES.map((a) => {
-                const disabled = busy || (a.value === "project" && projectBlocked);
+                const disabled =
+                  busy || (a.value === "project" && projectBlocked);
                 return (
                   <label
                     key={a.value}

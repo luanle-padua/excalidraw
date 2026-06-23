@@ -1716,6 +1716,13 @@ export const vi = {
     filesEmpty: "Cuộc họp này chưa có file nào.",
     filesLoading: "Đang tải danh sách file…",
     selectedCount: "Đã chọn {count} file",
+    // Additional attachments: local files the curator adds to the package
+    // (e.g. a biên bản PDF) on top of the meeting's own files.
+    attachLabel: "Tài liệu đính kèm thêm",
+    attachHint: "Thêm file từ máy của bạn (VD: biên bản PDF) vào gói.",
+    attachAdd: "Thêm file…",
+    attachRemove: "Gỡ",
+    attachUploading: "Đang tải file đính kèm…",
     audienceLabel: "Người xem",
     audienceMeeting: "Người dự họp",
     audienceProject: "Cả dự án",

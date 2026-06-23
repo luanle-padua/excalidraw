@@ -3501,6 +3501,60 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 }
 
+// Additional attachments (curator's local files added to the package).
+.mcm-pkg-attach {
+  &__hint {
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    margin-bottom: 2px;
+  }
+
+  &__add {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__list {
+    margin-top: 8px;
+  }
+
+  // Attachment rows are a flat flex row (no checkbox label wrapper like the
+  // meeting-file picker), with a trailing remove button.
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 10px;
+  }
+
+  &__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 140ms ease, color 140ms ease;
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+}
+
 .mcm-pkg-audience {
   display: flex;
   flex-direction: column;

@@ -1644,6 +1644,14 @@ export const en: Widened<typeof vi> = {
     filesEmpty: "This meeting has no files yet.",
     filesLoading: "Loading files…",
     selectedCount: "{count} file(s) selected",
+    // Additional attachments: local files the curator adds to the package
+    // (e.g. a meeting-minutes PDF) on top of the meeting's own files.
+    attachLabel: "Additional attachments",
+    attachHint:
+      "Add files from your computer (e.g. a minutes PDF) to the package.",
+    attachAdd: "Add files…",
+    attachRemove: "Remove",
+    attachUploading: "Uploading attachments…",
     audienceLabel: "Audience",
     audienceMeeting: "Meeting attendees",
     audienceProject: "Whole project",
