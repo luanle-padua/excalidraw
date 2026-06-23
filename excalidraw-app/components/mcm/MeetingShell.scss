@@ -11895,7 +11895,11 @@ body:has(.excalidraw.theme--dark) {
   &__foot {
     display: flex;
     align-items: center;
-    gap: 8px;
+    // Wrap to a second line when status + Recap badge + project chip don't fit
+    // on one row (the Recap pill made a 3-item row overflow on narrow cards).
+    flex-wrap: wrap;
+    gap: 6px;
+    row-gap: 6px;
     margin-top: 6px;
     min-width: 0;
   }

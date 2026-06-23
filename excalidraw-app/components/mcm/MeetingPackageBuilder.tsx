@@ -126,16 +126,20 @@ const renderRecapHtml = (args: {
     ? `<section class="board"><h2>${esc(args.labels.board)}</h2>
   <img alt="${esc(args.labels.board)}" src="${args.boardDataUrl}" /></section>`
     : "";
+  // Chat is rendered as a compact, scrollable "notepad" log (one line per
+  // message) — NOT one bordered bubble per message — so a long conversation
+  // (hundreds/thousands of lines) stays a tidy, bounded block instead of an
+  // endless wall of cards.
   const chatSection = args.chat.length
-    ? `<section><h2>${esc(args.labels.chat)}</h2>
-  <div class="chat">${args.chat
+    ? `<section><h2>${esc(args.labels.chat)} <span class="count">(${
+        args.chat.length
+      })</span></h2>
+  <div class="chatlog">${args.chat
     .map(
       (m) =>
-        `<div class="msg"><span class="who">${esc(
-          m.username || "—",
-        )}</span><span class="said">${esc(m.text)}</span></div>`,
+        `<div class="cl"><b>${esc(m.username || "—")}:</b> ${esc(m.text)}</div>`,
     )
-    .join("\n")}</div></section>`
+    .join("")}</div></section>`
     : "";
   return `<!doctype html>
 <html lang="vi">
@@ -151,11 +155,12 @@ const renderRecapHtml = (args: {
   .board img { width: 100%; height: auto; border: 1px solid #e5e5ea;
     border-radius: 12px; background: #121212; display: block; }
   .summary { white-space: pre-wrap; margin: 24px 0; }
-  .chat { display: flex; flex-direction: column; gap: 8px; }
-  .msg { padding: 8px 12px; border: 1px solid #e5e5ea; border-radius: 12px;
-    background: #f7f7fa; }
-  .msg .who { font-weight: 600; margin-right: 8px; }
-  .msg .said { white-space: pre-wrap; }
+  h2 .count { color: #8e8e93; font-weight: 400; font-size: 14px; }
+  .chatlog { border: 1px solid #e5e5ea; border-radius: 10px; background: #f7f7fa;
+    padding: 10px 14px; max-height: 420px; overflow-y: auto;
+    font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .chatlog .cl { white-space: pre-wrap; word-break: break-word; padding: 1px 0; }
+  .chatlog .cl b { color: #1d1d1f; font-weight: 600; }
   ul { list-style: none; padding: 0; }
   li { padding: 8px 12px; border: 1px solid #e5e5ea; border-radius: 10px;
     margin-bottom: 6px; display: flex; justify-content: space-between; }
