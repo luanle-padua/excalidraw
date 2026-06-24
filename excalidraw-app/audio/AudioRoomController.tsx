@@ -9,10 +9,14 @@
 // is enabled (see ensureMic). When the room link clears, we tear everything
 // down.
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { useAtomValue, useSetAtom } from "../app-jotai";
-import { activeRoomLinkAtom, collabAPIAtom } from "../collab/Collab";
+import {
+  activeRoomLinkAtom,
+  collabAPIAtom,
+  meetingViewOnlyAtom,
+} from "../collab/Collab";
 import { showAppToast } from "../data/appToast";
 import { getDailyToken } from "../data/projects";
 import { useT } from "../i18n/mcm";
@@ -45,6 +49,10 @@ import type { STTLang } from "./sttSession";
 export const AudioRoomController = () => {
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
+  // When the meeting ENDS (End-for-all → review), the room link stays intact
+  // (the user keeps reviewing in-room) but the live call must be torn down —
+  // otherwise they keep seeing/hearing the other participant's live a/v.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const recorder = useAtomValue(recorderInstanceAtom);
   const audioState = useAtomValue(audioStateAtom);
   const sttEnabled = useAtomValue(sttEnabledAtom);
@@ -92,45 +100,67 @@ export const AudioRoomController = () => {
     recorderRef.current = recorder;
   }, [recorder]);
 
+  // Tear the live call all the way down: close the recorder, stop+destroy the
+  // DailyAudio (leaves the room, stops remote a/v playback + local camera/mic),
+  // and reset every call-derived atom to idle. Used by BOTH the link-clear
+  // branch (leaving the meeting) AND the view-only effect (meeting ENDED but the
+  // user stays in-room to review). It intentionally does NOT touch
+  // activeRoomLink — the caller decides whether the room itself survives.
+  // Idempotent: a null roomRef is a no-op, so double-teardown is safe.
+  const teardownCall = useCallback(() => {
+    const room = roomRef.current;
+    if (!room) {
+      return;
+    }
+    const rec = recorderRef.current;
+    if (rec) {
+      rec.close();
+      recorderRef.current = null;
+      setRecorderInstance(null);
+      setRecordingState({
+        status: "idle",
+        inputCount: 0,
+        lastResult: null,
+        errorMessage: null,
+      });
+    }
+    room.stop();
+    roomRef.current = null;
+    setAudioRoomInstance(null);
+    setAudioState({
+      status: "idle",
+      muted: false,
+      canTransmit: true,
+      peers: new Map(),
+      errorKind: null,
+      errorMessage: null,
+    });
+    setVideoTiles(new Map());
+    setCameraState({ status: "off", errorKind: null, errorMessage: null });
+    setActiveSpeaker(null);
+    // Phase 1: drop any reconnecting/unstable banner + reset the quality
+    // chip when the call tears down, so a new call never inherits a stale
+    // network-warning UI (symmetric with DailyAudio.stop()).
+    setConnectionState(CONNECTION_STATE_DEFAULT);
+  }, [
+    setRecorderInstance,
+    setRecordingState,
+    setAudioRoomInstance,
+    setAudioState,
+    setVideoTiles,
+    setCameraState,
+    setActiveSpeaker,
+    setConnectionState,
+  ]);
+
   // Provision / tear down the AudioRoom based on collab room state. We
   // only *create* the instance here — the mic prompt is deferred to
   // the explicit "Join audio" click so we never ask before the user
-  // expects it.
+  // expects it. A finished meeting in read-only review (viewOnly) never holds
+  // a live call: we both refuse to provision and tear any live call down.
   useEffect(() => {
-    if (!collabAPI || !activeRoomLink) {
-      const room = roomRef.current;
-      if (room) {
-        const rec = recorderRef.current;
-        if (rec) {
-          rec.close();
-          recorderRef.current = null;
-          setRecorderInstance(null);
-          setRecordingState({
-            status: "idle",
-            inputCount: 0,
-            lastResult: null,
-            errorMessage: null,
-          });
-        }
-        room.stop();
-        roomRef.current = null;
-        setAudioRoomInstance(null);
-        setAudioState({
-          status: "idle",
-          muted: false,
-          canTransmit: true,
-          peers: new Map(),
-          errorKind: null,
-          errorMessage: null,
-        });
-        setVideoTiles(new Map());
-        setCameraState({ status: "off", errorKind: null, errorMessage: null });
-        setActiveSpeaker(null);
-        // Phase 1: drop any reconnecting/unstable banner + reset the quality
-        // chip when the call tears down, so a new call never inherits a stale
-        // network-warning UI (symmetric with DailyAudio.stop()).
-        setConnectionState(CONNECTION_STATE_DEFAULT);
-      }
+    if (!collabAPI || !activeRoomLink || viewOnly) {
+      teardownCall();
       return;
     }
 
@@ -342,6 +372,8 @@ export const AudioRoomController = () => {
   }, [
     collabAPI,
     activeRoomLink,
+    viewOnly,
+    teardownCall,
     setAudioRoomInstance,
     setAudioState,
     setRecorderInstance,

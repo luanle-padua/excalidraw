@@ -30,7 +30,11 @@ import {
   ScreenAudioRecorder,
   ScreenVideoRecorder,
 } from "../../audio/clientRecording";
-import { activeRoomLinkAtom, collabAPIAtom } from "../../collab/Collab";
+import {
+  activeRoomLinkAtom,
+  collabAPIAtom,
+  meetingViewOnlyAtom,
+} from "../../collab/Collab";
 import { uploadRecording } from "../../data/recordings";
 import { roomRecordingAtom } from "../../data/roomRecording";
 import { sessionAtom } from "../../data/session";
@@ -111,6 +115,11 @@ export const CloudRecordingControls = () => {
   const hostSocketId = useAtomValue(hostSocketIdAtom);
   const myProfile = useAtomValue(userProfileAtom);
   const session = useAtomValue(sessionAtom);
+  // When the meeting is ended-for-all this flips true and the client drops into
+  // read-only review while STAYING connected. The owner's socket never closes,
+  // so the DO's disconnect-based lock auto-release never fires — we must stop the
+  // session HERE (see the on-review auto-stop effect below).
+  const meetingViewOnly = useAtomValue(meetingViewOnlyAtom);
 
   const isHost = !!mySocketId && mySocketId === hostSocketId;
   const isRecording = roomRecording.recording;
@@ -364,6 +373,36 @@ export const CloudRecordingControls = () => {
       setErrorMessage(t("cloudRecording.uploadFailed"));
     }
   }, [activeRoomLink, collabAPI, t]);
+
+  // MEETING ENDED-FOR-ALL → auto-stop the OWNER's session exactly once.
+  //
+  // End-for-all flips meetingViewOnlyAtom → true while this client STAYS
+  // connected in review. The header's handleEndMeeting only flips to review; it
+  // never stops recording. So without this, the owner's screen recorders never
+  // flush+upload and releaseRecordingLock() is never sent → the DO recording lock
+  // STRANDS (it otherwise only clears on the owner's socket disconnect, which
+  // doesn't happen). Calling the existing stop() here flushes+uploads the owner's
+  // screen files AND releases the lock → the DO broadcasts recording-state:false,
+  // so every ParticipantMicRecorder stops+uploads promptly and the lock clears.
+  //
+  // This MUST run only for the session OWNER while a session is actually live
+  // (iOwnSession) — a non-owner / non-recording client has nothing to stop and
+  // must never release someone else's lock. A ref flag makes it fire EXACTLY
+  // ONCE per session: stop() is not fully idempotent (a second call would re-send
+  // releaseRecordingLock + re-toggle busy), and it does not touch the manual Stop
+  // button — that path simply leaves iOwnSession false on the next render.
+  const autoStoppedRef = useRef(false);
+  useEffect(() => {
+    if (!iOwnSession) {
+      // Session over (manual stop or never started) → arm for the next session.
+      autoStoppedRef.current = false;
+      return;
+    }
+    if (meetingViewOnly && !autoStoppedRef.current) {
+      autoStoppedRef.current = true;
+      void stop();
+    }
+  }, [meetingViewOnly, iOwnSession, stop]);
 
   // Best-effort: synchronously stop the owner recorders + release the lock if
   // the owner's tab closes mid-recording. In-flight bytes are lost (we can't

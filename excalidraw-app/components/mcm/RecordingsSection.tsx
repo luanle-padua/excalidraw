@@ -150,6 +150,28 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
     void load();
   }, [load]);
 
+  // Recording uploads are ASYNC: a participant's per-speaker mic file finalizes
+  // ~6-8s after the meeting ends, and the owner's screen tracks upload on stop.
+  // The list is fetched once on mount, so opening Recordings right after End can
+  // show an empty "No recordings" even though files are still landing (#26-B).
+  // Auto-retry a BOUNDED number of times while the list is still empty so late
+  // uploads appear without a manual Refresh; stop the instant a row arrives.
+  const emptyRetriesRef = useRef(0);
+  useEffect(() => {
+    if (loading || rows.length > 0) {
+      emptyRetriesRef.current = 0;
+      return;
+    }
+    if (emptyRetriesRef.current >= 6) {
+      return; // ~18s of polling — a genuinely empty meeting; give up.
+    }
+    const id = window.setTimeout(() => {
+      emptyRetriesRef.current += 1;
+      void load();
+    }, 3000);
+    return () => window.clearTimeout(id);
+  }, [loading, rows.length, load]);
+
   // Free the buffered blob when the section unmounts.
   useEffect(
     () => () => {

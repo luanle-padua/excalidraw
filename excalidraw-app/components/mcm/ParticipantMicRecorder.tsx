@@ -41,9 +41,9 @@ type ActiveRun = {
 export const ParticipantMicRecorder = () => {
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
   const audioRoom = useAtomValue(audioRoomInstanceAtom);
-  // Subscribing to audioState makes this component re-render (and the effect
-  // re-run) when the mic goes live AFTER recording already started — covering
-  // "join the call mid-recording" without polling.
+  // We read audioState so a mic going live mid-recording is reflected — but the
+  // start effect must DEPEND on canTransmit (below), not merely re-render: a
+  // re-render alone never re-runs an effect whose dep array is unchanged.
   const audioState = useAtomValue(audioStateAtom);
   const roomRecording = useAtomValue(roomRecordingAtom);
 
@@ -52,6 +52,13 @@ export const ParticipantMicRecorder = () => {
   const sessionId = roomRecording.sessionId;
   const startedAt = roomRecording.startedAt;
   const audioLive = audioState.status === "live";
+  // canTransmit = the local mic has been acquired (DailyAudio: !!localStream). It
+  // flips false→true the instant a listener-only participant unmutes — the signal
+  // a per-speaker mic recorder MUST react to. Without it (the original bug #26-A),
+  // a participant who unmutes AFTER Record starts is NEVER captured, so only the
+  // owner (already transmitting) gets a file. STT works precisely because its
+  // effect depends on canTransmit; this mirrors that.
+  const canTransmit = audioState.canTransmit;
 
   // The single in-flight run, held in a ref so the stop/upload reads the values
   // captured AT START even if the atoms have since changed.
@@ -117,7 +124,7 @@ export const ParticipantMicRecorder = () => {
     }
     // We intentionally do NOT restart on a mic blip mid-session; once started we
     // keep the one continuous file until the session ends.
-  }, [recording, roomId, sessionId, startedAt, audioLive, audioRoom]);
+  }, [recording, roomId, sessionId, startedAt, audioLive, canTransmit, audioRoom]);
 
   // Leave / unmount while still recording → flush our mic file (best effort).
   // The async upload may not finish if the tab is closing, but a normal Leave
