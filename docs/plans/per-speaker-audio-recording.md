@@ -59,6 +59,41 @@ Host (đang giữ stream mỗi peer theo `socketId`) tạo 1 recorder/peer + 1 c
 
 **Khớp với #23:** "mỗi user 1 file" (Hướng 1) KHÔNG mâu thuẫn độc quyền — vẫn là **1 phiên record (1 chủ)**; các recorder mic per-client chỉ là *nô lệ* của phiên đó (bật/tắt theo lock), không phải nhiều phiên độc lập. → Làm khoá này **P0**, trước khi tách track.
 
+## 8. BUILD CONTRACT (chốt — mọi agent bám theo)
+**Owner chốt:** Hướng 1, full P0–P3, không file `mixed` dư, tối ưu dung lượng. Build thẳng production.
+
+### Schema (migration `0037_recording_per_speaker.sql` — ĐÃ viết)
+`recording` thêm: `kind TEXT NOT NULL DEFAULT 'mixed'` (`mic`|`screen-audio`|`screen-video`|`mixed`), `speaker_id TEXT`, `speaker_name TEXT`, `session_id TEXT`. Index `ix_recording_session(meeting_id, session_id)`.
+
+### R2 key
+Giữ nguyên `recordings/{meetingId}/{recordingId}.webm` (recordingId unique; kind ở D1).
+
+### Worker — upload `PUT /v1/recordings/:roomId/upload?duration=<sec>&kind=<…>&sessionId=<uuid>`
+- Body = WebM bytes; `Content-Type` header → contentType lưu (`audio/webm` cho mic/screen-audio, `video/webm` cho screen-video).
+- `speaker_id`/`speaker_name` **server tự lấy từ JWT** khi `kind='mic'` (KHÔNG tin client).
+- Gate: `kind∈{screen-audio,screen-video,mixed}` → `canManageRecording` (chỉ owner). `kind='mic'` → **authenticated + có quyền vào meeting + meeting chưa finished** (mọi participant). Reuse helper access meeting hiện có; nếu chưa có thì check participant/membership.
+- INSERT thêm kind/speaker_id/speaker_name/session_id. Trả `{ok,id}`.
+
+### Worker — list `GET /v1/recordings/:roomId`
+SELECT trả thêm `kind, speaker_id, speaker_name, session_id`. Gate giữ nguyên (review = host/leadership).
+
+### DO recording lock (roomDO.ts) — **giữ owner trong socket-attachment** (sống qua hibernation, tự nhả khi socket đóng)
+Control frame mới (DO chặn xử lý, KHÔNG relay):
+- C→DO `recording-acquire` `[{sessionId, startedAt}]` → nếu 1 socket KHÁC đang giữ lock → reply `recording-lock` `[{ok:false, owner:{email,name,startedAt,sessionId}}]`. Ngược lại set `attachment.recording={sessionId,startedAt,email,name}` trên socket này → reply `recording-lock` `[{ok:true, owner:{…}}]` + broadcast `recording-state`.
+- C→DO `recording-release` `[]` → nếu sender đang giữ → clear attachment.recording → broadcast `recording-state` `[{recording:false}]`.
+- DO→C `recording-state` `[{recording, owner?:{email,name}, startedAt?, sessionId?}]` — broadcast khi acquire/release/close, **và unicast cho socket vừa join** (late-join thấy phiên đang chạy). Thay cho hack re-broadcast 5s.
+- Auto-release: trong `webSocketClose` + ghost reaper, nếu socket bị gỡ có `attachment.recording` → broadcast `recording-state` false.
+
+### Client recorder (clientRecording.ts) + upload (data/recordings.ts)
+- **MIC-only recorder**: `audio/webm;codecs=opus`, **mono, ~32 kbps**, CHỈ mic local (không trộn peer/screen). Mọi participant chạy khi phiên active.
+- **SCREEN-AUDIO recorder** (owner): `audio/webm` opus mono ~48 kbps từ screenAudio stream (khi có share audio).
+- **SCREEN-VIDEO recorder** (owner, opt-in): canvas-compositor VP8 ~1.5 Mbps (như hiện tại).
+- **Skip-silent**: mic không có tiếng đáng kể (mute/im cả buổi) → KHÔNG upload (không tạo row rỗng).
+- `uploadRecording(roomId, blob, { durationSec, kind, sessionId })`.
+
+### Integration (Lead) — KHÔNG agent đụng
+`CloudRecordingControls.tsx` (acquire/release lock + UI non-owner disabled), `Collab.tsx`/portal (gửi/nhận control frame lock → cập nhật `roomRecordingAtom{recording,owner,startedAt,sessionId}`), vòng đời mic per-client (phiên active + có mic → ghi mic local → stop+upload khi hết phiên/rời), i18n.
+
 ## 6. Quyết định cần anh chốt
 1. **Hướng 1 (mỗi client tự ghi — khuyến nghị) hay Hướng 2 (host ghi tách)?**
 2. **Có giữ thêm 1 file `mixed`** để xem lại nhanh, hay chỉ giữ per-source?
