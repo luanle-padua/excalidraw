@@ -24,10 +24,10 @@ Statuses: ☐ todo · ◐ in progress · ☑ done · ⏸ blocked/decision-needed
 | 15 | Blocking bugs: record-frozen · consent re-prompt · chat re-entry | ☑ deployed (`32fb5b27`) | FE | `CloudRecordingControls`, `MeetingConsentGate`, `AppSidebar` |
 | 16 | Meeting UI overlaps + z-index scale | ☑ deployed (`401fe244`) | FE | `MeetingShell.scss`, `ConnectionBanner.scss`, `KnockBanner.scss`, `LiveCaptionDock.scss` |
 | 12 | Client REC indicator + late-join sync + analytics removal + status colors | ☑ deployed (`dce7e542`) | FE | `RecordingIndicator`/`MeetingShell.scss`, `CloudRecordingControls`, `index.html`, `ProjectManager.scss` |
-| 17 | Consent gate leaking onto dashboard — must render ONLY on meeting join (owner saw it pop on dashboard) | ☑ committed `9147c9b6` (chờ deploy) | FE+Debugger | `MeetingConsentGate.tsx` (gate on `isCollaboratingAtom`) |
-| 18 | Consent copy rewrite — smart/light/persuasive so users click OK instantly (not a dry explicit notice) | ☑ committed `9147c9b6` (chờ deploy) | UX+FE | `MeetingConsentGate.tsx`, i18n `en/ko/vi` |
-| 19 | Replay entry: clicking "Tua lại" shows the player control bar at the bottom directly — drop the intermediate menu + extra click | ☑ committed `9147c9b6` (chờ deploy) | FE | `MeetingHeader.tsx`, `CanvasReplayPlayer/Timeline.tsx`, `CanvasReplay.scss` |
-| 20 | JOIN flow optimization (-2~4s): merge `getMeeting` calls into 1 cached fetch + run `getMeetingChecked` parallel to socket | ◐ dedupe DONE `9147c9b6` (chờ deploy); socket+gate parallelize HOÃN (rủi ro rò presence) | FE | `data/projects.ts`, `Collab.tsx` |
+| 17 | Consent gate leaking onto dashboard — must render ONLY on meeting join (owner saw it pop on dashboard) | ☑ deployed (`b4c360a2`) | FE+Debugger | `MeetingConsentGate.tsx` (gate on `isCollaboratingAtom`) |
+| 18 | Consent copy rewrite — smart/light/persuasive so users click OK instantly (not a dry explicit notice) | ☑ deployed (`b4c360a2`) | UX+FE | `MeetingConsentGate.tsx`, i18n `en/ko/vi` |
+| 19 | Replay entry: clicking "Tua lại" shows the player control bar at the bottom directly — drop the intermediate menu + extra click | ☑ deployed (`b4c360a2`) | FE | `MeetingHeader.tsx`, `CanvasReplayPlayer/Timeline.tsx`, `CanvasReplay.scss` |
+| 20 | JOIN flow optimization (-2~4s): merge `getMeeting` calls into 1 cached fetch + run `getMeetingChecked` parallel to socket | ◐ dedupe deployed (`b4c360a2`); socket+gate parallelize HOÃN (rủi ro rò presence) | FE | `data/projects.ts`, `Collab.tsx` |
 
 ## Findings already established (so the team doesn't re-investigate)
 
