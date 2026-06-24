@@ -1046,11 +1046,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // acting-host rule) or polls until live (guests). `live`, `finished`,
       // unregistered ad-hoc rooms, and explicit review opens pass through.
       if (!viewOnly) {
+        // First gate read goes through the short-lived dedupe so it shares ONE
+        // round-trip with the other open-time readers (MeetingShell,
+        // MeetingConsentGate, MeetingHeader, …) firing for this same roomId.
         let fetched = await getMeetingChecked(roomId);
         if (fetched.kind === "error") {
-          // Transient worker hiccup? One retry before deciding.
+          // Transient worker hiccup? One retry before deciding. `fresh` bypasses
+          // the dedupe so the retry truly re-asks the worker (an `error` is
+          // never cached, but be explicit: a retry must hit the network).
           await new Promise((resolve) => setTimeout(resolve, 1500));
-          fetched = await getMeetingChecked(roomId);
+          fetched = await getMeetingChecked(roomId, { fresh: true });
         }
         if (fetched.kind === "error") {
           // FAIL CLOSED: we can't tell a finished/scheduled meeting from a
@@ -1628,7 +1633,10 @@ class Collab extends PureComponent<CollabProps, CollabState> {
               // verifies as not-finished across all retries and gives up.
               void (async () => {
                 for (let attempt = 0; attempt < 5; attempt++) {
-                  const m = await getMeeting(endedRoomId);
+                  // `fresh`: this verify races D1 read-replica consistency — it
+                  // MUST hit the worker each attempt, never a cached pre-End
+                  // status, or the finished flip is missed and the room strands.
+                  const m = await getMeeting(endedRoomId, { fresh: true });
                   if (this.portal.roomId !== endedRoomId) {
                     return;
                   }
@@ -1750,7 +1758,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       if (!checkingRoomId || !this.portal.socketInitialized) {
         return;
       }
-      void getMeetingChecked(checkingRoomId).then((fetched) => {
+      // `fresh`: revocation is detected ONLY by re-asking the worker live —
+      // a cached "still allowed" from join time would silently keep a kicked
+      // user in the room. The 60s cadence is far longer than the cache TTL,
+      // but bypass explicitly so intent can't drift.
+      void getMeetingChecked(checkingRoomId, { fresh: true }).then((fetched) => {
         if (
           this.portal.roomId === checkingRoomId &&
           fetched.kind === "forbidden"

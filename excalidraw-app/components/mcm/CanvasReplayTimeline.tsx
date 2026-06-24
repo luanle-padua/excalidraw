@@ -1,12 +1,13 @@
-// CANVAS REPLAY — transport UI (play/pause, restart, scrubber, speed, span).
+// CANVAS REPLAY — transport UI (play/pause, restart, scrubber, speed, exit).
 //
 // Pure presentational control bar. It owns no playback or canvas state: the
 // parent (CanvasReplayPlayer) holds the timeline + index and drives the EXISTING
 // review canvas via excalidrawAPI.updateScene. This component only renders the
-// controls and reports user intent back through callbacks, so the same bar can
-// sit inside the modal body or float over a peeked-back canvas.
+// controls and reports user intent back through callbacks. It is rendered as a
+// single bottom-docked bar floating over the review canvas (no modal shell), so
+// the reviewer always sees the board evolve behind it while scrubbing.
 
-import { Eye, EyeOff, Pause, Play, RotateCcw } from "lucide-react";
+import { Pause, Play, RotateCcw, X } from "lucide-react";
 
 import { useT } from "../../i18n/mcm";
 
@@ -26,12 +27,11 @@ export const CanvasReplayTimeline = ({
   idx,
   playing,
   speed,
-  peeking,
   onScrub,
   onTogglePlay,
   onRestart,
   onSpeed,
-  onTogglePeek,
+  onClose,
 }: {
   /** ascending capture timestamps (the scrubber's keyframe stops) */
   timeline: number[];
@@ -39,13 +39,12 @@ export const CanvasReplayTimeline = ({
   idx: number;
   playing: boolean;
   speed: ReplaySpeed;
-  /** whether the modal is collapsed so the live canvas behind is visible */
-  peeking: boolean;
   onScrub: (idx: number) => void;
   onTogglePlay: () => void;
   onRestart: () => void;
   onSpeed: (speed: ReplaySpeed) => void;
-  onTogglePeek: () => void;
+  /** Exit replay — restores the static finished-meeting view. */
+  onClose: () => void;
 }) => {
   const t = useT();
   if (timeline.length === 0) {
@@ -60,7 +59,7 @@ export const CanvasReplayTimeline = ({
       <div className="mcm-replay__controls">
         <button
           type="button"
-          className="mcm-replay__btn"
+          className="mcm-replay__btn mcm-replay__btn--play"
           onClick={onTogglePlay}
           aria-label={playing ? t("replay.pause") : t("replay.play")}
           title={playing ? t("replay.pause") : t("replay.play")}
@@ -117,14 +116,16 @@ export const CanvasReplayTimeline = ({
           ))}
         </div>
 
+        {/* Exit replay — the only "close" affordance now that the bar floats
+            directly over the canvas (no modal chrome to host a × button). */}
         <button
           type="button"
-          className="mcm-replay__btn mcm-replay__btn--peek"
-          onClick={onTogglePeek}
-          aria-label={peeking ? t("replay.hideCanvas") : t("replay.showCanvas")}
-          title={peeking ? t("replay.hideCanvas") : t("replay.showCanvas")}
+          className="mcm-replay__btn mcm-replay__btn--close"
+          onClick={onClose}
+          aria-label={t("replay.exit")}
+          title={t("replay.exit")}
         >
-          {peeking ? <EyeOff size={16} /> : <Eye size={16} />}
+          <X size={16} />
         </button>
       </div>
 

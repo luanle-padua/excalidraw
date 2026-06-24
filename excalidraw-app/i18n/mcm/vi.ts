@@ -888,9 +888,9 @@ export const vi = {
 
   // ---------------- Join-time consent notice -----------------------
   consent: {
-    title: "Trước khi vào họp",
-    body: "Cuộc họp này có thể được ghi âm/ghi hình và xử lý bằng AI để làm dữ liệu dự án. Tiếp tục nghĩa là bạn đồng ý.",
-    accept: "Tôi đồng ý, vào họp",
+    title: "Một lưu ý nhỏ trước khi vào",
+    body: "Để bạn yên tâm tập trung vào cuộc trò chuyện, cuộc họp này có thể được ghi lại và để AI tóm tắt — sau buổi họp bạn sẽ có ghi chú gọn gàng, bản tóm tắt và bản xem lại. Vào họp nghĩa là bạn đồng ý với điều đó.",
+    accept: "Tuyệt, vào họp thôi",
     accepting: "Đang vào…",
   },
 
@@ -1491,6 +1491,7 @@ export const vi = {
       'Tua lại quá trình bảng vẽ tiến triển ngay trên canvas đang xem. Bấm "hiện canvas" để xem khi tua.',
     play: "Phát",
     pause: "Tạm dừng",
+    exit: "Thoát tua lại",
     restart: "Tua lại từ đầu",
     speed: "Tốc độ",
     scrubAria: "Kéo dòng thời gian canvas",

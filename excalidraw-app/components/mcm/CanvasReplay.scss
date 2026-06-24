@@ -1,50 +1,93 @@
 // CANVAS REPLAY (review-mode whiteboard timeline) — Glass Desk.
 //
 // NATIVE player: there is NO embedded Excalidraw here. The replay drives the
-// EXISTING review canvas behind the log modal via updateScene, so this stylesheet
-// only dresses the transport (scrubber + play/pause + speed + span) and the
-// "peek" mode that collapses the modal to a floating control bar so the reviewer
-// can watch the canvas evolve behind it.
+// EXISTING review canvas via updateScene, and the transport is mounted DIRECTLY
+// as a bottom-docked control bar floating over that canvas — no modal shell, no
+// "peek" step. One click on the header's "Tua lại" button shows this bar; its ×
+// (or Escape) hides it. This stylesheet dresses the dock + transport only.
+
+// ---- BOTTOM DOCK -----------------------------------------------------------
+// Fixed, centered, pinned to the bottom of the viewport so it floats over the
+// review canvas. Pointer events stay ON the bar (so play/scrub/close work) while
+// the surrounding area is untouched — there is no backdrop, so the canvas behind
+// remains fully interactive (pan/zoom while scrubbing). Sits below top-of-stack
+// modals (z 9000) but above the canvas + ordinary chrome.
+.mcm-replay-dock {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 1100;
+  width: min(760px, calc(100vw - 36px));
+  max-width: calc(100vw - 36px);
+  animation: mcm-replay-dock-in 180ms ease both;
+  // Pointer events are scoped to the bar itself (set on .mcm-replay below), so
+  // this wrapper never traps clicks meant for the canvas around it.
+  pointer-events: none;
+}
+
+@keyframes mcm-replay-dock-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
 
 .mcm-replay {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
+  pointer-events: auto;
+  border: 1px solid var(--mcm-hairline);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--mcm-surface) 88%, transparent);
+  box-shadow: var(--mcm-elev);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  overflow: hidden;
 
-  &__lead {
-    margin: 0;
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--mcm-text-soft);
+  // Loading / empty / error: a compact single row with its own close affordance
+  // so the reviewer is never trapped (no surrounding modal × to fall back on).
+  &--status-only {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
   }
 
   &__status {
-    padding: 48px 12px;
-    text-align: center;
-    color: var(--mcm-text-soft);
-    font-size: 13.5px;
-    line-height: 1.55;
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 8px;
+    color: var(--mcm-text-soft);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  &__spinner {
+    flex: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 2px solid var(--mcm-hairline);
+    border-top-color: var(--mcm-accent);
+    animation: mcm-replay-spin 0.7s linear infinite;
   }
 
   &__transport {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 12px 14px 10px;
   }
 
   &__controls {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 14px;
-    border: 1px solid var(--mcm-hairline);
-    border-radius: 12px;
-    background: var(--mcm-surface);
     flex-wrap: wrap;
   }
 
@@ -68,8 +111,30 @@
       color: var(--mcm-accent);
     }
 
-    &--peek {
+    // Play/pause is the primary action — paint it in the accent so the eye
+    // lands on it first in the bar.
+    &--play {
+      background: var(--mcm-accent);
+      border-color: var(--mcm-accent);
+      color: #fff;
+
+      &:hover {
+        background: var(--mcm-accent);
+        border-color: var(--mcm-accent);
+        color: #fff;
+        filter: brightness(1.06);
+      }
+    }
+
+    // Exit replay — pushed to the far right; hover goes red to read as "leave".
+    &--close {
       margin-left: auto;
+
+      &:hover {
+        background: var(--mcm-danger-soft);
+        border-color: var(--mcm-danger);
+        color: var(--mcm-danger);
+      }
     }
   }
 
@@ -133,54 +198,32 @@
   }
 }
 
-// ---- STANDALONE REPLAY MODAL ----------------------------------------------
-// The header's "Tua lại" button opens the replay player on its own (no log
-// tabs around it). It reuses the .mcm-log-modal shell so peek mode works for
-// free; this just makes the standalone window a touch more compact than the
-// full log modal so it reads as a focused player, not a document viewer.
-.mcm-log-modal.mcm-replay-modal {
-  width: min(720px, calc(100% - 36px));
-  max-height: min(560px, calc(100vh - 80px));
+@keyframes mcm-replay-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-// ---- PEEK MODE -------------------------------------------------------------
-// While replaying, collapse the log modal to a floating control bar pinned to
-// the bottom and let pointer events fall through the backdrop, so the reviewer
-// watches the EXISTING canvas evolve behind it. Scoped to the body class the
-// player toggles — no edits to the modal's own stylesheet.
-body.mcm-replay-peek {
-  .mcm-log-modal-backdrop {
-    background: transparent;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 0 0 18px;
-    // Click-through to the canvas; the modal re-enables its own pointer events.
-    pointer-events: none;
+// On a narrow viewport let the bar span the full width and keep the controls
+// from overflowing — the scrubber takes the whole first wrap row.
+@media (max-width: 640px) {
+  .mcm-replay-dock {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    transform: none;
+    animation: mcm-replay-dock-in-narrow 180ms ease both;
   }
 
-  .mcm-log-modal {
-    pointer-events: auto;
-    width: min(760px, calc(100% - 36px));
-    max-height: none;
-    border-radius: 14px;
-    box-shadow: var(--mcm-elev);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-  }
-
-  // Hide everything but the replay transport so only the control bar shows.
-  .mcm-log-modal__header,
-  .mcm-log-modal__footer {
-    display: none;
-  }
-
-  .mcm-log-modal__body {
-    padding: 12px 16px;
-    overflow: visible;
-  }
-
-  // The lead paragraph is redundant once we're in the floating bar.
-  .mcm-replay__lead {
-    display: none;
+  @keyframes mcm-replay-dock-in-narrow {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }

@@ -840,9 +840,9 @@ export const en: Widened<typeof vi> = {
 
   // ---------------- Join-time consent notice -----------------------
   consent: {
-    title: "Before you join",
-    body: "This meeting may be recorded and processed by AI as project data. Continuing means you consent.",
-    accept: "I agree, join the meeting",
+    title: "One quick heads-up",
+    body: "So you can stay in the conversation, this meeting may be recorded and summarized by AI — you'll get clean notes, a summary, and a replay afterward. Joining means you're okay with that.",
+    accept: "Sounds good — join",
     accepting: "Joining…",
   },
 
@@ -1415,6 +1415,7 @@ export const en: Widened<typeof vi> = {
       'Replay how the whiteboard evolved on the canvas you\'re reviewing. Toggle "show canvas" to watch as you scrub.',
     play: "Play",
     pause: "Pause",
+    exit: "Exit replay",
     restart: "Restart",
     speed: "Speed",
     scrubAria: "Scrub the canvas timeline",

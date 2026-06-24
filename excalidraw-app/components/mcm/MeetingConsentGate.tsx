@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useAtomValue } from "../../app-jotai";
+import { isCollaboratingAtom } from "../../collab/Collab";
 import {
   CONSENT_VERSION,
   acceptMeetingConsent,
@@ -27,6 +28,16 @@ import { LangSwitcher } from "./LangThemeSwitcher";
  * Reviewing a finished meeting (`viewOnly`) is not attending → no gate. Anonymous
  * link-joins (no session) also skip it (there's no identity to record consent
  * against); the worker still records consent only for authenticated callers.
+ *
+ * IMPORTANT (#17): MeetingShell mounts this gate at ALL times — it wraps the
+ * DASHBOARD too, not just a live room. A `roomId` parsed from the active room
+ * link can linger (or briefly resolve) while the user is back on the dashboard
+ * and NOT in a meeting (e.g. a stale `#room=` fragment in the URL before
+ * `stopCollaboration` nulls it, or browser back). Gating on roomId alone then
+ * flashed the consent notice on the dashboard. The authoritative "I am actually
+ * in a live meeting" signal is `isCollaboratingAtom` (true only on a real join,
+ * false the instant you leave), so we require it here. `viewOnly` (review /
+ * stealth) also sets isCollaborating, so we keep excluding it explicitly.
  */
 export const MeetingConsentGate = ({
   roomId,
@@ -37,12 +48,20 @@ export const MeetingConsentGate = ({
 }) => {
   const t = useT();
   const session = useAtomValue(sessionAtom);
+  // The authoritative "I'm actually inside a live meeting" signal (#17). A
+  // roomId alone can be present on the dashboard (stale URL fragment / race);
+  // this is true ONLY between a real join and leaving, so we never show the
+  // notice on the dashboard.
+  const isCollaborating = useAtomValue(isCollaboratingAtom);
+  // We only attend a LIVE meeting: in a room, collaborating, and NOT reviewing
+  // (review/stealth also flips isCollaborating, so exclude viewOnly here).
+  const inLiveMeeting = !!roomId && isCollaborating && !viewOnly;
   // null = CHECKING (we cover the canvas with a frosted backdrop so the board
   // never flashes before the decision); true = show the consent card; false =
   // no gate. Seed from the per-device cache SYNCHRONOUSLY so a returning user
   // starts at false and never even flashes the backdrop.
   const [needsConsent, setNeedsConsent] = useState<boolean | null>(() => {
-    if (!roomId || viewOnly) {
+    if (!inLiveMeeting) {
       return false;
     }
     try {
@@ -69,8 +88,12 @@ export const MeetingConsentGate = ({
 
   // Ask the registry whether THIS viewer already accepted the current version.
   useEffect(() => {
-    if (!roomId || !session || viewOnly) {
-      setNeedsConsent(null);
+    // Not actually in a live meeting (dashboard / review / anon) → no gate.
+    // Reset to false (not null) so leaving a room can never strand the frosted
+    // backdrop over the dashboard. (`roomId` is repeated so TS narrows it for
+    // the getMeeting call below.)
+    if (!roomId || !inLiveMeeting || !session) {
+      setNeedsConsent(false);
       return;
     }
     try {
@@ -106,13 +129,16 @@ export const MeetingConsentGate = ({
     return () => {
       cancelled = true;
     };
-  }, [roomId, session, viewOnly, consentKey]);
+  }, [roomId, session, inLiveMeeting, consentKey]);
 
-  // Render NOTHING only once we've resolved to "no consent needed". While
-  // checking (null) OR when consent IS needed (true) we render the backdrop so
-  // the board never flashes uncovered before the decision (owner: "thấy canvas
-  // rồi mới hiện consent").
-  if (!roomId || needsConsent === false) {
+  // Render NOTHING unless we're truly in a live meeting AND haven't resolved to
+  // "no consent needed". The inLiveMeeting guard is the #17 backstop: it keeps
+  // the frosted backdrop off the DASHBOARD even mid-check (needsConsent === null
+  // can briefly hold from a previous room before the effect resets it). While
+  // checking (null) OR when consent IS needed (true) — inside a live meeting —
+  // we render the backdrop so the board never flashes uncovered before the
+  // decision (owner: "thấy canvas rồi mới hiện consent").
+  if (!roomId || !inLiveMeeting || needsConsent === false) {
     return null;
   }
 

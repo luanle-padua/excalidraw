@@ -278,6 +278,12 @@ export const updateMeeting = async (
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
       { method: "PATCH", headers: json, body: JSON.stringify(patch) },
     );
+    // A status flip (scheduled→live on Start, →cancelled/finished) must not be
+    // masked by a stale gate read in the SAME tab — bust the dedupe so the next
+    // `getMeetingChecked` (e.g. startCollaboration right after Start) is live.
+    if (res.ok) {
+      invalidateMeetingCache(roomId);
+    }
     return res.ok;
   } catch {
     return false;
@@ -345,6 +351,11 @@ export const registerMeeting = async (m: {
       headers: json,
       body: JSON.stringify(m),
     });
+    // Birth/upsert changes what a gate read sees (a just-created live room must
+    // not read as a cached 404 from a pre-register probe) — bust the dedupe.
+    if (res.ok) {
+      invalidateMeetingCache(m.roomId);
+    }
     return res.ok;
   } catch {
     return false;
@@ -443,13 +454,45 @@ export type MeetingFetch =
   | { kind: "forbidden" }
   | { kind: "error" };
 
-export const getMeetingChecked = async (
-  roomId: string,
-): Promise<MeetingFetch> => {
-  if (!IS_PROJECTS_CONFIGURED) {
-    // No worker in this dev setup — every room is ad-hoc by definition.
-    return { kind: "not-found" };
+// ---------------- Meeting-fetch dedupe (JOIN-path optimization) ----------
+// The meeting-open cascade fires `getMeeting`/`getMeetingChecked` for the SAME
+// roomId from MANY places at once — Collab's start gate, MeetingShell,
+// MeetingConsentGate, MeetingHeader, ParticipantsBar, etc. — each its own
+// network round-trip. They are collapsed into ONE request here:
+//
+//  1. IN-FLIGHT DEDUPE (primary, always safe): while a request for a roomId is
+//     pending, identical-roomId callers share that exact promise — they observe
+//     the result of one real, current network call, never a stale one. The
+//     entry is dropped the instant the promise settles.
+//  2. SHORT TTL MICRO-CACHE (secondary, conservative): the settled result is
+//     reused for a tiny window so calls that fire a few hundred ms apart in the
+//     same cascade don't refetch. The window is deliberately far shorter than
+//     any state-change poll (the 60s access-recheck, the 1s END_MEETING verify
+//     backoff) so a room that CHANGES state is never masked.
+//
+// Correctness-critical re-polls (a retry after an `error`, the END_MEETING
+// finished-verify loop, the access re-check) pass `{ fresh: true }` to bypass
+// BOTH layers and always hit the network. A write that changes a meeting's
+// state must call `invalidateMeetingCache(roomId)` so the next read is live.
+const MEETING_FETCH_TTL_MS = 800;
+type MeetingFetchCacheEntry = { at: number; result: MeetingFetch };
+const meetingFetchInFlight = new Map<string, Promise<MeetingFetch>>();
+const meetingFetchCache = new Map<string, MeetingFetchCacheEntry>();
+
+/** Drop any cached / in-flight dedupe for a room so the next read is fresh.
+ *  Call after a mutation that changes the meeting's observable state
+ *  (start/cancel/finish, access change) — never let a stale hit mask it. */
+export const invalidateMeetingCache = (roomId?: string): void => {
+  if (roomId === undefined) {
+    meetingFetchInFlight.clear();
+    meetingFetchCache.clear();
+    return;
   }
+  meetingFetchInFlight.delete(roomId);
+  meetingFetchCache.delete(roomId);
+};
+
+const fetchMeetingChecked = async (roomId: string): Promise<MeetingFetch> => {
   try {
     const res = await fetchWithAuth(
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
@@ -470,8 +513,61 @@ export const getMeetingChecked = async (
   }
 };
 
-export const getMeeting = async (roomId: string): Promise<Meeting | null> => {
-  const fetched = await getMeetingChecked(roomId);
+export const getMeetingChecked = async (
+  roomId: string,
+  opts?: { fresh?: boolean },
+): Promise<MeetingFetch> => {
+  if (!IS_PROJECTS_CONFIGURED) {
+    // No worker in this dev setup — every room is ad-hoc by definition.
+    return { kind: "not-found" };
+  }
+
+  // Correctness-critical re-polls bypass the dedupe entirely — they MUST see
+  // live state. They also evict any stale entry so concurrent cache readers
+  // don't keep serving the value this poll is trying to supersede.
+  if (opts?.fresh) {
+    meetingFetchInFlight.delete(roomId);
+    meetingFetchCache.delete(roomId);
+    return fetchMeetingChecked(roomId);
+  }
+
+  const cached = meetingFetchCache.get(roomId);
+  if (cached && Date.now() - cached.at < MEETING_FETCH_TTL_MS) {
+    return cached.result;
+  }
+
+  const pending = meetingFetchInFlight.get(roomId);
+  if (pending) {
+    return pending;
+  }
+
+  const promise = fetchMeetingChecked(roomId)
+    .then((result) => {
+      // Only cache a definitive answer for the (short) TTL. An `error` is a
+      // transient outage — never let it stick, so a retry/poll re-asks at once.
+      if (result.kind !== "error") {
+        meetingFetchCache.set(roomId, { at: Date.now(), result });
+      }
+      return result;
+    })
+    .finally(() => {
+      // Only clear the in-flight slot if it still points to THIS promise — a
+      // `fresh` eviction + a newer dedupe may already own the slot, and we must
+      // not yank that newer in-flight request out from under its sharers.
+      if (meetingFetchInFlight.get(roomId) === promise) {
+        meetingFetchInFlight.delete(roomId);
+      }
+    });
+
+  meetingFetchInFlight.set(roomId, promise);
+  return promise;
+};
+
+export const getMeeting = async (
+  roomId: string,
+  opts?: { fresh?: boolean },
+): Promise<Meeting | null> => {
+  const fetched = await getMeetingChecked(roomId, opts);
   return fetched.kind === "found" ? fetched.meeting : null;
 };
 
@@ -510,6 +606,9 @@ export const deleteMeeting = async (roomId: string): Promise<boolean> => {
       `${STORAGE_URL}/v1/meetings/${encodeURIComponent(roomId)}`,
       { method: "DELETE" },
     );
+    if (res.ok) {
+      invalidateMeetingCache(roomId);
+    }
     return res.ok;
   } catch {
     return false;

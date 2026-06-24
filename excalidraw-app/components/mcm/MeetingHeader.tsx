@@ -113,10 +113,12 @@ export const MeetingHeader = ({
   const [elapsed, setElapsed] = useState(0);
   const startedAtRef = useRef<number | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
-  // Standalone Canvas Replay ("Tua lại") — review-mode only. Opens JUST the
-  // replay player in a clean presentation that drives the EXISTING review
-  // canvas (no second Excalidraw, no rebroadcast). Previously this was a tab
-  // buried in the meeting-log modal; promoted to a first-class header button.
+  // Standalone Canvas Replay ("Tua lại") — review-mode only. One click docks a
+  // clean player CONTROL BAR at the bottom of the EXISTING review canvas (no
+  // modal shell, no intermediate menu): the bar drives that canvas in place (no
+  // second Excalidraw, no rebroadcast). Previously this was a tab buried in the
+  // meeting-log modal, then a modal-shell-then-peek step; now it's a one-click
+  // bottom bar.
   const [replayOpen, setReplayOpen] = useState(false);
   const log = useAtomValue(transcriptionLogAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
@@ -182,8 +184,8 @@ export const MeetingHeader = ({
     void refetchMeeting();
   }, [refetchMeeting]);
 
-  // Close the standalone replay overlay on Escape — modal etiquette, same as
-  // the meeting-log modal.
+  // Close the bottom-docked replay bar on Escape — same dismiss etiquette as
+  // any meeting overlay.
   useEffect(() => {
     if (!replayOpen) {
       return;
@@ -692,10 +694,11 @@ export const MeetingHeader = ({
           >
             <FileText size={18} />
           </button>
-          {/* Standalone Canvas Replay ("Tua lại") — review-mode only. Drives
-              the EXISTING review canvas behind the player (peek mode), so it
-              never spawns a second Excalidraw nor rebroadcasts. Lives next to
-              the meeting-log entry since both are "read the record" affordances. */}
+          {/* Standalone Canvas Replay ("Tua lại") — review-mode only. One click
+              docks a player control bar at the bottom of the EXISTING review
+              canvas; it drives that canvas in place, so it never spawns a second
+              Excalidraw nor rebroadcasts. Lives next to the meeting-log entry
+              since both are "read the record" affordances. */}
           {viewOnly && roomId && (
             <button
               type="button"
@@ -852,47 +855,23 @@ export const MeetingHeader = ({
         />
       )}
 
-      {/* Standalone Canvas Replay presentation. Reuses the log-modal shell
-          classes (.mcm-log-modal-backdrop / __header / __body) ON PURPOSE: the
-          replay player's "peek" mode (CanvasReplay.scss) collapses exactly
-          those classes to a floating control bar so the reviewer watches the
-          canvas evolve behind it — reusing them means peek works with no extra
-          styles. The player drives the existing review canvas via the live
-          excalidrawAPI; it restores the original scene on unmount. */}
+      {/* Standalone Canvas Replay — a clean player CONTROL BAR docked at the
+          bottom of the review canvas (NO modal shell, NO intermediate menu). It
+          floats over the EXISTING review canvas and drives it in place via the
+          live excalidrawAPI, restoring the original finished-meeting scene when
+          it closes. Its own × / Escape dismiss it. */}
       {replayOpen && (
         <div
-          className="mcm-log-modal-backdrop"
-          role="dialog"
-          aria-modal="true"
+          className="mcm-replay-dock"
+          role="region"
           aria-label={t("header.replay")}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setReplayOpen(false);
-            }
-          }}
         >
-          <div className="mcm-log-modal mcm-replay-modal">
-            <div className="mcm-log-modal__header">
-              <div className="mcm-log-modal__head-text">
-                <h2 className="mcm-log-modal__title">{t("header.replay")}</h2>
-              </div>
-              <button
-                type="button"
-                className="mcm-log-modal__close"
-                onClick={() => setReplayOpen(false)}
-                aria-label={t("log.closeAria")}
-              >
-                ×
-              </button>
-            </div>
-            <div className="mcm-log-modal__body">
-              <CanvasReplayPlayer
-                roomId={roomId}
-                roomKey={replayRoomKey}
-                excalidrawAPI={excalidrawAPI}
-              />
-            </div>
-          </div>
+          <CanvasReplayPlayer
+            roomId={roomId}
+            roomKey={replayRoomKey}
+            excalidrawAPI={excalidrawAPI}
+            onClose={() => setReplayOpen(false)}
+          />
         </div>
       )}
     </header>

@@ -1,13 +1,14 @@
-// CANVAS REPLAY — review-mode player. Shown inside the finished-meeting review
-// (MeetingLogModal "Replay" tab). Loads the E2E canvas-history blob (the
-// time-ordered, delta-encoded log of how the whiteboard evolved), decrypts it
-// with the room key the reviewer already holds, and lets them SCRUB / play back
-// the canvas evolution — a vector timeline of the whiteboard, NOT a video.
+// CANVAS REPLAY — review-mode player. Mounted directly as a bottom-docked
+// control bar over the finished-meeting review canvas (the header's "Tua lại"
+// button). Loads the E2E canvas-history blob (the time-ordered, delta-encoded
+// log of how the whiteboard evolved), decrypts it with the room key the reviewer
+// already holds, and lets them SCRUB / play back the canvas evolution — a vector
+// timeline of the whiteboard, NOT a video.
 //
 // NATIVE PLAYER (no second <Excalidraw>): the previous version mounted its own
 // review Excalidraw, which spawned phantom guests, a reload loop, and no working
 // scrub. This version drives the EXISTING review-mode canvas (the one already on
-// screen behind the modal) imperatively, via the live `excalidrawAPI`:
+// screen behind the bar) imperatively, via the live `excalidrawAPI`:
 //
 //   reconstructSceneAt(entries, T) -> restoreElements -> excalidrawAPI.updateScene
 //
@@ -15,8 +16,8 @@
 // scene LOCALLY and never re-broadcasts (Collab.syncElements is gated off in
 // review; updateScene itself does not broadcast). We snapshot the real review
 // scene on entry and RESTORE it on exit, so scrubbing never leaves the canvas
-// stuck at a replay frame. A "peek" toggle collapses the modal to a floating
-// control bar so the reviewer can watch the canvas behind it.
+// stuck at a replay frame. The bar floats over the live canvas at all times —
+// there is no modal shell and no "peek" step: open the bar and you are watching.
 //
 // E2E (MVP): only a client with the room key can decrypt + replay. The server
 // never reads the blob. A server-readable variant for AI / leadership is a later
@@ -49,20 +50,20 @@ import "./CanvasReplay.scss";
 // Wall-clock ms between keyframe stops at 1× during playback.
 const STEP_MS_AT_1X = 900;
 
-// Body class that collapses the log modal to a floating control bar so the
-// canvas being replayed (behind the modal) is visible. Styled in CanvasReplay.scss.
-const PEEK_BODY_CLASS = "mcm-replay-peek";
-
 type LoadState = "loading" | "empty" | "ready" | "error";
 
 export const CanvasReplayPlayer = ({
   roomId,
   roomKey,
   excalidrawAPI,
+  onClose,
 }: {
   roomId: string | null;
   roomKey: string | null;
   excalidrawAPI: ExcalidrawImperativeAPI | null;
+  /** Exit the replay — the parent unmounts the bar and the snapshot of the
+   *  static finished-meeting scene is restored on cleanup. */
+  onClose: () => void;
 }) => {
   const t = useT();
   const [entries, setEntries] = useState<CanvasHistoryEntry[]>([]);
@@ -71,9 +72,8 @@ export const CanvasReplayPlayer = ({
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<ReplaySpeed>(1);
-  const [peeking, setPeeking] = useState(false);
-  // The real review scene as it was when the Replay tab opened — restored on
-  // exit so scrubbing never permanently clobbers the canvas the reviewer sees.
+  // The real review scene as it was when Replay opened — restored on exit so
+  // scrubbing never permanently clobbers the canvas the reviewer sees.
   const originalSceneRef = useRef<readonly ExcalidrawElement[] | null>(null);
   const playTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,7 +119,7 @@ export const CanvasReplayPlayer = ({
 
   // --- snapshot the real scene on entry, restore it on exit ---------------
   // Capture the live review scene ONCE (when the API + history are ready) so we
-  // can put it back when the reviewer leaves the Replay tab. updateScene with
+  // can put it back when the reviewer closes the bar. updateScene with
   // CaptureUpdateAction.NEVER keeps these swaps out of the undo stack.
   useEffect(() => {
     if (!excalidrawAPI || state !== "ready") {
@@ -214,16 +214,6 @@ export const CanvasReplayPlayer = ({
     };
   }, [playing, idx, speed, timeline.length]);
 
-  // --- peek: collapse the modal so the canvas behind is visible -----------
-  useEffect(() => {
-    if (peeking) {
-      document.body.classList.add(PEEK_BODY_CLASS);
-    } else {
-      document.body.classList.remove(PEEK_BODY_CLASS);
-    }
-    return () => document.body.classList.remove(PEEK_BODY_CLASS);
-  }, [peeking]);
-
   const handleScrub = useCallback((next: number) => {
     setPlaying(false);
     setIdx(next);
@@ -233,8 +223,6 @@ export const CanvasReplayPlayer = ({
     if (timeline.length === 0) {
       return;
     }
-    // Auto-peek when playback starts so the reviewer sees the canvas evolve.
-    setPeeking(true);
     // Restart from the beginning if we're parked at the end.
     setIdx((prev) => (prev >= timeline.length - 1 ? 0 : prev));
     setPlaying((p) => !p);
@@ -245,34 +233,46 @@ export const CanvasReplayPlayer = ({
     setIdx(0);
   }, []);
 
-  if (state === "loading") {
+  // The bar is bottom-docked at every state: loading / empty / error show a
+  // compact status row with a close button so the reviewer is never trapped
+  // (there is no surrounding modal × to fall back on).
+  if (state !== "ready") {
     return (
-      <div className="mcm-replay__status">
-        <span className="mcm-log-modal__spinner" /> {t("replay.loading")}
+      <div className="mcm-replay mcm-replay--status-only">
+        <div className="mcm-replay__status">
+          {state === "loading" && (
+            <>
+              <span className="mcm-replay__spinner" /> {t("replay.loading")}
+            </>
+          )}
+          {state === "error" && t("replay.error")}
+          {state === "empty" && t("replay.empty")}
+        </div>
+        <button
+          type="button"
+          className="mcm-replay__btn mcm-replay__btn--close"
+          onClick={onClose}
+          aria-label={t("replay.exit")}
+          title={t("replay.exit")}
+        >
+          ×
+        </button>
       </div>
     );
-  }
-  if (state === "error") {
-    return <div className="mcm-replay__status">{t("replay.error")}</div>;
-  }
-  if (state === "empty") {
-    return <div className="mcm-replay__status">{t("replay.empty")}</div>;
   }
 
   return (
     <div className="mcm-replay">
-      <p className="mcm-replay__lead">{t("replay.lead")}</p>
       <CanvasReplayTimeline
         timeline={timeline}
         idx={idx}
         playing={playing}
         speed={speed}
-        peeking={peeking}
         onScrub={handleScrub}
         onTogglePlay={togglePlay}
         onRestart={restart}
         onSpeed={setSpeed}
-        onTogglePeek={() => setPeeking((p) => !p)}
+        onClose={onClose}
       />
     </div>
   );
