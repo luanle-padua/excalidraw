@@ -7,7 +7,7 @@ Resume from any account: read this + `docs/logs/2026-06-24.md` (full shipped lis
 - The project runs as a **standing dev team / overseer loop** — `docs/handbook/dev-team.md` (roles→agents), `docs/plans/TEAM-BACKLOG.md` (queue), command `/team`. Just say a task or `/team`.
 
 ## Prod state
-- **Pages `map-canvasm` = `68da3798`** (https://map-canvasm.pages.dev) · **Worker `mcm-storage` = `f3e6e887`** · D1 migrations **0037**. 06-24 commits incl. `ab2a67a0` (#23/#24 per-speaker recording + exclusivity lock), `eb394afb` (#25 mic-button deadlock fix). Migration apply: MANUAL `cd worker && npx wrangler d1 execute mcm-db --remote --file=./schema/00NN_*.sql -y`.
+- **Pages `map-canvasm` = `b86694fd`** (https://map-canvasm.pages.dev) · **Worker `mcm-storage` = `f3e6e887`** · D1 migrations **0037**. 06-24 commits incl. `ab2a67a0` (#23/#24 per-speaker recording + lock), `eb394afb` (#25 mic deadlock), `07774411` (#26/#27 end-for-all tears down call + recording session). Migration apply: MANUAL `cd worker && npx wrangler d1 execute mcm-db --remote --file=./schema/00NN_*.sql -y`.
 - Deploy = MANUAL: `yarn build` → `npx wrangler pages deploy excalidraw-app/build --project-name=map-canvasm --branch=main --commit-dirty=true`; worker `cd worker && npx wrangler deploy`. PWA caches hard → test in **incognito**.
 
 ## Done today (see daily log for details + files)
