@@ -269,6 +269,12 @@ const useRecording = (): RecordingApi => {
     // locally keeps the host + peer views in sync.
     setRoomRecording({
       recording: true,
+      // DEAD PATH (06-24, #24): this component is no longer mounted; the live
+      // recording lock lives in the DO (CloudRecordingControls). ownerEmail /
+      // sessionId are part of RoomRecordingState now — set null here just to
+      // keep this superseded file type-checking.
+      ownerEmail: null,
+      sessionId: null,
       hostSocketId: mySocketId ?? null,
       hostName: myProfile?.username ?? null,
       startedAt: ts,

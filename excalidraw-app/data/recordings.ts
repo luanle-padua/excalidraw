@@ -19,6 +19,10 @@ import { IS_PROJECTS_CONFIGURED, STORAGE_URL } from "./projects";
 
 const json = { "content-type": "application/json" };
 
+/** Which source a recording came from (per-source / per-speaker, #23). `mixed`
+ *  is the legacy single-file shape (kept backward-compatible). */
+export type RecordingKind = "mic" | "screen-audio" | "screen-video" | "mixed";
+
 /** One recording row as returned by the list route. Mirrors the D1 `recording`
  *  table (status 'deleted' rows are filtered out server-side). */
 export type Recording = {
@@ -31,6 +35,12 @@ export type Recording = {
   started_by: string | null;
   created_at: number;
   ready_at: number | null;
+  // Per-source fields (migration 0037). Older rows are `kind:'mixed'` with the
+  // speaker/session columns null.
+  kind: RecordingKind;
+  speaker_id: string | null;
+  speaker_name: string | null;
+  session_id: string | null;
 };
 
 /** Host: start a Daily cloud recording for this meeting's recordable room.
@@ -69,33 +79,60 @@ export const stopRecording = async (roomId: string): Promise<boolean> => {
   }
 };
 
-/** Host: upload a CLIENT-SIDE recording (06-23 pivot off Daily cloud recording).
- *  The host's browser records mixed audio + the screen-share video into a single
- *  WebM blob (audio/clientRecording.ts), then PUTs it here. The Worker stores it
- *  in R2 and inserts a `recording` row (status 'ready'), so review-mode lists +
- *  plays it through the SAME gated routes the old Daily MP4 used — only the
- *  container changed (.webm). Host-gated server-side; fail-soft → boolean.
+/** Upload a CLIENT-SIDE recording (06-24 per-source / per-speaker pivot, #23).
+ *
+ *  Each source is its own file now (see audio/clientRecording.ts): every
+ *  participant uploads their own `mic` blob; the session owner additionally
+ *  uploads `screen-audio` and (opt-in) `screen-video`. All files from one
+ *  Record→Stop press share one `sessionId` so they can be re-aligned later. The
+ *  Worker stores the blob in R2 and inserts a `recording` row (status 'ready')
+ *  with the given `kind`/`sessionId`; for `kind:'mic'` the server derives the
+ *  speaker identity from the JWT (NOT trusted from the client). Review-mode lists
+ *  + plays through the SAME gated routes as before. Fail-soft → boolean.
+ *
+ *  Content-Type: `mic` & `screen-audio` → audio/webm; `screen-video` &
+ *  legacy `mixed` → video/webm (the blob's own type wins when present).
  *
  *  `durationSec` is the client-measured length (MediaRecorder gives no reliable
- *  duration); it is passed as a query param so the row + UI can show it. */
+ *  duration); it is passed as a query param so the row + UI can show it.
+ *
+ *  Backward-compatible: a caller that omits `kind` records `mixed` (the legacy
+ *  single-file shape). */
 export const uploadRecording = async (
   roomId: string,
   blob: Blob,
-  durationSec?: number,
+  opts: {
+    durationSec?: number;
+    kind?: RecordingKind;
+    sessionId?: string;
+  } = {},
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED || !roomId || blob.size === 0) {
     return false;
   }
+  const kind: RecordingKind = opts.kind ?? "mixed";
+  // Audio kinds carry audio/webm; video kinds carry video/webm. Honour the
+  // blob's own type when it has one (MediaRecorder sets it), else fall back per
+  // kind so the Worker stores a sensible Content-Type.
+  const fallbackType =
+    kind === "mic" || kind === "screen-audio" ? "audio/webm" : "video/webm";
   try {
-    const qs =
-      durationSec != null && Number.isFinite(durationSec)
-        ? `?duration=${Math.max(0, Math.round(durationSec))}`
-        : "";
+    const params = new URLSearchParams();
+    if (opts.durationSec != null && Number.isFinite(opts.durationSec)) {
+      params.set("duration", String(Math.max(0, Math.round(opts.durationSec))));
+    }
+    params.set("kind", kind);
+    if (opts.sessionId) {
+      params.set("sessionId", opts.sessionId);
+    }
+    const qs = params.toString();
     const res = await fetchWithAuth(
-      `${STORAGE_URL}/v1/recordings/${encodeURIComponent(roomId)}/upload${qs}`,
+      `${STORAGE_URL}/v1/recordings/${encodeURIComponent(roomId)}/upload${
+        qs ? `?${qs}` : ""
+      }`,
       {
         method: "PUT",
-        headers: { "content-type": blob.type || "video/webm" },
+        headers: { "content-type": blob.type || fallbackType },
         body: blob,
       },
     );

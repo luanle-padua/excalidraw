@@ -2,13 +2,21 @@
 // review (MeetingLogModal "Recordings" tab). Lists this meeting's recordings
 // (listRecordings) and lets an authorised viewer play / download each one.
 //
-// UX (owner 06-24): a meeting can have MULTIPLE recordings (each Record→Stop =
-// one clip). We present them as a CLIP LIST + a prominent player: the list shows
-// clip #, start time, duration, size and a placeholder thumbnail; clicking a clip
-// loads it into the big player above. A single clip skips the list and just shows
-// the player. New styling lives in RecordingsSection.scss (new mcm-recplay-*
-// classes) — the legacy `.mcm-recordings` rules in MeetingShell.scss are left
-// untouched (owned by another team).
+// PER-SPEAKER MODEL (owner 06-24, plan §8): recording is no longer one mixed
+// WebM per clip. One Record→Stop SESSION now yields MANY rows that share a
+// `session_id`: a per-speaker MIC track for everyone who spoke, an optional
+// SCREEN-AUDIO track, and an optional SCREEN-VIDEO track (the only video). The
+// list route returns each row with `kind` ('mic'|'screen-audio'|'screen-video'
+// |'mixed'), `speaker_id`, `speaker_name`, `session_id`. Legacy rows are
+// kind='mixed' with session_id=null — each renders as its own standalone item.
+//
+// We present each SESSION as a group ("Bản ghi N" by start time) and list its
+// tracks inside; a track plays in the big player — VIDEO tracks (screen-video /
+// legacy mixed) in the <video> element, AUDIO tracks (mic / screen-audio) in an
+// <audio> element. There is NO mixed file going forward, so "the whole meeting"
+// = pick a speaker, or play the screen-video. New styling lives in
+// RecordingsSection.scss (mcm-recplay-* classes); the legacy `.mcm-recordings`
+// rules in MeetingShell.scss are left untouched (owned by another team).
 //
 // ACCESS (anh Luân 06-23 §7.2): host / organizer / project leadership / admin
 // ONLY — NOT every participant. The caller (MeetingLogModal) hides the whole
@@ -17,14 +25,15 @@
 // [] / 403). The media is streamed from R2 behind the worker gate — there is no
 // public link.
 //
-// MEDIA AUTH: the stream route is JWT-gated and a <video src> can't attach the
-// bearer, so we lazily fetch the SELECTED recording through fetchRecordingObjectUrl
-// (fetchWithAuth → blob → object URL) only when the viewer picks a clip, and
-// revoke object URLs on unmount / re-selection. Download goes through
-// downloadRecording (same gated fetch → disk). See data/recordings.ts.
+// MEDIA AUTH: the stream route is JWT-gated and a <video>/<audio src> can't
+// attach the bearer, so we lazily fetch the SELECTED track through
+// fetchRecordingObjectUrl (fetchWithAuth → blob → object URL) only when the
+// viewer picks a track, and revoke object URLs on unmount / re-selection.
+// Download goes through downloadRecording (same gated fetch → disk). See
+// data/recordings.ts.
 
-import { Download, Film, Play, RotateCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Download, Film, Mic, Play, RotateCw, Volume2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   downloadRecording,
@@ -35,6 +44,21 @@ import {
 import { useT } from "../../i18n/mcm";
 
 import "./RecordingsSection.scss";
+
+// The per-source fields the list route adds (plan §8). Kept as a local widening
+// of Recording so this section is robust even before data/recordings.ts (owned
+// elsewhere) carries them in its type — at runtime the API always sends them.
+type RecKind = "mic" | "screen-audio" | "screen-video" | "mixed";
+type Track = Recording & {
+  kind?: RecKind | null;
+  speaker_id?: string | null;
+  speaker_name?: string | null;
+  session_id?: string | null;
+};
+
+const kindOf = (r: Track): RecKind => (r.kind ?? "mixed") as RecKind;
+const isVideoKind = (k: RecKind): boolean =>
+  k === "screen-video" || k === "mixed";
 
 const fmtDuration = (sec: number | null): string => {
   if (!sec || sec <= 0) {
@@ -71,15 +95,40 @@ const fmtWhen = (ms: number | null): string => {
   )} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+/** A recording session: the set of tracks sharing a session_id. Legacy mixed
+ *  rows (session_id null) become single-track sessions of their own. */
+type Session = {
+  /** session_id, or the lone row's id for a legacy/standalone row. */
+  key: string;
+  /** Earliest created_at across the session's tracks — used for ordering +
+   *  the "Bản ghi N" timestamp. */
+  startedAt: number;
+  /** True for a legacy standalone mixed row (renders without a group shell). */
+  legacy: boolean;
+  tracks: Track[];
+};
+
+// Track sort within a session: screen-video (visual anchor) first, then mics
+// (per speaker, alphabetical), then screen-audio, then anything else.
+const KIND_ORDER: Record<RecKind, number> = {
+  "screen-video": 0,
+  mic: 1,
+  "screen-audio": 2,
+  mixed: 3,
+};
+
+const speakerLabelOf = (r: Track): string =>
+  (r.speaker_name || r.speaker_id || r.started_by || "").trim();
+
 export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
   const t = useT();
-  const [rows, setRows] = useState<Recording[]>([]);
+  const [rows, setRows] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  // The recording currently loaded in the big player.
+  // The track currently loaded in the big player.
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Object URL for the active recording, loaded on selection. Only ONE clip is
+  // Object URL for the active track, loaded on selection. Only ONE track is
   // buffered at a time (the previous one is revoked) so we never hold several
-  // full videos in memory.
+  // full media files in memory.
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const [loadingMedia, setLoadingMedia] = useState(false);
   const activeUrlRef = useRef<string | null>(null);
@@ -92,7 +141,7 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
       return;
     }
     setLoading(true);
-    const list = await listRecordings(roomId);
+    const list = (await listRecordings(roomId)) as Track[];
     setRows(list);
     setLoading(false);
   }, [roomId]);
@@ -111,30 +160,77 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
     [],
   );
 
-  // Select a clip → fetch its gated media into an object URL and load the
-  // player. Revokes any previously-buffered clip first.
+  // Select a track → fetch its gated media into an object URL and load the
+  // player. Revokes any previously-buffered track first.
   const select = useCallback(async (id: string) => {
     setActiveId(id);
     setLoadingMedia(true);
     const url = await fetchRecordingObjectUrl(id);
     setLoadingMedia(false);
-    // Revoke the previous clip's blob now that a new one is ready.
+    // Revoke the previous track's blob now that a new one is ready.
     if (activeUrlRef.current) {
       URL.revokeObjectURL(activeUrlRef.current);
     }
     setActiveUrl(url);
   }, []);
 
-  const ready = rows.filter((r) => r.status === "ready");
+  // Group rows into sessions. Tracks sharing a non-null session_id form a group;
+  // legacy mixed rows (session_id null) each become their own standalone group.
+  // Sessions are ordered oldest-first so the numbering matches chronology.
+  const sessions = useMemo<Session[]>(() => {
+    const groups = new Map<string, Track[]>();
+    const legacy: Session[] = [];
+    for (const r of rows) {
+      const sid = r.session_id;
+      if (!sid) {
+        legacy.push({
+          key: r.id,
+          startedAt: r.created_at,
+          legacy: true,
+          tracks: [r],
+        });
+        continue;
+      }
+      const bucket = groups.get(sid);
+      if (bucket) {
+        bucket.push(r);
+      } else {
+        groups.set(sid, [r]);
+      }
+    }
+    const grouped: Session[] = Array.from(groups.entries()).map(
+      ([key, tracks]) => {
+        const sorted = [...tracks].sort((a, b) => {
+          const ko = KIND_ORDER[kindOf(a)] - KIND_ORDER[kindOf(b)];
+          if (ko !== 0) {
+            return ko;
+          }
+          // mics: by speaker name for a stable, readable order.
+          return speakerLabelOf(a).localeCompare(speakerLabelOf(b));
+        });
+        const startedAt = sorted.reduce(
+          (min, r) => Math.min(min, r.created_at),
+          sorted[0]?.created_at ?? 0,
+        );
+        return { key, startedAt, legacy: false, tracks: sorted };
+      },
+    );
+    return [...grouped, ...legacy].sort((a, b) => a.startedAt - b.startedAt);
+  }, [rows]);
 
-  // Auto-select the (newest) ready clip when there's exactly one, so a
-  // single-recording meeting opens straight into the player.
+  const readyCount = rows.filter((r) => r.status === "ready").length;
+
+  // Auto-select the lone ready track when there's exactly one across the whole
+  // meeting, so a single-track meeting opens straight into the player.
   useEffect(() => {
-    if (!activeId && ready.length === 1) {
-      void select(ready[0].id);
+    if (!activeId && readyCount === 1) {
+      const sole = rows.find((r) => r.status === "ready");
+      if (sole) {
+        void select(sole.id);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready.length, activeId]);
+  }, [readyCount, activeId]);
 
   if (loading) {
     return (
@@ -160,34 +256,47 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
     );
   }
 
-  // rows arrive newest-first; number clips oldest-first ("Clip 1" = first
-  // recording of the meeting) so the numbering matches chronology.
-  const total = rows.length;
-  const clipNo = (idx: number) => total - idx;
+  // Sessions number oldest-first ("Bản ghi 1" = first recording of the meeting).
+  const sessionNo = (idx: number) => idx + 1;
 
-  const active = activeId ? rows.find((r) => r.id === activeId) ?? null : null;
-  const activeNo = active ? clipNo(rows.indexOf(active)) : null;
+  const active = activeId
+    ? rows.find((r) => r.id === activeId) ?? null
+    : null;
+  const activeKind = active ? kindOf(active) : "mixed";
+  const activeIsVideo = isVideoKind(activeKind);
+
+  // Human label for the active track in the player bar.
+  const trackLabel = (r: Track): string => {
+    const k = kindOf(r);
+    if (k === "screen-video") {
+      return t("recordings.trackScreenVideo");
+    }
+    if (k === "screen-audio") {
+      return t("recordings.trackScreenAudio");
+    }
+    if (k === "mixed") {
+      return t("recordings.trackMixed");
+    }
+    const who = speakerLabelOf(r);
+    return who || t("recordings.trackMic");
+  };
+
   const playerMeta = active
-    ? [
-        fmtWhen(active.ready_at ?? active.created_at),
-        fmtSize(active.bytes),
-        active.started_by,
-      ]
+    ? [fmtWhen(active.ready_at ?? active.created_at), fmtSize(active.bytes)]
         .filter(Boolean)
         .join(" · ")
     : "";
 
-  const singleClip = rows.length === 1;
-  // The single clip when there's exactly one recording — used to surface its
-  // processing/failed state in the player (the clip list is hidden in that case).
-  const soleRow = singleClip ? rows[0] : null;
+  // Whole-meeting single track (one row, ready or not): surface its
+  // processing/failed state in the player rather than a "pick a track" prompt.
+  const soleRow = rows.length === 1 ? rows[0] : null;
   const solePending = soleRow ? soleRow.status !== "ready" : false;
 
   return (
     <div className="mcm-recplay">
       <div className="mcm-recplay__head">
         <span className="mcm-recplay__count">
-          {t("recordings.count", { count: rows.length })}
+          {t("recordings.sessionCount", { count: sessions.length })}
         </span>
         <button
           type="button"
@@ -208,15 +317,38 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
               {t("recordings.loadingMedia")}
             </div>
           ) : active && activeUrl ? (
-            <video
-              key={active.id}
-              className="mcm-recplay__video"
-              src={activeUrl}
-              controls
-              autoPlay
-              preload="metadata"
-              playsInline
-            />
+            activeIsVideo ? (
+              <video
+                key={active.id}
+                className="mcm-recplay__video"
+                src={activeUrl}
+                controls
+                autoPlay
+                preload="metadata"
+                playsInline
+              />
+            ) : (
+              <div className="mcm-recplay__audio">
+                <span className="mcm-recplay__audio-icon" aria-hidden="true">
+                  {activeKind === "screen-audio" ? (
+                    <Volume2 size={30} strokeWidth={1.5} />
+                  ) : (
+                    <Mic size={30} strokeWidth={1.5} />
+                  )}
+                </span>
+                <span className="mcm-recplay__audio-label">
+                  {trackLabel(active)}
+                </span>
+                <audio
+                  key={active.id}
+                  className="mcm-recplay__audio-el"
+                  src={activeUrl}
+                  controls
+                  autoPlay
+                  preload="metadata"
+                />
+              </div>
+            )
           ) : solePending ? (
             <div className="mcm-recplay__placeholder">
               {soleRow?.status !== "failed" && (
@@ -231,7 +363,7 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
           ) : (
             <div className="mcm-recplay__placeholder">
               <Film size={30} strokeWidth={1.5} aria-hidden="true" />
-              <span>{t("recordings.pickClip")}</span>
+              <span>{t("recordings.pickTrack")}</span>
             </div>
           )}
 
@@ -239,7 +371,7 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
             <div className="mcm-recplay__player-bar">
               <div className="mcm-recplay__player-meta">
                 <span className="mcm-recplay__player-title">
-                  {t("recordings.clipNo", { n: activeNo ?? 1 })}
+                  {trackLabel(active)}
                   {active.duration
                     ? ` · ${fmtDuration(active.duration)}`
                     : ""}
@@ -259,68 +391,137 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
           )}
         </div>
 
-        {/* ---- clip list (hidden when there's only one recording) ---- */}
-        {!singleClip && (
-          <ul className="mcm-recplay__list">
-            {rows.map((r, idx) => {
-              const isReady = r.status === "ready";
-              const isActive = r.id === activeId;
-              const meta = [
-                fmtWhen(r.ready_at ?? r.created_at),
-                fmtSize(r.bytes),
-                r.started_by,
-              ]
-                .filter(Boolean)
-                .join(" · ");
-              return (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    className={`mcm-recplay__clip${
-                      isActive ? " mcm-recplay__clip--active" : ""
-                    }${!isReady ? " mcm-recplay__clip--pending" : ""}`}
-                    onClick={() => isReady && void select(r.id)}
-                    disabled={!isReady}
-                    aria-pressed={isActive}
-                  >
-                    <span className="mcm-recplay__thumb" aria-hidden="true">
-                      <Film size={18} strokeWidth={1.5} />
-                      {isReady && (
-                        <span className="mcm-recplay__thumb-badge">
-                          <Play size={16} />
-                        </span>
-                      )}
-                    </span>
-                    <span className="mcm-recplay__clip-body">
-                      <span className="mcm-recplay__clip-title">
-                        {t("recordings.clipNo", { n: clipNo(idx) })}
-                        {isReady && r.duration ? (
-                          <span className="mcm-recplay__clip-dur">
-                            {fmtDuration(r.duration)}
-                          </span>
-                        ) : null}
-                      </span>
-                      {isReady ? (
-                        <span className="mcm-recplay__clip-meta">{meta}</span>
-                      ) : (
-                        <span className="mcm-recplay__clip-status">
-                          {r.status !== "failed" && (
-                            <span className="mcm-log-modal__spinner" />
-                          )}
-                          {r.status === "failed"
-                            ? t("recordings.failed")
-                            : t("recordings.processing")}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {/* ---- session list (each session = a group of tracks) ---- */}
+        <div className="mcm-recplay__sessions">
+          {sessions.map((session, sIdx) => {
+            // Legacy standalone mixed rows (session_id null) share the same
+            // session shell — one track inside — so they keep their "Bản ghi N"
+            // number + timestamp (back-compat with pre-per-speaker recordings).
+            const allPending = session.tracks.every(
+              (r) => r.status !== "ready",
+            );
+            return (
+              <section className="mcm-recplay__session" key={session.key}>
+                <header className="mcm-recplay__session-head">
+                  <span className="mcm-recplay__session-title">
+                    {t("recordings.sessionNo", { n: sessionNo(sIdx) })}
+                  </span>
+                  <span className="mcm-recplay__session-sub">
+                    {[
+                      fmtWhen(session.startedAt),
+                      session.legacy
+                        ? ""
+                        : t("recordings.trackCount", {
+                            count: session.tracks.length,
+                          }),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </header>
+                {allPending ? (
+                  <div className="mcm-recplay__session-pending">
+                    {session.tracks.some((r) => r.status === "failed") ? null : (
+                      <span className="mcm-log-modal__spinner" />
+                    )}
+                    {session.tracks.every((r) => r.status === "failed")
+                      ? t("recordings.failed")
+                      : t("recordings.processing")}
+                  </div>
+                ) : (
+                  <ul className="mcm-recplay__tracks">
+                    {session.tracks.map((r) => (
+                      <li key={r.id}>
+                        <TrackRow
+                          track={r}
+                          activeId={activeId}
+                          onSelect={select}
+                          label={trackLabel(r)}
+                          t={t}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
+  );
+};
+
+/** One selectable track button (mic / screen-audio / screen-video / legacy
+ *  mixed). Shows a kind-specific icon, the track label, duration + size, and
+ *  the existing processing/failed status handling. */
+const TrackRow = ({
+  track,
+  activeId,
+  onSelect,
+  label,
+  t,
+}: {
+  track: Track;
+  activeId: string | null;
+  onSelect: (id: string) => void | Promise<void>;
+  label: string;
+  t: ReturnType<typeof useT>;
+}) => {
+  const k = kindOf(track);
+  const isReady = track.status === "ready";
+  const isActive = track.id === activeId;
+  const meta = [fmtSize(track.bytes)].filter(Boolean).join(" · ");
+  const Icon = k === "screen-video" ? Film : k === "screen-audio" ? Volume2 : Mic;
+
+  return (
+    <button
+      type="button"
+      className={`mcm-recplay__track${
+        isActive ? " mcm-recplay__track--active" : ""
+      }${!isReady ? " mcm-recplay__track--pending" : ""}`}
+      onClick={() => isReady && void onSelect(track.id)}
+      disabled={!isReady}
+      aria-pressed={isActive ? "true" : "false"}
+    >
+      <span
+        className={`mcm-recplay__track-icon mcm-recplay__track-icon--${
+          k === "screen-video" ? "video" : "audio"
+        }`}
+        aria-hidden="true"
+      >
+        <Icon size={18} strokeWidth={1.5} />
+        {isReady && (
+          <span className="mcm-recplay__track-badge">
+            <Play size={14} />
+          </span>
+        )}
+      </span>
+      <span className="mcm-recplay__track-body">
+        <span className="mcm-recplay__track-title">
+          <span className="mcm-recplay__track-name">{label}</span>
+          {isReady && track.duration ? (
+            <span className="mcm-recplay__track-dur">
+              {fmtDuration(track.duration)}
+            </span>
+          ) : null}
+        </span>
+        {isReady ? (
+          meta ? (
+            <span className="mcm-recplay__track-meta">{meta}</span>
+          ) : null
+        ) : (
+          <span className="mcm-recplay__track-status">
+            {track.status !== "failed" && (
+              <span className="mcm-log-modal__spinner" />
+            )}
+            {track.status === "failed"
+              ? t("recordings.failed")
+              : t("recordings.processing")}
+          </span>
+        )}
+      </span>
+    </button>
   );
 };
 

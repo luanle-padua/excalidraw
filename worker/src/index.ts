@@ -8685,13 +8685,53 @@ const recordingWebmKey = (meetingId: string, recordingId: string): string =>
 // upload can't blow R2. 2 GB is well above any expected review recording.
 const MAX_RECORDING_BYTES = 2 * 1024 * 1024 * 1024;
 
+// `kind` partitions one Record→Stop SESSION into per-source rows (#23, migration
+// 0037): owner-only screen tracks vs. per-PARTICIPANT mic tracks. The gate forks
+// on it — screen/mixed stay owner-only (canManageRecording), but a `mic` file is
+// the participant's OWN voice, so any authenticated person who can ACCESS the
+// meeting may upload theirs. Unknown values fall back to the owner-only 'mixed'.
+const RECORDING_KINDS = new Set([
+  "mic",
+  "screen-audio",
+  "screen-video",
+  "mixed",
+]);
+
 app.put("/v1/recordings/:roomId/upload", async (c) => {
   const meetingId = meetingIdFromRoomName(c.req.param("roomId"));
-  if (!(await canManageRecording(c, meetingId))) {
+  const kindParam = (c.req.query("kind") ?? "").trim();
+  const kind = RECORDING_KINDS.has(kindParam) ? kindParam : "mixed";
+  // sessionId groups every track of one Record→Stop (#24). Optional/opaque —
+  // we store whatever the client passes (the DO lock is the authority on who may
+  // own a session; this column is only for grouping in the listing UI).
+  const sessionId = c.req.query("sessionId")?.trim() || null;
+
+  // GATE forks on kind:
+  //   • screen-audio / screen-video / mixed → OWNER-ONLY (recording is an
+  //     org-compliance capture of the shared content; only the meeting authority
+  //     set may produce it). Unchanged from the Daily-era path.
+  //   • mic → ANY authenticated participant who can ACCESS this meeting. A mic
+  //     file is that person's OWN local voice; gating it to managers would mean
+  //     no per-speaker audio at all. We reuse canSeeMeeting — the SAME access
+  //     gate the join/meeting REST + WS routes run (e.g. :459, :2833, :9277) — so
+  //     "can upload my mic" == "can be in the room". Not finished is enforced for
+  //     every kind below.
+  if (kind === "mic") {
+    if (
+      !(await canSeeMeeting(
+        c.env.DB,
+        c.get("email"),
+        c.get("role"),
+        meetingId,
+      ))
+    ) {
+      return c.json({ error: "forbidden" }, 403);
+    }
+  } else if (!(await canManageRecording(c, meetingId))) {
     return c.json({ error: "forbidden" }, 403);
   }
   // No recording into a finished meeting (review = look-only) — server backstop,
-  // mirrors the Daily start route.
+  // mirrors the Daily start route. Enforced for ALL kinds.
   if (await isFinishedLocked(c.env.DB, meetingId)) {
     return c.json({ error: "meeting finished (review only)" }, 409);
   }
@@ -8713,6 +8753,24 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
   const key = recordingWebmKey(meetingId, recordingId);
   const startedBy = c.get("email")?.toLowerCase() ?? null;
 
+  // speaker_* are SERVER-DERIVED from the verified JWT for a `mic` row — NEVER
+  // trusted from the client (contract §8). speaker_id = the uploader's own email;
+  // speaker_name = the display name they joined the meeting with (the
+  // meeting_participant row the client upserts on join, :2769). Both NULL for
+  // non-mic tracks (no single speaker owns a screen/mixed capture).
+  let speakerId: string | null = null;
+  let speakerName: string | null = null;
+  if (kind === "mic" && startedBy) {
+    speakerId = startedBy;
+    const who = await c.env.DB.prepare(
+      `SELECT name FROM meeting_participant
+        WHERE meeting_id = ?1 AND user_email = ?2`,
+    )
+      .bind(meetingId, startedBy)
+      .first<{ name: string | null }>();
+    speakerName = who?.name ?? null;
+  }
+
   // Store the bytes first; only index the row once the object is durable.
   await c.env.BUCKET.put(key, body, {
     httpMetadata: { contentType },
@@ -8732,8 +8790,9 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
   await c.env.DB.prepare(
     `INSERT INTO recording
        (id, meeting_id, project_id, r2_key, duration, bytes, status,
-        started_by, created_at, ready_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'ready', ?7, ?8, ?8)`,
+        started_by, created_at, ready_at, kind, speaker_id, speaker_name,
+        session_id)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'ready', ?7, ?8, ?8, ?9, ?10, ?11, ?12)`,
   )
     .bind(
       recordingId,
@@ -8744,6 +8803,10 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
       body.byteLength,
       startedBy,
       ts,
+      kind,
+      speakerId,
+      speakerName,
+      sessionId,
     )
     .run();
 
@@ -9012,7 +9075,7 @@ app.get("/v1/recordings/:roomId", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT id, meeting_id, project_id, duration, bytes, status, started_by,
-            created_at, ready_at
+            created_at, ready_at, kind, speaker_id, speaker_name, session_id
        FROM recording
       WHERE meeting_id = ?1 AND status <> 'deleted'
       ORDER BY created_at DESC`,

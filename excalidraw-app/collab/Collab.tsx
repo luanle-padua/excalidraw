@@ -365,6 +365,11 @@ export interface CollabAPI {
   uploadAnchorSnapshot: CollabInstance["uploadAnchorSnapshot"];
   ensureSnapshotLoaded: CollabInstance["ensureSnapshotLoaded"];
   publishRecordingState: CollabInstance["publishRecordingState"];
+  /** Acquire / release the room's exclusive recording-session lock (DO-backed,
+   *  06-24 #24). The host's CloudRecordingControls drives these; the per-mic
+   *  ParticipantMicRecorder only reacts to the resulting roomRecordingAtom. */
+  acquireRecordingLock: CollabInstance["acquireRecordingLock"];
+  releaseRecordingLock: CollabInstance["releaseRecordingLock"];
   /** Element-only lock toggle. Use when the file isn't tracked by the
    *  meeting library (legacy paste, direct addFiles, etc.) — these
    *  images still want the pin/tape affordance but don't have a
@@ -389,6 +394,14 @@ class Collab extends PureComponent<CollabProps, CollabState> {
 
   private socketInitializationTimer?: number;
   private lastBroadcastedOrReceivedSceneVersion: number = -1;
+  // RECORDING SESSION lock intent (06-24, #24). Non-null while THIS client is
+  // the lock owner and still wants to record (between acquire and release). Read
+  // by the "connect" reconnect handler to re-acquire the DO lock on the new
+  // socket (the old socket's attachment-held lock died with it). Cleared on
+  // release, on a `recording-state {recording:false}`, and on leave (portal
+  // close drops the field with the instance).
+  private recordingIntent: { sessionId: string; startedAt: number } | null =
+    null;
   private collaborators = new Map<SocketId, Collaborator>();
   // The ONLY source of truth for "who is actually in the room right now":
   // rebuilt from the live socket list every `room-user-change`
@@ -581,6 +594,8 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       uploadAnchorSnapshot: this.uploadAnchorSnapshot,
       ensureSnapshotLoaded: this.ensureSnapshotLoaded,
       publishRecordingState: this.publishRecordingState,
+      acquireRecordingLock: this.acquireRecordingLock,
+      releaseRecordingLock: this.releaseRecordingLock,
       toggleCanvasImageElementLock: this.toggleCanvasImageElementLock,
       linkTextToFile: this.linkTextToFile,
       portal: this.portal,
@@ -1552,18 +1567,12 @@ class Collab extends PureComponent<CollabProps, CollabState> {
           }
 
           case WS_SUBTYPES.RECORDING_STATE: {
-            // Trust the message blindly — the host id check is done at
-            // RENDER time against `hostSocketIdAtom` so a late-arriving
-            // late-joiner who hasn't seen the host's USER_PROFILE yet
-            // still gets the banner once the host id resolves locally.
-            const { recording, hostSocketId, hostName, startedAt } =
-              decryptedData.payload;
-            setRoomRecording({
-              recording,
-              hostSocketId,
-              hostName: hostName ?? null,
-              startedAt: startedAt ?? null,
-            });
+            // SUPERSEDED (06-24, #24): the recording SESSION lock now lives in
+            // the room Durable Object, which is the single source of truth and
+            // pushes its own UNENCRYPTED `recording-state` control frame (see
+            // the `recording-state` subscription in startCollaboration). We
+            // deliberately IGNORE this legacy encrypted broadcast so a peer
+            // still running an old build can't clobber the DO-driven state.
             break;
           }
 
@@ -1734,6 +1743,59 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       },
     );
 
+    // RECORDING SESSION lock (06-24, #24) — the room DO is the single source of
+    // truth. It pushes an UNENCRYPTED `recording-state` control frame on
+    // acquire / release / owner-disconnect, AND unicasts it to a socket right
+    // after it joins (late-join). We mirror it into roomRecordingAtom, resolving
+    // the owner's DISPLAY NAME from collaborators by EMAIL (the DO's owner.name
+    // is always null — it has no DB). This REPLACES the old host-driven
+    // RECORDING_STATE broadcast as the banner/glow/per-mic trigger.
+    this.portal.socket.on(
+      "recording-state",
+      (state: {
+        recording?: boolean;
+        owner?: { email?: string | null; name?: string | null } | null;
+        startedAt?: number | null;
+        sessionId?: string | null;
+      }) => {
+        if (!state || !state.recording) {
+          // Session ended (or never started) → clear. If WE were the owner, our
+          // intent is satisfied; drop it so a later reconnect doesn't re-acquire
+          // a session the DO already released.
+          this.recordingIntent = null;
+          resetRoomRecording();
+          return;
+        }
+        const ownerEmail = state.owner?.email?.toLowerCase() ?? null;
+        setRoomRecording({
+          recording: true,
+          ownerEmail,
+          sessionId: state.sessionId ?? null,
+          hostName: this.resolveOwnerName(ownerEmail),
+          hostSocketId: null,
+          startedAt: state.startedAt ?? null,
+        });
+      },
+    );
+
+    // RECONNECT re-acquire (06-24, #24). The DO holds the lock in the SOCKET's
+    // attachment, so when our socket dies the lock dies with it. The transport
+    // auto-reconnects (RawWsTransport) and re-fires "connect" with a FRESH
+    // socket; if we still intend to record this session, re-emit
+    // recording-acquire so the DO re-pins the lock to the new socket. We do NOT
+    // generate a new sessionId — every file from this Record press keeps sharing
+    // the original one. Bound once here (the connect listener is additive to the
+    // setIdFromSocket one bound earlier; both fire on every reconnect).
+    this.portal.socket.on("connect", () => {
+      const intent = this.recordingIntent;
+      if (intent) {
+        this.portal.socket?.emit("recording-acquire", {
+          sessionId: intent.sessionId,
+          startedAt: intent.startedAt,
+        });
+      }
+    });
+
     this.initializeIdleDetector();
 
     this.setActiveRoomLink(window.location.href);
@@ -1762,14 +1824,16 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       // a cached "still allowed" from join time would silently keep a kicked
       // user in the room. The 60s cadence is far longer than the cache TTL,
       // but bypass explicitly so intent can't drift.
-      void getMeetingChecked(checkingRoomId, { fresh: true }).then((fetched) => {
-        if (
-          this.portal.roomId === checkingRoomId &&
-          fetched.kind === "forbidden"
-        ) {
-          appJotaiStore.set(kickedAtom, true);
-        }
-      });
+      void getMeetingChecked(checkingRoomId, { fresh: true }).then(
+        (fetched) => {
+          if (
+            this.portal.roomId === checkingRoomId &&
+            fetched.kind === "forbidden"
+          ) {
+            appJotaiStore.set(kickedAtom, true);
+          }
+        },
+      );
     }, 60_000);
   };
   private stopAccessRecheck = () => {
@@ -3539,12 +3603,11 @@ class Collab extends PureComponent<CollabProps, CollabState> {
     this.portal.broadcastScreenShare(true);
   };
 
-  /** Host-only broadcast wrapper for RECORDING_STATE. Called by the
-   *  RecordingControls component on start / stop. We do NOT check
-   *  hostship here — that's the UI layer's responsibility (only the
-   *  host's UI exposes the button); if some other peer tried to call
-   *  this, every receiver still validates by comparing `hostSocketId`
-   *  against their locally-computed `hostSocketIdAtom`. */
+  /** LEGACY host-only broadcast wrapper for RECORDING_STATE. SUPERSEDED by the
+   *  DO recording lock (acquireRecordingLock / releaseRecordingLock, 06-24 #24)
+   *  and no longer called by live code — the only remaining reference is the
+   *  dead RecordingControls.tsx (no longer mounted; see MeetingCallControls).
+   *  Kept so that file keeps type-checking; safe to delete with it. */
   publishRecordingState = (state: {
     recording: boolean;
     startedAt: number | null;
@@ -3556,6 +3619,117 @@ class Collab extends PureComponent<CollabProps, CollabState> {
       startedAt: state.startedAt,
       ...(hostName ? { hostName } : {}),
     });
+  };
+
+  /** Resolve a recording owner's DISPLAY NAME from their authenticated email.
+   *  The room DO is the lock authority but has NO database, so its `owner.name`
+   *  is always null and only the EMAIL is meaningful. We map email → name from
+   *  the live identities we DO know: my own profile/session, then any peer whose
+   *  broadcast USER_PROFILE carried that email. Falls back to the email's
+   *  local-part (e.g. "luan" from "luan@…"), then null. Pure-ish (reads atoms). */
+  private resolveOwnerName = (ownerEmail: string | null): string | null => {
+    if (!ownerEmail) {
+      return null;
+    }
+    const target = ownerEmail.toLowerCase();
+    // Me?
+    const myEmail = (
+      appJotaiStore.get(userProfileAtom)?.email ??
+      appJotaiStore.get(sessionAtom)?.email
+    )?.toLowerCase();
+    if (myEmail && myEmail === target) {
+      return (
+        appJotaiStore.get(userProfileAtom)?.username ||
+        appJotaiStore.get(sessionAtom)?.name ||
+        this.state.username ||
+        target.split("@")[0] ||
+        null
+      );
+    }
+    // A peer we've seen a profile for.
+    for (const profile of appJotaiStore.get(peerProfilesAtom).values()) {
+      if (profile.email?.toLowerCase() === target && profile.username) {
+        return profile.username;
+      }
+    }
+    return target.split("@")[0] || null;
+  };
+
+  /** Acquire the room's exclusive recording lock (06-24, #24). Emits
+   *  `recording-acquire` and resolves on the NEXT `recording-lock` reply the DO
+   *  unicasts back to us (one-shot listener), or {ok:false, owner:null} after an
+   *  ~8s timeout. A re-acquire by the CURRENT owner returns ok:false with
+   *  YOURSELF as owner — the caller treats `owner.email === my email` as success
+   *  (I already hold it). On a successful intent-to-record we remember the
+   *  session so a reconnect re-acquires the lock for the same files. */
+  acquireRecordingLock = (
+    sessionId: string,
+    startedAt: number,
+  ): Promise<{
+    ok: boolean;
+    owner: {
+      email: string | null;
+      name: string | null;
+      startedAt: number | null;
+      sessionId: string | null;
+    } | null;
+  }> => {
+    const socket = this.portal.socket;
+    if (!socket) {
+      return Promise.resolve({ ok: false, owner: null });
+    }
+    // Remember intent up front so a reconnect that happens DURING the acquire
+    // round-trip still re-acquires. Cleared by the caller on a failed acquire
+    // (see CloudRecordingControls) and on release / recording-state:false.
+    this.recordingIntent = { sessionId, startedAt };
+    return new Promise((resolve) => {
+      let settled = false;
+      const onLock = (reply: {
+        ok?: boolean;
+        owner?: {
+          email?: string | null;
+          name?: string | null;
+          startedAt?: number | null;
+          sessionId?: string | null;
+        } | null;
+      }) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        window.clearTimeout(timer);
+        socket.off("recording-lock", onLock);
+        resolve({
+          ok: !!reply?.ok,
+          owner: reply?.owner
+            ? {
+                email: reply.owner.email ?? null,
+                name: reply.owner.name ?? null,
+                startedAt: reply.owner.startedAt ?? null,
+                sessionId: reply.owner.sessionId ?? null,
+              }
+            : null,
+        });
+      };
+      const timer = window.setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        socket.off("recording-lock", onLock);
+        resolve({ ok: false, owner: null });
+      }, 8000);
+      socket.on("recording-lock", onLock);
+      socket.emit("recording-acquire", { sessionId, startedAt });
+    });
+  };
+
+  /** Release the recording lock we hold (owner stop). Emits `recording-release`
+   *  (the DO clears our attachment + broadcasts recording-state:false) and drops
+   *  our re-acquire intent so a later reconnect doesn't resurrect the session. */
+  releaseRecordingLock = (): void => {
+    this.recordingIntent = null;
+    this.portal.socket?.emit("recording-release");
   };
 
   /** Attach a click-through link from the currently-selected text element

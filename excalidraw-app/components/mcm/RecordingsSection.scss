@@ -1,10 +1,16 @@
-// RECORDINGS (review-mode video) — clip-list + clean player. Glass Desk.
+// RECORDINGS (review-mode) — per-speaker session list + clean player. Glass Desk.
 //
-// A meeting can have MULTIPLE recordings (each Record→Stop = one clip). We
-// present them as a CLIP LIST beside a prominent player: clicking a clip plays
-// it in the big player; one clip just shows the player. These are NEW classes
-// (mcm-recplay*) living in their own stylesheet — the legacy `.mcm-recordings`
-// rules in MeetingShell.scss are owned by another team and left untouched.
+// PER-SPEAKER MODEL (owner 06-24): one Record→Stop SESSION yields many tracks
+// sharing a session_id — a per-speaker MIC for each speaker, an optional
+// SCREEN-AUDIO, and an optional SCREEN-VIDEO (the only video). We present each
+// session as a GROUP with its tracks listed inside; clicking a track plays it
+// in the big player — VIDEO tracks (screen-video / legacy mixed) in the <video>
+// element, AUDIO tracks (mic / screen-audio) in an <audio> element. Legacy
+// kind='mixed' rows (session_id null) each render as a standalone track.
+//
+// These are NEW classes (mcm-recplay*) living in their own stylesheet — the
+// legacy `.mcm-recordings` rules in MeetingShell.scss are owned by another team
+// and left untouched.
 
 .mcm-recplay {
   display: flex;
@@ -49,8 +55,8 @@
     }
   }
 
-  // ---- layout: player on top, clip list below (stacks on every width so the
-  //      player always gets the full panel width — these panels are narrow) ----
+  // ---- layout: player on top, session list below (stacks on every width so
+  //      the player always gets the full panel width — these panels are narrow)
   &__stage {
     display: flex;
     flex-direction: column;
@@ -77,10 +83,61 @@
     display: block;
   }
 
-  // Placeholder shown before a clip is picked (multi-clip case).
+  // Audio-only player (mic / screen-audio) — there is no video for these, so we
+  // show a kind icon + label above the native <audio> controls. Capped to the
+  // same box as the video player so layouts never jump between track kinds.
+  &__audio {
+    width: 100%;
+    max-height: 46vh;
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+    background: linear-gradient(
+      180deg,
+      var(--mcm-surface-2),
+      var(--mcm-surface)
+    );
+    border: 1px solid var(--mcm-hairline);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 18px 20px;
+  }
+
+  &__audio-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--mcm-accent-soft);
+    color: var(--mcm-accent);
+    flex: 0 0 auto;
+  }
+
+  &__audio-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__audio-el {
+    width: 100%;
+    max-width: 480px;
+    height: 40px;
+  }
+
+  // Placeholder shown before a track is picked (multi-track case).
   &__placeholder {
-    // Cap to the same box as a playing clip (&__video max-height) so the empty
-    // "pick a clip" state never grows taller than the player and overflows the
+    // Cap to the same box as a playing track (&__video max-height) so the empty
+    // "pick a track" state never grows taller than the player and overflows the
     // modal (owner #22: placeholder lớn hơn player, tràn ra ngoài).
     aspect-ratio: 16 / 9;
     width: 100%;
@@ -168,27 +225,79 @@
     }
   }
 
-  // ---- clip list ----
-  &__list {
+  // ---- session list ----
+  &__sessions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+  }
+
+  // A recording session group (its tracks listed inside).
+  &__session {
+    border: 1px solid var(--mcm-hairline);
+    border-radius: 14px;
+    background: var(--mcm-surface);
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__session-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__session-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--mcm-text);
+  }
+
+  &__session-sub {
+    font-size: 11.5px;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__session-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--mcm-text-soft);
+    padding: 4px 2px;
+  }
+
+  &__tracks {
     list-style: none;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    overflow: auto;
   }
 
-  &__clip {
+  // ---- one selectable track ----
+  &__track {
     display: flex;
     align-items: center;
     gap: 12px;
     width: 100%;
     text-align: left;
     border: 1px solid var(--mcm-hairline);
-    background: var(--mcm-surface);
+    background: var(--mcm-surface-2);
     border-radius: 12px;
-    padding: 10px 12px;
+    padding: 9px 11px;
     cursor: pointer;
     color: var(--mcm-text);
     font: inherit;
@@ -212,52 +321,55 @@
 
       &:hover {
         border-color: var(--mcm-hairline);
-        background: var(--mcm-surface);
+        background: var(--mcm-surface-2);
       }
     }
   }
 
-  // Thumbnail / placeholder square at the left of a clip row.
-  &__thumb {
+  // Kind icon square at the left of a track row (audio = mic/speaker tint,
+  // video = film tint), with a play glyph overlaid on hover / active.
+  &__track-icon {
     flex: 0 0 auto;
-    width: 64px;
-    height: 40px;
-    border-radius: 8px;
-    background: var(--mcm-surface-2);
+    width: 42px;
+    height: 42px;
+    border-radius: 9px;
     border: 1px solid var(--mcm-hairline);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--mcm-text-soft);
-    overflow: hidden;
     position: relative;
+    overflow: hidden;
+
+    &--audio {
+      background: var(--mcm-accent-soft);
+      color: var(--mcm-accent);
+    }
+
+    &--video {
+      background: var(--mcm-surface);
+      color: var(--mcm-text-soft);
+    }
   }
 
-  &__thumb-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  // The little play glyph that overlays the thumbnail on hover / active.
-  &__thumb-badge {
+  // The little play glyph that overlays the icon on hover / active.
+  &__track-badge {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    background: rgba(0, 0, 0, 0.32);
+    background: rgba(0, 0, 0, 0.34);
     opacity: 0;
     transition: opacity 150ms ease;
   }
 
-  &__clip:hover &__thumb-badge,
-  &__clip--active &__thumb-badge {
+  &__track:hover &__track-badge,
+  &__track--active &__track-badge {
     opacity: 1;
   }
 
-  &__clip-body {
+  &__track-body {
     display: flex;
     flex-direction: column;
     gap: 3px;
@@ -265,16 +377,25 @@
     flex: 1;
   }
 
-  &__clip-title {
+  &__track-title {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 13px;
     font-weight: 600;
     color: var(--mcm-text);
+    min-width: 0;
   }
 
-  &__clip-dur {
+  &__track-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__track-dur {
+    flex: 0 0 auto;
     font-size: 11px;
     font-weight: 600;
     color: var(--mcm-text-soft);
@@ -284,7 +405,7 @@
     padding: 1px 6px;
   }
 
-  &__clip-meta {
+  &__track-meta {
     font-size: 12px;
     color: var(--mcm-text-soft);
     white-space: nowrap;
@@ -293,7 +414,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  &__clip-status {
+  &__track-status {
     display: inline-flex;
     align-items: center;
     gap: 6px;

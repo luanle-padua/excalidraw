@@ -64,6 +64,7 @@ import { PinnedImagesOverlay } from "./PinnedImagesOverlay";
 import { LiveCaptionDock } from "./LiveCaptionDock";
 import { SpeechToTextPanel } from "./SpeechToTextPanel";
 import { StickerPicker } from "./StickerPicker";
+import { ParticipantMicRecorder } from "./ParticipantMicRecorder";
 import { ParticipantsBar } from "./ParticipantsBar";
 import { TextTranslateOverlay } from "./TextTranslateOverlay";
 import { TranscriptionController } from "./TranscriptionController";
@@ -485,6 +486,12 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
       </div>
       <TranscriptionController />
       <ScreenShareController />
+      {/* Per-speaker mic recorder — mounted for EVERY participant (incl. the
+          session owner) so each person records their OWN local mic to a separate
+          file while a recording session is active (06-24 #23). Pure lifecycle,
+          renders null; gates internally on roomRecordingAtom + a live mic. Not
+          mounted while reviewing a finished meeting (immutable, no recording). */}
+      {!viewOnly && <ParticipantMicRecorder />}
       {logOpen && <MeetingLogModal onClose={() => setLogOpen(false)} />}
       <UserSettings
         open={settingsOpen}

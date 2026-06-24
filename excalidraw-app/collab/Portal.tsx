@@ -477,10 +477,14 @@ class Portal {
     }
   };
 
-  /** Host-only broadcast: tell everyone in the room that recording
-   *  has started or stopped. Peers gate this against their locally
-   *  computed `hostSocketIdAtom` before trusting it, so a stranded
-   *  ex-host tab can't keep pretending it's recording. */
+  /** LEGACY host-only recording broadcast. SUPERSEDED (06-24, #24): the room
+   *  Durable Object now owns the recording-session lock and pushes its own
+   *  unencrypted `recording-state` control frame as the single source of truth
+   *  (see Collab.acquireRecordingLock + the "recording-state" subscription).
+   *  This encrypted broadcast is no longer emitted by live code — only the dead
+   *  RecordingControls.tsx path can still reach it via publishRecordingState —
+   *  and receivers IGNORE the WS_SUBTYPES.RECORDING_STATE case. Kept for that
+   *  file's type-check; safe to delete together with it. */
   broadcastRecordingState = (state: {
     recording: boolean;
     hostName?: string;

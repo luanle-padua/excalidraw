@@ -6432,6 +6432,26 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
       background: color-mix(in srgb, #dc2626 26%, var(--mcm-surface, #fff));
     }
 
+    // Non-owner PASSIVE state (#24): someone ELSE owns the recording session.
+    // Muted/grey, no pulse, not clickable — a read-only "being recorded" chip,
+    // never mistakable for the red actionable Stop pill of your OWN recording.
+    &--busy {
+      background: color-mix(
+        in srgb,
+        var(--mcm-text-soft) 14%,
+        var(--mcm-surface, #fff)
+      );
+      color: var(--mcm-text-soft);
+      cursor: default;
+      animation: none;
+
+      .mcm-cloudrec__dot {
+        background: var(--mcm-text-soft);
+        box-shadow: none;
+        animation: none;
+      }
+    }
+
     &:disabled {
       opacity: 0.7;
       cursor: progress;

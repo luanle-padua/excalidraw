@@ -127,6 +127,21 @@ export type WsAttachment = {
    *  socket — the ghost reaper drops sockets that go quiet (06-18). Optional so
    *  attachments serialized before the reaper landed still deserialize. */
   lastSeen?: number;
+  /** AUTHORITATIVE single-owner recording lock (#24). When set, THIS socket is
+   *  the one active recording session's owner for the room. Stored in the
+   *  attachment (not DO memory) so it SURVIVES hibernation and AUTO-RELEASES
+   *  when this socket closes (webSocketClose / ghost reaper). At most one OPEN
+   *  socket in the room may hold this at a time — `currentRecordingOwner()`
+   *  enforces "only one" on acquire. email/name come from the socket's verified
+   *  join identity (email from the JWT; name is not carried on the socket, so it
+   *  is null — the client UI resolves the display name from presence). Optional
+   *  so pre-lock attachments still deserialize. */
+  recording?: {
+    sessionId: string;
+    startedAt: number;
+    email: string | null;
+    name: string | null;
+  };
 };
 
 type Env = {
@@ -378,6 +393,15 @@ export class RoomDO implements DurableObject {
         // stops sending these and gets dropped on the next reaper tick.
         this.touchLastSeen(ws, self);
         break;
+      case "recording-acquire":
+        // #24 single-owner recording lock — DO is AUTHORITATIVE (handled here,
+        // NOT relayed). Replaces the client-side soft check that raced on
+        // late-synced RECORDING_STATE.
+        this.onRecordingAcquire(ws, self, frame.args[0]);
+        break;
+      case "recording-release":
+        this.onRecordingRelease(ws, self);
+        break;
       default:
         // Unknown control event — ignore (forward-compat; old server ignored
         // unregistered events too).
@@ -403,6 +427,21 @@ export class RoomDO implements DurableObject {
     }
     // Full presence list to everyone (matches io.in(room).emit on join).
     this.broadcastControl("room-user-change", [this.roomUserList()]);
+    // UNICAST the current recording state to the just-joined socket so a LATE
+    // joiner learns an already-active session (replaces the client's old 5s
+    // RECORDING_STATE re-broadcast hack — contract §8). Only emitted when a
+    // session is live; a fresh joiner with no active session needs nothing.
+    const owner = this.currentRecordingOwner();
+    if (owner) {
+      this.sendControl(ws, "recording-state", [
+        {
+          recording: true,
+          owner: { email: owner.email, name: owner.name },
+          startedAt: owner.startedAt,
+          sessionId: owner.sessionId,
+        },
+      ]);
+    }
   }
 
   /** Volatile broadcast via the control fallback path (binary is the usual
@@ -494,6 +533,128 @@ export class RoomDO implements DurableObject {
   }
 
   // -------------------------------------------------------------------------
+  // Recording lock (#24) — AUTHORITATIVE single owner per room, stored in the
+  // OWNER socket's attachment so it survives hibernation and auto-releases when
+  // that socket closes. The DO is the source of truth: a client cannot enforce a
+  // distributed lock (the bug being fixed was two soft-hosts racing on a
+  // late-synced RECORDING_STATE and both recording). Plan §7.
+  // -------------------------------------------------------------------------
+
+  /** Scan OPEN sockets for the one currently holding the recording lock and
+   *  return its attachment.recording (with owner identity), or null if no
+   *  session is active. "Only one" is an invariant enforced on acquire — this
+   *  returns the FIRST holder found. */
+  private currentRecordingOwner(): {
+    sessionId: string;
+    startedAt: number;
+    email: string | null;
+    name: string | null;
+  } | null {
+    for (const ws of this.openSockets()) {
+      const a = this.getAttachment(ws);
+      if (a?.recording) {
+        return a.recording;
+      }
+    }
+    return null;
+  }
+
+  /** recording-acquire `[{sessionId, startedAt}]`: grant the lock ONLY if no
+   *  other OPEN socket holds it. Reply `recording-lock` `[{ok, owner}]` to the
+   *  asker; on grant, broadcast `recording-state` to the room. Identity
+   *  (email/name) is read from THIS socket's verified join attachment, never
+   *  trusted from the payload. */
+  private onRecordingAcquire(
+    ws: WebSocket,
+    self: WsAttachment,
+    payload: unknown,
+  ): void {
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      typeof (payload as { sessionId?: unknown }).sessionId !== "string"
+    ) {
+      return;
+    }
+    const p = payload as { sessionId: string; startedAt?: unknown };
+    const startedAt =
+      typeof p.startedAt === "number" ? p.startedAt : Date.now();
+
+    const existing = this.currentRecordingOwner();
+    if (existing) {
+      // Already owned (possibly by THIS socket on a retry — still report the
+      // current owner; the client treats ok:false as "in use"). Reply only to
+      // the asker; no state change, no broadcast.
+      this.sendControl(ws, "recording-lock", [
+        {
+          ok: false,
+          owner: {
+            email: existing.email,
+            name: existing.name,
+            startedAt: existing.startedAt,
+            sessionId: existing.sessionId,
+          },
+        },
+      ]);
+      return;
+    }
+
+    // Grant: stamp the lock onto THIS socket's attachment (survives hibernation,
+    // auto-releases on close). email comes from the verified join identity; the
+    // socket carries no display name, so name is null (the client resolves it
+    // from presence). Mirror touchLastSeen's spread-and-reserialize so we don't
+    // clobber lastSeen.
+    const owner = {
+      sessionId: p.sessionId,
+      startedAt,
+      email: self.email || null,
+      name: null,
+    };
+    try {
+      ws.serializeAttachment({ ...self, recording: owner });
+    } catch {
+      // socket racing closed — abort the grant (nothing was broadcast yet).
+      return;
+    }
+    this.sendControl(ws, "recording-lock", [
+      {
+        ok: true,
+        owner: {
+          email: owner.email,
+          name: owner.name,
+          startedAt: owner.startedAt,
+          sessionId: owner.sessionId,
+        },
+      },
+    ]);
+    this.broadcastControl("recording-state", [
+      {
+        recording: true,
+        owner: { email: owner.email, name: owner.name },
+        startedAt: owner.startedAt,
+        sessionId: owner.sessionId,
+      },
+    ]);
+  }
+
+  /** recording-release `[]`: if the SENDER holds the lock, clear it and
+   *  broadcast `recording-state` false. A non-owner release is a no-op (you
+   *  cannot stop someone else's session). */
+  private onRecordingRelease(ws: WebSocket, self: WsAttachment): void {
+    if (!self.recording) {
+      return;
+    }
+    const { recording: _drop, ...rest } = self;
+    try {
+      ws.serializeAttachment(rest);
+    } catch {
+      // socket racing closed — its lock dies with it (close path broadcasts).
+      return;
+    }
+    this.broadcastControl("recording-state", [{ recording: false }]);
+  }
+
+  // -------------------------------------------------------------------------
   // Binary relay (encrypted client-broadcast). Opaque: the DO never decrypts.
   // -------------------------------------------------------------------------
   private handleBinary(sender: WebSocket, frame: ArrayBuffer): void {
@@ -538,6 +699,15 @@ export class RoomDO implements DurableObject {
   private onSocketGone(ws: WebSocket): void {
     const self = this.getAttachment(ws);
     if (self) {
+      // 0) AUTO-RELEASE the recording lock (#24). If this departing socket owned
+      //    the active session, the lock leaves with it — tell the room the
+      //    recording stopped. The attachment is discarded with the socket, so
+      //    there's nothing to clear; just broadcast the false state. (No
+      //    "is this socket open?" guard: by the close path it's already gone, so
+      //    currentRecordingOwner() would no longer see it.)
+      if (self.recording) {
+        this.broadcastControl("recording-state", [{ recording: false }]);
+      }
       // 1) This socket was FOLLOWING others — drop it from every follower set;
       //    if a followed user loses their last follower → broadcast-unfollow.
       for (const [followed, followers] of this.followMap) {
@@ -592,6 +762,7 @@ export class RoomDO implements DurableObject {
   async alarm(): Promise<void> {
     const now = Date.now();
     let reaped = 0;
+    let reapedRecordingOwner = false;
     for (const ws of this.ctx.getWebSockets()) {
       const a = this.getAttachment(ws);
       if (!a) {
@@ -603,6 +774,13 @@ export class RoomDO implements DurableObject {
         continue;
       }
       if (now - a.lastSeen > GHOST_TIMEOUT_MS) {
+        // AUTO-RELEASE (#24): a reaped ghost that owned the recording lock takes
+        // the lock with it. webSocketClose also fires the auto-release, but a
+        // forced server close can lag — note it here so the room is told the
+        // session ended now, not minutes later when the TCP teardown lands.
+        if (a.recording) {
+          reapedRecordingOwner = true;
+        }
         try {
           ws.close(1001, "ghost-timeout");
         } catch {
@@ -616,6 +794,9 @@ export class RoomDO implements DurableObject {
       // server close can lag — broadcast a fresh presence list now so host
       // election re-runs off the live set without the ghost).
       this.broadcastControl("room-user-change", [this.roomUserList()]);
+    }
+    if (reapedRecordingOwner) {
+      this.broadcastControl("recording-state", [{ recording: false }]);
     }
     // Re-arm only while live sockets remain → empty room stops waking the DO.
     if (this.openSockets().length > 0) {

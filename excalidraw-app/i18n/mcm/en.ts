@@ -1147,6 +1147,11 @@ export const en: Widened<typeof vi> = {
     rec: "REC",
     indicatorBy: "{name} is recording the meeting",
     someone: "Host",
+    busy: "REC",
+    busyByOther: "Recording in progress",
+    busyByName: "{name} is recording",
+    contentMic: "Each speaker's mic",
+    micAlways: "Every participant's mic is recorded separately.",
   },
 
   // ---------------- Recordings (review mode) ------------------------
@@ -1162,6 +1167,14 @@ export const en: Widened<typeof vi> = {
     count: "{count} recording(s)",
     download: "Download",
     play: "Play",
+    sessionCount: "{count} recording session(s)",
+    sessionNo: "Recording {n}",
+    trackCount: "{count} track(s)",
+    pickTrack: "Pick a track below to play",
+    trackMic: "Microphone",
+    trackScreenAudio: "Shared screen audio",
+    trackScreenVideo: "Screen",
+    trackMixed: "Full recording",
   },
 
   // ---------------- Canvas text translate ---------------------------

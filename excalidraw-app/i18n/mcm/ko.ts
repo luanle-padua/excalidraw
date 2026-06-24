@@ -1153,6 +1153,11 @@ export const ko: Widened<typeof vi> = {
     rec: "REC",
     indicatorBy: "{name} 님이 회의를 녹화 중이에요",
     someone: "호스트",
+    busy: "녹화 중",
+    busyByOther: "다른 참가자가 녹화 중입니다",
+    busyByName: "{name}님이 녹화 중입니다",
+    contentMic: "발화자별 마이크",
+    micAlways: "모든 참가자의 마이크가 개별 파일로 녹음됩니다.",
   },
 
   // ---------------- Recordings (review mode) ------------------------
@@ -1168,6 +1173,14 @@ export const ko: Widened<typeof vi> = {
     count: "녹화본 {count}개",
     download: "다운로드",
     play: "재생",
+    sessionCount: "녹화 세션 {count}개",
+    sessionNo: "녹화 {n}",
+    trackCount: "트랙 {count}개",
+    pickTrack: "아래에서 트랙을 선택해 재생하세요",
+    trackMic: "마이크",
+    trackScreenAudio: "공유 화면 소리",
+    trackScreenVideo: "화면",
+    trackMixed: "전체 녹화본",
   },
 
   // ---------------- Canvas text translate ---------------------------

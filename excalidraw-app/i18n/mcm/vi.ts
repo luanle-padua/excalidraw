@@ -1213,6 +1213,11 @@ export const vi = {
     rec: "REC",
     indicatorBy: "{name} đang ghi cuộc họp",
     someone: "Host",
+    busy: "Đang ghi",
+    busyByOther: "Đang được ghi",
+    busyByName: "Đang được ghi bởi {name}",
+    contentMic: "Mic từng người",
+    micAlways: "Mic của mỗi người được ghi thành file riêng.",
   },
 
   // ---------------- Recordings (review mode) ------------------------
@@ -1228,6 +1233,14 @@ export const vi = {
     count: "{count} bản ghi",
     download: "Tải về",
     play: "Phát",
+    sessionCount: "{count} phiên ghi",
+    sessionNo: "Bản ghi {n}",
+    trackCount: "{count} kênh",
+    pickTrack: "Chọn một kênh bên dưới để phát",
+    trackMic: "Micrô",
+    trackScreenAudio: "Tiếng màn chia sẻ",
+    trackScreenVideo: "Màn hình",
+    trackMixed: "Bản ghi đầy đủ",
   },
 
   // ---------------- Canvas text translate ---------------------------
