@@ -28,6 +28,9 @@ Statuses: ☐ todo · ◐ in progress · ☑ done · ⏸ blocked/decision-needed
 | 18 | Consent copy rewrite — smart/light/persuasive so users click OK instantly (not a dry explicit notice) | ☑ deployed (`b4c360a2`) | UX+FE | `MeetingConsentGate.tsx`, i18n `en/ko/vi` |
 | 19 | Replay entry: clicking "Tua lại" shows the player control bar at the bottom directly — drop the intermediate menu + extra click | ☑ deployed (`b4c360a2`) | FE | `MeetingHeader.tsx`, `CanvasReplayPlayer/Timeline.tsx`, `CanvasReplay.scss` |
 | 20 | JOIN flow optimization (-2~4s): merge `getMeeting` calls into 1 cached fetch + run `getMeetingChecked` parallel to socket | ◐ dedupe deployed (`b4c360a2`); socket+gate parallelize HOÃN (rủi ro rò presence) | FE | `data/projects.ts`, `Collab.tsx` |
+| 21 | Dashboard meeting-list header overlap — a status label ("ONGOING") collides with the Meetings/Files view toggle (text jammed "ONGOINGMeetings…iles") | ☐ | FE | `ProjectManagerPanel.tsx`, `ProjectBrowser.tsx`, `ProjectManager.scss` |
+| 22 | Recordings modal (MeetingLogModal → Recordings tab) UI glitch — exact issue pending owner pinpoint (empty player too tall / modal overflow?) | ☐ (cần owner xác nhận điểm lỗi) | FE | `RecordingsSection.tsx/.scss`, `MeetingLogModal.tsx` |
+| 23 | Per-source / per-speaker audio recording — capture own-mic SEPARATELY from shared-screen audio + record EACH user's mic as its own audio file (cleaner for post STT / diarization / translation) | ☐ (feature, cần scope) | Audio+FE+Backend | `clientRecording.ts`, `DailyScreenShare.ts`, `screenShareState.ts`, `worker/src/index.ts` |
 
 ## Findings already established (so the team doesn't re-investigate)
 
