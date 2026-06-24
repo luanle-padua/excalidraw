@@ -11454,6 +11454,11 @@ body:has(.excalidraw.theme--dark) {
     display: flex;
     align-items: center;
     gap: 6px;
+    // #21: clip internal overflow so the non-truncatable stage pill ("ONGOING")
+    // + ⚙ never spill past this box and overlap the Meetings/Files tabs when the
+    // middle column is squeezed (sidebar + 360px calendar floor). The title
+    // already ellipsises; this stops the pill from bleeding onto the tabs.
+    overflow: hidden;
   }
   &__middle-title {
     margin: 0;

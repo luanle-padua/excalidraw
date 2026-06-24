@@ -79,8 +79,12 @@
 
   // Placeholder shown before a clip is picked (multi-clip case).
   &__placeholder {
+    // Cap to the same box as a playing clip (&__video max-height) so the empty
+    // "pick a clip" state never grows taller than the player and overflows the
+    // modal (owner #22: placeholder lớn hơn player, tràn ra ngoài).
     aspect-ratio: 16 / 9;
     width: 100%;
+    max-height: 46vh;
     border-radius: 10px;
     border: 1px dashed var(--mcm-hairline);
     background: var(--mcm-surface-2);
@@ -100,6 +104,7 @@
   &__loading {
     aspect-ratio: 16 / 9;
     width: 100%;
+    max-height: 46vh;
     border-radius: 10px;
     background: #000;
     display: flex;
