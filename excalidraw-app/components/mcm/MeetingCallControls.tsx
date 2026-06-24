@@ -232,7 +232,7 @@ export const MeetingCallControls = () => {
   // grouping/spacing (no self-positioned wrapper anymore).
   if (status === "live") {
     const micTitle = !canTransmit
-      ? t("callControls.listenOnlyTitle")
+      ? t("callControls.enableMic")
       : muted
       ? t("callControls.unmute")
       : t("callControls.mute");
@@ -280,8 +280,14 @@ export const MeetingCallControls = () => {
           className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
             muted || !canTransmit ? " mcm-header__icon-btn--danger" : ""
           }`}
-          onClick={canTransmit ? toggleMute : undefined}
-          disabled={!canTransmit}
+          // #25 FIX: the mic button MUST be clickable even when listener-only
+          // (!canTransmit = no mic yet). Tapping it is exactly what acquires the
+          // first mic — toggleMute → ensureMic fires the permission prompt ON
+          // THIS USER GESTURE, which iOS Safari REQUIRES (an auto getUserMedia
+          // off-gesture hangs/blocks). Gating disabled={!canTransmit} was a
+          // deadlock: you couldn't tap to get a mic, so listener-only users (esp.
+          // iPhone, where STT didn't pre-acquire it) could never unmute.
+          onClick={toggleMute}
           aria-label={micTitle}
           data-mcm-tip={micTitle}
         >

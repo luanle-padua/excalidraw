@@ -1016,6 +1016,7 @@ export const en: Widened<typeof vi> = {
     cameraLabel: "Camera",
     listenOnly: "Listening",
     listenOnlyTitle: "This device has no microphone — listen only",
+    enableMic: "Turn on microphone",
     requestingMic: "Requesting mic permission…",
     micDenied: "Microphone denied — enable it in browser settings and retry.",
     micBusy:

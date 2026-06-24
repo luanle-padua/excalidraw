@@ -1076,6 +1076,7 @@ export const vi = {
     cameraLabel: "Camera",
     listenOnly: "Chỉ nghe",
     listenOnlyTitle: "Máy này không có mic — chỉ nghe được",
+    enableMic: "Bật micrô",
     requestingMic: "Đang xin quyền mic…",
     micDenied:
       "Mic bị từ chối — bật quyền microphone trong trình duyệt rồi thử lại.",

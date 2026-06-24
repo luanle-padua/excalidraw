@@ -1019,6 +1019,7 @@ export const ko: Widened<typeof vi> = {
     cameraLabel: "카메라",
     listenOnly: "듣기 전용",
     listenOnlyTitle: "이 기기에는 마이크가 없습니다 — 듣기 전용",
+    enableMic: "마이크 켜기",
     requestingMic: "마이크 권한을 요청 중…",
     micDenied:
       "마이크가 차단됨 — 브라우저 설정에서 권한을 켜고 다시 시도하세요.",
