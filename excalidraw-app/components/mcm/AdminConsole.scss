@@ -846,3 +846,130 @@
     background-position: -200% 0;
   }
 }
+
+// =====================================================================
+// RESPONSIVE — Phase 3 (admin console on tablet/phone).
+// PURELY ADDITIVE: every rule below lives in a max-width media query, so
+// nothing here changes the desktop layout. Mirrors the 768/480 breakpoints
+// shipped in Phases 1 & 2 (MeetingShell.scss), and builds on the existing
+// 640px backdrop-grid breakpoint above.
+//
+//   • the 2-row glass header wraps cleanly and tightens its gutter;
+//   • the tab strip stays a single horizontally-scrollable row (it already
+//     scrolls — we just keep tap-friendly padding and never let it force the
+//     whole page to scroll sideways);
+//   • the body gutter shrinks so panels fit a narrow viewport;
+//   • wide tables get their own horizontal scroll INSIDE the table card (the
+//     page never scrolls sideways) plus a slightly smaller font on phone.
+// =====================================================================
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  // Header: trim the desktop gutter so the brand/actions row has room; it
+  // already wraps (flex-wrap) into its intended 2 rows.
+  .mcm-admin__top {
+    column-gap: 12px;
+    padding: 9px 14px;
+  }
+
+  // Body gutter shrinks; the centered max-width still applies but now has
+  // breathing room on a tablet.
+  .mcm-admin__body {
+    padding: 18px 14px;
+  }
+
+  // Tabs keep a comfortable tap height while scrolling horizontally.
+  .mcm-admin__tab {
+    padding: 8px 12px;
+  }
+
+  // Any table card constrains its (often wide) table to the viewport and
+  // scrolls it horizontally on its own — the admin body never scrolls
+  // sideways. -webkit-overflow-scrolling keeps it momentum-smooth on iOS.
+  .mcm-admin .mcm-tablecard {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .mcm-admin .mcm-table {
+    // A sensible floor so columns don't crush into each other; below this the
+    // card scrolls instead.
+    min-width: 560px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // Header tightens further; the account-controls row and brand stack within
+  // the two flex rows without crowding.
+  .mcm-admin__top {
+    column-gap: 10px;
+    row-gap: 6px;
+    padding: 8px 12px;
+    min-height: 52px;
+  }
+  .mcm-admin__brand strong {
+    font-size: 13px;
+  }
+
+  // Body gutter at its tightest so panels/tables use the full width.
+  .mcm-admin__body {
+    padding: 14px 10px;
+  }
+
+  // Dashboard stat cards → one per row on a phone (the auto-fit 180px floor
+  // would already give 1, but this guarantees a clean single column with calm
+  // gaps and no side-crunch).
+  .mcm-admin__cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  // The new-user / new-guest form rows wrap; give the controls 44px tap
+  // heights so they're comfortable to use on a phone.
+  .mcm-admin__newuser {
+    input,
+    select {
+      height: 40px;
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+  }
+
+  // Tabs: keep the single scrollable strip but trim padding so more fit per
+  // swipe; tap target stays ≥40px tall via the line-height + padding.
+  .mcm-admin__tab {
+    padding: 8px 10px;
+    font-size: 12.5px;
+  }
+
+  // Tables: shrink the font and cell padding a touch, and keep the in-card
+  // horizontal scroll from the 768 block. Action clusters can wrap so the
+  // row's buttons never force the table wider than necessary.
+  .mcm-admin .mcm-table {
+    font-size: 12px;
+    min-width: 520px;
+
+    th,
+    td {
+      padding: 9px 10px;
+    }
+  }
+  .mcm-admin .mcm-table__actions {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  // Provider / chart panels collapse to a single column so they don't overflow.
+  .mcm-admin__provider-grid {
+    grid-template-columns: 1fr;
+  }
+
+  // Settings + detail definition list go full-width single column.
+  .mcm-admin__dl {
+    grid-template-columns: 1fr;
+  }
+  .mcm-admin__detail-head {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}

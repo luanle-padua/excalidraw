@@ -87,6 +87,15 @@
     "crons": ["0 3 * * SUN"]
   },
 
+  // R2 storage. Admin meeting/project deletes now HARD-delete blobs (storage
+  // frees at once; the pre-delete Archive download is the backup), so they leave
+  // nothing under `trash/`. The remaining SOFT-delete paths (e.g. guest logo
+  // remove / guest revoke) still relocate bytes to a `trash/<ts>/<key>` prefix.
+  // R2 lifecycle rules are NOT configurable here — they are a dashboard / S3
+  // PutBucketLifecycleConfiguration-API feature, not a wrangler.jsonc field — so
+  // do NOT add a lifecycle key to this binding (it would be invalid config).
+  // TODO(ops): add a dashboard lifecycle rule on the `trash/` prefix to expire
+  // objects after N days so the soft-delete paths don't accrue cost forever.
   "r2_buckets": [
     {
       "binding": "BUCKET",

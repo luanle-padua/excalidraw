@@ -37,15 +37,49 @@ export const MeetingConsentGate = ({
 }) => {
   const t = useT();
   const session = useAtomValue(sessionAtom);
-  // null = not resolved yet (don't flash the gate); true/false once known.
-  const [needsConsent, setNeedsConsent] = useState<boolean | null>(null);
+  // null = CHECKING (we cover the canvas with a frosted backdrop so the board
+  // never flashes before the decision); true = show the consent card; false =
+  // no gate. Seed from the per-device cache SYNCHRONOUSLY so a returning user
+  // starts at false and never even flashes the backdrop.
+  const [needsConsent, setNeedsConsent] = useState<boolean | null>(() => {
+    if (!roomId || viewOnly) {
+      return false;
+    }
+    try {
+      if (
+        window.localStorage.getItem(`mcm-consent:${roomId}:${CONSENT_VERSION}`)
+      ) {
+        return false;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
   const [busy, setBusy] = useState(false);
+  // Drives the fade-out: on accept we mark closing (CSS fades the gate) and
+  // unmount after the transition, instead of a hard cut that "jumps" the canvas.
+  const [closing, setClosing] = useState(false);
+
+  // Per-device UX cache: once this meeting's CURRENT consent version is accepted
+  // on this device, skip the gate INSTANTLY — no canvas→consent flash and no
+  // re-prompt if the server read is slow/flaky. The server row stays the
+  // compliance record; this only governs whether we show the gate.
+  const consentKey = roomId ? `mcm-consent:${roomId}:${CONSENT_VERSION}` : null;
 
   // Ask the registry whether THIS viewer already accepted the current version.
   useEffect(() => {
     if (!roomId || !session || viewOnly) {
       setNeedsConsent(null);
       return;
+    }
+    try {
+      if (consentKey && window.localStorage.getItem(consentKey)) {
+        setNeedsConsent(false);
+        return;
+      }
+    } catch {
+      // localStorage blocked (private mode) → fall through to the server check.
     }
     let cancelled = false;
     void getMeeting(roomId).then((m) => {
@@ -55,35 +89,73 @@ export const MeetingConsentGate = ({
       // No registry row (ad-hoc room) → nothing to consent against. Otherwise
       // prompt unless the stored version matches the current wording.
       const accepted = m?.viewer_consent_version;
-      setNeedsConsent(!!m && accepted !== CONSENT_VERSION);
+      const need = !!m && accepted !== CONSENT_VERSION;
+      setNeedsConsent(need);
+      // Mirror an already-accepted server state into the cache so future entries
+      // skip the async check (and its flash) entirely.
+      if (!need) {
+        try {
+          if (consentKey) {
+            window.localStorage.setItem(consentKey, "1");
+          }
+        } catch {
+          // ignore
+        }
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [roomId, session, viewOnly]);
+  }, [roomId, session, viewOnly, consentKey]);
 
-  if (!roomId || !needsConsent) {
+  // Render NOTHING only once we've resolved to "no consent needed". While
+  // checking (null) OR when consent IS needed (true) we render the backdrop so
+  // the board never flashes uncovered before the decision (owner: "thấy canvas
+  // rồi mới hiện consent").
+  if (!roomId || needsConsent === false) {
     return null;
   }
 
   const accept = async () => {
-    if (busy) {
+    if (busy || closing) {
       return;
     }
     setBusy(true);
     try {
-      // Record acceptance, then proceed. Fail-soft: even if the POST fails we
-      // dismiss the gate (the user DID consent on screen) — the worker will
-      // re-prompt on next entry since no row was written.
+      // Record acceptance. Fail-soft: even if the POST fails we dismiss the gate
+      // (the user DID consent on screen) — the worker re-prompts on next entry
+      // since no row was written.
       await acceptMeetingConsent(roomId, CONSENT_VERSION);
-      setNeedsConsent(false);
-    } finally {
-      setBusy(false);
+    } catch {
+      // swallow — proceed to dismiss either way (fail-soft, as above).
     }
+    // Remember on THIS device so re-entry never re-prompts/flashes — even if the
+    // POST above failed (the server row is the compliance record; this is UX).
+    try {
+      if (consentKey) {
+        window.localStorage.setItem(consentKey, "1");
+      }
+    } catch {
+      // ignore
+    }
+    // Fade the gate out, then unmount, so the board it was covering eases into
+    // view rather than snapping in.
+    setClosing(true);
+    window.setTimeout(() => setNeedsConsent(false), 220);
   };
 
   return (
-    <div className="mcm-gate" role="dialog" aria-modal="true">
+    <div
+      className={`mcm-gate mcm-gate--consent${
+        closing ? " mcm-gate--closing" : ""
+      }`}
+      role="dialog"
+      aria-modal={needsConsent === true}
+    >
+      {/* While CHECKING (needsConsent === null) we render only this frosted
+          backdrop so the canvas never flashes uncovered before the decision;
+          the card appears once we know consent is actually needed. */}
+      {needsConsent === true && (
       <div className="mcm-gate__card">
         {/* Read the terms in your language. Drives the app-wide
             `preferredLanguageAtom` (via appLangCodeAtom) so the choice persists
@@ -105,6 +177,7 @@ export const MeetingConsentGate = ({
           {busy ? t("consent.accepting") : t("consent.accept")}
         </button>
       </div>
+      )}
     </div>
   );
 };

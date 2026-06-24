@@ -156,6 +156,44 @@
     word-break: break-word;
   }
 
+  // ----- dual-language: primary + secondary stacked ------------------
+  // In dual mode each line carries the translated text (primary) with the
+  // ORIGINAL spoken text stacked beneath it (secondary, dimmer/smaller). The
+  // body column holds both so the speaker name on the left still aligns to the
+  // top line.
+  &__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  &__line--dual {
+    align-items: flex-start;
+  }
+  &__text--secondary {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: calc(var(--mcm-caption-base) * var(--mcm-caption-scale) * 0.82);
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  // Tiny language-code chip prefixing each line in dual mode (e.g. "EN", "KO")
+  // so the viewer can tell the two languages apart at a glance.
+  &__tag {
+    display: inline-block;
+    margin-right: 5px;
+    padding: 0 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: calc(var(--mcm-caption-base) * var(--mcm-caption-scale) * 0.62);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    vertical-align: 1px;
+    text-shadow: none;
+  }
+
   // ----- controls (CC + line count + font size + hide) -----
   // When captions are ON the controls sit in their own frosted pill so the
   // cluster reads as ONE Glass-Desk surface (like the gallery's __submode
@@ -313,6 +351,23 @@
     &--font-l {
       font-size: 14px;
     }
+
+    // Dual-language toggle: a touch wider for the "文A" glyph (CJK + Latin) that
+    // signals "two languages". Dimmed + non-interactive when translation is off.
+    &--dual {
+      min-width: 30px;
+      font-size: 11px;
+
+      &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+
+        &:hover {
+          color: rgba(255, 255, 255, 0.6);
+          background: transparent;
+        }
+      }
+    }
   }
 }
 
@@ -350,5 +405,70 @@
   }
   .mcm-caption__live-dot {
     animation: none;
+  }
+}
+
+// =====================================================================
+// RESPONSIVE PHASE 1 — TABLET (≤768px) + PHONE (≤480px)
+// =====================================================================
+// Additive only. The overlay caption band already floats above the people
+// bar via --mcm-bar-clearance (so it never collides with the bar/header).
+// On small screens we widen the band so subtitles don't wrap awkwardly, and
+// grow the tiny CC / font / hide controls to a comfortable tap size.
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  .mcm-caption--overlay {
+    width: min(880px, 90%);
+  }
+  // CC toggle + quick-hide grow toward a tap-friendly height.
+  .mcm-caption__cc {
+    height: 30px;
+  }
+  .mcm-caption__hide {
+    width: 28px;
+    height: 28px;
+  }
+  .mcm-caption__ctl {
+    min-width: 28px;
+    height: 26px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // Near full-width band so two-line subtitles read cleanly on a phone.
+  .mcm-caption--overlay {
+    width: 94%;
+    // Extra headroom over the people bar on a phone. The bar is a FIXED-height
+    // flex row (height:var(--mcm-bar-height); the avatar list scrolls
+    // horizontally rather than wrapping), so --mcm-bar-clearance already clears
+    // it by 16px. But the phone bar packs a 40px avatar + 32px chip into 76px,
+    // leaving the base clearance feeling tight — add +10px so the caption strip
+    // never grazes the chip row even at the largest (L) caption scale.
+    bottom: calc(var(--mcm-bar-clearance, 116px) + 18px);
+  }
+  // Keep the OFF puck clear of the people bar (which lost its docked gutter
+  // and now spans full width on phone) — anchor it via the same clearance.
+  .mcm-caption--overlay.mcm-caption--off {
+    right: 8px;
+    bottom: calc(var(--mcm-bar-clearance, 116px) + 18px);
+  }
+  // 44px-class tap targets for the caption controls.
+  .mcm-caption__cc {
+    height: 34px;
+    padding: 0 12px;
+  }
+  .mcm-caption__hide {
+    width: 34px;
+    height: 34px;
+  }
+  .mcm-caption__ctl {
+    min-width: 32px;
+    height: 30px;
+  }
+  // Slightly larger base caption text on a phone-sized band.
+  .mcm-caption {
+    --mcm-caption-base: 15px;
   }
 }

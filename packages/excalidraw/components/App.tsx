@@ -11772,9 +11772,15 @@ class App extends React.Component<AppProps, AppState> {
           maxWidthOrHeight: DEFAULT_MAX_IMAGE_WIDTH_OR_HEIGHT,
         });
       } catch (error: any) {
-        console.error(
-          "Error trying to resizing image file on insertion",
-          error,
+        // Resizing is a best-effort optimisation — on failure we insert the
+        // ORIGINAL file as-is (the code below just keeps `imageFile`). The
+        // common failure is a privacy/fingerprinting setting (Firefox
+        // resistFingerprinting, Brave Shields, Tor) blocking canvas
+        // getImageData inside Pica, which is EXPECTED, not an app fault. Log it
+        // quietly so it doesn't surface as a red "error" that looks like a crash.
+        console.warn(
+          "Skipping image resize on insertion (inserting original) —",
+          error?.message ?? error,
         );
       }
 

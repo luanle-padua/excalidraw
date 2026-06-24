@@ -5,10 +5,17 @@
 
 .mcm-connection {
   position: absolute;
-  top: 12px;
+  // TOP-CENTER BANNER LADDER (see the z-index map in MeetingShell.scss):
+  // knock(z8, top:12px) > connection(z7, top:56px) > review(z6, top:12px).
+  // The knock banner can co-occur with this one (a host with a degraded link
+  // while someone is knocking), so we sit one rung DOWN (56px ≈ knock height +
+  // gap) to stack under it instead of occluding. The review banner only shows
+  // in read-only review (no live call → no knock/network banner), so it stays
+  // at top:12px and never collides with this rung.
+  top: 56px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 7; // above the review banner (6) so it's never occluded
+  z-index: 7; // above the review banner (6); below the knock banner (8)
   display: flex;
   flex-direction: column;
   align-items: center;

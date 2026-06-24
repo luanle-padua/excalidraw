@@ -6,6 +6,7 @@ import {
   FileText,
   Files,
   FolderOpen,
+  History,
   LogOut,
   Mic,
   Power,
@@ -54,6 +55,7 @@ import { transcriptionLogAtom } from "../../data/transcription";
 import { preferredLanguageAtom } from "../../data/translation";
 import { useT } from "../../i18n/mcm";
 
+import { CanvasReplayPlayer } from "./CanvasReplayPlayer";
 import { InvitePanel } from "./InvitePanel";
 import { LangThemeSwitcher } from "./LangThemeSwitcher";
 import { LayoutSwitcher } from "./LayoutSwitcher";
@@ -111,6 +113,11 @@ export const MeetingHeader = ({
   const [elapsed, setElapsed] = useState(0);
   const startedAtRef = useRef<number | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  // Standalone Canvas Replay ("Tua lại") — review-mode only. Opens JUST the
+  // replay player in a clean presentation that drives the EXISTING review
+  // canvas (no second Excalidraw, no rebroadcast). Previously this was a tab
+  // buried in the meeting-log modal; promoted to a first-class header button.
+  const [replayOpen, setReplayOpen] = useState(false);
   const log = useAtomValue(transcriptionLogAtom);
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
@@ -139,6 +146,10 @@ export const MeetingHeader = ({
   const roomId = activeRoomLink?.match(/#room=([a-zA-Z0-9_-]+),/)?.[1] ?? null;
   const roomKey =
     activeRoomLink?.match(/#room=[^,]+,([a-zA-Z0-9_-]+)/)?.[1] ?? undefined;
+  // E2E room key for the standalone Canvas Replay — the same key the log-modal
+  // replay used. Prefer the live portal key (authoritative), fall back to the
+  // hash-parsed one for a preview/ad-hoc link.
+  const replayRoomKey = collabAPI?.portal.roomKey ?? roomKey ?? null;
 
   const refetchMeeting = useCallback(async () => {
     if (!roomId) {
@@ -170,6 +181,21 @@ export const MeetingHeader = ({
   useEffect(() => {
     void refetchMeeting();
   }, [refetchMeeting]);
+
+  // Close the standalone replay overlay on Escape — modal etiquette, same as
+  // the meeting-log modal.
+  useEffect(() => {
+    if (!replayOpen) {
+      return;
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setReplayOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [replayOpen]);
 
   const saveMeeting = async (values: Record<string, string>) => {
     if (!roomId) {
@@ -666,6 +692,21 @@ export const MeetingHeader = ({
           >
             <FileText size={18} />
           </button>
+          {/* Standalone Canvas Replay ("Tua lại") — review-mode only. Drives
+              the EXISTING review canvas behind the player (peek mode), so it
+              never spawns a second Excalidraw nor rebroadcasts. Lives next to
+              the meeting-log entry since both are "read the record" affordances. */}
+          {viewOnly && roomId && (
+            <button
+              type="button"
+              className="mcm-header__icon-btn mcm-tip"
+              onClick={() => setReplayOpen(true)}
+              data-mcm-tip={t("header.replay")}
+              aria-label={t("header.replay")}
+            >
+              <History size={18} />
+            </button>
+          )}
         </div>
 
         <div className="mcm-header__group-sep" aria-hidden="true" />
@@ -809,6 +850,50 @@ export const MeetingHeader = ({
           roomKey={roomKey}
           onClose={() => setInviteOpen(false)}
         />
+      )}
+
+      {/* Standalone Canvas Replay presentation. Reuses the log-modal shell
+          classes (.mcm-log-modal-backdrop / __header / __body) ON PURPOSE: the
+          replay player's "peek" mode (CanvasReplay.scss) collapses exactly
+          those classes to a floating control bar so the reviewer watches the
+          canvas evolve behind it — reusing them means peek works with no extra
+          styles. The player drives the existing review canvas via the live
+          excalidrawAPI; it restores the original scene on unmount. */}
+      {replayOpen && (
+        <div
+          className="mcm-log-modal-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("header.replay")}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setReplayOpen(false);
+            }
+          }}
+        >
+          <div className="mcm-log-modal mcm-replay-modal">
+            <div className="mcm-log-modal__header">
+              <div className="mcm-log-modal__head-text">
+                <h2 className="mcm-log-modal__title">{t("header.replay")}</h2>
+              </div>
+              <button
+                type="button"
+                className="mcm-log-modal__close"
+                onClick={() => setReplayOpen(false)}
+                aria-label={t("log.closeAria")}
+              >
+                ×
+              </button>
+            </div>
+            <div className="mcm-log-modal__body">
+              <CanvasReplayPlayer
+                roomId={roomId}
+                roomKey={replayRoomKey}
+                excalidrawAPI={excalidrawAPI}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </header>
   );

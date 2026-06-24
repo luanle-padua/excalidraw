@@ -1,7 +1,14 @@
 // Phase 5 — review-mode RECORDINGS section. Shown inside the finished-meeting
-// review (MeetingLogModal "Recordings" tab). Lists this meeting's Daily cloud
-// recordings (listRecordings) and lets an authorised viewer play each one in a
-// <video> player or download it.
+// review (MeetingLogModal "Recordings" tab). Lists this meeting's recordings
+// (listRecordings) and lets an authorised viewer play / download each one.
+//
+// UX (owner 06-24): a meeting can have MULTIPLE recordings (each Record→Stop =
+// one clip). We present them as a CLIP LIST + a prominent player: the list shows
+// clip #, start time, duration, size and a placeholder thumbnail; clicking a clip
+// loads it into the big player above. A single clip skips the list and just shows
+// the player. New styling lives in RecordingsSection.scss (new mcm-recplay-*
+// classes) — the legacy `.mcm-recordings` rules in MeetingShell.scss are left
+// untouched (owned by another team).
 //
 // ACCESS (anh Luân 06-23 §7.2): host / organizer / project leadership / admin
 // ONLY — NOT every participant. The caller (MeetingLogModal) hides the whole
@@ -11,10 +18,10 @@
 // public link.
 //
 // MEDIA AUTH: the stream route is JWT-gated and a <video src> can't attach the
-// bearer, so we lazily fetch each recording through fetchRecordingObjectUrl
-// (fetchWithAuth → blob → object URL) only when the viewer clicks Play, and
-// revoke the object URLs on unmount. Download goes through downloadRecording
-// (same gated fetch → disk). See data/recordings.ts for the rationale.
+// bearer, so we lazily fetch the SELECTED recording through fetchRecordingObjectUrl
+// (fetchWithAuth → blob → object URL) only when the viewer picks a clip, and
+// revoke object URLs on unmount / re-selection. Download goes through
+// downloadRecording (same gated fetch → disk). See data/recordings.ts.
 
 import { Download, Film, Play, RotateCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,6 +33,8 @@ import {
   type Recording,
 } from "../../data/recordings";
 import { useT } from "../../i18n/mcm";
+
+import "./RecordingsSection.scss";
 
 const fmtDuration = (sec: number | null): string => {
   if (!sec || sec <= 0) {
@@ -66,12 +75,15 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
   const t = useT();
   const [rows, setRows] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
-  // Object URL per recording id, loaded on Play (so we don't buffer every file
-  // up front). Revoked on unmount.
-  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
-  const [loadingId, setLoadingId] = useState<string | null>(null);
-  const mediaUrlsRef = useRef<Record<string, string>>({});
-  mediaUrlsRef.current = mediaUrls;
+  // The recording currently loaded in the big player.
+  const [activeId, setActiveId] = useState<string | null>(null);
+  // Object URL for the active recording, loaded on selection. Only ONE clip is
+  // buffered at a time (the previous one is revoked) so we never hold several
+  // full videos in memory.
+  const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const activeUrlRef = useRef<string | null>(null);
+  activeUrlRef.current = activeUrl;
 
   const load = useCallback(async () => {
     if (!roomId) {
@@ -89,24 +101,40 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
     void load();
   }, [load]);
 
-  // Free every blob the player created when the section unmounts.
+  // Free the buffered blob when the section unmounts.
   useEffect(
     () => () => {
-      Object.values(mediaUrlsRef.current).forEach((u) =>
-        URL.revokeObjectURL(u),
-      );
+      if (activeUrlRef.current) {
+        URL.revokeObjectURL(activeUrlRef.current);
+      }
     },
     [],
   );
 
-  const play = useCallback(async (id: string) => {
-    setLoadingId(id);
+  // Select a clip → fetch its gated media into an object URL and load the
+  // player. Revokes any previously-buffered clip first.
+  const select = useCallback(async (id: string) => {
+    setActiveId(id);
+    setLoadingMedia(true);
     const url = await fetchRecordingObjectUrl(id);
-    setLoadingId(null);
-    if (url) {
-      setMediaUrls((prev) => ({ ...prev, [id]: url }));
+    setLoadingMedia(false);
+    // Revoke the previous clip's blob now that a new one is ready.
+    if (activeUrlRef.current) {
+      URL.revokeObjectURL(activeUrlRef.current);
     }
+    setActiveUrl(url);
   }, []);
+
+  const ready = rows.filter((r) => r.status === "ready");
+
+  // Auto-select the (newest) ready clip when there's exactly one, so a
+  // single-recording meeting opens straight into the player.
+  useEffect(() => {
+    if (!activeId && ready.length === 1) {
+      void select(ready[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready.length, activeId]);
 
   if (loading) {
     return (
@@ -123,7 +151,7 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
         <p>{t("recordings.empty")}</p>
         <button
           type="button"
-          className="mcm-recordings__refresh"
+          className="mcm-recplay__refresh"
           onClick={() => void load()}
         >
           <RotateCw size={14} /> {t("recordings.refresh")}
@@ -132,82 +160,166 @@ export const RecordingsSection = ({ roomId }: { roomId: string | null }) => {
     );
   }
 
+  // rows arrive newest-first; number clips oldest-first ("Clip 1" = first
+  // recording of the meeting) so the numbering matches chronology.
+  const total = rows.length;
+  const clipNo = (idx: number) => total - idx;
+
+  const active = activeId ? rows.find((r) => r.id === activeId) ?? null : null;
+  const activeNo = active ? clipNo(rows.indexOf(active)) : null;
+  const playerMeta = active
+    ? [
+        fmtWhen(active.ready_at ?? active.created_at),
+        fmtSize(active.bytes),
+        active.started_by,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  const singleClip = rows.length === 1;
+  // The single clip when there's exactly one recording — used to surface its
+  // processing/failed state in the player (the clip list is hidden in that case).
+  const soleRow = singleClip ? rows[0] : null;
+  const solePending = soleRow ? soleRow.status !== "ready" : false;
+
   return (
-    <div className="mcm-recordings">
-      <div className="mcm-recordings__head">
-        <span className="mcm-recordings__count">
+    <div className="mcm-recplay">
+      <div className="mcm-recplay__head">
+        <span className="mcm-recplay__count">
           {t("recordings.count", { count: rows.length })}
         </span>
         <button
           type="button"
-          className="mcm-recordings__refresh"
+          className="mcm-recplay__refresh"
           onClick={() => void load()}
           title={t("recordings.refresh")}
         >
-          <RotateCw size={14} />
+          <RotateCw size={14} /> {t("recordings.refresh")}
         </button>
       </div>
-      <ul className="mcm-recordings__list">
-        {rows.map((r) => {
-          const ready = r.status === "ready";
-          const meta = [
-            fmtWhen(r.ready_at ?? r.created_at),
-            fmtDuration(r.duration),
-            fmtSize(r.bytes),
-            r.started_by,
-          ]
-            .filter(Boolean)
-            .join(" · ");
-          const mediaUrl = mediaUrls[r.id];
-          return (
-            <li key={r.id} className="mcm-recordings__item">
-              {!ready ? (
-                <div className="mcm-recordings__processing">
-                  <span className="mcm-log-modal__spinner" />{" "}
-                  {r.status === "failed"
-                    ? t("recordings.failed")
-                    : t("recordings.processing")}
-                </div>
-              ) : mediaUrl ? (
-                <video
-                  className="mcm-recordings__video"
-                  src={mediaUrl}
-                  controls
-                  autoPlay
-                  preload="metadata"
-                  playsInline
-                />
-              ) : (
-                <button
-                  type="button"
-                  className="mcm-recordings__play"
-                  onClick={() => void play(r.id)}
-                  disabled={loadingId === r.id}
-                >
-                  {loadingId === r.id ? (
-                    <span className="mcm-log-modal__spinner" />
-                  ) : (
-                    <Play size={18} />
-                  )}{" "}
-                  {t("recordings.play")}
-                </button>
+
+      <div className="mcm-recplay__stage">
+        {/* ---- prominent player ---- */}
+        <div className="mcm-recplay__player">
+          {loadingMedia ? (
+            <div className="mcm-recplay__loading">
+              <span className="mcm-log-modal__spinner" />{" "}
+              {t("recordings.loadingMedia")}
+            </div>
+          ) : active && activeUrl ? (
+            <video
+              key={active.id}
+              className="mcm-recplay__video"
+              src={activeUrl}
+              controls
+              autoPlay
+              preload="metadata"
+              playsInline
+            />
+          ) : solePending ? (
+            <div className="mcm-recplay__placeholder">
+              {soleRow?.status !== "failed" && (
+                <span className="mcm-log-modal__spinner" />
               )}
-              <div className="mcm-recordings__row">
-                <span className="mcm-recordings__meta">{meta}</span>
-                {ready && (
-                  <button
-                    type="button"
-                    className="mcm-recordings__download"
-                    onClick={() => void downloadRecording(r.id)}
-                  >
-                    <Download size={14} /> {t("recordings.download")}
-                  </button>
+              <span>
+                {soleRow?.status === "failed"
+                  ? t("recordings.failed")
+                  : t("recordings.processing")}
+              </span>
+            </div>
+          ) : (
+            <div className="mcm-recplay__placeholder">
+              <Film size={30} strokeWidth={1.5} aria-hidden="true" />
+              <span>{t("recordings.pickClip")}</span>
+            </div>
+          )}
+
+          {active && (
+            <div className="mcm-recplay__player-bar">
+              <div className="mcm-recplay__player-meta">
+                <span className="mcm-recplay__player-title">
+                  {t("recordings.clipNo", { n: activeNo ?? 1 })}
+                  {active.duration
+                    ? ` · ${fmtDuration(active.duration)}`
+                    : ""}
+                </span>
+                {playerMeta && (
+                  <span className="mcm-recplay__player-sub">{playerMeta}</span>
                 )}
               </div>
-            </li>
-          );
-        })}
-      </ul>
+              <button
+                type="button"
+                className="mcm-recplay__download"
+                onClick={() => void downloadRecording(active.id)}
+              >
+                <Download size={14} /> {t("recordings.download")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ---- clip list (hidden when there's only one recording) ---- */}
+        {!singleClip && (
+          <ul className="mcm-recplay__list">
+            {rows.map((r, idx) => {
+              const isReady = r.status === "ready";
+              const isActive = r.id === activeId;
+              const meta = [
+                fmtWhen(r.ready_at ?? r.created_at),
+                fmtSize(r.bytes),
+                r.started_by,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              return (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    className={`mcm-recplay__clip${
+                      isActive ? " mcm-recplay__clip--active" : ""
+                    }${!isReady ? " mcm-recplay__clip--pending" : ""}`}
+                    onClick={() => isReady && void select(r.id)}
+                    disabled={!isReady}
+                    aria-pressed={isActive}
+                  >
+                    <span className="mcm-recplay__thumb" aria-hidden="true">
+                      <Film size={18} strokeWidth={1.5} />
+                      {isReady && (
+                        <span className="mcm-recplay__thumb-badge">
+                          <Play size={16} />
+                        </span>
+                      )}
+                    </span>
+                    <span className="mcm-recplay__clip-body">
+                      <span className="mcm-recplay__clip-title">
+                        {t("recordings.clipNo", { n: clipNo(idx) })}
+                        {isReady && r.duration ? (
+                          <span className="mcm-recplay__clip-dur">
+                            {fmtDuration(r.duration)}
+                          </span>
+                        ) : null}
+                      </span>
+                      {isReady ? (
+                        <span className="mcm-recplay__clip-meta">{meta}</span>
+                      ) : (
+                        <span className="mcm-recplay__clip-status">
+                          {r.status !== "failed" && (
+                            <span className="mcm-log-modal__spinner" />
+                          )}
+                          {r.status === "failed"
+                            ? t("recordings.failed")
+                            : t("recordings.processing")}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 };

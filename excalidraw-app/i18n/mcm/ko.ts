@@ -198,6 +198,7 @@ export const ko: Widened<typeof vi> = {
   },
   header: {
     invite: "초대",
+    replay: "다시 보기",
     inviteCopied: "링크 복사됨!",
     endMeeting: "회의 종료",
     endConfirm:
@@ -1157,6 +1158,9 @@ export const ko: Widened<typeof vi> = {
   // ---------------- Recordings (review mode) ------------------------
   recordings: {
     loading: "녹화본 불러오는 중…",
+    loadingMedia: "영상 불러오는 중…",
+    pickClip: "아래에서 클립을 선택해 재생하세요",
+    clipNo: "클립 {n}",
     empty: "이 회의의 녹화본이 아직 없어요.",
     processing: "녹화본 처리 중…",
     failed: "녹화 실패",
@@ -1364,6 +1368,7 @@ export const ko: Widened<typeof vi> = {
 
   chat: {
     title: "대화",
+    unread: "읽지 않은 메시지 {count}개",
     sendLabel: "전송",
     composePlaceholder: "메시지 입력…",
     viewOnlyNotice: "완료된 회의 검토 중 — 채팅은 읽기 전용입니다",
@@ -1402,8 +1407,38 @@ export const ko: Widened<typeof vi> = {
     },
   },
 
+  knock: {
+    bannerTitle: "{count}명이 입장 대기 중",
+    admit: "입장 허용",
+    deny: "거절",
+    moreWaiting: "+{count}명 더 대기 중 · 목록 열기",
+  },
+
+  replay: {
+    loading: "다시 보기 불러오는 중…",
+    error: "캔버스 다시 보기를 불러오지 못했습니다.",
+    empty:
+      "이 회의에는 캔버스 다시 보기가 없습니다. 회의 중 그리기는 자동으로 기록됩니다 — 이전 회의에는 없습니다.",
+    lead:
+      '검토 중인 캔버스에서 화이트보드가 어떻게 발전했는지 다시 봅니다. "캔버스 보기"를 켜고 스크럽하며 확인하세요.',
+    play: "재생",
+    pause: "일시정지",
+    restart: "처음부터",
+    speed: "속도",
+    scrubAria: "캔버스 타임라인 스크럽",
+    stepOf: "단계 {cur} / {total}",
+    spanLabel: "구간:",
+    showCanvas: "캔버스 보기",
+    hideCanvas: "캔버스 숨기기",
+  },
+
   stt: {
     title: "실시간 회의록",
+    dualOn: "이중 언어: 켬",
+    dualOff: "이중 언어: 끔",
+    dualToggleOnTitle: "한 가지 언어만 표시",
+    dualToggleOffTitle: "원문과 번역을 함께 표시",
+    dualToggleDisabledTitle: "이중 언어를 보려면 먼저 번역을 켜세요",
     showButton: "실시간 회의록",
     providerTitle: "정확도 테스트를 위한 음성 인식 모델 선택",
     providerLabel: "STT 모델",
@@ -1452,6 +1487,9 @@ export const ko: Widened<typeof vi> = {
   // ---------------- Live caption dock ------------------------------
   caption: {
     label: "실시간 자막",
+    dualOnTitle: "한 가지 언어만 표시",
+    dualOffTitle: "원문과 번역을 함께 표시",
+    dualDisabledTitle: "이중 언어를 보려면 먼저 번역을 켜세요",
     translating: "번역 중…",
     degraded: "번역 일시 중지 (과부하) — 원문 표시",
     hideTitle: "자막 잠시 숨기기",
@@ -1475,6 +1513,7 @@ export const ko: Widened<typeof vi> = {
     tabTranscript: "회의록",
     tabSummary: "요약",
     tabRecordings: "녹화본",
+    tabReplay: "다시 보기",
     closeAria: "닫기",
     emptyTranscript:
       "아직 회의록이 없습니다. 통화 참여 + STT를 켜서 기록을 시작하세요.",

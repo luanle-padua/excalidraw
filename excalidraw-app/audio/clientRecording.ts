@@ -91,6 +91,10 @@ export type ClientRecordingOptions = {
 };
 
 const LOCAL_KEY = "__local__";
+// Mix key for the shared window's tab/system audio (Daily "screenAudio"). Kept
+// distinct from the mic/peer keys so it can be (re)attached/detached on its own
+// as a share's audio starts/stops mid-record.
+const SCREEN_AUDIO_KEY = "__screen_audio__";
 
 // Compositor video config — deliberately small/low-fps to match the existing
 // low-bitrate intent (review/docs-sized 480p files, not broadcast quality).
@@ -187,6 +191,23 @@ export class ClientMeetingRecorder {
 
   removeLocalStream(): void {
     this.removeStream(LOCAL_KEY);
+  }
+
+  /**
+   * Mix the shared window's audio (Daily "screenAudio" — tab/system audio) into
+   * the recording, or detach it (pass null / an audio-less stream). Safe to call
+   * before OR during recording: the Web Audio mix feeds the SAME output track the
+   * MediaRecorder is already recording, so a share whose audio starts/stops
+   * mid-record is captured live. Independent of the video compositor — a host
+   * with NO mic still records the meeting's screen-share audio.
+   */
+  setScreenAudioStream(stream: MediaStream | null): void {
+    // Re-attach cleanly: drop any prior screen-audio source first so a new share
+    // (or a track swap) replaces it rather than being skipped as a dup key.
+    this.removeStream(SCREEN_AUDIO_KEY);
+    if (stream && stream.getAudioTracks().length > 0) {
+      this.addStream(SCREEN_AUDIO_KEY, stream);
+    }
   }
 
   // ---- screen video via the canvas compositor ----------------------------

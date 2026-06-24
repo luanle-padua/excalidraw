@@ -29,11 +29,13 @@ import {
 import {
   SPOKEN_LANGUAGES,
   liveTranscriptsAtom,
+  setSttDualLanguage,
   setSttEnabled,
   setSttPanelStyle,
   setSttSpokenLanguage,
   setSttTranslateEnabled,
   sttCapturingAtom,
+  sttDualLanguageAtom,
   sttEnabledAtom,
   sttLiveErrorAtom,
   sttPanelStyleAtom,
@@ -48,6 +50,8 @@ import { useT } from "../../i18n/mcm";
 import { MCMAvatar } from "./Avatar";
 import { personColor } from "./meetingColors";
 import { shortDisplayName } from "./animalEmoji";
+
+import "./SpeechToTextPanel.scss";
 
 import type { STTLang, STTProvider } from "../../audio/sttSession";
 import type { TranscriptSegment } from "../../data/transcription";
@@ -120,16 +124,23 @@ const formatClockTime = (ts: number): string => {
 const SegmentRow = ({
   seg,
   translateEnabled,
+  dualEnabled,
   compact = false,
 }: {
   seg: TranscriptSegment;
   translateEnabled: boolean;
+  /** When ON, the secondary (translated) line is flagged with the viewer's
+   *  preferred-language code and the ORIGINAL line is flagged with the spoken
+   *  language code, so a viewer can tell the two apart at a glance. Off → the
+   *  established single-flow render (original on top, plain translation below). */
+  dualEnabled: boolean;
   /** Compact mode drops the avatar + language chip and tightens spacing
    *  so the row sips vertical space; the speaker colour + translation are
    *  kept (they're the load-bearing "who said what, in my language" cues). */
   compact?: boolean;
 }) => {
   const t = useT();
+  const preferredLang = useAtomValue(preferredLanguageAtom);
   // `assumedSource` lets useTranslate short-circuit when Deepgram's
   // detected language already matches the viewer's preferred — no
   // pointless "translate Korean to Korean" round-trip.
@@ -137,6 +148,10 @@ const SegmentRow = ({
     assumedSource: seg.lang as SupportedLanguage | undefined,
   });
   const showTranslation = translateEnabled && !isSameLanguage;
+  // Original-language flag for the dual view. Prefer Deepgram's detected
+  // `seg.lang`; fall back to the viewer's preferred code only as a label hint
+  // (never affects the text). "multi" is shown verbatim — it means mixed/unknown.
+  const origLangLabel = (seg.lang || "").toUpperCase();
   // Resolve the speaker's profile so the line carries their actual
   // chosen avatar + display name instead of the deterministic animal
   // emoji + raw socket username. Self reads its own profile atom
@@ -176,10 +191,30 @@ const SegmentRow = ({
           <span className="mcm-stt__line-lang">{seg.lang}</span>
         )}
       </div>
-      <div className="mcm-stt__line-orig">{seg.text}</div>
+      <div className="mcm-stt__line-orig">
+        {dualEnabled && showTranslation && origLangLabel && (
+          <span className="mcm-stt__line-tag mcm-stt__line-tag--orig">
+            {origLangLabel}
+          </span>
+        )}
+        {seg.text}
+      </div>
       {showTranslation && (
-        <div className="mcm-stt__line-trans">
-          — {loading ? t("stt.translating") : translated}
+        <div
+          className={`mcm-stt__line-trans${
+            dualEnabled ? " mcm-stt__line-trans--dual" : ""
+          }`}
+        >
+          {dualEnabled ? (
+            <>
+              <span className="mcm-stt__line-tag mcm-stt__line-tag--trans">
+                {preferredLang.toUpperCase()}
+              </span>
+              {loading ? t("stt.translating") : translated}
+            </>
+          ) : (
+            <>— {loading ? t("stt.translating") : translated}</>
+          )}
         </div>
       )}
     </div>
@@ -252,6 +287,11 @@ export const SpeechToTextPanel = () => {
   const [translateEnabled, setTranslateEnabledState] = useAtom(
     sttTranslateEnabledAtom,
   );
+  // Show BOTH the original spoken text AND the translation per segment. Shared
+  // with the LiveCaptionDock via this atom so the choice is consistent across
+  // surfaces. Only has a visible effect while translation is ON (otherwise there
+  // is no second language to pair with the original).
+  const [dualLanguage, setDualLanguageState] = useAtom(sttDualLanguageAtom);
   // Per-session STT provider for A/B testing. Default deepgram. Persisted per
   // device; AudioRoomController restarts the live mic session on change.
   const [sttProvider, setSttProviderState] = useAtom(sttProviderAtom);
@@ -944,6 +984,33 @@ export const SpeechToTextPanel = () => {
             {translateEnabled ? t("stt.translateOn") : t("stt.translateOff")}
           </button>
 
+          {/* Dual-language toggle: when ON, each finalised line shows BOTH the
+              speaker's ORIGINAL spoken text AND the translation (flagged with
+              the language codes). Only meaningful while Translate is ON, so it's
+              disabled otherwise — there's no second language to pair with. */}
+          <button
+            type="button"
+            className={`mcm-stt__toggle mcm-stt__toggle--dual${
+              dualLanguage && translateEnabled ? " mcm-stt__toggle--on" : ""
+            }`}
+            disabled={!translateEnabled}
+            onClick={() => {
+              const next = !dualLanguage;
+              setDualLanguageState(next);
+              setSttDualLanguage(next);
+            }}
+            title={
+              !translateEnabled
+                ? t("stt.dualToggleDisabledTitle")
+                : dualLanguage
+                ? t("stt.dualToggleOnTitle")
+                : t("stt.dualToggleOffTitle")
+            }
+          >
+            <Icon d="M4 6h7 M4 12h7 M4 18h7 M15 7l3 10 3-10 M15.8 14h4.4" />
+            {dualLanguage ? t("stt.dualOn") : t("stt.dualOff")}
+          </button>
+
           {/* Per-session STT provider selector (A/B accuracy test, 06-18).
             Each option carries its per-minute price so the PM sees cost
             while picking the most ACCURATE provider — default Deepgram.
@@ -1047,6 +1114,7 @@ export const SpeechToTextPanel = () => {
             key={seg.id}
             seg={seg}
             translateEnabled={translateEnabled}
+            dualEnabled={dualLanguage}
             compact={compact}
           />
         ))}

@@ -57,6 +57,7 @@ import { useT } from "../../i18n/mcm";
 
 import { MCMAvatar } from "./Avatar";
 import { FloatingPresenter } from "./FloatingPresenter";
+import { KnockBanner } from "./KnockBanner";
 import { usePickVideoLayout } from "./LayoutSwitcher";
 import { MeetingGallery } from "./MeetingGallery";
 import { VideoFilmstrip } from "./VideoFilmstrip";
@@ -1201,6 +1202,18 @@ export const ParticipantsBar = ({
 
   return (
     <>
+      {/* High-visibility, persistent knock alert — top-center over the canvas
+          so the host can't miss someone asking to enter, and can Admit / Deny
+          inline without first opening the participants drawer. Host-only;
+          renders null when nobody is knocking. Reuses the SAME waitingKnocks
+          state + onKnockAction handler as the drawer (no second poller). */}
+      {iAmHost && (
+        <KnockBanner
+          knocks={waitingKnocks}
+          onAction={onKnockAction}
+          onOpenPanel={() => setPanelOpen(true)}
+        />
+      )}
       <footer
         className={`mcm-people-bar${
           videoLayout === "filmstrip" ? " mcm-people-bar--filmstrip" : ""
@@ -1420,7 +1433,7 @@ const CountChip = ({
         <span className="mcm-people-bar__chip-num">{inCall}</span>
       </span>
       {waiting > 0 && (
-        <span className="mcm-people-bar__chip-waiting">
+        <span className="mcm-people-bar__chip-waiting mcm-knock-badge">
           {t("participants.waitingCount", { count: waiting })}
         </span>
       )}

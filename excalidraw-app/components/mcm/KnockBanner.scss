@@ -1,0 +1,247 @@
+// Host-side waiting-room KNOCK banner. A high-visibility, persistent strip
+// anchored top-center of the meeting canvas so the host can't miss someone
+// asking to enter — and can Admit / Deny inline without opening the
+// participants drawer. Lives in the same canvas coordinate space as
+// .mcm-connection (position:absolute over .mcm-shell__canvas-area), but sits
+// one z-layer higher: a knock is a higher-priority host action than a
+// connectivity hint.
+//
+// Tone: amber (--mcm-warning) — draws a glance without the alarm of red, and
+// matches the existing "N waiting" chip badge. Tokens only (--mcm-*) so it
+// tracks every theme (light / dark / forest) automatically.
+
+.mcm-knock {
+  position: absolute;
+  // Top rung of the TOP-CENTER BANNER LADDER (z-index map in MeetingShell.scss):
+  // a knock is the highest-priority host action, so it owns top:12px and the
+  // connection banner (z7) steps DOWN to top:56px to stack beneath it. Both can
+  // be on screen at once (host with a flaky link while someone knocks), so the
+  // offset matters — without it they'd occlude.
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 8; // above the connection banner (7) so a knock is never occluded
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: min(94vw, 480px);
+  padding: 12px 14px 12px 16px;
+  border-radius: var(--mcm-radius-lg, 18px);
+  background: color-mix(in srgb, var(--mcm-warning) 14%, var(--mcm-surface));
+  color: var(--mcm-text);
+  box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--mcm-warning) 55%, transparent),
+    0 10px 30px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.12);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-user-select: none;
+  user-select: none;
+  // Slide + fade in so it reads as an arriving alert, not a static panel.
+  animation: mcm-knock-in 260ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  // Pulsing amber dot — the "something needs you" beacon. Mirrors the
+  // connection banner's reconnecting dot but tinted to the knock tone.
+  &__beacon {
+    flex: 0 0 auto;
+    position: relative;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--mcm-warning);
+
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: var(--mcm-warning);
+      animation: mcm-knock-ping 1.6s ease-out infinite;
+    }
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+    color: var(--mcm-text);
+  }
+
+  // "+N more" pill when several people are knocking at once — keeps the
+  // banner compact while signalling the queue depth.
+  &__count {
+    flex: 0 0 auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mcm-warning) 26%, transparent);
+    color: var(--mcm-text);
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  // One knocker row: avatar + (name + email) on the left, actions right.
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__avatar {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mcm-warning) 40%, transparent);
+  }
+
+  &__person {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.25;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__email {
+    font-size: 11px;
+    color: var(--mcm-text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 120ms, transform 80ms, background-color 120ms;
+
+    &:active {
+      transform: translateY(1px);
+    }
+
+    // Primary, solid green — the obvious "let them in" action.
+    &--admit {
+      background: var(--mcm-success);
+      color: #fff;
+
+      &:hover {
+        filter: brightness(1.06);
+      }
+    }
+
+    // Quiet, outlined danger — present but not competing with Admit.
+    &--deny {
+      background: transparent;
+      color: var(--mcm-danger);
+      box-shadow: inset 0 0 0 1px
+        color-mix(in srgb, var(--mcm-danger) 45%, transparent);
+
+      &:hover {
+        background: color-mix(in srgb, var(--mcm-danger) 12%, transparent);
+      }
+    }
+  }
+
+  // "Open the full list" affordance shown only when more than one person is
+  // waiting — routes the host to the participants drawer to triage the queue.
+  &__more {
+    align-self: flex-start;
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    color: var(--mcm-warning);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+      filter: brightness(1.1);
+    }
+  }
+}
+
+// Enhanced "N waiting" CHIP badge on the people CountChip. The base look lives
+// in MeetingShell.scss (.mcm-people-bar__chip-waiting — small, quiet amber);
+// this modifier (added alongside it in ParticipantsBar) makes it bigger,
+// brighter (solid amber fill instead of a faint tint) and gently pulsing so the
+// host's eye is drawn to it even while the banner is scrolled past / dismissed.
+// Defined here so the shared MeetingShell.scss stays untouched.
+.mcm-knock-badge {
+  // Override the faint tint + muted text with a solid, high-contrast amber.
+  padding: 2px 9px;
+  font-size: 11px;
+  background: var(--mcm-warning);
+  color: #fff;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mcm-warning) 35%, transparent);
+  animation: mcm-knock-badge-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes mcm-knock-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-warning) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--mcm-warning) 0%, transparent);
+  }
+}
+
+@keyframes mcm-knock-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes mcm-knock-ping {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}

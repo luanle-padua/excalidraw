@@ -411,34 +411,39 @@
       color: var(--mcm-accent);
     }
 
-    // Canonical project-status badge — short labels, so let it size to content
-    // and tint by lifecycle so the status reads at a glance.
+    // Canonical project-status badge — size to content + a TINTED PILL per
+    // lifecycle (color + soft matching background) so each status reads at a
+    // glance and they no longer look alike. `finished` gets its own blue so it's
+    // distinct from the neutral `archived`.
     &--status {
       max-width: none;
+      font-weight: 650;
 
       &.mcm-pmgr__tag--status-prepare {
         color: var(--mcm-accent);
+        background: color-mix(in srgb, var(--mcm-accent) 16%, transparent);
       }
       &.mcm-pmgr__tag--status-ongoing {
         color: #1f9d55;
+        background: color-mix(in srgb, #1f9d55 16%, transparent);
       }
       &.mcm-pmgr__tag--status-on-hold {
         color: #b7791f;
+        background: color-mix(in srgb, #b7791f 18%, transparent);
       }
-      &.mcm-pmgr__tag--status-finished,
-      &.mcm-pmgr__tag--status-archived {
-        color: var(--mcm-text-faint);
+      &.mcm-pmgr__tag--status-finished {
+        color: #3b82c4;
+        background: color-mix(in srgb, #3b82c4 15%, transparent);
       }
       &.mcm-pmgr__tag--status-cancelled {
         color: #c53030;
+        background: color-mix(in srgb, #c53030 15%, transparent);
+      }
+      &.mcm-pmgr__tag--status-archived {
+        color: var(--mcm-text-faint);
+        background: color-mix(in srgb, var(--mcm-text-faint) 18%, transparent);
       }
     }
-  }
-
-  // Status picker in the detail (segmented buttons wrap on narrow panels).
-  .mcm-segmented--status {
-    flex-wrap: wrap;
-    margin-top: 4px;
   }
 
   // Project icon (emoji accent) — sits just before the name on rows + cards.
@@ -508,6 +513,50 @@
     }
     > .mcm-btn {
       margin-left: auto;
+    }
+  }
+}
+
+// Status picker (segmented control with TEXT labels) — lives in the project
+// DETAIL view (.mcm-pdetail), NOT .mcm-pmgr, so this is a TOP-LEVEL rule (an
+// earlier version nested it under .mcm-pmgr, the list view, so it never matched
+// and the labels stayed stacked — the "STATUS overlap" bug). The base
+// .mcm-segmented__btn is a fixed 28px icon square, which collapses the text
+// labels (Preparing/Ongoing/…) on top of each other; size them to content + wrap.
+.mcm-segmented--status {
+  flex-wrap: wrap;
+  margin-top: 4px;
+
+  .mcm-segmented__btn {
+    width: auto;
+    min-width: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  // Color-code each status so the options are distinguishable (they used to look
+  // identical). Inactive = status-tinted label; active = filled with its status
+  // colour. The compound (--st-x.--active) selectors outrank the base active
+  // thumb, so the selected status reads as a solid colour chip.
+  $statuses: (
+    "prepare": var(--mcm-accent),
+    "ongoing": #1f9d55,
+    "on-hold": #b7791f,
+    "finished": #3b82c4,
+    "cancelled": #c53030,
+    "archived": var(--mcm-text-faint)
+  );
+
+  @each $name, $col in $statuses {
+    .mcm-segmented__btn--st-#{$name} {
+      color: #{$col};
+
+      &.mcm-segmented__btn--active {
+        background: #{$col};
+        color: #fff;
+        box-shadow: var(--mcm-shadow-1);
+      }
     }
   }
 }
@@ -843,5 +892,75 @@
   &--active {
     background: var(--mcm-surface-2);
     box-shadow: 0 0 0 1px var(--mcm-accent);
+  }
+}
+
+// =====================================================================
+// RESPONSIVE PHASE 2 — Project manager (list + detail)
+// TABLET (≤768px) + PHONE (≤480px). Purely ADDITIVE; the existing 900px
+// breakpoints (metagrid → 1 col, list flow) and the 560px container query
+// stay as-is. These refine card density + detail stacking on small screens.
+// =====================================================================
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  // Project cards → exactly 2 columns (the auto-fill 200px floor is jittery
+  // between 1–3 at tablet widths). Matches .mcm-mcards--grid in MeetingShell.
+  .mcm-pmgr__cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  // Search/segment/CTA head row already wraps (flex-wrap); give it a touch
+  // more breathing room and let search take the full first row.
+  .mcm-pmgr__search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // Single-column project cards on phone — full width, comfortable tap area.
+  .mcm-pmgr__cards {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  // --- Project DETAIL (.mcm-pdetail) — clean phone stack ---
+  .mcm-pdetail {
+    padding: 10px 12px 24px;
+    gap: 14px;
+
+    // The metagrid already drops to 1 column at 900px; ensure the hero name
+    // and code wrap rather than clipping on a narrow screen.
+    &__name {
+      font-size: 20px;
+    }
+    // Hero row (name + code + actions) stacks: actions drop below the title
+    // instead of being squeezed off the right edge.
+    &__hero-row {
+      gap: 8px;
+    }
+    &__actions {
+      margin-left: 0;
+      width: 100%;
+      flex-wrap: wrap;
+    }
+    // Danger zone → stack the hint above a full-width button so the
+    // destructive target isn't a thin sliver next to long text.
+    &__danger {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    &__danger-btn {
+      justify-content: center;
+      min-height: 44px;
+    }
+  }
+
+  // Status segmented picker in the detail view — its text labels already wrap
+  // (.mcm-segmented--status); give each label a taller tap area on phone.
+  .mcm-segmented--status .mcm-segmented__btn {
+    min-height: 40px;
   }
 }

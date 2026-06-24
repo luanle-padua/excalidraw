@@ -1,2 +1,15 @@
 /*
   Access-Control-Allow-Origin: *
+
+# The service worker + app shell must NEVER be served stale, or clients (esp.
+# phones with no easy hard-refresh) get stuck on an old deploy. no-cache forces
+# a revalidate so a new deploy is picked up; the hashed /assets/* below stay
+# immutable (their hash changes per build).
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/index.html
+  Cache-Control: no-cache, must-revalidate
+/version.json
+  Cache-Control: no-cache, must-revalidate
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

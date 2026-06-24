@@ -86,6 +86,10 @@ export class DailyScreenShare {
    *  lets reconcileRemoteScreenVideo() skip rebuilding the MediaStream (and
    *  re-attaching the <video>) when nothing actually changed. */
   private currentScreenTrackId: string | null = null;
+  /** The active share's AUDIO track ("screenAudio"), local OR remote, wrapped for
+   *  the recorder. Surfaced via emit() so CloudRecordingControls can mix the
+   *  shared tab/system audio into the recording. Null when the share has none. */
+  private screenAudioStream: MediaStream | null = null;
 
   constructor(opts: {
     roomId: string;
@@ -110,6 +114,7 @@ export class DailyScreenShare {
       localStream: this.localStream,
       localSurface: this.localSurface,
       localLabel: this.localLabel,
+      screenAudioStream: this.screenAudioStream,
       errorKind: this.errorKind,
       errorMessage: this.errorMessage,
       link: this.link,
@@ -348,6 +353,9 @@ export class DailyScreenShare {
     this.localStream = null;
     this.localSurface = null;
     this.localLabel = null;
+    // Our share ended → drop our screen-audio wrapper too (the screenAudio
+    // track-stopped event may not fire reliably). Caller emits.
+    this.screenAudioStream = null;
   }
 
   private onParticipantUpdated = () => {
@@ -365,7 +373,11 @@ export class DailyScreenShare {
     }
     try {
       log("startScreenShare()");
-      this.call.startScreenShare();
+      // Request audio in the getDisplayMedia picker so the browser shows the
+      // "share tab/system audio" option. Without it Daily never captures the
+      // shared content's sound, so the screenAudio track never exists and a
+      // screen recording comes out SILENT (owner: "chỉ thấy shared screen, k audio").
+      this.call.startScreenShare({ displayMediaOptions: { audio: true } });
       return true;
     } catch (err) {
       warn("startScreenShare failed", err);
@@ -395,6 +407,7 @@ export class DailyScreenShare {
     const call = this.call;
     this.call = null;
     this.stopRemoteScreenAudio();
+    this.screenAudioStream = null;
     this.remoteStream = null;
     this.remoteSharerName = null;
     const wasSharing = this.localActive;
@@ -438,9 +451,17 @@ export class DailyScreenShare {
     log(
       `track-started type=${e.type} local=${e.participant?.local} from=${e.participant?.user_name}`,
     );
-    // Remote shared tab/system audio → play it (Daily won't auto-play it).
-    if (e.type === "screenAudio" && e.participant && !e.participant.local) {
-      this.playRemoteScreenAudio(e.track);
+    // Shared tab/system audio ("screenAudio"). Surface the raw track so the
+    // recorder can MIX it (a no-mic host still records the share's audio), and
+    // for a REMOTE share also play it (Daily won't auto-play it). We must NOT
+    // play our OWN screen audio back — that would echo — so only remote plays.
+    if (e.type === "screenAudio" && e.participant) {
+      if (e.track) {
+        this.setScreenAudioTrack(e.track);
+        if (!e.participant.local) {
+          this.playRemoteScreenAudio(e.track);
+        }
+      }
       return;
     }
     if (e.type !== "screenVideo" || !e.participant) {
@@ -468,6 +489,7 @@ export class DailyScreenShare {
 
   private onTrackStopped = (e: DailyEventObjectTrack) => {
     if (e.type === "screenAudio") {
+      this.clearScreenAudioTrack();
       this.stopRemoteScreenAudio();
       return;
     }
@@ -494,6 +516,27 @@ export class DailyScreenShare {
     // live participant set.
     this.reconcileRemoteScreenVideo();
   };
+
+  /** Wrap the active share's audio track for the recorder + emit. Idempotent on
+   *  the same track (never double-wraps). Does NOT play it — playback (remote
+   *  only) is the caller's job. */
+  private setScreenAudioTrack(track: MediaStreamTrack) {
+    if (this.screenAudioStream?.getAudioTracks()[0] === track) {
+      return;
+    }
+    this.screenAudioStream = new MediaStream([track]);
+    this.emit();
+  }
+
+  /** Drop the recorder-facing screen-audio wrapper when the share's audio ends.
+   *  We do NOT stop the track (Daily owns it); we only release our wrapper. */
+  private clearScreenAudioTrack() {
+    if (!this.screenAudioStream) {
+      return;
+    }
+    this.screenAudioStream = null;
+    this.emit();
+  }
 
   private playRemoteScreenAudio(track: MediaStreamTrack) {
     this.stopRemoteScreenAudio();

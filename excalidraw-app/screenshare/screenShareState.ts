@@ -77,6 +77,13 @@ export type ScreenShareMedia = {
   /** raw browser-supplied label of our shared source (track.label) — free text,
    *  shown as-is, never parsed. Null when not sharing. */
   localLabel: string | null;
+  /** The shared tab/system AUDIO track ("screenAudio") wrapped in a MediaStream,
+   *  when the active share carries audio — OUR OWN when we present with audio,
+   *  else the remote presenter's. Null when the share has no audio. Surfaced so
+   *  the recorder can MIX it into the file: viewers hear a remote share's audio
+   *  via a hidden <audio>, but the recorder needs the raw track (and a no-mic
+   *  host still records the meeting's screen-share audio). */
+  screenAudioStream: MediaStream | null;
   /** language-neutral error code from the last failure — see ScreenShareErrorKind.
    *  Null when there's no error. The UI maps this to an i18n message. */
   errorKind: ScreenShareErrorKind | null;
@@ -97,6 +104,7 @@ export const SCREEN_SHARE_IDLE: ScreenShareMedia = {
   localStream: null,
   localSurface: null,
   localLabel: null,
+  screenAudioStream: null,
   errorKind: null,
   errorMessage: null,
   link: "connected",

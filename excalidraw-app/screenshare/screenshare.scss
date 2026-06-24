@@ -126,3 +126,49 @@
     opacity: 0.4;
   }
 }
+
+// =====================================================================
+// RESPONSIVE PHASE 1 — TABLET (≤768px) + PHONE (≤480px)
+// =====================================================================
+// Additive only. The floating screen-share viewer docks bottom-right on
+// desktop; on small screens that corner collides with the people bar and a
+// 42vw card is uselessly tiny, so we widen it and lift it clear of the bar.
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  .mcm-ss-pane {
+    width: min(420px, 70vw);
+    right: 16px;
+    // Sit above the (now ~84px) people bar instead of a fixed 96px.
+    bottom: calc(var(--mcm-bar-clearance, 100px) + 4px);
+  }
+  .mcm-ss-pane--min {
+    width: 240px;
+  }
+  // Larger header tap targets for the pane controls.
+  .mcm-ss-pane__btn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  .mcm-ss-pane {
+    // Full-width sheet pinned just above the people bar, clear of the
+    // header at the top. left/right both set so the fixed card stretches.
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: calc(var(--mcm-bar-clearance, 92px) + 4px);
+  }
+  // Minimised state still spans the row (no point in a tiny corner card on
+  // a phone); the aspect-ratio body keeps it short.
+  .mcm-ss-pane--min {
+    width: auto;
+  }
+  .mcm-ss-pane__btn {
+    width: 40px;
+    height: 40px;
+  }
+}

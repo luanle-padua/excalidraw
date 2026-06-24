@@ -42,10 +42,16 @@ import {
 import { collabAPIAtom } from "../../collab/Collab";
 import {
   liveTranscriptsAtom,
+  setSttDualLanguage,
+  sttDualLanguageAtom,
   sttTranslateEnabledAtom,
   transcriptionLogAtom,
 } from "../../data/transcription";
-import { translationDegradedAtom, useTranslate } from "../../data/translation";
+import {
+  preferredLanguageAtom,
+  translationDegradedAtom,
+  useTranslate,
+} from "../../data/translation";
 import { peerProfilesAtom, userProfileAtom } from "../../data/userProfile";
 import { useT } from "../../i18n/mcm";
 
@@ -123,6 +129,10 @@ const FinalCaptionLine = ({ seg }: { seg: TranscriptSegment }) => {
   // panel doesn't (or vice-versa) — anh Luân case 4: "dù ở dạng nào ngôn ngữ
   // phải đúng user". When OFF we render the ORIGINAL spoken text verbatim.
   const translateOn = useAtomValue(sttTranslateEnabledAtom);
+  // Dual-language view (shared with the STT panel): show BOTH the original
+  // spoken line AND the translation. Only meaningful while translation is ON.
+  const dualOn = useAtomValue(sttDualLanguageAtom);
+  const preferredLang = useAtomValue(preferredLanguageAtom);
   // `seg.lang === "multi"` means Deepgram detected mixed/unknown language — we
   // can't trust it as the source, so pass `undefined` and let the backend
   // auto-detect (passing a wrong assumedSource would mis-translate). A concrete
@@ -148,11 +158,22 @@ const FinalCaptionLine = ({ seg }: { seg: TranscriptSegment }) => {
     : loading && !isSameLanguage
     ? seg.text
     : translated;
+  // Dual view pairs the ORIGINAL spoken text under the translated line, but only
+  // when there genuinely IS a translation to pair (translate on + different
+  // language). When the spoken language already matches the viewer's preferred
+  // one there's nothing to add, so we collapse back to a single line.
+  const secondary =
+    dualOn && showTranslation && !loading ? seg.text : undefined;
   return (
     <CaptionLineRow
       socketId={seg.socketId}
       name={name}
       text={text}
+      primaryTag={secondary ? preferredLang.toUpperCase() : undefined}
+      secondary={secondary}
+      secondaryTag={
+        secondary ? (seg.lang || "").toUpperCase() || undefined : undefined
+      }
       interim={false}
       translating={showTranslation && loading}
       translatingLabel={t("caption.translating")}
@@ -178,6 +199,9 @@ const CaptionLineRow = ({
   socketId,
   name,
   text,
+  primaryTag,
+  secondary,
+  secondaryTag,
   interim,
   translating,
   translatingLabel,
@@ -185,6 +209,14 @@ const CaptionLineRow = ({
   socketId: string;
   name: string;
   text: string;
+  /** Language-code chip shown before `text` — set only in the dual view so the
+   *  viewer can tell the primary (translated) line's language. */
+  primaryTag?: string;
+  /** Second line under the primary (the ORIGINAL spoken text) — dual view only.
+   *  Rendered dimmer/smaller so the primary stays the focus. */
+  secondary?: string;
+  /** Language-code chip for the `secondary` line. */
+  secondaryTag?: string;
   interim: boolean;
   translating?: boolean;
   translatingLabel?: string;
@@ -192,7 +224,7 @@ const CaptionLineRow = ({
   <div
     className={`mcm-caption__line${
       interim ? " mcm-caption__line--interim" : ""
-    }`}
+    }${secondary ? " mcm-caption__line--dual" : ""}`}
   >
     <span
       className="mcm-caption__spk"
@@ -206,8 +238,21 @@ const CaptionLineRow = ({
         <span className="mcm-caption__live-dot" aria-hidden="true" />
       )}
     </span>
-    <span className="mcm-caption__text">
-      {translating ? translatingLabel : text}
+    <span className="mcm-caption__body">
+      <span className="mcm-caption__text">
+        {primaryTag && !translating && (
+          <span className="mcm-caption__tag">{primaryTag}</span>
+        )}
+        {translating ? translatingLabel : text}
+      </span>
+      {secondary && (
+        <span className="mcm-caption__text mcm-caption__text--secondary">
+          {secondaryTag && (
+            <span className="mcm-caption__tag">{secondaryTag}</span>
+          )}
+          {secondary}
+        </span>
+      )}
     </span>
   </div>
 );
@@ -369,11 +414,21 @@ const CaptionControls = ({
   const [enabled, setEnabled] = useAtom(captionDockEnabledAtom);
   const [lineCount, setLineCount] = useAtom(captionLineCountAtom);
   const [fontScale, setFontScale] = useAtom(captionFontScaleAtom);
+  // Dual-language toggle is only meaningful while caption translation is ON
+  // (there's no second language to pair the original with otherwise), so it's
+  // shown disabled when translate is off. Shared atom = same state as the panel.
+  const translateOn = useAtomValue(sttTranslateEnabledAtom);
+  const [dual, setDual] = useAtom(sttDualLanguageAtom);
 
   const toggleEnabled = () => {
     const next = !enabled;
     setEnabled(next);
     setCaptionDockEnabled(next);
+  };
+  const toggleDual = () => {
+    const next = !dual;
+    setDual(next);
+    setSttDualLanguage(next);
   };
   const pickLines = (n: CaptionLineCount) => {
     setLineCount(n);
@@ -445,6 +500,29 @@ const CaptionControls = ({
               </button>
             ))}
           </span>
+
+          {/* Dual-language toggle: show BOTH the original spoken text and the
+              translation per line. Disabled when caption translation is off
+              (no second language to pair). The "文A" glyph (CJK + Latin) signals
+              "two languages" without needing a localized label. */}
+          <button
+            type="button"
+            className={`mcm-caption__ctl mcm-caption__ctl--dual${
+              dual && translateOn ? " mcm-caption__ctl--on" : ""
+            }`}
+            disabled={!translateOn}
+            onClick={toggleDual}
+            aria-pressed={dual && translateOn}
+            title={
+              !translateOn
+                ? t("caption.dualDisabledTitle")
+                : dual
+                ? t("caption.dualOnTitle")
+                : t("caption.dualOffTitle")
+            }
+          >
+            文A
+          </button>
         </>
       )}
 

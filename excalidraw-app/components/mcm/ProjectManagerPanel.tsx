@@ -175,7 +175,7 @@ const ProjectStatusControl = ({
         <button
           key={s}
           type="button"
-          className={`mcm-segmented__btn${
+          className={`mcm-segmented__btn mcm-segmented__btn--st-${s}${
             s === current ? " mcm-segmented__btn--active" : ""
           }`}
           onClick={() => void pick(s)}

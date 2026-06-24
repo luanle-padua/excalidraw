@@ -1,0 +1,69 @@
+// Dual-language additions for the Live transcript panel (SpeechToTextPanel).
+//
+// The panel's BASE styles live in MeetingShell.scss (`.mcm-stt__*`). This file
+// is co-located with the component and imported from it so the dual-language
+// toggle + the per-line original/translation language tags can evolve with the
+// feature without touching the shared shell stylesheet. Selectors are written at
+// the same specificity as the base rules they sit beside.
+
+.mcm-stt {
+  // ----- Dual-language toggle pill -----------------------------------
+  // Sits next to the Translate toggle in the controls row. Reuses the base
+  // `&__toggle` chrome (neutral → success-tinted when ON). When Translate is OFF
+  // the dual toggle is meaningless (no second language to pair), so it renders
+  // disabled + dimmed and can't be clicked.
+  &__toggle--dual {
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+
+      &:hover {
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text-soft);
+      }
+    }
+  }
+
+  // ----- Per-line language tag (dual view only) ----------------------
+  // A tiny uppercase code chip that prefixes the original / translated lines so
+  // the viewer can tell which language each row is in. Mirrors the existing
+  // `&__line-lang` detected-language chip but inlined at the start of the text
+  // row (baseline-aligned) so it reads as a label, not a separate header item.
+  &__line-tag {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 0 4px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.5;
+    vertical-align: 1px;
+    text-transform: uppercase;
+    -webkit-user-select: none;
+    user-select: none;
+
+    // Original spoken language: neutral chip (matches the detected-lang chip).
+    &--orig {
+      color: var(--mcm-text-faint);
+      background: var(--mcm-surface-2);
+    }
+
+    // Translated line: accent-tinted so it pairs visually with the translation
+    // text colour below it.
+    &--trans {
+      color: var(--mcm-accent);
+      background: var(--mcm-accent-soft);
+    }
+  }
+
+  // In dual mode the translated row drops the leading em-dash (a language tag
+  // leads instead) and keeps its muted-accent + italic editorial treatment from
+  // the base `&__line-trans` rule. A hairline above separates it from the
+  // original so the pair reads as "same utterance, two languages".
+  &__line-trans--dual {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--mcm-hairline);
+  }
+}

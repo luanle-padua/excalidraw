@@ -254,6 +254,44 @@
   }
 }
 
+// =========================================================================
+// Z-INDEX SCALE — meeting layering tiers actually in use
+// =========================================================================
+// Single source of truth for "what stacks over what" in the meeting shell.
+// Most floating widgets live INSIDE .mcm-shell__canvas-area (a positioned,
+// non-transformed ancestor), so their z-indices compete in ONE stacking
+// context. Portaled modals (.mcm-pp-overlay, toast, …) render under <body>
+// in a SEPARATE context and therefore sit on a much higher band so they
+// always cover the canvas chrome. Tiers:
+//
+//   0–10   CANVAS CHROME (in-canvas-area stacking context)
+//          · 4  .mcm-people-bar (bottom strip)
+//          · 6  .mcm-review-banner / .mcm-caption (overlay)  ── TOP-CENTER ──┐
+//          · 7  .mcm-connection (network banner)             ── BANNER LADDER ┤
+//          · 8  .mcm-knock (waiting-room banner, highest priority) ──────────┘
+//          · 10 .mcm-header
+//          The three top-center banners share a vertical TOP LADDER (see each
+//          file) so co-occurring banners stack instead of occluding. Priority
+//          knock(8) > connection(7) > review(6); review is mode-exclusive with
+//          the other two (review = read-only, no live call → no knock/network
+//          banner), so only knock + connection actually co-occur.
+//   20–60  FLOATING WIDGETS (still the canvas-area context)
+//          · 50 dragging affordances · 58 .mcm-floating-presenter (PiP)
+//          · 60 .mcm-gallery (full-screen grid). The PiP (58) UNMOUNTS when the
+//          gallery (60) opens (ParticipantsBar gates it on !gallery), so the 58
+//          vs 60 ordering is belt-and-suspenders, never a live overlap.
+//   1000–1300  PORTALED MODALS / OVERLAYS (under <body>, own context)
+//          · 1000–1100 lobby / project-folder roots
+//          · 1200 .mcm-pp-overlay (participants drawer scrim) + .mcm-toast
+//            sit on the same band; .mcm-toast is bumped to 1201 so a failure
+//            toast is never buried under the drawer scrim.
+//          · 1300 nested drawer overlays
+//   9000   .mcm-log-modal (in-meeting activity log) — deliberately above the
+//          1000–1300 band so it can open over an already-open drawer.
+//
+// When adding a new layer, slot it into the band above and update this map.
+// =========================================================================
+
 .mcm-shell {
   // ----- LIGHT MODE TOKENS (default) ---------------------------------
   @include mcm-tokens-light;
@@ -6526,22 +6564,27 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   align-items: center;
   gap: 6px;
   margin-left: 4px;
-  padding: 3px 9px 3px 8px;
+  padding: 4px 11px 4px 9px;
   border-radius: 999px;
-  background: color-mix(in srgb, #dc2626 14%, transparent);
-  border: 1px solid color-mix(in srgb, #dc2626 28%, transparent);
-  color: #b91c1c;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  animation: mcm-recording-slide 220ms ease-out both;
+  // Solid red + white text — recording is legally significant, so the indicator
+  // must be UNMISSABLE for everyone (host + clients), not a faint tint.
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 20%, transparent),
+    0 2px 10px color-mix(in srgb, #dc2626 38%, transparent);
+  animation: mcm-recording-slide 220ms ease-out both,
+    mcm-rec-pill-pulse 2s ease-in-out infinite;
 
   &__dot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #dc2626;
-    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55);
+    background: #fff;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.75);
     animation: mcm-recording-pulse 1.6s ease-in-out infinite;
     flex-shrink: 0;
   }
@@ -6571,9 +6614,9 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   z-index: 5;
   pointer-events: none;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 1.5px rgba(220, 38, 38, 0.22),
-    inset 0 0 26px rgba(220, 38, 38, 0.1);
-  animation: mcm-rec-glow-breathe 3.6s ease-in-out infinite;
+  box-shadow: inset 0 0 0 2.5px rgba(220, 38, 38, 0.5),
+    inset 0 0 34px rgba(220, 38, 38, 0.18);
+  animation: mcm-rec-glow-breathe 3s ease-in-out infinite;
 }
 
 @keyframes mcm-rec-glow-breathe {
@@ -6583,6 +6626,18 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes mcm-rec-pill-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 20%, transparent),
+      0 2px 10px color-mix(in srgb, #dc2626 38%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, #dc2626 10%, transparent),
+      0 2px 14px color-mix(in srgb, #dc2626 52%, transparent);
   }
 }
 
@@ -8186,7 +8241,11 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 // then the timer / people read-outs and the lowest-priority CHROME group
 // (lang/theme) drop out. Below that the rail is allowed to scroll horizontally
 // rather than wrap to a second row — a meeting header must stay one band tall.
-@media (max-width: 1200px) {
+@media (max-width: 1340px) {
+  // Windowed-desktop / tablet-landscape (~1100–1340px): the full action labels
+  // + timer/people stats + a 340px title together OVERFLOW the one-band header
+  // and visually collide (timer over the title, a count over the Present label).
+  // Clamp the title here, BEFORE the overlap, instead of only at 1200px.
   .mcm-header__meeting-name {
     max-width: 200px;
   }
@@ -8194,7 +8253,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     max-width: 200px;
   }
 }
-@media (max-width: 1100px) {
+@media (max-width: 1340px) {
   // Collapse the labeled call/exit buttons back to icon-only so the action
   // rail never overflows on narrow screens. The label is hidden and the
   // button shrinks to the standard 34px square; the existing `data-mcm-tip`
@@ -8236,6 +8295,153 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     &::-webkit-scrollbar {
       display: none;
     }
+  }
+}
+
+// =====================================================================
+// RESPONSIVE PHASE 1 — TABLET (≤768px) + PHONE (≤480px) in-meeting tuning
+// =====================================================================
+// Purely ADDITIVE media queries layered on top of the desktop rules above.
+// Two shared breakpoints everywhere: 768 (tablet) and 480 (phone). Goals:
+//   1. ≥44px touch targets on phone (≥40px tablet) for header / call / bar
+//      controls — desktop keeps its compact 34px icon buttons.
+//   2. Further compact the meeting header so the live Call/Mic/Leave rail
+//      stays reachable (the 820px rules already collapse labels + drop the
+//      stat capsules + enable horizontal scroll; we tighten paddings and
+//      hide the lowest-priority chrome on phone).
+//   3. Shrink the people bar on tablet and turn it into a bottom-sheet-ish
+//      full-width strip on phone instead of crushing the canvas.
+//   4. Narrow the docked chat / library sidebar on tablet, full-width on
+//      phone, so it stops crushing the canvas.
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  // Touch targets: header icon buttons + the legacy recording button grow
+  // to a comfortable 40px tap area (desktop stays 34px).
+  .mcm-header__icon-btn,
+  .mcm-header .mcm-call-controls__btn {
+    width: 40px;
+    height: 40px;
+  }
+  // Labeled controls keep their auto width but honour the taller min size.
+  .mcm-header__icon-btn--labeled {
+    min-height: 40px;
+  }
+  // Slightly tighter header band + intra-group rhythm so the (now larger)
+  // buttons still fit on one scrollable row.
+  .mcm-header {
+    min-height: 52px;
+    gap: 4px;
+    padding: 0 8px;
+  }
+  .mcm-header__group {
+    gap: 1px;
+  }
+  .mcm-header__group-sep {
+    margin: 0 2px;
+  }
+
+  // People bar: trim height + avatar footprint so it eats less canvas, and
+  // keep the docked-sidebar gutter from over-reserving on a narrow screen.
+  .mcm-shell__canvas-wrap {
+    --mcm-bar-height: 84px;
+  }
+  .mcm-people-bar {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .mcm-person {
+    max-width: 76px;
+    padding: 4px 6px 5px;
+  }
+
+  // Docked right sidebar (chat / library) — narrower so the canvas keeps
+  // usable width on tablet. Scoped under .mcm-shell so only the in-meeting
+  // sidebar is affected, never the dashboard. The people bar reads the
+  // gutter token (resolved from .mcm-shell), so they stay edge-aligned.
+  // NOTE: --right-sidebar-width is set as an INLINE style on
+  // .excalidraw-container (App.tsx), which would beat a custom-property
+  // override here — so we size the .sidebar element DIRECTLY with a 3-class
+  // selector that out-specifies the package's `.excalidraw .sidebar` rule.
+  .mcm-shell {
+    --mcm-sidebar-gutter: 260px;
+  }
+  .mcm-shell .excalidraw .sidebar {
+    width: 260px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // Touch targets: header + call controls reach the 44px minimum.
+  .mcm-header__icon-btn,
+  .mcm-header .mcm-call-controls__btn {
+    width: 44px;
+    height: 44px;
+  }
+  .mcm-header__icon-btn--labeled {
+    min-height: 44px;
+  }
+  // Tighten the band hard; the action rail already scrolls horizontally
+  // (820px rule) so the 44px buttons never wrap to a second row.
+  .mcm-header {
+    min-height: 50px;
+    gap: 2px;
+    padding: 0 6px;
+  }
+  .mcm-header__group-sep {
+    display: none; // reclaim every pixel for the live controls
+  }
+  // Hide the lowest-priority identity chrome so the title + rail dominate:
+  // the wordmark + divider (the meeting title still names the room) and the
+  // language/theme switcher (reachable from Settings). Call / Mic / Leave
+  // all live in the rail and remain reachable via horizontal scroll.
+  .mcm-header__logo-img,
+  .mcm-header__divider,
+  .mcm-langtheme {
+    display: none;
+  }
+  .mcm-header__meeting-name {
+    max-width: 150px;
+  }
+
+  // People bar → full-width bottom sheet (the sidebar becomes an overlay on
+  // phone, see below, so the bar no longer needs to dodge a docked gutter).
+  // A faint frosted strip backs it so avatars read over a busy canvas.
+  .mcm-shell__canvas-wrap {
+    --mcm-bar-height: 76px;
+  }
+  .mcm-people-bar {
+    right: 0;
+    padding: 0 8px;
+    gap: 6px;
+  }
+  .mcm-person {
+    max-width: 64px;
+    padding: 3px 5px 4px;
+
+    &__avatar {
+      width: 40px;
+      height: 40px;
+    }
+  }
+  // People-bar headcount chip → comfortable tap height.
+  .mcm-people-bar__chip {
+    height: 32px;
+  }
+
+  // Docked right sidebar (chat / library) → full-width drawer over the
+  // canvas on phone instead of a crushed column. Excalidraw renders the
+  // sidebar as .sidebar inside .mcm-shell; widen it to the viewport and drop
+  // the reserved gutter so the people bar spans the full width too. The
+  // 3-class selector out-specifies the package's `.excalidraw .sidebar`
+  // width rule (the inline --right-sidebar-width can't be beaten by a var).
+  .mcm-shell {
+    --mcm-sidebar-gutter: 0px;
+  }
+  .mcm-shell .excalidraw .sidebar {
+    width: 100vw;
+    max-width: 100vw;
   }
 }
 
@@ -9254,7 +9460,13 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 }
 
 /* Read-only review banner — shown when a finished (immutable) meeting is
-   reopened from the project folder. Top-center pill over the canvas. */
+   reopened from the project folder. Top-center pill over the canvas.
+   Bottom rung of the TOP-CENTER BANNER LADDER (z-index map near .mcm-shell):
+   review(z6) < connection(z7) < knock(z8). This banner only renders in
+   read-only review (viewOnly) — a finished meeting has no live call, so the
+   knock + connection banners can never be on screen at the same time as it.
+   It therefore keeps top:12px (it's always alone) and only the live
+   knock + connection pair uses the downward offset to avoid occlusion. */
 .mcm-review-banner {
   position: absolute;
   top: 12px;
@@ -13025,6 +13237,59 @@ body:has(.excalidraw.theme--dark) {
   }
 }
 
+// Consent gate ONLY: soften the opaque backdrop into a frosted scrim so the
+// board reads through, and FADE the gate in/out instead of a hard cut — the
+// owner found the opaque "appear, then jump into the canvas" jarring. Scoped to
+// the --consent variant so loading/error gates stay fully opaque. The gate still
+// captures pointer events (acknowledgment stays required) until it's accepted.
+.mcm-gate--consent {
+  // Light frosted scrim — the board must clearly show through (58% read as
+  // solid, so the "fade on canvas" looked like a hard snap). Lower opacity +
+  // softer blur lets the canvas read behind while the card stays crisp.
+  background: color-mix(in srgb, var(--mcm-bg) 34%, transparent);
+  backdrop-filter: blur(7px) saturate(1.1);
+  -webkit-backdrop-filter: blur(7px) saturate(1.1);
+  animation: mcm-gate-fade-in 260ms ease both;
+
+  .mcm-gate__card {
+    animation: mcm-gate-card-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  &.mcm-gate--closing {
+    animation: mcm-gate-fade-out 200ms ease forwards;
+    pointer-events: none;
+  }
+}
+
+@keyframes mcm-gate-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mcm-gate-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes mcm-gate-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 // ---------------- Pre-join "green room" (Item 6) ----------------
 // Reuses the client-themed gate (.mcm-gate--client) backdrop + frosted card,
 // adding the camera-preview surface and the mic/camera intent toggles. Shown
@@ -14674,7 +14939,9 @@ body:has(.excalidraw.theme--dark) {
   // Glass card with a semantic left rail (replaces the solid red wash).
   right: 20px;
   bottom: 20px;
-  z-index: 1200;
+  // One tier above the participants drawer scrim (.mcm-pp-overlay, 1200) so a
+  // failure toast is never buried behind the drawer when both are open.
+  z-index: 1201;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -15462,5 +15729,344 @@ body:has(.excalidraw.theme--dark) {
   }
   50% {
     opacity: 0.4;
+  }
+}
+
+// =====================================================================
+// RESPONSIVE PHASE 2 — DASHBOARD / NON-MEETING SURFACES
+// TABLET (≤768px) + PHONE (≤480px). Purely ADDITIVE — every rule below is
+// new and layered on top of the desktop + existing 900/1180/760 dashboard
+// breakpoints; nothing above is removed or restructured. Two shared
+// breakpoints (768 tablet, 480 phone) matching the in-meeting phase.
+//
+// Surfaces tuned here:
+//   1. .mcm-3col home — sidebar becomes a bounded top strip (no 248px column
+//      stealing width — it already stacks to 1fr at 900px); the Schedule-X
+//      calendar drops below the meetings list (DOM order) and is HIDDEN on
+//      phone where a 360px month grid can't fit. Meetings list full-width.
+//   2. .mcm-mcards--grid — 2-col on tablet, 1-col on phone, readable cards.
+//   3. Toolbar chips / segmented / select / sidebar nav items — ≥44px tap
+//      targets on phone (≥40px tablet).
+//   4. .mcm-login — trim heavy padding, narrow card, scale the intro logo,
+//      tighten the quick-login grid on phone.
+// =====================================================================
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  // --- Dashboard 3-col (already a single 1fr column ≤900px) ---
+  .mcm-3col {
+    // The sidebar, stacked as the first grid row, would otherwise take its
+    // full natural content height and push the meetings list far down the
+    // page. Cap it to a compact, self-scrolling strip so the meetings list
+    // is reachable right under it (it keeps its own overflow-y:auto).
+    &__sidebar {
+      margin: 8px 8px 0;
+      max-height: 38vh;
+      padding: 8px 0;
+    }
+    // Tighten the floating toolbar row's outer gutter to match.
+    &__middle-head {
+      margin: 8px 10px 0;
+      padding: 9px 12px;
+    }
+  }
+
+  // Sidebar nav items — comfortable 40px tap rows on tablet (desktop 32px).
+  .mcm-nav__item {
+    height: 40px;
+  }
+
+  // Meeting-card grid → exactly 2 columns on tablet (the auto-fill 200px
+  // floor would otherwise give 1–3 depending on the exact width). Cards stay
+  // comfortably readable at half-width.
+  .mcm-mcards--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  // (Project-card grid `.mcm-pmgr__cards` is tuned in ProjectManager.scss.)
+
+  // Toolbar controls grow toward a 40px tap area on tablet.
+  .mcm-chip {
+    padding: 8px 12px;
+    min-height: 40px;
+  }
+  .mcm-segmented__btn {
+    width: 36px;
+    height: 34px;
+  }
+  .mcm-select {
+    height: 40px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // --- Dashboard 3-col ---
+  .mcm-3col {
+    // Sidebar → a short horizontal-feel strip; it stays the project switcher
+    // but never eats more than a third of the viewport so the meetings list
+    // dominates. Its footer (create-project input) still scrolls into view.
+    &__sidebar {
+      margin: 6px 6px 0;
+      max-height: 33vh;
+      padding: 6px 0;
+    }
+    &__middle-head {
+      margin: 6px 8px 0;
+      padding: 8px 10px;
+      gap: 8px;
+    }
+    &__middle-title {
+      font-size: 18px;
+    }
+    // The Schedule-X calendar column can't render a usable month grid below
+    // its 360px floor on a phone — hide it so the meetings list goes
+    // full-width. (It remains reachable on tablet/desktop; the calendar is a
+    // secondary, glanceable surface, not the primary task here.)
+    &__calendar {
+      display: none;
+    }
+  }
+
+  // Sidebar nav items → 44px minimum tap rows.
+  .mcm-nav__item {
+    height: 44px;
+  }
+  // Footer CTA + input in the sidebar → 44px tall, easy to tap/type.
+  .mcm-nav__create {
+    min-height: 44px;
+  }
+  .mcm-nav__input {
+    min-height: 44px;
+  }
+
+  // Meeting + project card grids → single column on phone; full-width,
+  // tall-enough tap targets. The 200px auto-fill floor would already give 1
+  // col at ≤~430px but this guarantees it from 480 down and removes the side
+  // padding crunch.
+  .mcm-mcards--grid {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 10px;
+  }
+  // (Project-card grid `.mcm-pmgr__cards` is tuned in ProjectManager.scss.)
+  // The middle-body grid (.mcm-3col__grid auto-fill 180px) used by some
+  // contexts → single column too.
+  .mcm-3col__grid {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  // Toolbar controls reach the 44px minimum on phone.
+  .mcm-chip {
+    padding: 9px 13px;
+    min-height: 44px;
+  }
+  .mcm-segmented {
+    padding: 3px;
+  }
+  .mcm-segmented__btn {
+    width: 40px;
+    height: 38px;
+  }
+  .mcm-select {
+    height: 44px;
+  }
+  // Status-filter chips wrap onto more rows on a narrow phone — already
+  // flex-wrap; just give them room to breathe.
+  .mcm-chips {
+    gap: 8px;
+  }
+
+  // --- Login (phone) ---
+  .mcm-login {
+    padding: 14px;
+
+    &__card {
+      // Hero is already hidden at 760px; size the lone form pane to the
+      // viewport with a sensible cap, and let it grow tall (the pane
+      // scrolls internally).
+      width: min(420px, 96vw);
+      min-height: 0;
+      max-height: 94vh;
+    }
+    // Cut the heavy desktop padding so the form fills a small screen without
+    // wasted gutters.
+    &__form-pane {
+      padding: 22px 20px;
+    }
+    // Scale the cinematic intro wordmark down so it doesn't overflow.
+    &__intro-logo {
+      width: min(70vw, 360px);
+    }
+    // Quick-login grid → 2 columns on phone (3 cramped the names); each chip
+    // gets a 44px tap height.
+    &__demo-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    &__demo-user {
+      min-height: 44px;
+    }
+    // The password/magic submit + guest toggle stay comfortably tappable.
+    &__submit {
+      min-height: 48px;
+    }
+    &__guest-toggle {
+      min-height: 40px;
+    }
+  }
+}
+
+// =====================================================================
+// RESPONSIVE — Phase 3 (final): CLIENT PORTAL + MODALS / OVERLAYS / DRAWERS.
+//
+// PURELY ADDITIVE. Every rule below is inside a max-width media query and does
+// not touch any existing desktop rule — it only ADDS overrides at ≤768 / ≤480,
+// matching the breakpoints shipped in Phases 1 & 2 (above). No meeting-view
+// header/panel rule is altered here; only the portal and the body-portaled
+// overlays/drawers/modals get small-screen treatment.
+//
+// Surfaces covered:
+//   • Client portal (.mcm-portal*) — the side calendar already hides ≤760px and
+//     the stage wraps, so here we tighten the page/card padding, scale the
+//     greeting, expand row action buttons to ≥44px, and keep recap groups
+//     readable on a phone.
+//   • Glass side-drawers (.mcm-pp / .mcm-invite inside .mcm-pp-overlay) →
+//     full-width bottom-aligned sheet on a phone instead of a fixed 340/380px
+//     panel that overflows a 360px screen.
+//   • Centered modals (.mcm-mpick in .mcm-cmodal-ov; .mcm-meditor backdrop +
+//     its __panel) → near full-width with reduced backdrop padding.
+//   • Log/package modals (.mcm-log-modal / .mcm-pkg-modal on
+//     .mcm-log-modal-backdrop) → reduce the backdrop gutter so the modal isn't
+//     pinched on a small screen (the modal width is already min(…, 100%)).
+// =====================================================================
+
+// ---- TABLET (≤768px) -------------------------------------------------
+@media (max-width: 768px) {
+  // Portal: trim the generous desktop page padding so the frosted card has
+  // more room; the greeting block keeps its left alignment.
+  .mcm-portal {
+    padding: 32px 16px 40px;
+  }
+  .mcm-portal__inner {
+    padding: 24px 22px 26px;
+  }
+
+  // Centered modals: lighten the 20px backdrop padding so the panel can grow
+  // wider on a tablet.
+  .mcm-cmodal-ov {
+    padding: 16px;
+  }
+
+  // Log / package modal backdrop: trim the side gutter (keeps the vertical
+  // breathing room).
+  .mcm-log-modal-backdrop {
+    padding: 5vh 16px;
+  }
+}
+
+// ---- PHONE (≤480px) --------------------------------------------------
+@media (max-width: 480px) {
+  // --- Client portal ---
+  .mcm-portal {
+    // Tightest page gutter; the card fills the width.
+    padding: 22px 12px 32px;
+  }
+  // Greeting scales down so the hero line never overflows a narrow phone.
+  .mcm-portal__hello {
+    font-size: clamp(28px, 9vw, 36px);
+  }
+  .mcm-portal__title {
+    font-size: 18px;
+  }
+  // Card: thinner inner padding + reclaim corner radius so it reads edge-to-edge.
+  .mcm-portal__inner {
+    padding: 18px 16px 22px;
+    border-radius: 18px;
+  }
+
+  // Meeting / recap rows: stack the label above a full-width action button so
+  // the title never collides with the button on a tiny screen.
+  .mcm-portal__row {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+
+    // The row's action button (Join / Review / Open) expands to a full-width,
+    // ≥44px tap target. Scoped to the portal row so the shared .mcm-btn--sm
+    // stays compact everywhere else.
+    .mcm-btn--sm {
+      width: 100%;
+      min-height: 44px;
+    }
+  }
+  .mcm-portal__row-main {
+    flex: 1 1 100%;
+  }
+
+  // Recap group titles stay readable (they already ellipsis); give the meeting
+  // sub-block a touch less indent so titles get full width.
+  .mcm-portal__recap-meeting {
+    padding-left: 0;
+  }
+
+  // The list inside the card can use the full height it needs on a phone (the
+  // page itself scrolls), so relax the desktop max-height cap a little.
+  .mcm-portal__sections {
+    max-height: none;
+  }
+
+  // --- Glass side-drawers → full-width bottom sheet ---
+  // .mcm-pp-overlay aligns its child to the right edge on desktop; on a phone
+  // we drop it to the bottom and let the panel span the full width as a sheet.
+  .mcm-pp-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+  }
+  // Both the participants drawer (.mcm-pp) and the invite drawer (.mcm-invite)
+  // ride .mcm-pp-overlay — make both a full-width, capped-height bottom sheet
+  // instead of a fixed 340/380px column that overflows a 360px screen.
+  .mcm-pp,
+  .mcm-invite {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 88vh;
+    // Round the TOP corners now that it rises from the bottom edge.
+    border-radius: var(--mcm-radius-lg, 16px) var(--mcm-radius-lg, 16px) 0 0;
+  }
+
+  // --- Centered modals → near-fullscreen, slim backdrop padding ---
+  .mcm-cmodal-ov {
+    // Backdrop padding ~10px (was 20) so the panel isn't pinched on a 360px
+    // screen.
+    padding: 10px;
+  }
+  // Member picker → full available width, taller.
+  .mcm-mpick {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+  }
+
+  // Confirm dialog: .mcm-meditor is itself the centered backdrop (inset:0,
+  // 24px padding) and .mcm-meditor__panel is the 440px pane. Slim the backdrop
+  // gutter to ~10px and let the pane span the available width on a phone.
+  .mcm-meditor {
+    padding: 10px;
+  }
+  .mcm-meditor__panel {
+    max-width: 100%;
+  }
+
+  // --- Log / package modals → slim backdrop gutter ---
+  // These are width:min(820|640px, 100%) already, so on a phone they're full
+  // width — we only need to cut the backdrop's side gutter to ~10px so the
+  // modal isn't squeezed, and reduce the top inset so it sits higher.
+  .mcm-log-modal-backdrop {
+    padding: 3vh 10px;
+  }
+  .mcm-log-modal {
+    max-height: 94vh;
   }
 }

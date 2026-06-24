@@ -139,6 +139,18 @@ export const CloudRecordingControls = () => {
     rec.setScreenStream(screenStream);
   }, [screenStream, isRecording]);
 
+  // Live-attach / detach the shared window's AUDIO (tab/system audio) the same
+  // way, so a no-mic host records the screen-share's sound and a share whose
+  // audio starts/stops mid-record is captured.
+  const screenAudioStream = screenMedia.screenAudioStream;
+  useEffect(() => {
+    const rec = recorderRef.current;
+    if (!rec || !isRecording || !captureScreenRef.current) {
+      return;
+    }
+    rec.setScreenAudioStream(screenAudioStream);
+  }, [screenAudioStream, isRecording]);
+
   // Close the content picker on outside click / Escape (same pattern as the
   // reactions popover in MeetingCallControls).
   useEffect(() => {
@@ -167,14 +179,30 @@ export const CloudRecordingControls = () => {
     };
   }, [pickerOpen]);
 
+  // RECORDING_STATE is broadcast once at start/stop, so a peer who JOINS while a
+  // recording is already running would never learn it's being recorded — and
+  // legally everyone must see it. While WE (the host) are recording, re-broadcast
+  // the state every 5s so any late joiner picks it up within seconds. Cleared
+  // when recording stops or we're not the host.
+  useEffect(() => {
+    if (!isHost || !isRecording || !collabAPI) {
+      return undefined;
+    }
+    const id = window.setInterval(() => {
+      collabAPI.publishRecordingState({ recording: true, startedAt });
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [isHost, isRecording, startedAt, collabAPI]);
+
   const start = useCallback(async () => {
     const roomId = extractRoomId(activeRoomLink);
     if (!roomId || !collabAPI) {
       return;
     }
-    // Audio is the mandatory track — a recording is the mixed call audio plus,
-    // optionally, the screen. (The canvas is never recorded.)
-    if (!content.audio) {
+    // Need at least ONE source — audio (mixed call audio) OR the screen. Screen
+    // -only is valid (e.g. recording a shared video/tab whose own audio is mixed
+    // in); only bail when the host picked neither.
+    if (!content.audio && !content.screen) {
       setErrorMessage(t("cloudRecording.pickContent"));
       return;
     }
@@ -195,9 +223,12 @@ export const CloudRecordingControls = () => {
       rec.addStream(socketId, stream);
       audioInputs += 1;
     }
-    if (audioInputs === 0) {
-      // No mic and no peers → an empty audio mix. Bail before MediaRecorder runs
-      // so the host gets a clear error instead of a 0-byte file.
+    if (audioInputs === 0 && !content.screen) {
+      // No mic, no peers, AND not capturing screen → nothing to record. Bail
+      // before MediaRecorder runs so the host gets a clear error instead of a
+      // 0-byte file. When screen IS captured we proceed even with no mic: the
+      // file still gets the screen video plus the shared window's OWN audio
+      // (mixed in via setScreenAudioStream below) — the no-mic recording case.
       rec.close();
       setBusy(false);
       setErrorMessage(t("cloudRecording.startFailed"));
@@ -224,8 +255,10 @@ export const CloudRecordingControls = () => {
     recorderRef.current = rec;
     if (content.screen) {
       // Seed the compositor with whatever is being shared right now; the
-      // useEffect below keeps it in sync if the share starts/stops mid-record.
+      // useEffects below keep video + audio in sync if the share starts/stops
+      // mid-record. The audio seed is what records the shared window's sound.
       rec.setScreenStream(activeScreenStream(screenMedia));
+      rec.setScreenAudioStream(screenMedia.screenAudioStream);
     }
     setBusy(false);
     setPickerOpen(false);
@@ -278,13 +311,17 @@ export const CloudRecordingControls = () => {
       resetRoomRecording();
       collabAPI.publishRecordingState({ recording: false, startedAt: null });
     }
+    // Re-enable the control NOW — recording is over and the REC indicator is
+    // already cleared. The R2 upload below can be slow (big blob / weak network);
+    // it must NOT keep the Record button disabled, which read as "frozen, can't
+    // click" after a recording. The upload still runs; only its failure shows.
+    setBusy(false);
     if (blob) {
       const ok = await uploadRecording(roomId, blob, durationSec);
       if (!ok) {
         setErrorMessage(t("cloudRecording.uploadFailed"));
       }
     }
-    setBusy(false);
   }, [activeRoomLink, collabAPI, t]);
 
   // Best-effort: clear the room indicator for peers if the host's tab closes
@@ -410,7 +447,7 @@ export const CloudRecordingControls = () => {
             type="button"
             className="mcm-cloudrec__go"
             onClick={() => void start()}
-            disabled={busy || !content.audio}
+            disabled={busy || (!content.audio && !content.screen)}
           >
             {busy ? (
               <span className="mcm-call-controls__spinner" />

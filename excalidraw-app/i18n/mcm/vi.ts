@@ -218,6 +218,7 @@ export const vi = {
   // ---------------- Header -----------------------------------------
   header: {
     invite: "Mời",
+    replay: "Tua lại",
     inviteCopied: "Đã copy link!",
     endMeeting: "Kết thúc họp",
     endConfirm:
@@ -1217,6 +1218,9 @@ export const vi = {
   // ---------------- Recordings (review mode) ------------------------
   recordings: {
     loading: "Đang tải bản ghi…",
+    loadingMedia: "Đang tải video…",
+    pickClip: "Chọn một đoạn ghi bên dưới để phát",
+    clipNo: "Đoạn {n}",
     empty: "Chưa có bản ghi nào cho cuộc họp này.",
     processing: "Đang xử lý bản ghi…",
     failed: "Ghi thất bại",
@@ -1430,6 +1434,7 @@ export const vi = {
   // ---------------- Chat panel -------------------------------------
   chat: {
     title: "Hội thoại",
+    unread: "{count} tin nhắn chưa đọc",
     sendLabel: "Gửi",
     composePlaceholder: "Nhập tin nhắn…",
     viewOnlyNotice: "Đang xem lại cuộc họp đã xong — chat chỉ đọc",
@@ -1468,9 +1473,41 @@ export const vi = {
     },
   },
 
+  // ---------------- Knock-to-join banner ---------------------------
+  knock: {
+    bannerTitle: "{count} người đang chờ vào",
+    admit: "Cho vào",
+    deny: "Từ chối",
+    moreWaiting: "+{count} người khác đang chờ · mở danh sách",
+  },
+
+  // ---------------- Canvas replay ----------------------------------
+  replay: {
+    loading: "Đang tải bản tua…",
+    error: "Không tải được bản tua canvas.",
+    empty:
+      "Cuộc họp này chưa có bản tua canvas. Vẽ trong lúc họp sẽ được ghi lại tự động — cuộc họp cũ sẽ không có.",
+    lead:
+      'Tua lại quá trình bảng vẽ tiến triển ngay trên canvas đang xem. Bấm "hiện canvas" để xem khi tua.',
+    play: "Phát",
+    pause: "Tạm dừng",
+    restart: "Tua lại từ đầu",
+    speed: "Tốc độ",
+    scrubAria: "Kéo dòng thời gian canvas",
+    stepOf: "Bước {cur} / {total}",
+    spanLabel: "Khoảng:",
+    showCanvas: "Hiện canvas",
+    hideCanvas: "Ẩn canvas",
+  },
+
   // ---------------- Speech-to-text panel ---------------------------
   stt: {
     title: "Biên bản trực tiếp",
+    dualOn: "Song ngữ: bật",
+    dualOff: "Song ngữ: tắt",
+    dualToggleOnTitle: "Chỉ hiện một ngôn ngữ",
+    dualToggleOffTitle: "Hiện cả ngôn ngữ gốc và bản dịch",
+    dualToggleDisabledTitle: "Bật Dịch trước để xem song ngữ",
     showButton: "Live transcript",
     providerTitle: "Chọn model nhận dạng giọng nói để thử độ chính xác",
     providerLabel: "Model STT",
@@ -1522,6 +1559,9 @@ export const vi = {
   // Dải phụ đề trực tiếp khi present / chia sẻ màn hình.
   caption: {
     label: "Phụ đề trực tiếp",
+    dualOnTitle: "Chỉ hiện một ngôn ngữ",
+    dualOffTitle: "Hiện cả ngôn ngữ gốc và bản dịch",
+    dualDisabledTitle: "Bật Dịch trước để xem song ngữ",
     translating: "Đang dịch…",
     // Hiển thị khi máy chủ dịch quá tải (429/502) — phụ đề tạm về tiếng gốc.
     degraded: "Tạm dừng dịch (quá tải) — hiển thị tiếng gốc",
@@ -1547,6 +1587,7 @@ export const vi = {
     tabTranscript: "Biên bản",
     tabSummary: "Tóm tắt",
     tabRecordings: "Bản ghi",
+    tabReplay: "Tua lại",
     closeAria: "Đóng",
     emptyTranscript: "Chưa có biên bản nào. Vào call + bật STT để bắt đầu ghi.",
     emptySummary:

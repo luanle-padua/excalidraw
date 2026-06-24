@@ -405,18 +405,22 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
         <div className="mcm-log-modal__header">
           <div className="mcm-log-modal__head-text">
             <h2 className="mcm-log-modal__title">{meetingTitle}</h2>
-            <span className="mcm-log-modal__meta">
-              {log.length === 1
-                ? t("log.metaSegments", { count: log.length })
-                : t("log.metaSegmentsPlural", { count: log.length })}
-              {log.length > 0 && (
-                <>
-                  {" · "}
-                  {fmtDate(log[0].ts)} {fmtTime(log[0].ts)} →{" "}
-                  {fmtTime(log[log.length - 1].ts)}
-                </>
-              )}
-            </span>
+            {/* Segment count + time span is a TRANSCRIPT stat — irrelevant on
+                the Recordings tab (it would read "0 segments" there). */}
+            {tab !== "recordings" && (
+              <span className="mcm-log-modal__meta">
+                {log.length === 1
+                  ? t("log.metaSegments", { count: log.length })
+                  : t("log.metaSegmentsPlural", { count: log.length })}
+                {log.length > 0 && (
+                  <>
+                    {" · "}
+                    {fmtDate(log[0].ts)} {fmtTime(log[0].ts)} →{" "}
+                    {fmtTime(log[log.length - 1].ts)}
+                  </>
+                )}
+              </span>
+            )}
           </div>
           <div className="mcm-log-modal__tabs" role="tablist">
             <button
@@ -442,6 +446,8 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
                 <span className="mcm-log-modal__tab-dot" aria-hidden="true" />
               )}
             </button>
+            {/* Canvas Replay lives in a STANDALONE header button now (review
+                mode), not a tab here — see MeetingHeader's "Tua lại". */}
             {/* Phase 5 — Recordings tab, host/leadership/admin only. */}
             {canSeeRecordings && (
               <button
@@ -628,6 +634,10 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
           )}
         </div>
 
+        {/* The footer (clear transcript / generate summary / download .md) is
+            for the Transcript + Summary tabs. The Recordings tab downloads each
+            clip from its own list, so hide this whole bar there. */}
+        {tab !== "recordings" && (
         <div className="mcm-log-modal__footer">
           {!viewOnly && (
             <button
@@ -675,6 +685,7 @@ export const MeetingLogModal = ({ onClose }: { onClose: () => void }) => {
             {t("log.buttonDownload")}
           </button>
         </div>
+        )}
       </div>
     </div>
   );

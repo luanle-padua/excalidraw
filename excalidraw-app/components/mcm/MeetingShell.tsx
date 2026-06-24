@@ -8,7 +8,6 @@ import {
   isCollaboratingAtom,
   kickedAtom,
   meetingViewOnlyAtom,
-  participantsPanelOpenAtom,
   screenShareStateAtom,
 } from "../../collab/Collab";
 import { useT } from "../../i18n/mcm";
@@ -222,26 +221,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
     }
   }, [activeRoomLink]);
 
-  // Default the participants panel OPEN once per room entry so people see who's
-  // in the meeting without hunting for the toggle. One-shot (ref-guarded) so the
-  // user can still close it and it won't reopen mid-meeting; the ref resets on
-  // room exit so re-entering a room re-opens it. Keyed on activeRoomLink so it
-  // never fires on the dashboard/lobby (no room). Excluded in review (viewOnly =
-  // read-only). Defaulting here (not via the atom's global default) keeps the
-  // panel shut on non-meeting surfaces.
-  const setParticipantsPanelOpen = useSetAtom(participantsPanelOpenAtom);
-  const didDefaultOpenPanel = useRef(false);
-  useEffect(() => {
-    if (!activeRoomLink || viewOnly) {
-      didDefaultOpenPanel.current = false;
-      return;
-    }
-    if (didDefaultOpenPanel.current) {
-      return;
-    }
-    didDefaultOpenPanel.current = true;
-    setParticipantsPanelOpen(true);
-  }, [activeRoomLink, viewOnly, setParticipantsPanelOpen]);
+  // NOTE: we deliberately do NOT auto-open the participants panel on entry — the
+  // owner found it intrusive. The default expanded right-side panel is the CHAT
+  // (handled in AppSidebar). The participants panel stays available via its own
+  // toggle; it just no longer pops open by itself.
 
   // Leave the meeting → stop the socket (saves the scene first), then
   // clear the room from the URL so the project home reappears and we

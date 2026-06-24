@@ -5,7 +5,11 @@
 
 .mcm-floating-presenter {
   position: absolute;
-  z-index: 58; // above canvas overlays, below modals/gallery (60+)
+  // z58: above canvas overlays, below the gallery (z60). This is NOT a live
+  // overlap — ParticipantsBar gates the PiP on `videoLayout !== "gallery" &&
+  // !galleryOpen`, so it UNMOUNTS when the full-screen gallery opens. The
+  // ordering is belt-and-suspenders for any transient frame between the two.
+  z-index: 58;
   border-radius: 14px;
   overflow: hidden;
   background: rgba(20, 24, 32, 0.94);

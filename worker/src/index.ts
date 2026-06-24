@@ -13,6 +13,9 @@
 //   Library manifest blob (encrypted DXF/IFC/PDF source + metadata):
 //     PUT  /v1/library/:roomId         body = encrypted library bytes
 //     GET  /v1/library/:roomId         -> encrypted bytes | 404
+//   Canvas replay history blob (encrypted delta log of canvas evolution):
+//     PUT  /v1/canvas-history/:roomId  body = encrypted history bytes
+//     GET  /v1/canvas-history/:roomId  -> encrypted bytes | 404
 //   Project folders + meeting registry — powers the "folder → meetings
 //   → pull content" UX:
 //     POST /v1/projects                {name, hostEmail?}            -> project
@@ -496,6 +499,8 @@ const fileKey = (roomId: string, fileId: string) => `files/${roomId}/${fileId}`;
 const chatKey = (roomId: string) => `chats/${roomId}/current`;
 const libraryKey = (roomId: string) => `library/${roomId}/current`;
 const transcriptKey = (roomId: string) => `transcripts/${roomId}/current`;
+const canvasHistoryKey = (roomId: string) =>
+  `canvas-history/${roomId}/current`;
 const userFileKey = (email: string, fileId: string) =>
   `userfiles/${email}/${fileId}`;
 // Small downscaled-WebP thumb sits alongside the original under the same
@@ -1318,6 +1323,7 @@ app.use("/v1/chats/*", roomGate);
 app.use("/v1/library/*", roomGate);
 app.use("/v1/files/*", roomGate);
 app.use("/v1/transcripts/*", roomGate);
+app.use("/v1/canvas-history/*", roomGate);
 app.use("/v1/meetings/:roomId", roomGate);
 app.use("/v1/meetings/:roomId/*", roomGate);
 
@@ -1452,6 +1458,41 @@ app.put("/v1/transcripts/:roomId", async (c) => {
 
 app.get("/v1/transcripts/:roomId", async (c) => {
   const obj = await c.env.BUCKET.get(transcriptKey(c.req.param("roomId")));
+  if (!obj) {
+    return c.body(null, 204);
+  }
+  return new Response(obj.body, {
+    headers: { "content-type": "application/octet-stream", etag: obj.httpEtag },
+  });
+});
+
+// ---- Canvas replay history blob ------------------------------------------
+// The time-ordered, delta-encoded log of how the whiteboard evolved during the
+// meeting (see excalidraw-app/data/canvasHistory.ts). E2E-encrypted with the
+// room key exactly like the chat / transcript log — the server relays bytes and
+// never reads them. A finished meeting's review opens this blob and SCRUBS /
+// plays back the canvas evolution on the existing review canvas; this is a
+// vector replay, not a video. The server-readable (AI / leadership) variant is a
+// later option tied to the event-log; this MVP is E2E only.
+
+app.put("/v1/canvas-history/:roomId", async (c) => {
+  const roomId = c.req.param("roomId");
+  if (await isDeletedMeeting(c.env.DB, roomId)) {
+    return c.json({ error: "meeting deleted" }, 410);
+  }
+  if (await isFinishedLocked(c.env.DB, roomId)) {
+    return c.json({ error: "meeting finished (review only)" }, 409);
+  }
+  const body = await c.req.arrayBuffer();
+  if (!body.byteLength) {
+    return c.json({ error: "empty body" }, 400);
+  }
+  await c.env.BUCKET.put(canvasHistoryKey(roomId), body);
+  return c.json({ ok: true });
+});
+
+app.get("/v1/canvas-history/:roomId", async (c) => {
+  const obj = await c.env.BUCKET.get(canvasHistoryKey(c.req.param("roomId")));
   if (!obj) {
     return c.body(null, 204);
   }
@@ -6649,6 +6690,21 @@ app.delete("/v1/admin/projects/:id", async (c) => {
   )
     .bind(id)
     .all<{ id: string }>();
+  // Project-scoped R2 owners that live OUTSIDE any meeting prefix and so are
+  // never reached by the per-meeting cleanup: the shared Project Files shelf
+  // (project-files/<projectId>/<fileId> + …/thumb, indexed by project_file) and
+  // each guest's logo (guest-logos/<guestId>, logo_key on project_guest). Grab
+  // their keys NOW (before the rows are deleted) so STEP 2 can free the bytes.
+  const { results: projectFiles } = await c.env.DB.prepare(
+    `SELECT id, r2_key, thumb_r2_key FROM project_file WHERE project_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string; r2_key: string | null; thumb_r2_key: string | null }>();
+  const { results: guests } = await c.env.DB.prepare(
+    `SELECT id, logo_key FROM project_guest WHERE project_id = ?1`,
+  )
+    .bind(id)
+    .all<{ id: string; logo_key: string | null }>();
 
   // STEP 1 — delete every DB row (all meetings' children + meeting rows +
   // tombstones, then the project's members/notes/row) as ONE set of batched
@@ -6673,6 +6729,13 @@ app.delete("/v1/admin/projects/:id", async (c) => {
     c.env.DB.prepare(
       `DELETE FROM note WHERE scope = 'project' AND ref = ?1`,
     ).bind(id),
+    // Project Files shelf index rows (their R2 bytes are freed in STEP 2).
+    c.env.DB.prepare(`DELETE FROM project_file WHERE project_id = ?1`).bind(id),
+    // Project guest identities (their logo bytes are freed in STEP 2). A hard
+    // project delete disposes of the whole folder, so the usual "revoke ≠
+    // delete, keep the synthetic-login→person map" rule does not apply here —
+    // there is no surviving project to attribute that history to.
+    c.env.DB.prepare(`DELETE FROM project_guest WHERE project_id = ?1`).bind(id),
     c.env.DB.prepare(`DELETE FROM project WHERE id = ?1`).bind(id),
   );
   const BATCH_CHUNK = 50;
@@ -6680,13 +6743,16 @@ app.delete("/v1/admin/projects/:id", async (c) => {
     await c.env.DB.batch(stmts.slice(i, i + BATCH_CHUNK));
   }
 
-  // STEP 2 — background, best-effort: soft-delete each meeting's R2 blobs (to
-  // trash/), wipe its DO storage, drop its Daily rooms. This is the expensive
-  // part (hundreds of subrequests for a big project), so it runs AFTER the
-  // response via waitUntil and must never block or fail the delete. A blob the
-  // background pass can't reach becomes an orphaned live object (inaccessible —
-  // its meeting row is gone); the scheduled trash/orphan sweep is the backstop.
-  if (meetings.length) {
+  // STEP 2 — background, best-effort: HARD-delete each meeting's R2 blobs +
+  // package blobs, wipe its DO storage, drop its Daily rooms, then free the
+  // project-level R2 owners (Project Files shelf + guest logos). This is the
+  // expensive part (hundreds of subrequests for a big project), so it runs AFTER
+  // the response via waitUntil and must never block or fail the delete. A blob
+  // the background pass can't reach becomes an orphaned live object
+  // (inaccessible — its index row is gone); the scheduled orphan sweep is the
+  // backstop. Storage frees at once (not recoverable); the pre-delete Archive
+  // download is the backup.
+  if (meetings.length || projectFiles.length || guests.length) {
     c.executionCtx.waitUntil(
       (async () => {
         for (const m of meetings) {
@@ -6694,6 +6760,34 @@ app.delete("/v1/admin/projects/:id", async (c) => {
             await cleanupMeetingBlobs(c.env, m.id);
           } catch (err) {
             console.warn(`[admin-delete] blob cleanup failed ${m.id}`, err);
+          }
+        }
+        // Project Files shelf — hard-delete each original + its thumb (each is a
+        // full R2 key already; delete is best-effort per blob).
+        for (const f of projectFiles) {
+          for (const key of [f.r2_key, f.thumb_r2_key]) {
+            if (!key) {
+              continue;
+            }
+            try {
+              await c.env.BUCKET.delete(key);
+            } catch (err) {
+              console.warn(`[admin-delete] project_file blob failed ${key}`, err);
+            }
+          }
+        }
+        // Guest logos — logo_key is the full R2 key (guest-logos/<guestId>).
+        for (const g of guests) {
+          if (!g.logo_key) {
+            continue;
+          }
+          try {
+            await c.env.BUCKET.delete(g.logo_key);
+          } catch (err) {
+            console.warn(
+              `[admin-delete] guest logo blob failed ${g.logo_key}`,
+              err,
+            );
           }
         }
       })(),
@@ -6997,10 +7091,38 @@ const meterDailyMeeting = async (
   }
 };
 
-// Non-DB cleanup for a deleted meeting: soft-delete its R2 blobs to `trash/`,
-// wipe its Durable Object storage, drop both Daily rooms. This is the EXPENSIVE
-// half (many R2 list/get/put/delete + DO + Daily subrequests per meeting), split
-// out of deleteMeetingCascade so the admin project-delete can run it in the
+// HARD-delete every R2 object under a prefix, paginating the list with a cursor
+// so a prefix with thousands of objects stays within the Worker subrequest /
+// wall-clock limits (one list + one delete per page, not per object). Each
+// delete is best-effort: a single failing key is logged and skipped so it can
+// never abort the rest of the sweep. Used by the admin/cascade delete paths to
+// free storage immediately (no copy-to-trash). `prefix` must already include
+// any trailing delimiter the caller wants (e.g. `packages/<id>/`).
+const deleteR2Prefix = async (
+  env: Bindings,
+  prefix: string,
+): Promise<void> => {
+  let cursor: string | undefined;
+  do {
+    const listed = await env.BUCKET.list({ prefix, cursor });
+    for (const obj of listed.objects) {
+      try {
+        await env.BUCKET.delete(obj.key);
+      } catch (err) {
+        // Best-effort per blob — one failure must not stop the rest. An
+        // unreachable object just lingers as an orphan (its index row is gone);
+        // the scheduled orphan sweep is the backstop.
+        console.warn(`[r2-delete] failed ${obj.key}`, err);
+      }
+    }
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+};
+
+// Non-DB cleanup for a deleted meeting: HARD-delete its R2 blobs (frees storage
+// immediately), wipe its Durable Object storage, drop both Daily rooms. This is
+// the EXPENSIVE half (many R2 list/delete + DO + Daily subrequests per meeting),
+// split out of deleteMeetingCascade so the admin project-delete can run it in the
 // BACKGROUND (waitUntil) for every meeting — running it inline for a project
 // with dozens of meetings blew past the Worker subrequest/wall-clock limit and
 // 500'd BEFORE the rows were deleted (the "delete does nothing" bug).
@@ -7008,13 +7130,33 @@ const cleanupMeetingBlobs = async (
   env: Bindings,
   roomId: string,
 ): Promise<void> => {
-  // Soft-delete blobs (B9): R2 has NO S3-style versioning, so a hard delete is
-  // PERMANENT. Move each blob to a `trash/<deletedAt>/...` prefix instead —
-  // recoverable, and aligned with the project rule "revoke ≠ delete, don't
-  // hard-delete, keep history/moat" (memory mcm-guest-data-lifecycle). Set a
-  // dashboard lifecycle rule on the `trash/` prefix to expire it after N days
-  // (cost control). Bucket Locks (retention) guard against bucket-level deletes.
-  const trashAt = now();
+  // HARD-delete blobs (owner decision 06-24): admin meeting/project delete is a
+  // DELIBERATE, irreversible disposal — storage must free AT ONCE, not relocate.
+  // R2 has NO S3-style versioning so the delete is PERMANENT; the pre-delete
+  // Archive download (GET /v1/admin/projects/:id/archive) is the backup, so this
+  // path no longer copies bytes to `trash/`. Every caller of this helper is a
+  // deliberate admin/cascade delete (deleteMeetingCascade, admin meeting delete,
+  // admin project delete), so hard-delete is intended for all of them.
+  //
+  // Meeting Package blobs first: a package is a SEPARATE server-readable copy of
+  // the curated files (packages/<pkgId>/files/*, recap.html, bundle.zip), keyed
+  // by package id NOT room id, so the room-prefix sweep below would never reach
+  // them. Look up this meeting's package ids and hard-delete each package prefix.
+  // The D1 meeting_package rows are dropped separately in meetingDeleteStatements.
+  try {
+    const { results: pkgs } = await env.DB.prepare(
+      `SELECT id FROM meeting_package WHERE meeting_id = ?1`,
+    )
+      .bind(roomId)
+      .all<{ id: string }>();
+    for (const pkg of pkgs ?? []) {
+      await deleteR2Prefix(env, `packages/${pkg.id}/`);
+    }
+  } catch (err) {
+    // Best-effort — a package lookup/delete failure must not abort the rest of
+    // the cascade (the room-prefix sweep + DO/Daily teardown still run).
+    console.warn(`[cleanup] package blob cleanup failed ${roomId}`, err);
+  }
   for (const prefix of [
     `scenes/${roomId}`,
     `files/${roomId}`,
@@ -7023,28 +7165,10 @@ const cleanupMeetingBlobs = async (
     `transcripts/${roomId}`,
     // Recording media (audit). No-op until recording ships (Phase 5), but
     // included now so a deleted meeting never leaves recording blobs behind
-    // when it does. Same soft-delete to trash/ as every other prefix.
+    // when it does. Same hard-delete as every other prefix.
     `recordings/${roomId}`,
   ]) {
-    let cursor: string | undefined;
-    do {
-      const listed = await env.BUCKET.list({ prefix, cursor });
-      for (const obj of listed.objects) {
-        const blob = await env.BUCKET.get(obj.key);
-        if (blob) {
-          await env.BUCKET.put(`trash/${trashAt}/${obj.key}`, blob.body, {
-            httpMetadata: blob.httpMetadata,
-            customMetadata: {
-              ...(obj.customMetadata ?? {}),
-              trashedFrom: obj.key,
-              trashedAt: String(trashAt),
-            },
-          });
-        }
-        await env.BUCKET.delete(obj.key);
-      }
-      cursor = listed.truncated ? listed.cursor : undefined;
-    } while (cursor);
+    await deleteR2Prefix(env, prefix);
   }
   // Wipe the room's Durable Object storage (audit leak fix). The realtime DO
   // persists per-room key/value (roomEverInitialized + the reaper alarm); a hard

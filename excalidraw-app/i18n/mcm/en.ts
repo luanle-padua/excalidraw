@@ -191,6 +191,7 @@ export const en: Widened<typeof vi> = {
   },
   header: {
     invite: "Invite",
+    replay: "Replay",
     inviteCopied: "Link copied!",
     endMeeting: "End meeting",
     endConfirm:
@@ -1151,6 +1152,9 @@ export const en: Widened<typeof vi> = {
   // ---------------- Recordings (review mode) ------------------------
   recordings: {
     loading: "Loading recordings…",
+    loadingMedia: "Loading video…",
+    pickClip: "Pick a clip below to play",
+    clipNo: "Clip {n}",
     empty: "No recordings yet for this meeting.",
     processing: "Processing recording…",
     failed: "Recording failed",
@@ -1357,6 +1361,7 @@ export const en: Widened<typeof vi> = {
 
   chat: {
     title: "Conversation",
+    unread: "{count} unread messages",
     sendLabel: "Send",
     composePlaceholder: "Type a message…",
     viewOnlyNotice: "Reviewing a finished meeting — chat is read-only",
@@ -1394,8 +1399,38 @@ export const en: Widened<typeof vi> = {
     },
   },
 
+  knock: {
+    bannerTitle: "{count} waiting to join",
+    admit: "Admit",
+    deny: "Deny",
+    moreWaiting: "+{count} more waiting · open list",
+  },
+
+  replay: {
+    loading: "Loading replay…",
+    error: "Couldn't load the canvas replay.",
+    empty:
+      "No canvas replay for this meeting. Drawing during a meeting is captured automatically — older meetings won't have a replay.",
+    lead:
+      'Replay how the whiteboard evolved on the canvas you\'re reviewing. Toggle "show canvas" to watch as you scrub.',
+    play: "Play",
+    pause: "Pause",
+    restart: "Restart",
+    speed: "Speed",
+    scrubAria: "Scrub the canvas timeline",
+    stepOf: "Step {cur} / {total}",
+    spanLabel: "Span:",
+    showCanvas: "Show canvas",
+    hideCanvas: "Hide canvas",
+  },
+
   stt: {
     title: "Live transcript",
+    dualOn: "Dual: on",
+    dualOff: "Dual: off",
+    dualToggleOnTitle: "Show only one language",
+    dualToggleOffTitle: "Show both the original and the translation",
+    dualToggleDisabledTitle: "Turn on Translate first to see dual language",
     showButton: "Live transcript",
     providerTitle: "Pick the speech-to-text model to test accuracy",
     providerLabel: "STT model",
@@ -1446,6 +1481,9 @@ export const en: Widened<typeof vi> = {
   // ---------------- Live caption dock ------------------------------
   caption: {
     label: "Live captions",
+    dualOnTitle: "Show only one language",
+    dualOffTitle: "Show both the original and the translation",
+    dualDisabledTitle: "Turn on Translate first to see dual language",
     translating: "Translating…",
     degraded: "Translation paused (overloaded) — showing original",
     hideTitle: "Hide captions for now",
@@ -1469,6 +1507,7 @@ export const en: Widened<typeof vi> = {
     tabTranscript: "Transcript",
     tabSummary: "Summary",
     tabRecordings: "Recordings",
+    tabReplay: "Replay",
     closeAria: "Close",
     emptyTranscript:
       "No transcript yet. Join a call + turn on STT to start recording.",

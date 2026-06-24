@@ -50,6 +50,7 @@ export type InterimEntry = {
 
 const STT_ENABLED_LS_KEY = "mcm:sttEnabled";
 const STT_TRANSLATE_LS_KEY = "mcm:sttTranslateEnabled";
+const STT_DUAL_LANG_LS_KEY = "mcm:sttDualLanguage";
 const STT_SPOKEN_LANG_LS_KEY = "mcm:sttSpokenLang";
 const STT_PANEL_STYLE_LS_KEY = "mcm:sttPanelStyle";
 const TRANSCRIPT_LOG_LS_PREFIX = "mcm:transcript:";
@@ -140,6 +141,29 @@ export const sttTranslateEnabledAtom = atom<boolean>(
 export const setSttTranslateEnabled = (enabled: boolean): void => {
   try {
     window.localStorage.setItem(STT_TRANSLATE_LS_KEY, enabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
+};
+
+/** Per-viewer toggle: show BOTH the speaker's ORIGINAL spoken-language text
+ *  AND the translation for each finalised segment, instead of only one. Shared
+ *  by both transcript surfaces (the SpeechToTextPanel history view + the
+ *  LiveCaptionDock subtitle strip) so the user's choice is consistent.
+ *
+ *  Only meaningful while translation is ON (`sttTranslateEnabledAtom`): with
+ *  translation OFF there is nothing to pair the original with, so the surfaces
+ *  fall back to showing the original alone. Default OFF — single line is the
+ *  established behaviour; the user opts in. The original spoken text is always
+ *  retained in `TranscriptSegment.text`, so dual is purely a render choice (no
+ *  pipeline change needed). */
+export const sttDualLanguageAtom = atom<boolean>(
+  readBool(STT_DUAL_LANG_LS_KEY, false),
+);
+
+export const setSttDualLanguage = (enabled: boolean): void => {
+  try {
+    window.localStorage.setItem(STT_DUAL_LANG_LS_KEY, enabled ? "1" : "0");
   } catch {
     // ignore
   }

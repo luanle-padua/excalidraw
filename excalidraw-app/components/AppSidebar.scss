@@ -66,3 +66,39 @@
     color: #fff;
   }
 }
+
+// Subtle unread-chat pip on the comments sidebar trigger (#7). Small accent
+// count that gently pops in — noticeable but not loud. The trigger is set
+// position:relative inline so this anchors to its top-right corner.
+.mcm-chat-unread {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-primary, #6965db);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--island-bg-color, #fff);
+  animation: mcm-chat-unread-in 200ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes mcm-chat-unread-in {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

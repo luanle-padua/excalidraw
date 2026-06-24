@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   DefaultSidebar,
@@ -9,7 +9,11 @@ import { messageCircleIcon } from "@excalidraw/excalidraw/components/icons";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 
 import { useAtomValue } from "../app-jotai";
-import { isCollaboratingAtom, meetingViewOnlyAtom } from "../collab/Collab";
+import {
+  chatMessagesAtom,
+  isCollaboratingAtom,
+  meetingViewOnlyAtom,
+} from "../collab/Collab";
 import { useT } from "../i18n/mcm";
 
 import { ChatView } from "./ChatPanel";
@@ -60,21 +64,35 @@ export const AppSidebar = () => {
   const didDefaultOpenChat = useRef(false);
   useEffect(() => {
     if (viewOnly || !isCollaborating || !excalidrawAPI) {
+      // Left the meeting → RE-ARM the one-shot so the NEXT meeting re-opens the
+      // chat. Without this the ref stayed true for the whole session, so only
+      // the FIRST meeting opened the chat and every re-entry left it collapsed
+      // (the "vào lại thì chat không bung" bug).
+      if (!isCollaborating) {
+        didDefaultOpenChat.current = false;
+      }
       return;
     }
     if (didDefaultOpenChat.current) {
       return;
     }
     didDefaultOpenChat.current = true;
-    const timer = setTimeout(() => {
+    // Open the chat as the default right panel on entry. We RE-ASSERT across the
+    // first ~1.7s because the LocalData appState restore (and Excalidraw's own
+    // scene init) can land AFTER our first open and reset openSidebar — a race
+    // that left the chat collapsed on entry. This short window can't fight a
+    // deliberate user-close (those come later); after it we stop re-opening.
+    const openChat = () =>
       excalidrawAPI.updateScene({
         appState: {
           ...excalidrawAPI.getAppState(),
           openSidebar: { name: "default", tab: "comments" },
         },
       });
-    }, 100);
-    return () => clearTimeout(timer);
+    const timers = [100, 500, 1100, 1700].map((ms) =>
+      window.setTimeout(openChat, ms),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
   }, [viewOnly, isCollaborating, excalidrawAPI]);
   useEffect(() => {
     if (!viewOnly) {
@@ -95,6 +113,35 @@ export const AppSidebar = () => {
     }, 100);
     return () => clearTimeout(t);
   }, [viewOnly, excalidrawAPI]);
+
+  // --- Unread chat indicator (#7) -----------------------------------------
+  // A subtle pip on the chat trigger when new messages arrive while the chat
+  // tab isn't the one on screen, so users notice without anything intrusive.
+  // Tracked locally (the badge only renders here) and cleared the moment the
+  // chat tab is shown. Seeds its baseline on first observation so pre-existing
+  // history (e.g. a reopened/review meeting) never shows as unread.
+  const chatMessages = useAtomValue(chatMessagesAtom);
+  const [unreadChat, setUnreadChat] = useState(0);
+  const lastChatCount = useRef<number | null>(null);
+  const chatTabOpen =
+    openSidebar?.name === "default" && openSidebar?.tab === "comments";
+  useEffect(() => {
+    const count = chatMessages.length;
+    const prev = lastChatCount.current;
+    if (prev === null) {
+      lastChatCount.current = count;
+      return;
+    }
+    if (chatTabOpen) {
+      lastChatCount.current = count;
+      setUnreadChat(0);
+      return;
+    }
+    if (count > prev) {
+      setUnreadChat((u) => u + (count - prev));
+      lastChatCount.current = count;
+    }
+  }, [chatMessages, chatTabOpen]);
 
   useEffect(() => {
     if (!ALWAYS_SHOW_SIDEBAR || !excalidrawAPI) {
@@ -163,9 +210,20 @@ export const AppSidebar = () => {
           )}
           <Sidebar.TabTrigger
             tab="comments"
-            style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
+            style={{
+              opacity: openSidebar?.tab === "comments" ? 1 : 0.4,
+              position: "relative",
+            }}
           >
             {messageCircleIcon}
+            {!chatTabOpen && unreadChat > 0 && (
+              <span
+                className="mcm-chat-unread"
+                aria-label={t("chat.unread", { count: String(unreadChat) })}
+              >
+                {unreadChat > 9 ? "9+" : unreadChat}
+              </span>
+            )}
           </Sidebar.TabTrigger>
         </DefaultSidebar.TabTriggers>
         {!viewOnly && (
