@@ -7,7 +7,7 @@ Resume from any account: read this + `docs/logs/2026-06-24.md` (full shipped lis
 - The project runs as a **standing dev team / overseer loop** — `docs/handbook/dev-team.md` (roles→agents), `docs/plans/TEAM-BACKLOG.md` (queue), command `/team`. Just say a task or `/team`.
 
 ## Prod state
-- **Pages `map-canvasm` = `b4c360a2`** (https://map-canvasm.pages.dev) · **Worker `mcm-storage` = `685191a9`** · D1 migrations 0036. Batch 06-24 committed: `cba369b5` (shipped batch) + `9147c9b6` (#17–20).
+- **Pages `map-canvasm` = `2ef416aa`** (https://map-canvasm.pages.dev) · **Worker `mcm-storage` = `f3e6e887`** · D1 migrations **0037**. 06-24 commits incl. `ab2a67a0` (#23/#24 per-speaker recording + exclusivity lock). Migration apply: MANUAL `cd worker && npx wrangler d1 execute mcm-db --remote --file=./schema/00NN_*.sql -y`.
 - Deploy = MANUAL: `yarn build` → `npx wrangler pages deploy excalidraw-app/build --project-name=map-canvasm --branch=main --commit-dirty=true`; worker `cd worker && npx wrangler deploy`. PWA caches hard → test in **incognito**.
 
 ## Done today (see daily log for details + files)
