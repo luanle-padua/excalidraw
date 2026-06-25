@@ -217,6 +217,7 @@ export const ko: Widened<typeof vi> = {
     participantsInCallWith: "방에 {count}명 · {inCall}명 통화 중",
     previewNotInRoom: "방 입장 전 — 미리보기",
     elapsedTitle: "경과된 회의 시간",
+    meetingTimeTitle: "회의가 진행된 시간",
     layout: "레이아웃",
     present: "발표",
     presentUnsupported:

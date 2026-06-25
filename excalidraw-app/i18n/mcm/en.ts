@@ -210,6 +210,7 @@ export const en: Widened<typeof vi> = {
     participantsInCallWith: "{count} in room · {inCall} in call",
     previewNotInRoom: "Not in a room — preview",
     elapsedTitle: "Meeting time elapsed",
+    meetingTimeTitle: "When the meeting took place",
     layout: "Layout",
     present: "Present",
     presentUnsupported:

@@ -8174,13 +8174,30 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     gap: 4px;
     padding: 0 8px;
   }
-  // Last resort: let the rail scroll horizontally instead of wrapping.
+  // The action rail becomes a CONSTRAINED, horizontally-scrollable track.
+  // ROOT CAUSE of the responsive breakage: it was flex-shrink:0, so on tight
+  // widths it kept its FULL intrinsic width, overflowed the header, and the
+  // right-most buttons (Leave / End) were clipped off-screen + UNREACHABLE —
+  // overflow-x:auto can only scroll inside a width that is allowed to shrink.
+  // Now it yields width and scrolls, so every control stays reachable.
   .mcm-header__actions {
+    flex-shrink: 1;
+    min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
     &::-webkit-scrollbar {
       display: none;
     }
+  }
+  // …but its children keep their size and SCROLL rather than squishing into one
+  // another (the cramped/overlapping look). Each direct child holds its width.
+  .mcm-header__actions > * {
+    flex-shrink: 0;
+  }
+  // Yield the identity (brand + ellipsised title) before the rail, so the live
+  // controls win the space race.
+  .mcm-header__identity {
+    flex-shrink: 6;
   }
 }
 
@@ -14437,6 +14454,19 @@ body:has(.excalidraw.theme--dark) {
 // .mcm-segmented look; just a touch of inline spacing where it sits.
 .mcm-projfiles__tabs {
   margin-left: 8px;
+
+  // These segments carry TEXT labels (Meetings / Files), but the base
+  // .mcm-segmented__btn is sized for ICON-only chips (fixed 28px wide) — the
+  // labels overflowed that 28px box and overlapped each other + the status
+  // chip ("ONGOING…Meetings…Files" mashed together). Let text segments size to
+  // their content.
+  .mcm-segmented__btn {
+    width: auto;
+    min-width: 28px;
+    padding: 0 12px;
+    white-space: nowrap;
+    @include t-btn; // proper-case button label (not the uppercase t-label)
+  }
 }
 
 // In-meeting shelf picker ("Từ tủ của tôi" in the meeting library): a small

@@ -89,7 +89,18 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    flex-wrap: wrap;
+    // Single non-wrapping transport row: the X (--close) used to wrap onto its
+    // own line once the scrubber + speed pills + media chips filled the row.
+    // nowrap + min-width:0 lets the children (scrubber) shrink instead; on an
+    // extremely narrow dock the row scrolls horizontally rather than wrapping.
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   &__btn {
@@ -128,8 +139,11 @@
     }
 
     // Exit replay — pushed to the far right; hover goes red to read as "leave".
+    // flex:0 0 auto so it never grows OR wraps below: it stays inline at the end
+    // of the single transport row (margin-left:auto still shoves it to the edge).
     &--close {
       margin-left: auto;
+      flex: 0 0 auto;
 
       &:hover {
         background: var(--mcm-danger-soft);
@@ -150,8 +164,10 @@
   }
 
   &__scrubber {
-    flex: 1;
-    min-width: 120px;
+    // Shrink-to-fit so the row never has to wrap: the scrubber gives up width
+    // first (down to 80px) while the speed pills, media chips and X stay inline.
+    flex: 1 1 auto;
+    min-width: 80px;
     accent-color: var(--mcm-accent);
     cursor: pointer;
   }

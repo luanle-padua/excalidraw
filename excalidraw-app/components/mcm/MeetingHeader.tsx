@@ -70,6 +70,23 @@ const fmt = (s: number) =>
     .map((n) => String(n).padStart(2, "0"))
     .join(":");
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+// Static wall-clock formatters for the REVIEW header (when a finished meeting
+// took place). Take an explicit epoch-ms — never read the current time — so the
+// label stays frozen at the meeting's real timestamps. `fmtDateTime` →
+// "25/06 13:19" (DD/MM HH:MM, 24h); `fmtClock` → "13:19" for the end of a range.
+const fmtDateTime = (ms: number) => {
+  const d = new Date(ms);
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(
+    d.getHours(),
+  )}:${pad2(d.getMinutes())}`;
+};
+const fmtClock = (ms: number) => {
+  const d = new Date(ms);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
 export const MeetingHeader = ({
   participantCount: participantCountProp,
   onLeave,
@@ -285,6 +302,17 @@ export const MeetingHeader = ({
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [activeRoomLink, meetingStartMs, viewOnly]);
+
+  // Replay is a REVIEW-ONLY overlay scoped to the finished room it was opened
+  // in. Its dock is portaled to document.body, so without this it would survive
+  // a switch into a DIFFERENT meeting that's LIVE — leaking the replay bar over
+  // a live session. Reset it whenever the active room OR the view-only mode
+  // changes, so any room/mode transition (finished→live, room A→room B) always
+  // closes the dock. The dock render below is also hard-gated on
+  // `viewOnly && roomId` as a second line of defense.
+  useEffect(() => {
+    setReplayOpen(false);
+  }, [activeRoomLink, viewOnly]);
 
   // Edit rights: the ORGANIZER owns meeting edits (title/agenda/metadata) —
   // server-enforced; this just hides the affordance from everyone else.
@@ -603,6 +631,37 @@ export const MeetingHeader = ({
           </div>
         )}
 
+        {/* Review (finished meeting): the live elapsed clock is meaningless, so
+            instead of a ticking count we show WHEN the meeting took place — a
+            STATIC stamp frozen at the meeting's real timestamps. Start =
+            registry created_at; end = the last transcript segment's ts (a cheap
+            proxy for when the meeting wound down). With an end we render a
+            compact "DD/MM HH:MM → HH:MM" span (mirrors the replay bar's Span
+            label); without one we show just the start date + time. Same stat
+            pill + Clock3 icon as the live clock. */}
+        {viewOnly &&
+          meetingStartMs &&
+          (() => {
+            const lastTs = log.length > 0 ? log[log.length - 1].ts : null;
+            const endMs =
+              typeof lastTs === "number" && lastTs > meetingStartMs
+                ? lastTs
+                : null;
+            return (
+              <div
+                className="mcm-header__stat"
+                title={t("header.meetingTimeTitle")}
+              >
+                <Clock3 size={14} strokeWidth={2} />
+                <span className="mcm-header__stat-num">
+                  {endMs
+                    ? `${fmtDateTime(meetingStartMs)} → ${fmtClock(endMs)}`
+                    : fmtDateTime(meetingStartMs)}
+                </span>
+              </div>
+            );
+          })()}
+
         <button
           type="button"
           className="mcm-header__stat mcm-header__stat--btn"
@@ -869,7 +928,7 @@ export const MeetingHeader = ({
           floats over the EXISTING review canvas and drives it in place via the
           live excalidrawAPI, restoring the original finished-meeting scene when
           it closes. Its own × / Escape dismiss it. */}
-      {replayOpen && (
+      {replayOpen && viewOnly && roomId && (
         <div
           className="mcm-replay-dock"
           role="region"
