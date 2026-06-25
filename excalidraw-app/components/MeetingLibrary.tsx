@@ -21,10 +21,21 @@ import {
   isIfcFile,
   isIfcModelFile,
   isPdfFile,
+  isPromotedToProject,
   markFileSeen,
+  markMeetingFilePromoted,
   meetingFilesAtom,
   probeImageDimensions,
 } from "../data/meetingLibrary";
+import { showAppToast } from "../data/appToast";
+import { getMeeting } from "../data/projects";
+import {
+  getProjectFileContent,
+  listProjectFilesChecked,
+  putProjectFileThumb,
+  uploadProjectFile,
+  type ProjectFile,
+} from "../data/projectFiles";
 import { isInternalEmail, sessionAtom } from "../data/session";
 import {
   getMyFileContent,
@@ -88,6 +99,34 @@ const blobToDataURL = (buf: ArrayBuffer, mime: string) =>
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(new Blob([buf], { type: mime }));
   });
+
+/** Decode a base64 `data:` URL into a Blob without a network round-trip.
+ *  Used by the "promote to project files" flow to rebuild a File from a
+ *  library entry's `dataURL`. Returns null for a malformed / non-base64
+ *  data URL so the caller can fall back to fetching the bytes. */
+const dataURLToBlob = (dataURL: string): Blob | null => {
+  const comma = dataURL.indexOf(",");
+  if (!dataURL.startsWith("data:") || comma < 0) {
+    return null;
+  }
+  const header = dataURL.slice(5, comma);
+  const isBase64 = /;base64/i.test(header);
+  const mime = header.split(";")[0] || "application/octet-stream";
+  const payload = dataURL.slice(comma + 1);
+  try {
+    if (isBase64) {
+      const binary = atob(payload);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new Blob([bytes], { type: mime });
+    }
+    return new Blob([decodeURIComponent(payload)], { type: mime });
+  } catch {
+    return null;
+  }
+};
 
 const extractRoomId = (link: string | null | undefined): string | null => {
   if (!link) {
@@ -261,6 +300,15 @@ export const MeetingLibrary = () => {
 
   const roomId = extractRoomId(collabAPI?.getActiveRoomLink() ?? null);
 
+  // Parent project of this meeting — resolved from the room once on
+  // roomId change. The "Up to project files" action only appears when a
+  // projectId exists (ad-hoc rooms with no project can't promote). null =
+  // not loaded / no project; a string = the target project's id.
+  const [projectId, setProjectId] = useState<string | null>(null);
+  // File id currently being promoted — disables its action + shows a
+  // spinner label so a double-click can't fire two uploads.
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -271,6 +319,19 @@ export const MeetingLibrary = () => {
   const [shelfOpen, setShelfOpen] = useState(false);
   const [shelfFiles, setShelfFiles] = useState<UserFile[] | null>(null);
   const [shelfCopyingId, setShelfCopyingId] = useState<string | null>(null);
+
+  // "Từ dự án" — the project shared-files picker. Mirrors the shelf picker
+  // exactly, but lists the PARENT PROJECT's shared Files (projectFiles.ts)
+  // instead of the user's personal shelf, and copies the selected file's
+  // bytes through the SAME `ingestFiles` upload path so the meeting gets its
+  // own baked + encrypted snapshot. Only meaningful when the meeting belongs
+  // to a project (projectId non-null). `null` files = loading / not fetched;
+  // an empty array = the project shelf is genuinely empty.
+  const [projectPickOpen, setProjectPickOpen] = useState(false);
+  const [projectPickFiles, setProjectPickFiles] = useState<
+    ProjectFile[] | null
+  >(null);
+  const [projectCopyingId, setProjectCopyingId] = useState<string | null>(null);
 
   // Toolbar state — search query, type filter chip, sort key, grid vs
   // list view, optional group-by-type sectioning. All session-scoped
@@ -386,6 +447,26 @@ export const MeetingLibrary = () => {
   // meetingFilesAtom) don't show "waiting for peer" placeholders
   // until the user happens to open the library tab. Don't duplicate
   // the call here, or hydrate would race with itself across mounts.
+
+  // Resolve the parent project of this meeting so files can be promoted
+  // into the project's shared Files shelf. Runs once per roomId; an
+  // ad-hoc room (no project) or a fetch failure leaves projectId null and
+  // the promote action simply never renders.
+  useEffect(() => {
+    if (!roomId) {
+      setProjectId(null);
+      return undefined;
+    }
+    let cancelled = false;
+    void getMeeting(roomId).then((meeting) => {
+      if (!cancelled) {
+        setProjectId(meeting?.project_id ?? null);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
 
   // observe canvas: when a file the user pasted/dropped onto canvas is
   // available, publish it through the collab API so peers also receive it
@@ -635,6 +716,57 @@ export const MeetingLibrary = () => {
       }
     },
     [shelfCopyingId, viewOnly, ingestFiles, t],
+  );
+
+  const toggleProjectPick = () => {
+    if (projectPickOpen) {
+      setProjectPickOpen(false);
+      return;
+    }
+    if (!projectId) {
+      return;
+    }
+    setProjectPickOpen(true);
+    setProjectPickFiles(null); // show the loading hint while we (re)fetch
+    void listProjectFilesChecked(projectId).then((res) =>
+      // A failed list (network/5xx) reads as an empty shelf here — the picker
+      // shows its empty hint rather than a lying spinner; the user can reopen.
+      setProjectPickFiles(res.ok ? res.items : []),
+    );
+  };
+
+  const handleCopyFromProject = useCallback(
+    async (projectFile: ProjectFile) => {
+      if (!projectId || projectCopyingId || viewOnly) {
+        return;
+      }
+      setProjectCopyingId(projectFile.id);
+      try {
+        const blob = await getProjectFileContent(projectId, projectFile.id);
+        if (!blob) {
+          window.alert(t("library.fromProjectCopyFailed", { name: projectFile.name }));
+          return;
+        }
+        // Rewrap the bytes as a `File` carrying the ORIGINAL name (ingest
+        // detection for DXF/IFC/PDF is extension-based) and feed it through
+        // the exact local-upload pipeline — bake, per-meeting encryption and
+        // snapshot-copy semantics all come for free. The Worker may serve the
+        // bytes as application/octet-stream (truthy), so treat that as
+        // "untyped" and fall back to a mime by kind, exactly like the shelf
+        // picker — otherwise images never reach the kind fallback and ingest
+        // rejects them (image detection is the one mime-based check).
+        const realType =
+          blob.type && blob.type !== "application/octet-stream"
+            ? blob.type
+            : SHELF_MIME_FALLBACK[projectFile.kind];
+        const file = new File([blob], projectFile.name, { type: realType });
+        await ingestFiles([file]);
+        setProjectPickOpen(false);
+      } finally {
+        setProjectCopyingId(null);
+      }
+    },
+    [projectId, projectCopyingId, viewOnly, ingestFiles, t],
   );
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1144,6 +1276,14 @@ export const MeetingLibrary = () => {
 
   const handleDelete = (file: MeetingFile, e: React.MouseEvent) => {
     e.stopPropagation();
+    // A promoted file now lives in the project's Files shelf — block its
+    // deletion here so it can't be lost out from under other members /
+    // meetings. The UI already hides the delete button for these (see
+    // renderActions), this is the belt-and-braces guard.
+    if (isPromotedToProject(file)) {
+      window.alert(t("library.promotedDeleteDisabledTitle"));
+      return;
+    }
     if (!canDeleteFile(file, me)) {
       window.alert(
         t("library.deleteLockedAlert", { lockedBy: file.lockedBy ?? "" }),
@@ -1156,6 +1296,85 @@ export const MeetingLibrary = () => {
     // collabAPI: removes canvas elements + library entry + broadcasts
     collabAPI?.publishLibraryFileDelete(file.id);
   };
+
+  // "Đưa lên Files dự án" — copy a meeting file into the parent project's
+  // shared Files shelf. Frontend-only: the bytes are already on the client
+  // (the library entry's dataURL, or the canvas file map when offloaded to
+  // R2), so we just rebuild a File and reuse uploadProjectFile. Once
+  // promoted, the entry is marked (persisted) and can no longer be deleted
+  // from the library.
+  const handlePromoteToProject = useCallback(
+    async (file: MeetingFile, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!projectId || promotingId || isPromotedToProject(file)) {
+        return;
+      }
+      // Resolve the bytes. Prefer the in-atom dataURL; large files keep it
+      // empty (offloaded to R2) but their bytes are hydrated into the
+      // canvas file map by the time a tile is interactive.
+      let dataURL = file.dataURL;
+      if (!dataURL && excalidrawAPI) {
+        dataURL = (excalidrawAPI.getFiles()[file.id as FileId]
+          ?.dataURL ?? "") as string;
+      }
+      const blob = dataURL ? dataURLToBlob(dataURL) : null;
+      if (!blob) {
+        showAppToast(t("library.promoteError"));
+        return;
+      }
+      setPromotingId(file.id);
+      try {
+        // Skip if the project already holds a file with the same name+size
+        // — avoids a duplicate entry when two members promote the same
+        // document. A failed list (network) doesn't block the upload; the
+        // server is the final arbiter.
+        const listed = await listProjectFilesChecked(projectId);
+        const dup =
+          listed.ok &&
+          listed.items.find(
+            (pf) => pf.name === file.name && pf.size === blob.size,
+          );
+        if (dup) {
+          markMeetingFilePromoted(roomId, file.id, dup.id);
+          showAppToast(t("library.promoteSuccess"));
+          return;
+        }
+        const upload = new File([blob], file.name, {
+          type: file.mimeType || blob.type || "application/octet-stream",
+        });
+        const result = await uploadProjectFile(projectId, upload);
+        if (!result.ok) {
+          showAppToast(
+            result.reason === "too-large"
+              ? t("library.promoteErrorTooLarge")
+              : t("library.promoteError"),
+          );
+          return;
+        }
+        // BONUS: non-image kinds carry a baked thumbnail in their meta but
+        // uploadProjectFile only auto-thumbs images — push the baked one so
+        // the project tile gets a preview. Best-effort; failure self-heals
+        // via the project grid's lazy backfill.
+        const bakedThumb =
+          file.dxfMeta?.thumbnail ??
+          file.pdfMeta?.thumbnail ??
+          file.ifcMeta?.thumbnail;
+        if (bakedThumb && result.file.kind !== "image") {
+          const thumbBlob = dataURLToBlob(bakedThumb);
+          if (thumbBlob) {
+            void putProjectFileThumb(projectId, result.file.id, thumbBlob);
+          }
+        }
+        markMeetingFilePromoted(roomId, file.id, result.file.id);
+        showAppToast(t("library.promoteSuccess"));
+      } catch {
+        showAppToast(t("library.promoteError"));
+      } finally {
+        setPromotingId(null);
+      }
+    },
+    [projectId, promotingId, roomId, excalidrawAPI, t],
+  );
 
   const handleToggleLock = (file: MeetingFile, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1313,56 +1532,89 @@ export const MeetingLibrary = () => {
     </span>
   );
 
-  const renderActions = (file: MeetingFile) => (
-    <div
-      className={`MeetingLibrary__item-actions ${
-        file.lockedBy ? "MeetingLibrary__item-actions--persist" : ""
-      }`}
-    >
-      <button
-        type="button"
-        className="MeetingLibrary__item-action"
-        aria-label={t("library.linkTextAria")}
-        title={t("library.linkTextTitle")}
-        onClick={(e) => handleLinkText(file, e)}
-      >
-        🔗
-      </button>
-      <button
-        type="button"
-        className={`MeetingLibrary__item-action ${
-          file.lockedBy ? "MeetingLibrary__item-action--locked" : ""
+  const renderActions = (file: MeetingFile) => {
+    const promoted = isPromotedToProject(file);
+    // The promote action only makes sense when the meeting belongs to a
+    // project, the file isn't promoted yet, and we're not in review mode.
+    const canPromote = !!projectId && !promoted && !viewOnly;
+    const isPromoting = promotingId === file.id;
+    return (
+      <div
+        className={`MeetingLibrary__item-actions ${
+          file.lockedBy || promoted
+            ? "MeetingLibrary__item-actions--persist"
+            : ""
         }`}
-        aria-label={
-          file.lockedBy ? t("library.unlockAria") : t("library.lockAria")
-        }
-        title={
-          file.lockedBy
-            ? t("library.lockedByTitle", { lockedBy: file.lockedBy })
-            : t("library.lockTitle")
-        }
-        onClick={(e) => handleToggleLock(file, e)}
       >
-        {file.lockedBy ? "🔒" : "🔓"}
-      </button>
-      <button
-        type="button"
-        className="MeetingLibrary__item-action MeetingLibrary__item-action--danger"
-        aria-label={t("library.deleteAria")}
-        title={
-          canDeleteFile(file, me)
-            ? t("library.deleteTitle")
-            : t("library.deleteDisabledTitle", {
-                lockedBy: file.lockedBy ?? "",
-              })
-        }
-        onClick={(e) => handleDelete(file, e)}
-        disabled={!canDeleteFile(file, me)}
-      >
-        ✕
-      </button>
-    </div>
-  );
+        <button
+          type="button"
+          className="MeetingLibrary__item-action"
+          aria-label={t("library.linkTextAria")}
+          title={t("library.linkTextTitle")}
+          onClick={(e) => handleLinkText(file, e)}
+        >
+          🔗
+        </button>
+        {canPromote && (
+          <button
+            type="button"
+            className="MeetingLibrary__item-action MeetingLibrary__item-action--promote"
+            aria-label={t("library.promoteAria")}
+            title={isPromoting ? t("library.promoting") : t("library.promoteTitle")}
+            onClick={(e) => void handlePromoteToProject(file, e)}
+            disabled={isPromoting}
+          >
+            {isPromoting ? "…" : "⤴"}
+          </button>
+        )}
+        <button
+          type="button"
+          className={`MeetingLibrary__item-action ${
+            file.lockedBy ? "MeetingLibrary__item-action--locked" : ""
+          }`}
+          aria-label={
+            file.lockedBy ? t("library.unlockAria") : t("library.lockAria")
+          }
+          title={
+            file.lockedBy
+              ? t("library.lockedByTitle", { lockedBy: file.lockedBy })
+              : t("library.lockTitle")
+          }
+          onClick={(e) => handleToggleLock(file, e)}
+        >
+          {file.lockedBy ? "🔒" : "🔓"}
+        </button>
+        {promoted ? (
+          // Promoted files can't be deleted from the library — they live in
+          // the project now. Show an "in project" badge with a hint that
+          // deletion happens in the project's Files view.
+          <span
+            className="MeetingLibrary__in-project-badge"
+            title={t("library.promotedDeleteDisabledTitle")}
+          >
+            ✓ {t("library.inProjectBadge")}
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="MeetingLibrary__item-action MeetingLibrary__item-action--danger"
+            aria-label={t("library.deleteAria")}
+            title={
+              canDeleteFile(file, me)
+                ? t("library.deleteTitle")
+                : t("library.deleteDisabledTitle", {
+                    lockedBy: file.lockedBy ?? "",
+                  })
+            }
+            onClick={(e) => handleDelete(file, e)}
+            disabled={!canDeleteFile(file, me)}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const renderGridTile = (file: MeetingFile) => {
     const type = fileTypeOf(file);
@@ -1616,6 +1868,97 @@ export const MeetingLibrary = () => {
                     </button>
                   </li>
                 ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {projectId && (
+          <button
+            type="button"
+            className={`mcm-shelfpick__toggle${
+              projectPickOpen ? " mcm-shelfpick__toggle--open" : ""
+            }`}
+            onClick={toggleProjectPick}
+            disabled={!excalidrawAPI}
+            aria-expanded={projectPickOpen ? "true" : "false"}
+          >
+            <FolderHeart size={14} aria-hidden="true" />
+            {t("library.fromProject")}
+          </button>
+        )}
+        {projectId && projectPickOpen && (
+          <div
+            className="mcm-shelfpick"
+            role="dialog"
+            aria-label={t("library.fromProjectPickerTitle")}
+          >
+            <div className="mcm-shelfpick__head">
+              <span className="mcm-shelfpick__title">
+                {t("library.fromProjectPickerTitle")}
+              </span>
+              <span className="mcm-shelfpick__hint">
+                {t("library.fromProjectPickerHint")}
+              </span>
+              <button
+                type="button"
+                className="mcm-shelfpick__close"
+                onClick={() => setProjectPickOpen(false)}
+                title={t("myfiles.close")}
+                aria-label={t("myfiles.close")}
+              >
+                <X size={13} />
+              </button>
+            </div>
+            {projectPickFiles === null ? (
+              <div className="mcm-shelfpick__empty">…</div>
+            ) : projectPickFiles.length === 0 ? (
+              <div className="mcm-shelfpick__empty">
+                {t("library.fromProjectEmpty")}
+              </div>
+            ) : (
+              <ul className="mcm-shelfpick__list">
+                {projectPickFiles.map((pf) => {
+                  // Light dedup nicety: mark a project file as "already in
+                  // meeting" (and disable its copy) when this meeting's library
+                  // already holds a same-named entry, or one explicitly linked
+                  // to this exact project file via promote. MeetingFile has no
+                  // byte size, so name + promote-link is the available key.
+                  const alreadyIn = visibleItems.some(
+                    (m) =>
+                      m.name === pf.name ||
+                      m.promotedToProjectFileId === pf.id,
+                  );
+                  return (
+                    <li key={pf.id}>
+                      <button
+                        type="button"
+                        className={`mcm-shelfpick__row${
+                          alreadyIn
+                            ? " MeetingLibrary__project-row--in-meeting"
+                            : ""
+                        }`}
+                        onClick={() => void handleCopyFromProject(pf)}
+                        disabled={!!projectCopyingId || alreadyIn}
+                      >
+                        <span
+                          className={`mcm-shelfpick__kind mcm-shelfpick__kind--${pf.kind}`}
+                        >
+                          {pf.kind.toUpperCase()}
+                        </span>
+                        <span className="mcm-shelfpick__name" title={pf.name}>
+                          {pf.name}
+                        </span>
+                        <span className="mcm-shelfpick__size">
+                          {alreadyIn
+                            ? t("library.fromProjectInMeeting")
+                            : projectCopyingId === pf.id
+                            ? t("myfiles.copying")
+                            : shelfHumanSize(pf.size)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

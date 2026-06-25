@@ -51,6 +51,13 @@ export type MeetingFile = {
     elementCount: number;
     thumbnail?: string;
   };
+  /** Once the user promotes this meeting file to the parent project's
+   *  shared Files shelf, this holds the id of the project-file copy. Its
+   *  presence (see `isPromotedToProject`) means the entry can no longer be
+   *  deleted from the Meeting Library — it must be removed from the
+   *  project's Files view instead, guarding against accidental loss of a
+   *  file that other meetings/members may now rely on. */
+  promotedToProjectFileId?: string | null;
 };
 
 /** Quick predicate for DXF detection that doesn't rely on browser mime
@@ -337,6 +344,42 @@ export const setMeetingFileLock = (
   void persist(roomId, next);
   return true;
 };
+
+/** Mark a meeting file as promoted to the parent project's shared Files
+ *  shelf, recording the id of the project-file copy. Mirrors the
+ *  setMeetingFileLock persist pattern: mutate the atom + flush to IndexedDB
+ *  so the promoted flag (and its delete guard) survives a reload. No-op if
+ *  the entry is gone or already carries this same project-file id. */
+export const markMeetingFilePromoted = (
+  roomId: string | null,
+  fileId: string,
+  projectFileId: string,
+): boolean => {
+  const current = appJotaiStore.get(meetingFilesAtom);
+  let changed = false;
+  const next = current.map((f) => {
+    if (f.id !== fileId) {
+      return f;
+    }
+    if (f.promotedToProjectFileId === projectFileId) {
+      return f;
+    }
+    changed = true;
+    return { ...f, promotedToProjectFileId: projectFileId };
+  });
+  if (!changed) {
+    return false;
+  }
+  appJotaiStore.set(meetingFilesAtom, next);
+  void persist(roomId, next);
+  return true;
+};
+
+/** A library entry is "promoted" once it has been copied into the parent
+ *  project's shared Files shelf — at which point it must NOT be deletable
+ *  from the Meeting Library (delete it from the project's Files view). */
+export const isPromotedToProject = (file: MeetingFile): boolean =>
+  !!file.promotedToProjectFileId;
 
 /** Update an existing library entry's bytes in place. Used when a large file's
  *  metadata (with its thumbnail) was applied first — so the anchor shows the

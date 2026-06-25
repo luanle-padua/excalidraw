@@ -1305,6 +1305,24 @@ export const vi = {
     emptyHint: "Kéo ảnh vào đây hoặc paste/kéo lên canvas để bắt đầu.",
     noMatch: "Không có file nào khớp với bộ lọc.",
     clearFilters: "Xoá bộ lọc",
+    promoteAria: "Đưa lên Files dự án",
+    promoteTitle: "Đưa file này lên Files dự án (mọi thành viên dự án đều thấy)",
+    promoting: "Đang đưa lên…",
+    promoteSuccess: "Đã đưa lên Files dự án",
+    promoteError: "Không đưa lên được — kiểm tra mạng rồi thử lại.",
+    promoteErrorForbidden: "Bạn không phải thành viên dự án — không thể đưa lên.",
+    promoteErrorTooLarge: "File quá lớn để đưa lên Files dự án.",
+    inProjectBadge: "Trong dự án",
+    inProjectTitle: "File đã ở trong Files của dự án",
+    promotedDeleteDisabledTitle:
+      "File đã ở dự án — xoá trong Files của dự án",
+    // "Từ dự án" — lấy file từ tủ Tài liệu CHUNG của dự án vào cuộc họp này.
+    fromProject: "Từ dự án",
+    fromProjectPickerTitle: "Tài liệu dự án",
+    fromProjectPickerHint: "Bấm để sao chép vào cuộc họp này",
+    fromProjectEmpty: "Dự án chưa có file",
+    fromProjectCopyFailed: "Không tải được file từ dự án: {name}",
+    fromProjectInMeeting: "Đã có trong họp",
   },
 
   // ---------------- PDF canvas overlay ------------------------------

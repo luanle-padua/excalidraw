@@ -1240,6 +1240,26 @@ export const en: Widened<typeof vi> = {
     emptyHint: "Drag images here or paste/drop onto the canvas to get started.",
     noMatch: "No files match the filters.",
     clearFilters: "Clear filters",
+    promoteAria: "Add to project Files",
+    promoteTitle:
+      "Add this file to the project's Files (visible to all project members)",
+    promoting: "Adding…",
+    promoteSuccess: "Added to project Files",
+    promoteError: "Couldn't add it — check your connection and try again.",
+    promoteErrorForbidden: "You're not a project member — can't add it.",
+    promoteErrorTooLarge: "File is too large to add to the project Files.",
+    inProjectBadge: "In project",
+    inProjectTitle: "This file is already in the project's Files",
+    promotedDeleteDisabledTitle:
+      "Already in the project — delete it from the project's Files",
+    // "From project" — pull a file from the project's SHARED Files into this
+    // meeting.
+    fromProject: "From project",
+    fromProjectPickerTitle: "Project files",
+    fromProjectPickerHint: "Click to copy into this meeting",
+    fromProjectEmpty: "The project has no files yet",
+    fromProjectCopyFailed: "Couldn't load the file from the project: {name}",
+    fromProjectInMeeting: "Already in meeting",
   },
 
   // ---------------- PDF canvas overlay ------------------------------

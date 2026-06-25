@@ -478,10 +478,43 @@
           }
         }
 
+        &--promote {
+          background: var(--mcm-accent);
+
+          &:hover:not(:disabled) {
+            background: var(--color-primary-hover);
+          }
+        }
+
         &--danger:hover:not(:disabled) {
           background: var(--color-danger);
         }
       }
+    }
+
+    // ---- "In project" badge (replaces delete on promoted files) -----
+    // Shown once a file has been promoted to the project's Files shelf —
+    // its delete affordance is gone (the file lives in the project now),
+    // so this badge both labels the state and carries the "delete it from
+    // the project's Files" hint via its title attribute.
+    &__in-project-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      height: 1.375rem;
+      padding: 0 0.45rem;
+      border-radius: var(--mcm-radius-pill);
+      border: 1px solid var(--mcm-hairline);
+      background: var(--mcm-surface-2);
+      color: var(--mcm-accent);
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: default;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
     }
 
     // ---- List row (compact horizontal layout) -----------------------
@@ -586,5 +619,19 @@
       gap: 0.2rem;
       opacity: 0.85;
     }
+  }
+}
+
+// "From project" picker — reuses the shared shelf-picker styling
+// (.mcm-shelfpick* in MeetingShell.scss). The one parallel modifier here
+// dims a row whose project file is ALREADY present in this meeting's
+// library so the user can see it's redundant before clicking. Disabled
+// state (cursor) still comes from .mcm-shelfpick__row:disabled.
+.MeetingLibrary__project-row--in-meeting {
+  opacity: 0.5;
+
+  .mcm-shelfpick__size {
+    color: var(--mcm-accent);
+    font-variant-numeric: normal;
   }
 }

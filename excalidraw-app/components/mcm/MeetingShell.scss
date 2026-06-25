@@ -409,6 +409,19 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   @include mcm-lobby-tokens-dark;
 }
 
+// The in-meeting Meeting-Log modal (transcript / summary / recordings) is
+// canvas chrome but the owner wants it to read like the dashboard too. It
+// renders inside .mcm-shell (NOT portaled like the Package builder, which has
+// its own .mcm-pkg-backdrop in the Glass Desk portal list), so it otherwise
+// inherits the neutral shell tokens / #121212 dark set — stamp Glass Desk here.
+.mcm-log-modal-backdrop {
+  @include mcm-lobby-tokens-light;
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+}
+body:has(.excalidraw.theme--dark) .mcm-log-modal-backdrop {
+  @include mcm-lobby-tokens-dark;
+}
+
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
 // the FULL-VIEWPORT home frame (not .mcm-3col — moved 06-12 per anh Luân:
 // "muốn nó liên tục… mọi thứ nhìn nó liền lạc") so header + all 3 columns

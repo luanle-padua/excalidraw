@@ -1246,6 +1246,24 @@ export const ko: Widened<typeof vi> = {
       "여기로 이미지를 끌어오거나 캔버스에 붙여넣기/드롭해서 시작해 보세요.",
     noMatch: "필터에 맞는 파일이 없어요.",
     clearFilters: "필터 지우기",
+    promoteAria: "프로젝트 파일로 올리기",
+    promoteTitle: "이 파일을 프로젝트 파일로 올리기 (모든 프로젝트 멤버가 볼 수 있어요)",
+    promoting: "올리는 중…",
+    promoteSuccess: "프로젝트 파일로 올렸어요",
+    promoteError: "올리지 못했어요 — 연결을 확인하고 다시 시도해 주세요.",
+    promoteErrorForbidden: "프로젝트 멤버가 아니라서 올릴 수 없어요.",
+    promoteErrorTooLarge: "프로젝트 파일로 올리기엔 파일이 너무 커요.",
+    inProjectBadge: "프로젝트에 있음",
+    inProjectTitle: "이 파일은 이미 프로젝트 파일에 있어요",
+    promotedDeleteDisabledTitle:
+      "이미 프로젝트에 있어요 — 프로젝트 파일에서 삭제하세요",
+    // "프로젝트에서" — 프로젝트 공용 파일을 이 회의로 가져와요.
+    fromProject: "프로젝트에서",
+    fromProjectPickerTitle: "프로젝트 파일",
+    fromProjectPickerHint: "눌러서 이 회의로 복사하기",
+    fromProjectEmpty: "프로젝트에 아직 파일이 없어요",
+    fromProjectCopyFailed: "프로젝트에서 파일을 불러오지 못했어요: {name}",
+    fromProjectInMeeting: "회의에 이미 있음",
   },
 
   // ---------------- PDF canvas overlay ------------------------------
