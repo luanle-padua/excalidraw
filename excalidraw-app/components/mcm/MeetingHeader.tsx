@@ -703,64 +703,76 @@ export const MeetingHeader = ({
             "what I broadcast" group. MeetingCallControls renders the
             call/mic/cam buttons as `mcm-header__icon-btn`s; we frame them with
             Present so all sharing controls sit together. --- */}
-        <div className="mcm-header__group" role="group">
-          <MeetingCallControls />
-          {/* No "share room link" affordance at all (anh Luân 06-16: "không
-              share bằng link nữa vì bảo mật"). Access is by explicit invite
-              only — login + a meeting_invitee row — never a room URL. */}
-          <button
-            type="button"
-            className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
-              isPresenting ? " mcm-header__icon-btn--active" : ""
-            }`}
-            data-mcm-tip={presentTitle ?? t("header.present")}
-            aria-label={t("header.present")}
-            aria-pressed={isPresenting}
-            onClick={onPresent}
-            disabled={presentDisabled && !isPresenting}
-          >
-            {/* ScreenShare (monitor + arrow), not Presentation (a slide-deck
-                board): this button shares the live SCREEN, so the monitor glyph
-                reads truer than a flip-chart and won't be mistaken for a
-                whiteboard/slides tool. */}
-            <ScreenShare size={18} />
-            <span className="mcm-header__icon-label">
-              {t("header.present")}
-            </span>
-          </button>
-        </div>
+        {/* MEDIA group + its trailing separator are LIVE-only: a finished
+            meeting in review has no call to broadcast and no screen to present.
+            (MeetingCallControls already self-hides in review; gating the whole
+            group also drops the empty group shell + its stray divider.) */}
+        {!viewOnly && (
+          <>
+            <div className="mcm-header__group" role="group">
+              <MeetingCallControls />
+              {/* No "share room link" affordance at all (anh Luân 06-16: "không
+                  share bằng link nữa vì bảo mật"). Access is by explicit invite
+                  only — login + a meeting_invitee row — never a room URL. */}
+              <button
+                type="button"
+                className={`mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip${
+                  isPresenting ? " mcm-header__icon-btn--active" : ""
+                }`}
+                data-mcm-tip={presentTitle ?? t("header.present")}
+                aria-label={t("header.present")}
+                aria-pressed={isPresenting}
+                onClick={onPresent}
+                disabled={presentDisabled && !isPresenting}
+              >
+                {/* ScreenShare (monitor + arrow), not Presentation (a slide-deck
+                    board): this button shares the live SCREEN, so the monitor
+                    glyph reads truer than a flip-chart. */}
+                <ScreenShare size={18} />
+                <span className="mcm-header__icon-label">
+                  {t("header.present")}
+                </span>
+              </button>
+            </div>
 
-        <div className="mcm-header__group-sep" aria-hidden="true" />
+            <div className="mcm-header__group-sep" aria-hidden="true" />
+          </>
+        )}
 
         {/* --- INTERACTION: captions / transcript — the "follow along"
             group. Raise-hand & reactions live in MEDIA's call cluster (they
             only exist mid-call); here sit the always-available read affordances. --- */}
         <div className="mcm-header__group" role="group">
-          {/* CC toggle — turns the Live Caption Dock on/off from ANY view. The
-              dock's own CC puck is absent on panel-only / no-share surfaces, so
-              this is the only place to reach the toggle there. */}
+          {/* CC toggle — turns the Live Caption Dock on/off from ANY view.
+              LIVE-only: a finished meeting reads its captions through the replay
+              timeline, not a live dock, so the toggle is hidden in review. */}
+          {!viewOnly && (
+            <button
+              type="button"
+              className={`mcm-header__icon-btn mcm-tip${
+                captionEnabled ? " mcm-header__icon-btn--active" : ""
+              }`}
+              data-mcm-tip={
+                captionEnabled ? t("header.captionOn") : t("header.captionOff")
+              }
+              aria-label={t("header.captionToggle")}
+              aria-pressed={captionEnabled}
+              onClick={toggleCaption}
+            >
+              <Captions size={18} />
+            </button>
+          )}
           <button
             type="button"
-            className={`mcm-header__icon-btn mcm-tip${
-              captionEnabled ? " mcm-header__icon-btn--active" : ""
-            }`}
-            data-mcm-tip={
-              captionEnabled ? t("header.captionOn") : t("header.captionOff")
-            }
-            aria-label={t("header.captionToggle")}
-            aria-pressed={captionEnabled}
-            onClick={toggleCaption}
-          >
-            <Captions size={18} />
-          </button>
-          <button
-            type="button"
-            className="mcm-header__icon-btn mcm-tip"
+            className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
             onClick={onOpenLog}
             data-mcm-tip={t("header.meetingLog")}
             aria-label={t("header.meetingLog")}
           >
             <FileText size={18} />
+            <span className="mcm-header__icon-label">
+              {t("header.meetingLog")}
+            </span>
           </button>
           {/* Standalone Canvas Replay ("Tua lại") — review-mode only. One click
               docks a player control bar at the bottom of the EXISTING review
@@ -770,12 +782,15 @@ export const MeetingHeader = ({
           {viewOnly && roomId && (
             <button
               type="button"
-              className="mcm-header__icon-btn mcm-tip"
+              className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip"
               onClick={() => setReplayOpen(true)}
               data-mcm-tip={t("header.replay")}
               aria-label={t("header.replay")}
             >
               <History size={18} />
+              <span className="mcm-header__icon-label">
+                {t("header.replay")}
+              </span>
             </button>
           )}
         </div>
@@ -786,8 +801,9 @@ export const MeetingHeader = ({
             "manage the meeting" group. --- */}
         <div className="mcm-header__group" role="group">
           {/* Video-surface switcher (minimal / filmstrip / gallery + floating
-              presenter toggle). Drives videoLayoutAtom. */}
-          <LayoutSwitcher />
+              presenter toggle). Drives videoLayoutAtom. LIVE-only — a finished
+              meeting in review has no video surfaces to arrange. */}
+          {!viewOnly && <LayoutSwitcher />}
           {/* Files — opens THIS meeting's material library (upload + view
               DXF/IFC/PDF). Hidden in review: the meeting-library tab itself is
               hidden when reviewing a finished meeting (AppSidebar).

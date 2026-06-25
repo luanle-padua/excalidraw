@@ -14454,6 +14454,15 @@ body:has(.excalidraw.theme--dark) {
 // .mcm-segmented look; just a touch of inline spacing where it sits.
 .mcm-projfiles__tabs {
   margin-left: 8px;
+  // Anchor the Meetings|Files toggle to the END of the header row so it stays
+  // PUT. The meetings-only controls (view/sort/status toolbar + "New meeting"
+  // CTA) render with default order:0, so they appear/disappear to the toggle's
+  // LEFT when switching tabs — previously they mounted/unmounted AROUND the
+  // toggle and shoved it (it "jumped to the end" on the Meetings tab). With the
+  // toggle always last, its right edge is pinned to the row's right padding in
+  // both tabs → identical x, no jump.
+  order: 3;
+  flex: 0 0 auto;
 
   // These segments carry TEXT labels (Meetings / Files), but the base
   // .mcm-segmented__btn is sized for ICON-only chips (fixed 28px wide) — the

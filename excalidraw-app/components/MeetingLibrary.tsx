@@ -285,6 +285,33 @@ export const MeetingLibrary = () => {
     new Set(),
   );
 
+  // The single source of truth for EVERYTHING the panel shows — the "All"
+  // chip count, the per-kind chip counts, the sections, and the grid all
+  // derive from this. Two normalisations happen here, in one place, so the
+  // counts can never drift from the rendered tiles:
+  //   1) Drop MCM-internal files (IFC/PDF/DXF anchor snapshots + decoration
+  //      assets). They live in the same atom as real uploads but are never
+  //      shown as tiles, so counting them inflates the total.
+  //   2) De-duplicate by id, keeping the first occurrence and preserving
+  //      order. The atom upsert already dedups, but the same file can legi-
+  //      timately surface from more than one source (persisted shelf copy +
+  //      a peer's library broadcast for the same id); without this the raw
+  //      `items.length` reads e.g. 6 for 3 unique files while React collapses
+  //      the grid to 3 by `key={file.id}`. Counting the unique set keeps the
+  //      "All" badge honest.
+  const visibleItems = useMemo(() => {
+    const seen = new Set<string>();
+    const out: MeetingFile[] = [];
+    for (const f of items) {
+      if (isInternalCanvasFile(f.id, undefined) || seen.has(f.id)) {
+        continue;
+      }
+      seen.add(f.id);
+      out.push(f);
+    }
+    return out;
+  }, [items]);
+
   // Type counts — drive the badge on each filter chip ("DXF · 3") and
   // also tell us which chips should render at all (we hide chips for
   // types that have zero files to keep the toolbar uncluttered).
@@ -296,27 +323,23 @@ export const MeetingLibrary = () => {
       ifc: 0,
       other: 0,
     };
-    // Count over the SAME population the list renders — MCM-internal files
-    // (anchor snapshots, decoration assets) are hidden from the tiles, so
-    // counting them here would show chip totals above what the user sees.
-    for (const f of items) {
-      if (!isInternalCanvasFile(f.id, undefined)) {
-        counts[fileTypeOf(f)]++;
-      }
+    // Count over the SAME deduped, internal-stripped population the list
+    // renders so the chip totals always match the visible tiles.
+    for (const f of visibleItems) {
+      counts[fileTypeOf(f)]++;
     }
     return counts;
-  }, [items]);
+  }, [visibleItems]);
 
   /** Files after search / filter / sort, ready to render. Memoised so
    *  re-typing the search query doesn't rerun on every unrelated atom
    *  change. */
   const displayedFiles = useMemo(() => {
-    // Hide MCM-internal files (decoration assets + IFC/PDF/DXF anchor
-    // snapshots). The auto-publish guard stops new ones, and this also
-    // hides any junk already synced into a room's library from before
-    // the guard existed — without the destructive tile-delete (which
-    // would also remove the live model/stamp from the canvas).
-    let list = items.filter((f) => !isInternalCanvasFile(f.id, undefined));
+    // Start from the deduped, internal-stripped set so search / filter /
+    // sort operate on EXACTLY the population the chip counts report —
+    // `visibleItems` already hides MCM-internal files (decoration assets +
+    // IFC/PDF/DXF anchor snapshots) and collapses any same-id duplicates.
+    let list = visibleItems;
     if (filterType !== "all") {
       list = list.filter((f) => fileTypeOf(f) === filterType);
     }
@@ -344,7 +367,7 @@ export const MeetingLibrary = () => {
           return b.ts - a.ts;
       }
     });
-  }, [items, filterType, searchQuery, sortBy]);
+  }, [visibleItems, filterType, searchQuery, sortBy]);
 
   const toggleSection = (type: FileType) => {
     setCollapsedSections((prev) => {
@@ -1463,7 +1486,7 @@ export const MeetingLibrary = () => {
   const filterChips: { key: FileType | "all"; label: string; count: number }[] =
     (
       [
-        { key: "all", label: t("library.chipAll"), count: items.length },
+        { key: "all", label: t("library.chipAll"), count: visibleItems.length },
         { key: "dxf", label: "DXF", count: typeCounts.dxf },
         { key: "ifc", label: "IFC", count: typeCounts.ifc },
         { key: "pdf", label: "PDF", count: typeCounts.pdf },
@@ -1597,7 +1620,7 @@ export const MeetingLibrary = () => {
             )}
           </div>
         )}
-        {items.length > 0 && (
+        {visibleItems.length > 0 && (
           <>
             <input
               type="text"
@@ -1686,7 +1709,7 @@ export const MeetingLibrary = () => {
         )}
       </div>
       <div className="MeetingLibrary__body">
-        {items.length === 0 ? (
+        {visibleItems.length === 0 ? (
           <div className="MeetingLibrary__empty">
             {t("library.emptyTitle")}
             <br />
