@@ -262,8 +262,14 @@ export const MeetingHeader = ({
   // room-entry time only for an unregistered ad-hoc room with no shared anchor.
   const meetingStartMs =
     typeof meetingInfo?.createdAt === "number" ? meetingInfo.createdAt : null;
+  // Review mode (finished meeting) is read-only: the LIVE elapsed clock is a
+  // live-session concept, so we STOP the ticker here (and hide the stat in the
+  // render below). The authoritative time info for a finished meeting is the
+  // replay timeline's span — not a header clock that keeps counting `now -
+  // start` forever after the meeting has ended.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   useEffect(() => {
-    if (!activeRoomLink) {
+    if (!activeRoomLink || viewOnly) {
       startedAtRef.current = null;
       setElapsed(0);
       return;
@@ -278,7 +284,7 @@ export const MeetingHeader = ({
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
-  }, [activeRoomLink, meetingStartMs]);
+  }, [activeRoomLink, meetingStartMs, viewOnly]);
 
   // Edit rights: the ORGANIZER owns meeting edits (title/agenda/metadata) —
   // server-enforced; this just hides the affordance from everyone else.
@@ -295,7 +301,6 @@ export const MeetingHeader = ({
       viewerAuthority,
     ) && isEditableMeetingStatus(meetingInfo?.status);
 
-  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const setViewOnly = useSetAtom(meetingViewOnlyAtom);
   const setPanelOpen = useSetAtom(participantsPanelOpenAtom);
 
@@ -588,11 +593,15 @@ export const MeetingHeader = ({
 
         {/* Objective meeting clock — shared start, so late joiners see the same
             elapsed time. (Recording state lives in its own button in the
-            "Meeting" group; this is purely the running timer.) */}
-        <div className="mcm-header__stat" title={t("header.elapsedTitle")}>
-          <Clock3 size={14} strokeWidth={2} />
-          <span className="mcm-header__stat-num">{fmt(elapsed)}</span>
-        </div>
+            "Meeting" group; this is purely the running timer.) Hidden in review:
+            a finished meeting has no "running" elapsed — its time lives in the
+            replay timeline's span, not a header clock. */}
+        {!viewOnly && (
+          <div className="mcm-header__stat" title={t("header.elapsedTitle")}>
+            <Clock3 size={14} strokeWidth={2} />
+            <span className="mcm-header__stat-num">{fmt(elapsed)}</span>
+          </div>
+        )}
 
         <button
           type="button"

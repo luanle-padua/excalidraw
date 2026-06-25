@@ -3013,7 +3013,12 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
 .mcm-log-modal {
   width: min(820px, 100%);
-  max-height: 90vh;
+  // FIXED height (not max-height): the 3 tabs (Biên bản / Tóm tắt / Recordings)
+  // each have very different intrinsic content height, so an auto-sized,
+  // center-anchored modal visibly JUMPED its size + position on every tab
+  // switch. A fixed frame keeps the panel stationary — only the inner
+  // `&__body` (flex:1 + overflow-y:auto) scrolls as content changes.
+  height: min(720px, 86vh);
   display: flex;
   flex-direction: column;
   background: var(--mcm-surface);
@@ -6933,6 +6938,14 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 // Full-screen modal: projects on the left, the selected project's
 // meetings on the right. Inherits the --mcm-* theme tokens.
 .mcm-folder {
+  // The in-canvas project browser lives INSIDE `.mcm-shell`, so without this
+  // it inherited the shell's darker canvas tokens and rendered near-black —
+  // "lạc quẻ" next to the lobby's identical-but-light Glass Desk browser.
+  // Stamp the Glass Desk palette here (same pattern as .mcm-admin / .mcm-login,
+  // both of which sit outside .mcm-lobby) so it looks the same whether opened
+  // from the dashboard or from inside a meeting/review.
+  @include mcm-lobby-tokens-light;
+  font-family: var(--mcm-font-ui);
   position: fixed;
   inset: 0;
   z-index: 1100;
@@ -6940,7 +6953,11 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--mcm-scrim); // theme-aware, was hardcoded rgba(0,0,0,.45)
+
+  body:has(.excalidraw.theme--dark) & {
+    @include mcm-lobby-tokens-dark;
+  }
 
   &__panel {
     // Sized for real project browsing (was 880×620 and clipped content) and

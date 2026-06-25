@@ -33,6 +33,7 @@ import {
   activeRoomLinkAtom,
   collabAPIAtom,
   meetingReactionsAtom,
+  meetingViewOnlyAtom,
   participantsPanelOpenAtom,
   raisedHandsAtom,
   screenShareStateAtom,
@@ -40,8 +41,10 @@ import {
 import {
   getDirectory,
   listInvitees,
+  listParticipants,
   type DirectoryUser,
   type MeetingInvitee,
+  type MeetingParticipant,
 } from "../../data/invite";
 import { listKnocks, patchKnock, type WaitingKnock } from "../../data/knock";
 import { sessionAtom } from "../../data/session";
@@ -497,6 +500,32 @@ const mockTile = (p: MockParticipant): Tile => ({
 
 const REACTION_TTL_MS = 3200;
 
+// Local 24h "HH:MM" formatter for attendance join times (review mode). Takes an
+// explicit epoch-ms argument — never reads Date.now() — so it's pure and safe to
+// call during render. Bad/zero timestamps render as an em dash.
+const formatJoinTime = (ms: number): string => {
+  if (!ms || Number.isNaN(ms)) {
+    return "—";
+  }
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+/** A person who ACTUALLY joined the finished meeting (review-mode roster).
+ *  Sourced from listParticipants(); host/co-host/title merged in by email from
+ *  the invitee + directory lookups where available. */
+type AttendedRow = {
+  email: string;
+  name: string;
+  joinedAt: number;
+  isHost: boolean;
+  isCohost: boolean;
+  kind: "internal" | "guest";
+  title?: string | null;
+};
+
 /** A person who was invited but isn't currently in the room. */
 type InvitedRow = {
   email: string;
@@ -521,6 +550,8 @@ const ParticipantsPanel = ({
   onClose,
   onMute,
   onKick,
+  viewOnly,
+  attended,
 }: {
   tiles: Tile[];
   invited: InvitedRow[];
@@ -531,8 +562,128 @@ const ParticipantsPanel = ({
   onClose: () => void;
   onMute: (tile: Tile) => void;
   onKick: (tile: Tile) => void;
+  /** Review mode (finished meeting): swap the live presence panel for a static
+   *  ATTENDANCE roster (who joined + who was invited but didn't). */
+  viewOnly: boolean;
+  /** Who actually joined — only populated in review mode. */
+  attended: AttendedRow[];
 }) => {
   const t = useT();
+  // REVIEW MODE: a finished meeting has no live presence (the collaborators map
+  // is empty), so showing "in room / mic / kick" is meaningless. Instead render
+  // a static attendance roster: who joined ("Đã tham gia") and who was invited
+  // but never showed ("Đã mời"). No moderation, no mic state, no knocks.
+  if (viewOnly) {
+    return createPortal(
+      <div className="mcm-pp-overlay" onClick={onClose} role="presentation">
+        <aside
+          className="mcm-pp"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("participants.panelTitle")}
+        >
+          <header className="mcm-pp__head">
+            <strong>
+              {t("participants.panelTitle")} ({attended.length})
+            </strong>
+            <button
+              type="button"
+              className="mcm-pp__close"
+              onClick={onClose}
+              aria-label={t("header.leave")}
+            >
+              <X size={18} />
+            </button>
+          </header>
+
+          <div className="mcm-pp__section">Đã tham gia ({attended.length})</div>
+          <ul className="mcm-pp__list">
+            {attended.map((a) => (
+              <li key={a.email} className="mcm-pp__row">
+                <MCMAvatar
+                  className="mcm-pp__avatar"
+                  name={a.name}
+                  email={a.email}
+                />
+                <div className="mcm-pp__meta">
+                  <span className="mcm-pp__name">
+                    {a.name}
+                    {a.isHost && (
+                      <span className="mcm-pp__tag">
+                        {t("participants.host")}
+                      </span>
+                    )}
+                    {a.isCohost && !a.isHost && (
+                      <span className="mcm-pp__tag mcm-pp__tag--cohost">
+                        {t("participants.cohost")}
+                      </span>
+                    )}
+                    {a.kind === "guest" && (
+                      <span className="mcm-pp__tag">
+                        {t("participants.guestTag")}
+                      </span>
+                    )}
+                    {a.title && (
+                      <span className="mcm-pp__title-chip">{a.title}</span>
+                    )}
+                  </span>
+                  <span className="mcm-pp__company">{a.email}</span>
+                </div>
+                <span className="mcm-pp__invited-status">
+                  Tham gia {formatJoinTime(a.joinedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {invited.length > 0 && (
+            <>
+              <div className="mcm-pp__section">
+                Đã mời ({invited.length})
+              </div>
+              <ul className="mcm-pp__list mcm-pp__list--invited">
+                {invited.map((iv) => (
+                  <li
+                    key={iv.email}
+                    className="mcm-pp__row mcm-pp__row--invited"
+                  >
+                    <MCMAvatar
+                      className="mcm-pp__avatar"
+                      name={iv.name}
+                      email={iv.email}
+                    />
+                    <div className="mcm-pp__meta">
+                      <span className="mcm-pp__name">
+                        {iv.name}
+                        {iv.kind === "guest" && (
+                          <span className="mcm-pp__tag">
+                            {t("participants.guestTag")}
+                          </span>
+                        )}
+                        {iv.title && (
+                          <span className="mcm-pp__title-chip">
+                            {iv.title}
+                          </span>
+                        )}
+                      </span>
+                      <span className="mcm-pp__company">{iv.email}</span>
+                    </div>
+                    <span className="mcm-pp__invited-status">
+                      {iv.accepted
+                        ? t("participants.statusAccepted")
+                        : t("participants.statusInvited")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </aside>
+      </div>,
+      document.body,
+    );
+  }
   return createPortal(
     <div className="mcm-pp-overlay" onClick={onClose} role="presentation">
       <aside
@@ -741,6 +892,11 @@ export const ParticipantsBar = ({
   const excalidrawAPI = useExcalidrawAPI();
   const collabAPI = useAtomValue(collabAPIAtom);
   const activeRoomLink = useAtomValue(activeRoomLinkAtom);
+  // REVIEW MODE flag — true for a finished, read-only meeting. When set, the
+  // participants UI switches from live presence (empty/stale here) to a static
+  // attendance roster, and all live-only moderation/knock/count affordances are
+  // suppressed below.
+  const viewOnly = useAtomValue(meetingViewOnlyAtom);
   const audioState = useAtomValue(audioStateAtom);
   // Live camera streams keyed by socket.id (same call object as audio). A tile
   // whose socket.id is present here renders a <video>; otherwise the avatar.
@@ -811,6 +967,10 @@ export const ParticipantsBar = ({
   // WAITING ROOM (host side): guests knocking to enter. Host-only — the poll
   // below is gated on iAmHost, so a non-host keeps this empty.
   const [waitingKnocks, setWaitingKnocks] = useState<WaitingKnock[]>([]);
+  // ATTENDANCE roster (review mode only): who ACTUALLY joined the finished
+  // meeting (vs invitees = who was asked). Empty during live meetings — only
+  // fetched when viewOnly, so live behavior is untouched.
+  const [attendance, setAttendance] = useState<MeetingParticipant[]>([]);
   useEffect(() => {
     if (!roomId || session?.isGuest) {
       setInvitees([]);
@@ -823,6 +983,21 @@ export const ParticipantsBar = ({
       alive = false;
     };
   }, [roomId, session?.isGuest, panelOpen]);
+
+  // Fetch the attendance roster ONLY in review mode. When live (!viewOnly) we
+  // keep it empty and skip the call entirely — the live presence path is the
+  // source of truth there.
+  useEffect(() => {
+    if (!roomId || !viewOnly) {
+      setAttendance([]);
+      return;
+    }
+    let alive = true;
+    void listParticipants(roomId).then((rows) => alive && setAttendance(rows));
+    return () => {
+      alive = false;
+    };
+  }, [roomId, viewOnly, panelOpen]);
 
   // Host identity — computed HERE (above the early return below) so the
   // knock-poll hook runs UNCONDITIONALLY (Rules of Hooks). selfSocketId/iAmHost
@@ -1139,6 +1314,50 @@ export const ParticipantsBar = ({
   const invitedTotal =
     !session?.isGuest && invitees.length > 0 ? invitedActive.length : undefined;
 
+  // REVIEW MODE attendance derivation. attendance[] (who actually joined) is the
+  // source of truth; merge host/co-host/title/kind by email from the invitee +
+  // directory lookups already computed above. Then split invitees into "did NOT
+  // attend" for the secondary "Đã mời" list. All empty when !viewOnly (the
+  // fetch effect doesn't run live), so this is inert during live meetings.
+  const attendedEmails = new Set(
+    attendance.map((p) => p.user_email.toLowerCase()),
+  );
+  const hostEmail = (() => {
+    // The HOST tile's email in review (collaborators map is empty) — fall back
+    // to the host election email when a present tile happens to exist, else the
+    // first attendee. Cheap heuristic; host badge is informational here.
+    const hostTile = tiles.find((p) => p.isHost);
+    return hostTile?.email?.toLowerCase() ?? null;
+  })();
+  const attendedRows: AttendedRow[] = attendance.map((p) => {
+    const lo = p.user_email.toLowerCase();
+    const inv = invitees.find((iv) => iv.email.toLowerCase() === lo);
+    const dirName = directory.find(
+      (d) => d.email.toLowerCase() === lo,
+    )?.name;
+    return {
+      email: p.user_email,
+      name: p.name || dirName || p.user_email.split("@")[0],
+      joinedAt: p.joined_at,
+      isHost: !!hostEmail && lo === hostEmail,
+      isCohost: cohostEmails.has(lo),
+      kind: inv?.kind ?? "internal",
+      title: titleFor(p.user_email),
+    };
+  });
+  // Invitees who were asked but never joined (review-mode "Đã mời").
+  const invitedNotAttended: InvitedRow[] = invitedActive
+    .filter((iv) => !!iv.email && !attendedEmails.has(iv.email.toLowerCase()))
+    .map((iv) => ({
+      email: iv.email,
+      name:
+        directory.find((d) => d.email.toLowerCase() === iv.email.toLowerCase())
+          ?.name ?? iv.email.split("@")[0],
+      kind: iv.kind,
+      title: titleFor(iv.email),
+      accepted: iv.status === "accepted",
+    }));
+
   // NB: we deliberately do NOT render a custom "Đang follow X" banner
   // here — Excalidraw's UI layer already paints its own follow
   // indicator (purple pill near the top toolbar with a × to stop), so
@@ -1207,7 +1426,7 @@ export const ParticipantsBar = ({
           inline without first opening the participants drawer. Host-only;
           renders null when nobody is knocking. Reuses the SAME waitingKnocks
           state + onKnockAction handler as the drawer (no second poller). */}
-      {iAmHost && (
+      {iAmHost && !viewOnly && (
         <KnockBanner
           knocks={waitingKnocks}
           onAction={onKnockAction}
@@ -1221,15 +1440,15 @@ export const ParticipantsBar = ({
         aria-label={t("participants.label")}
       >
         <CountChip
-          inRoom={tiles.length}
+          inRoom={viewOnly ? attendedRows.length : tiles.length}
           invited={invitedTotal}
-          inCall={inCallCount}
-          waiting={iAmHost ? waitingKnocks.length : 0}
+          inCall={viewOnly ? undefined : inCallCount}
+          waiting={iAmHost && !viewOnly ? waitingKnocks.length : 0}
           onOpen={() => setPanelOpen(true)}
         />
         <div className="mcm-people-bar__list">
           {tiles.map((p) => {
-            const canModerate = iAmHost && !p.isMe && !p.isHost;
+            const canModerate = iAmHost && !viewOnly && !p.isMe && !p.isHost;
             return (
               <Person
                 key={p.id}
@@ -1285,13 +1504,19 @@ export const ParticipantsBar = ({
       {panelOpen && (
         <ParticipantsPanel
           tiles={tiles}
-          invited={invitedOffline}
-          iAmHost={iAmHost}
-          waitingKnocks={iAmHost ? waitingKnocks : []}
+          // Review mode shows the static "Đã mời" (invited-but-didn't-attend)
+          // list; live mode shows "invited but not in the room right now".
+          invited={viewOnly ? invitedNotAttended : invitedOffline}
+          // No moderation / knocks in review — pin iAmHost false there so the
+          // panel can never render mute/kick/admit even if authority lingers.
+          iAmHost={iAmHost && !viewOnly}
+          waitingKnocks={iAmHost && !viewOnly ? waitingKnocks : []}
           onKnockAction={onKnockAction}
           onClose={() => setPanelOpen(false)}
           onMute={doMute}
           onKick={doKick}
+          viewOnly={viewOnly}
+          attended={attendedRows}
         />
       )}
       <MeetingReactionsOverlay />
@@ -1407,7 +1632,9 @@ const CountChip = ({
    *  "joined / invited" (anh Luân 06-16). Undefined (e.g. a guest who can't
    *  fetch the roster) shows just the joined count. */
   invited?: number;
-  inCall: number;
+  /** People currently in the audio call. Undefined in REVIEW mode (finished
+   *  meeting has no live call) — the mic cell + divider are then hidden. */
+  inCall?: number;
   /** Guests currently knocking (host-only). Renders a "N waiting" badge. */
   waiting?: number;
   previewMode?: boolean;
@@ -1427,11 +1654,15 @@ const CountChip = ({
           {invited === undefined ? inRoom : `${inRoom}/${invited}`}
         </span>
       </span>
-      <span className="mcm-people-bar__chip-divider" />
-      <span className="mcm-people-bar__chip-cell">
-        <MicOnIcon />
-        <span className="mcm-people-bar__chip-num">{inCall}</span>
-      </span>
+      {inCall !== undefined && (
+        <>
+          <span className="mcm-people-bar__chip-divider" />
+          <span className="mcm-people-bar__chip-cell">
+            <MicOnIcon />
+            <span className="mcm-people-bar__chip-num">{inCall}</span>
+          </span>
+        </>
+      )}
       {waiting > 0 && (
         <span className="mcm-people-bar__chip-waiting mcm-knock-badge">
           {t("participants.waitingCount", { count: waiting })}
