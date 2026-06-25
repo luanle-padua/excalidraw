@@ -140,6 +140,11 @@ const keyframeIndexAt = (
 // only own the chrome: a drag handle (pointer-events) + a close that turns the
 // Screen layer off. The element ref comes from the hook so the sync loop can
 // drive it.
+// Minimum pane size (px). Resizing clamps to these floors; the ceiling is the
+// viewport edge (computed live so the pane can never grow off-screen).
+const SCREEN_PANE_MIN_W = 220;
+const SCREEN_PANE_MIN_H = 140;
+
 const ScreenReplayPane = ({
   videoRef,
   src,
@@ -152,6 +157,13 @@ const ScreenReplayPane = ({
   onClose: () => void;
 }) => {
   const t = useT();
+  // Pane size (viewport px). Resizable via the bottom-right grip; clamped to a
+  // sensible MIN and a MAX that keeps it inside the viewport. Seeded to the old
+  // fixed 360×202 (≈16:9) so the default look is unchanged.
+  const [size, setSize] = useState<{ w: number; h: number }>(() => ({
+    w: 360,
+    h: 202,
+  }));
   // Pane position (top-left, viewport px). Seeded once near the top-centre so it
   // doesn't cover the dock; dragging updates it. Clamped into the viewport so it
   // can never be dragged fully off-screen.
@@ -159,7 +171,17 @@ const ScreenReplayPane = ({
     x: Math.max(16, Math.round(window.innerWidth / 2 - 180)),
     y: 84,
   }));
+  // Always-fresh mirrors so the dep-free pointer callbacks read the LIVE pos/size
+  // (drag clamps against the current width; resize anchors to the current
+  // top-left) without re-binding handlers every render.
+  const posRef = useRef(pos);
+  posRef.current = pos;
+  const sizeRef = useRef(size);
+  sizeRef.current = size;
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+  // Resize grabs the offset from the pointer to the pane's bottom-right corner
+  // so the corner tracks the cursor without jumping.
+  const resizeRef = useRef<{ dx: number; dy: number } | null>(null);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -174,14 +196,16 @@ const ScreenReplayPane = ({
     if (!d) {
       return;
     }
-    const w = 360;
+    // Clamp against the LIVE size (read via the size ref) so the pane stays fully
+    // on-screen whatever it's been resized to.
+    const { w } = sizeRef.current;
     const x = Math.min(
       Math.max(8, e.clientX - d.dx),
       Math.max(8, window.innerWidth - w - 8),
     );
     const y = Math.min(
       Math.max(8, e.clientY - d.dy),
-      Math.max(8, window.innerHeight - 80),
+      Math.max(8, window.innerHeight - 40),
     );
     setPos({ x, y });
   }, []);
@@ -190,10 +214,43 @@ const ScreenReplayPane = ({
     (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
   }, []);
 
+  // --- RESIZE (bottom-right grip) — mirrors the drag pattern -----------------
+  const onResizeDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      resizeRef.current = {
+        dx: e.clientX - (pos.x + size.w),
+        dy: e.clientY - (pos.y + size.h),
+      };
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    },
+    [pos.x, pos.y, size.w, size.h],
+  );
+  const onResizeMove = useCallback((e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r) {
+      return;
+    }
+    // Desired corner → desired size; clamp to [MIN, viewport-bound MAX] so the
+    // pane can't grow off-screen (top-left stays put while resizing, so MAX =
+    // viewport edge − top-left − 8px margin). Reads the live top-left via posRef.
+    const { x, y } = posRef.current;
+    const maxW = Math.max(SCREEN_PANE_MIN_W, window.innerWidth - x - 8);
+    const maxH = Math.max(SCREEN_PANE_MIN_H, window.innerHeight - y - 8);
+    const w = Math.min(Math.max(SCREEN_PANE_MIN_W, e.clientX - r.dx - x), maxW);
+    const h = Math.min(Math.max(SCREEN_PANE_MIN_H, e.clientY - r.dy - y), maxH);
+    setSize({ w, h });
+  }, []);
+  const onResizeUp = useCallback((e: React.PointerEvent) => {
+    resizeRef.current = null;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+  }, []);
+
   return (
     <div
       className="mcm-replay__screen-pane"
-      style={{ left: pos.x, top: pos.y }}
+      style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
       role="dialog"
       aria-label={t("replay.chooser.screen")}
     >
@@ -235,6 +292,17 @@ const ScreenReplayPane = ({
           playsInline
         />
       </div>
+      {/* Bottom-right resize grip — pointer-captured, mirrors the drag handler.
+          Decorative pointer affordance (the pane is sized by pointer, not
+          keyboard), so it's aria-hidden + non-focusable rather than carrying a
+          misleading duplicate label. */}
+      <span
+        className="mcm-replay__screen-resize"
+        onPointerDown={onResizeDown}
+        onPointerMove={onResizeMove}
+        onPointerUp={onResizeUp}
+        aria-hidden
+      />
     </div>
   );
 };

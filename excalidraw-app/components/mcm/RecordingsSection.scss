@@ -43,7 +43,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 6px 10px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
     transition: background-color 150ms ease, border-color 150ms ease,
       color 150ms ease;
@@ -70,15 +70,17 @@
     flex-direction: column;
     gap: 10px;
     border: 1px solid var(--mcm-hairline);
-    border-radius: 14px;
+    border-radius: var(--mcm-radius-md, 14px);
     background: var(--mcm-surface);
     padding: 12px;
   }
 
+  // True-black video well so footage renders accurately — the player FRAME
+  // around it carries the app surface/hairline/radius.
   &__video {
     width: 100%;
     max-height: 46vh;
-    border-radius: 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
     background: #000;
     display: block;
   }
@@ -91,7 +93,7 @@
     width: 100%;
     max-height: 46vh;
     aspect-ratio: 16 / 9;
-    border-radius: 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
     background: linear-gradient(
       180deg,
       var(--mcm-surface-2),
@@ -143,7 +145,7 @@
     // than the player's inner area and spill past the player's right edge.
     box-sizing: border-box;
     width: 100%;
-    border-radius: 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
     border: 1px dashed var(--mcm-hairline);
     background: var(--mcm-surface-2);
     display: flex;
@@ -165,11 +167,12 @@
   }
 
   // Loading state while the gated blob downloads (play click → object URL).
+  // True-black well (matches the video it becomes); radius tokenised.
   &__loading {
     aspect-ratio: 16 / 9;
     width: 100%;
     max-height: 46vh;
-    border-radius: 10px;
+    border-radius: var(--mcm-radius-sm, 10px);
     background: #000;
     display: flex;
     align-items: center;
@@ -220,7 +223,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 7px 12px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
     transition: background-color 150ms ease, border-color 150ms ease,
       color 150ms ease;
@@ -246,7 +249,7 @@
   // A recording session group (its tracks listed inside).
   &__session {
     border: 1px solid var(--mcm-hairline);
-    border-radius: 14px;
+    border-radius: var(--mcm-radius-md, 14px);
     background: var(--mcm-surface);
     padding: 10px 12px 12px;
     display: flex;
@@ -303,7 +306,7 @@
     text-align: left;
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
-    border-radius: 12px;
+    border-radius: var(--mcm-radius-sm, 12px);
     padding: 9px 11px;
     cursor: pointer;
     color: var(--mcm-text);
@@ -339,7 +342,7 @@
     flex: 0 0 auto;
     width: 42px;
     height: 42px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-xs, 9px);
     border: 1px solid var(--mcm-hairline);
     display: flex;
     align-items: center;
@@ -408,7 +411,7 @@
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
     border: 1px solid var(--mcm-hairline);
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs, 6px);
     padding: 1px 6px;
   }
 

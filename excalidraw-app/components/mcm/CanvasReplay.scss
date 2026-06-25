@@ -40,7 +40,7 @@
 .mcm-replay {
   pointer-events: auto;
   border: 1px solid var(--mcm-hairline);
-  border-radius: 14px;
+  border-radius: var(--mcm-radius-md, 14px);
   background: color-mix(in srgb, var(--mcm-surface) 88%, transparent);
   box-shadow: var(--mcm-elev);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
@@ -97,7 +97,7 @@
     justify-content: center;
     width: 34px;
     height: 34px;
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 10px);
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
@@ -163,7 +163,7 @@
   &__speeds {
     display: inline-flex;
     background: var(--mcm-surface-2);
-    border-radius: 9px;
+    border-radius: var(--mcm-radius-sm, 10px);
     padding: 3px;
     gap: 2px;
   }
@@ -177,7 +177,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 5px 9px;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 7px);
     transition: background-color 150ms ease, color 150ms ease;
 
     &:hover {
@@ -232,7 +232,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 2px 4px;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 7px);
     transition: color 150ms ease, background-color 150ms ease;
 
     &:hover {
@@ -325,7 +325,7 @@
     flex: 1;
     min-width: 0;
     height: var(--mcm-lane-row-h);
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs, 6px);
     background: color-mix(in srgb, var(--mcm-text-soft) 12%, transparent);
     overflow: hidden;
   }
@@ -393,7 +393,7 @@
     font-size: 11px;
     font-weight: 600;
     padding: 2px 4px;
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs, 6px);
 
     &:hover {
       background: var(--mcm-accent-soft);
@@ -434,7 +434,7 @@
   display: inline-flex;
   align-items: center;
   background: var(--mcm-surface-2);
-  border-radius: 9px;
+  border-radius: var(--mcm-radius-sm, 10px);
   padding: 3px;
   gap: 3px;
 
@@ -448,7 +448,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 5px 9px;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 7px);
     cursor: default;
     // A faint divider so the toggles read as "added on top of" the base.
     border-right: 1px solid var(--mcm-hairline);
@@ -469,7 +469,7 @@
     font-size: 12px;
     font-weight: 600;
     padding: 5px 9px;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 7px);
     transition: background-color 150ms ease, color 150ms ease;
 
     &:hover:not(:disabled) {
@@ -554,24 +554,34 @@
 .mcm-replay__screen-pane {
   position: fixed;
   z-index: 1200;
-  width: 360px;
+  // Width/height are set inline (resizable, see ScreenReplayPane). These are the
+  // floor; JS clamps to MIN/MAX within the viewport. Column layout so the video
+  // well flexes to fill whatever size the user drags to.
+  display: flex;
+  flex-direction: column;
   max-width: calc(100vw - 16px);
-  border-radius: 12px;
+  max-height: calc(100vh - 16px);
+  // Glass-family surface to match the dock: hairline frame, app radius, soft
+  // elevation. The video itself stays true-black inside (see __screen-body) so
+  // shared content reads accurately; the chrome around it joins the app family.
+  border-radius: var(--mcm-radius-md, 14px);
   overflow: hidden;
-  background: #000;
+  background: color-mix(in srgb, var(--mcm-surface) 88%, transparent);
   border: 1px solid var(--mcm-hairline);
   box-shadow: var(--mcm-elev);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
   pointer-events: auto;
   animation: mcm-replay-dock-in 160ms ease both;
 
+  // Header chrome — drag handle + title + close, matching the app's tidy
+  // modal/dock heads (hairline under, soft-circle close).
   .mcm-replay__screen-bar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    background: color-mix(in srgb, var(--mcm-surface) 92%, transparent);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+    gap: 8px;
+    padding: 7px 8px 7px 10px;
+    border-bottom: 1px solid var(--mcm-hairline);
     color: var(--mcm-text-soft);
     cursor: grab;
     -webkit-user-select: none;
@@ -602,10 +612,11 @@
     height: 24px;
     flex: none;
     border: 0;
-    border-radius: 7px;
+    border-radius: 50%;
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
 
     &:hover {
       background: var(--mcm-danger-soft);
@@ -613,10 +624,14 @@
     }
   }
 
+  // The video well stays true-black so shared content renders accurately. It
+  // FLEXES to fill whatever size the pane is resized to (no fixed aspect) so the
+  // contained video letterboxes within the user-chosen box.
   .mcm-replay__screen-body {
     position: relative;
+    flex: 1;
+    min-height: 0;
     width: 100%;
-    aspect-ratio: 16 / 9;
     background: #000;
   }
 
@@ -634,8 +649,53 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    color: #fff;
+    color: rgba(255, 255, 255, 0.82);
     font-size: 13px;
+  }
+
+  // Resize grip — a small bottom-right corner handle. Subtle diagonal hairlines
+  // (Glass-Desk style) that brighten to the accent on hover so it reads as a
+  // drag affordance without shouting. pointer-events on; the pane below sets the
+  // resize pointer logic. It sits over the BLACK video well, so a fixed faint
+  // white reads in both themes (the theme text tokens would vanish on black in
+  // light mode); accent on hover.
+  .mcm-replay__screen-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: nwse-resize;
+    touch-action: none;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 150ms ease;
+
+    // Two diagonal hairlines drawn with a repeating gradient, masked to the
+    // bottom-right triangle so they sit in the corner.
+    &::after {
+      content: "";
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 11px;
+      height: 11px;
+      background: repeating-linear-gradient(
+        -45deg,
+        currentColor 0,
+        currentColor 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      -webkit-mask: linear-gradient(-45deg, #000 55%, transparent 55%);
+      mask: linear-gradient(-45deg, #000 55%, transparent 55%);
+    }
+
+    &:hover {
+      color: var(--mcm-accent);
+    }
   }
 }
 
