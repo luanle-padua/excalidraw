@@ -58,6 +58,7 @@ import { transcriptionLogAtom } from "../../data/transcription";
 import { useT } from "../../i18n/mcm";
 
 import { CanvasReplayTimeline, type ReplaySpeed } from "./CanvasReplayTimeline";
+import { type ScreenWindow } from "./SpeakerLanes";
 import { useReplayMedia } from "./useReplayMedia";
 
 import "./CanvasReplay.scss";
@@ -369,6 +370,21 @@ export const CanvasReplayPlayer = ({
     [transcriptLog],
   );
 
+  // SCREEN LANE (06-25 #28b): the shared-screen windows for the dedicated lane in
+  // the timeline strip. Each screen-video track is one window [startMs, endMs] on
+  // the SAME [T0, T1] x-axis the speaker lanes + scrubber use. This is content,
+  // not a speaker — rendered with a monitor icon + neutral tint, NOT a
+  // personColor. Clicking a block seeks to that window's start (handleSeek).
+  // Empty when no screen was shared → the lane simply doesn't render.
+  const screenWindows = useMemo<ScreenWindow[]>(
+    () =>
+      media.screenTracks.map((tr) => ({
+        startMs: tr.startMs,
+        endMs: tr.endMs,
+      })),
+    [media.screenTracks],
+  );
+
   // --- load + decrypt the history blob -----------------------------------
   useEffect(() => {
     let cancelled = false;
@@ -655,6 +671,7 @@ export const CanvasReplayPlayer = ({
         onSpeed={setSpeed}
         onClose={onClose}
         speakerTimeline={speakerTimeline}
+        screenWindows={screenWindows}
         onSoloSpeaker={handleSolo}
         audioOn={audioOn}
         screenOn={screenOn}

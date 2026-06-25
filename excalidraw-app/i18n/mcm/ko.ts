@@ -1447,12 +1447,15 @@ export const ko: Widened<typeof vi> = {
     // P2 — "누가 언제 말했는지" 레인
     lanes: {
       summary: "누가 언제 말했나 · {count}명",
+      screenOnly: "공유 화면",
       expand: "발화자 레인 펼치기",
       collapse: "발화자 레인 접기",
       conversation: "대화",
       conversationView: "대화 보기",
       perSpeaker: "발화자별 레인",
       others: "기타 ({count})",
+      // #28b — 공유 화면 전용 레인 라벨 (발화자가 아닌 콘텐츠)
+      screen: "공유 화면",
     },
     // P3 — "함께 재생" 선택 (캔버스 항상 켜짐; 오디오 + 화면은 독립 켜기/끄기 레이어)
     chooser: {

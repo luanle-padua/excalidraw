@@ -357,6 +357,28 @@
         transparent 6px
       );
     }
+
+    // SHARED-SCREEN block (#28b): CONTENT, not a speaker — so it's tinted with a
+    // flat accent fill (no personColor) + a thin accent border, reading as "the
+    // shared screen window" distinct from the voice blocks above/below it.
+    &--screen {
+      background: color-mix(in srgb, var(--mcm-accent) 30%, transparent);
+      border: 1px solid color-mix(in srgb, var(--mcm-accent) 55%, transparent);
+    }
+  }
+
+  // SHARED-SCREEN lane (#28b): a single content row sitting at the top of the
+  // strip, set apart from the speaker lanes by a hairline + a touch of breathing
+  // room, with a monitor-icon label in the accent hue.
+  &__row--screen {
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+    border-bottom: 1px dashed var(--mcm-hairline);
+  }
+
+  &__name--screen {
+    color: var(--mcm-accent);
+    gap: 5px;
   }
 
   // Secondary affordances: switch ribbon <-> per-speaker lanes.

@@ -136,25 +136,29 @@
 
   // Placeholder shown before a track is picked (multi-track case).
   &__placeholder {
-    // Compact empty-state hint (owner #22: the 16:9 box rendered ~430px tall on
-    // the wide player — bigger than its boundary). It's only "pick a track", so a
-    // modest fixed-ish height, NOT the full 16:9 of the player width.
+    // SLIM hint strip (owner #22, 3rd pass): a 200px box still dominated the
+    // panel — it's only "pick a track". Single compact row (icon + text inline),
+    // auto height (~50px). Never a big empty box.
     width: 100%;
-    min-height: 132px;
-    max-height: 200px;
     border-radius: 10px;
     border: 1px dashed var(--mcm-hairline);
     background: var(--mcm-surface-2);
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     color: var(--mcm-text-soft);
     text-align: center;
     font-size: 13px;
-    line-height: 1.5;
-    padding: 16px;
+    line-height: 1.4;
+    padding: 12px 16px;
+
+    // shrink the kind icon so the strip stays slim
+    svg {
+      width: 18px;
+      height: 18px;
+    }
   }
 
   // Loading state while the gated blob downloads (play click → object URL).

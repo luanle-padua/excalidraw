@@ -1515,12 +1515,15 @@ export const vi = {
     // P2 — dải "ai nói lúc nào"
     lanes: {
       summary: "Ai nói lúc nào · {count} người",
+      screenOnly: "Màn hình chia sẻ",
       expand: "Mở dải người nói",
       collapse: "Thu dải người nói",
       conversation: "Hội thoại",
       conversationView: "Xem dạng hội thoại",
       perSpeaker: "Xem theo từng người",
       others: "Người khác ({count})",
+      // #28b — dải riêng cho màn hình chia sẻ (là nội dung, không phải người nói)
+      screen: "Màn hình chia sẻ",
     },
     // P3 — chooser "Phát kèm" (canvas LUÔN bật; âm thanh + màn hình là 2 lớp bật/tắt độc lập)
     chooser: {

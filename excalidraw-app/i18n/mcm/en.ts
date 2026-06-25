@@ -1439,12 +1439,15 @@ export const en: Widened<typeof vi> = {
     // P2 — "who spoke when" lane strip
     lanes: {
       summary: "Who spoke when · {count} people",
+      screenOnly: "Shared screen",
       expand: "Show speaker lanes",
       collapse: "Hide speaker lanes",
       conversation: "Conversation",
       conversationView: "Conversation view",
       perSpeaker: "Per-speaker lanes",
       others: "Others ({count})",
+      // #28b — dedicated shared-screen lane label (content, not a speaker)
+      screen: "Shared screen",
     },
     // P3 — "Play along" chooser (canvas ALWAYS on; audio + screen are independent on/off layers)
     chooser: {

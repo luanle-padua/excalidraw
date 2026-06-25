@@ -28,7 +28,7 @@ import {
 
 import { useT } from "../../i18n/mcm";
 
-import { SpeakerLanes } from "./SpeakerLanes";
+import { SpeakerLanes, type ScreenWindow } from "./SpeakerLanes";
 
 import type { SpeakerTimelineModel } from "../../data/replayTimeline";
 
@@ -83,6 +83,7 @@ export const CanvasReplayTimeline = ({
   onSpeed,
   onClose,
   speakerTimeline,
+  screenWindows,
   onSoloSpeaker,
   audioOn = false,
   screenOn = false,
@@ -99,6 +100,9 @@ export const CanvasReplayTimeline = ({
    *  Renders the collapsible SpeakerLanes strip under the transport when there
    *  is anything to show; omit / empty → transport stays a single row. */
   speakerTimeline?: SpeakerTimelineModel;
+  /** #28b — the shared-screen windows (screen-video tracks) for the dedicated
+   *  SCREEN lane in the strip. Empty / omitted → no screen lane. */
+  screenWindows?: readonly ScreenWindow[];
   /** P3 seam — solo a speaker's audio. Threaded straight to SpeakerLanes. */
   onSoloSpeaker?: (speakerId: string) => void;
   // ── P3 "Play along" chooser (unified-replay-ux.md §3, 06-25 additive) ───
@@ -299,10 +303,13 @@ export const CanvasReplayTimeline = ({
         </div>
       )}
 
-      {/* P2 — "who spoke when" lane strip. Collapsed to nothing by default; the
-          chevron inside opts into depth. Shares this transport's exact [T0, T1]
-          x-axis so its playhead lines up with the scrubber. */}
-      {speakerTimeline && speakerTimeline.speakerCount > 0 && (
+      {/* P2 — "who spoke when" lane strip + #28b SHARED-SCREEN lane. Collapsed to
+          nothing by default; the chevron inside opts into depth. Shares this
+          transport's exact [T0, T1] x-axis so its playhead lines up with the
+          scrubber. Renders when there are speakers OR a shared-screen window (a
+          screen-only meeting still gets the strip so the screen lane is visible). */}
+      {((speakerTimeline && speakerTimeline.speakerCount > 0) ||
+        (screenWindows && screenWindows.length > 0)) && (
         <SpeakerLanes
           clock={{
             T0,
@@ -316,7 +323,15 @@ export const CanvasReplayTimeline = ({
             onRestart,
             onSpeed,
           }}
-          model={speakerTimeline}
+          model={
+            speakerTimeline ?? {
+              speakers: [],
+              transcriptT0: 0,
+              transcriptT1: 0,
+              speakerCount: 0,
+            }
+          }
+          screenWindows={screenWindows}
           onSoloSpeaker={onSoloSpeaker}
         />
       )}

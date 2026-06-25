@@ -26,13 +26,10 @@
 // audio track; until then we fall back to a seek so the name is never dead. The
 // id is the stable contract — nothing else here changes for P3.
 
-import { ChevronDown, ChevronRight, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Monitor, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { useT } from "../../i18n/mcm";
-
-import { shortDisplayName } from "./animalEmoji";
-import { personColor } from "./meetingColors";
 
 import {
   RIBBON_THRESHOLD,
@@ -44,7 +41,20 @@ import {
   type SpeakerTimelineModel,
 } from "../../data/replayTimeline";
 
+import { shortDisplayName } from "./animalEmoji";
+import { personColor } from "./meetingColors";
+
 import type { ReplayClock } from "./CanvasReplayTimeline";
+
+/** One shared-screen window on the timeline (#28b). `[startMs, endMs]` are epoch
+ *  ms on the SAME clock as the speaker lanes + scrubber — i.e. a screen-video
+ *  recording's `[started_at_ms, started_at_ms + duration*1000]`. The dedicated
+ *  SCREEN lane draws one block per window. This is CONTENT (the shared screen),
+ *  not a speaker — so it carries no person id / personColor. */
+export type ScreenWindow = {
+  startMs: number;
+  endMs: number;
+};
 
 export type SpeakerLanesProps = {
   /** the shared play-state bundle — we read T0/T1/playheadT for layout and call
@@ -55,6 +65,10 @@ export type SpeakerLanesProps = {
   /** P3 SEAM: solo a speaker's audio. Given the speaker id (== socketId). When
    *  omitted (P2), a name click falls back to seeking to their first block. */
   onSoloSpeaker?: (speakerId: string) => void;
+  /** #28b: the shared-screen windows (screen-video tracks) → a dedicated SCREEN
+   *  lane so the reviewer can SEE when the screen was shared and scrub into it.
+   *  Empty / omitted → no screen lane (transcript-only strip, exactly as before). */
+  screenWindows?: readonly ScreenWindow[];
 };
 
 /** Position a [startMs, endMs] span as left% + width% within [T0, T1]. Clamped
@@ -155,10 +169,53 @@ const SpeakerLane = ({
   </div>
 );
 
+/** The dedicated SHARED-SCREEN lane (#28b). One row, one block per share window,
+ *  on the SAME [T0, T1] x-axis as the speaker lanes + scrubber. It is CONTENT,
+ *  not a speaker — so it gets a monitor icon + a neutral accent tint (NOT a
+ *  personColor) and a "screen" class for the distinct look. Clicking a block
+ *  seeks to that window's start, where the floating screen pane auto-shows. */
+const ScreenLane = ({
+  windows,
+  T0,
+  span,
+  onSeek,
+  label,
+}: {
+  windows: readonly ScreenWindow[];
+  T0: number;
+  span: number;
+  onSeek: (t: number) => void;
+  label: string;
+}) => (
+  <div className="mcm-lanes__row mcm-lanes__row--screen">
+    <span className="mcm-lanes__name mcm-lanes__name--static mcm-lanes__name--screen">
+      <Monitor size={12} aria-hidden />
+      {label}
+    </span>
+    <div className="mcm-lanes__track">
+      {windows.map((w, i) => {
+        const s = spanStyle(w.startMs, w.endMs, T0, span);
+        return (
+          <button
+            key={`${w.startMs}-${i}`}
+            type="button"
+            className="mcm-lanes__block mcm-lanes__block--screen"
+            style={{ left: s.left, width: s.width }}
+            onClick={() => onSeek(w.startMs)}
+            title={label}
+            aria-label={label}
+          />
+        );
+      })}
+    </div>
+  </div>
+);
+
 export const SpeakerLanes = ({
   clock,
   model,
   onSoloSpeaker,
+  screenWindows,
 }: SpeakerLanesProps) => {
   const t = useT();
   const { T0, T1, playheadT, durationMs } = clock;
@@ -182,17 +239,25 @@ export const SpeakerLanes = ({
     [model],
   );
 
-  // Nothing said → no strip at all (the transport already stands alone).
-  if (model.speakerCount === 0 || durationMs <= 0) {
+  // #28b — the shared-screen windows as a stable list (each = one lane block).
+  const screens = screenWindows ?? [];
+  const hasScreenLane = screens.length > 0;
+
+  // Nothing to show — no speakers AND no shared screen → no strip at all (the
+  // transport already stands alone).
+  if ((model.speakerCount === 0 && !hasScreenLane) || durationMs <= 0) {
     return null;
   }
 
   const playheadPct =
-    span > 0
-      ? Math.max(0, Math.min(1, (playheadT - T0) / span)) * 100
-      : 0;
+    span > 0 ? Math.max(0, Math.min(1, (playheadT - T0) / span)) * 100 : 0;
 
-  const summary = t("replay.lanes.summary", { count: model.speakerCount });
+  // Header summary: lead with people when anyone spoke; otherwise (screen-only
+  // meeting) say it's the shared screen so the chevron still reads sensibly.
+  const summary =
+    model.speakerCount > 0
+      ? t("replay.lanes.summary", { count: model.speakerCount })
+      : t("replay.lanes.screenOnly");
 
   return (
     <div className={`mcm-lanes${open ? " mcm-lanes--open" : ""}`}>
@@ -211,6 +276,21 @@ export const SpeakerLanes = ({
 
       {open && (
         <div className="mcm-lanes__body">
+          {/* SHARED-SCREEN lane (#28b) — always at the top of the strip when the
+              meeting has screen-video, regardless of the speaker-view mode. It is
+              content (a monitor icon + neutral tint), so it sits apart from the
+              speaker lanes; clicking a block seeks into that share window where
+              the floating screen pane auto-shows. */}
+          {hasScreenLane && (
+            <ScreenLane
+              windows={screens}
+              T0={T0}
+              span={span}
+              onSeek={clock.onSeek}
+              label={t("replay.lanes.screen")}
+            />
+          )}
+
           {/* Crowded → ribbon by default, with a switch to per-speaker lanes. */}
           {crowded && !expandedLanes ? (
             <>

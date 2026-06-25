@@ -115,11 +115,19 @@ export type ReplayMediaState = {
   /** ref the parent attaches to the floating <video> so the sync loop can drive
    *  its currentTime / play / pause. */
   screenVideoRef: React.RefObject<HTMLVideoElement | null>;
-  /** the resolved screen-video track (for its window / duration), or null. */
+  /** the screen-video track whose window currently contains (or is nearest to)
+   *  the playhead — the one bound to the floating pane + sync loop, or null. A
+   *  meeting can have SEVERAL screen-video tracks (one per share); this is the
+   *  ACTIVE one for the current playhead. */
   screenTrack: MediaTrack | null;
-  /** true when the playhead is currently INSIDE the screen-video window — the
-   *  parent uses this to AUTO-SHOW / hide the floating pane while the Screen
-   *  layer is on (§ 06-25 owner refinement 3). */
+  /** EVERY resolved screen-video track (each = one shared-screen window) on the
+   *  absolute timeline, ascending by startMs. Threaded to SpeakerLanes so the
+   *  timeline can draw a dedicated "Màn hình chia sẻ" lane lining up with the
+   *  playhead. Empty when no screen was shared. */
+  screenTracks: MediaTrack[];
+  /** true when the playhead is currently INSIDE ANY screen-video window (the
+   *  UNION of all screen tracks) — the parent uses this to AUTO-SHOW / hide the
+   *  floating pane while the Screen layer is on (§ 06-25 owner refinement 3). */
   screenInWindow: boolean;
 };
 
@@ -224,29 +232,60 @@ export const useReplayMedia = ({
     [recordings, t0],
   );
 
-  const screenTrack = useMemo<MediaTrack | null>(() => {
-    const row = recordings.find(
-      (r) => r.status === "ready" && isScreenVideo(r),
-    );
-    return row ? toTrack(row, t0) : null;
-  }, [recordings, t0]);
+  // ALL screen-video windows on the timeline (a meeting can share the screen
+  // several times → several tracks). Ascending by startMs so the lane + the
+  // "which window am I in" sweep are deterministic.
+  const screenTracks = useMemo<MediaTrack[]>(
+    () =>
+      recordings
+        .filter((r) => r.status === "ready" && isScreenVideo(r))
+        .map((r) => toTrack(r, t0))
+        .sort((a, b) => a.startMs - b.startMs),
+    [recordings, t0],
+  );
 
-  // SCREEN layer's own sound — its own track, bound to the screen toggle.
-  const screenAudioTrack = useMemo<MediaTrack | null>(() => {
-    const row = recordings.find(
-      (r) => r.status === "ready" && isScreenAudio(r),
-    );
-    return row ? toTrack(row, t0) : null;
-  }, [recordings, t0]);
+  // The ACTIVE screen-video track for the current playhead: the window the
+  // playhead is inside (or, when between windows, the nearest one ahead so its
+  // blob is buffered before we reach it). This is the single track the floating
+  // pane renders + the sync loop drives. Null when there are no screen tracks.
+  const screenTrack = useMemo<MediaTrack | null>(() => {
+    if (screenTracks.length === 0) {
+      return null;
+    }
+    const inside = screenTracks.find((tr) => inWindow(tr, playheadT));
+    if (inside) {
+      return inside;
+    }
+    // Between windows: prefer the next window starting at/after the playhead so
+    // we pre-buffer it; else the last one we passed (so a parked-at-end playhead
+    // keeps a valid frame to seek). Never null here (length > 0).
+    const ahead = screenTracks.find((tr) => tr.startMs >= playheadT);
+    return ahead ?? screenTracks[screenTracks.length - 1];
+  }, [screenTracks, playheadT]);
+
+  // SCREEN layer's own sound — its own track(s), bound to the screen toggle. One
+  // per share (mirrors screen-video); the set of their ids gates the audio slots.
+  const screenAudioTracks = useMemo<MediaTrack[]>(
+    () =>
+      recordings
+        .filter((r) => r.status === "ready" && isScreenAudio(r))
+        .map((r) => toTrack(r, t0))
+        .sort((a, b) => a.startMs - b.startMs),
+    [recordings, t0],
+  );
+  const screenAudioIds = useMemo(
+    () => new Set(screenAudioTracks.map((tr) => tr.rec.id)),
+    [screenAudioTracks],
+  );
 
   // Capabilities + bounds-widening candidates (stable: memoised on the tracks).
   const hasAudio = audioTracks.length > 0;
-  const hasScreen = screenTrack !== null;
-  const hasScreenAudio = screenAudioTrack !== null;
+  const hasScreen = screenTracks.length > 0;
+  const hasScreenAudio = screenAudioTracks.length > 0;
   const hasLegacy =
     audioTracks.some((tr) => tr.legacy) ||
-    (screenTrack?.legacy ?? false) ||
-    (screenAudioTrack?.legacy ?? false);
+    screenTracks.some((tr) => tr.legacy) ||
+    screenAudioTracks.some((tr) => tr.legacy);
 
   const audioSpeakers = useMemo(() => {
     const seen = new Map<string, string>();
@@ -269,21 +308,25 @@ export const useReplayMedia = ({
       starts.push(tr.startMs);
       ends.push(tr.endMs);
     }
-    if (screenTrack) {
-      starts.push(screenTrack.startMs);
-      ends.push(screenTrack.endMs);
+    for (const tr of screenTracks) {
+      starts.push(tr.startMs);
+      ends.push(tr.endMs);
     }
-    if (screenAudioTrack) {
-      starts.push(screenAudioTrack.startMs);
-      ends.push(screenAudioTrack.endMs);
+    for (const tr of screenAudioTracks) {
+      starts.push(tr.startMs);
+      ends.push(tr.endMs);
     }
     return { starts, ends };
-  }, [audioTracks, screenTrack, screenAudioTrack]);
+  }, [audioTracks, screenTracks, screenAudioTracks]);
 
-  // The playhead is inside the screen window → the parent auto-shows the pane.
-  const screenInWindow = screenTrack
-    ? inWindow(screenTrack, playheadT)
-    : false;
+  // The playhead is inside ANY screen window (the UNION of all screen tracks) →
+  // the parent auto-shows the floating pane. Checking the union (not just one
+  // track) is the fix for a meeting with several shares: the pane must appear in
+  // EVERY share window, not only the first.
+  const screenInWindow = useMemo(
+    () => screenTracks.some((tr) => inWindow(tr, playheadT)),
+    [screenTracks, playheadT],
+  );
 
   // --- audio elements: a map keyed by recording id -------------------------
   // We hold the live elements in a ref (imperative DOM, never React children) so
@@ -363,9 +406,13 @@ export const useReplayMedia = ({
         wanted.add(track.rec.id);
       }
     }
-    // SCREEN layer's sound → the near-window screen-audio slot (if any).
-    if (screenOn && screenAudioTrack && nearWindow(screenAudioTrack, playheadT)) {
-      wanted.add(screenAudioTrack.rec.id);
+    // SCREEN layer's sound → every near-window screen-audio slot (one per share).
+    if (screenOn) {
+      for (const track of screenAudioTracks) {
+        if (nearWindow(track, playheadT)) {
+          wanted.add(track.rec.id);
+        }
+      }
     }
 
     // Build any wanted slot that doesn't yet exist.
@@ -409,8 +456,12 @@ export const useReplayMedia = ({
         }
       }
     }
-    if (screenOn && screenAudioTrack && nearWindow(screenAudioTrack, playheadT)) {
-      buildSlot(screenAudioTrack);
+    if (screenOn) {
+      for (const track of screenAudioTracks) {
+        if (nearWindow(track, playheadT)) {
+          buildSlot(track);
+        }
+      }
     }
 
     // Destroy any slot no longer wanted (left the window OR its layer is off).
@@ -423,7 +474,7 @@ export const useReplayMedia = ({
     audioOn,
     screenOn,
     audioTracks,
-    screenAudioTrack,
+    screenAudioTracks,
     playheadT,
     destroyAudioSlot,
   ]);
@@ -477,24 +528,21 @@ export const useReplayMedia = ({
     const aOn = audioOnRef.current;
     const sOn = screenOnRef.current;
     const solo = soloRef.current;
-    const screenAudioId = screenAudioTrack?.rec.id ?? null;
 
-    // Every mounted <audio> slot — mic slots (Audio layer) + the screen-audio
-    // slot (Screen layer). Each is gated by ITS layer's toggle.
+    // Every mounted <audio> slot — mic slots (Audio layer) + screen-audio slots
+    // (Screen layer). Each is gated by ITS layer's toggle.
     for (const slot of audioSlotsRef.current.values()) {
       const { el, track } = slot;
       if (!slot.url) {
         continue; // still loading — the loader will seed currentTime
       }
-      const isScreenSound = track.rec.id === screenAudioId;
+      const isScreenSound = screenAudioIds.has(track.rec.id);
       const layerOn = isScreenSound ? sOn : aOn;
       const active = inWindow(track, head);
       // SOLO applies only to the Audio layer's mic tracks (not screen-audio).
       const isMic = !isScreenSound && kindOf(track.rec) === "mic";
       const soloed =
-        solo && isMic
-          ? (track.rec.speaker_id || track.rec.id) === solo
-          : true;
+        solo && isMic ? (track.rec.speaker_id || track.rec.id) === solo : true;
       const shouldPlay = layerOn && active && isPlaying && soloed;
       const target = localTimeSec(track, head);
 
@@ -553,13 +601,22 @@ export const useReplayMedia = ({
         el.pause();
       }
     }
-  }, [screenTrack, screenAudioTrack]);
+  }, [screenTrack, screenAudioIds]);
 
   // Sync synchronously on every playhead / layer / solo / playing / speed change
   // (covers scrubs + play/pause/toggle/solo landing immediately).
   useEffect(() => {
     syncNow();
-  }, [syncNow, playheadT, audioOn, screenOn, soloId, playing, speed, screenUrl]);
+  }, [
+    syncNow,
+    playheadT,
+    audioOn,
+    screenOn,
+    soloId,
+    playing,
+    speed,
+    screenUrl,
+  ]);
 
   // While playing with at least one media layer on, run the drift-correcting
   // heartbeat every SYNC_INTERVAL_MS. Native playback advances currentTime on
@@ -611,6 +668,7 @@ export const useReplayMedia = ({
     screenLoading,
     screenVideoRef,
     screenTrack,
+    screenTracks,
     screenInWindow,
   };
 };
