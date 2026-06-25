@@ -401,19 +401,41 @@
   }
 }
 
-// ---- P3 "PLAY ALONG" CHOOSER ----------------------------------------------
-// A segmented control in the transport choosing what plays WITH the canvas:
-// [Canvas | Audio | Screen]. Only rendered when the meeting has audio/screen
-// media (a canvas-only meeting / non-authority viewer sees no chooser at all).
-// Disabled segments (no such media) read as muted + non-interactive.
+// ---- "PLAY ALONG" CHOOSER (06-25 additive layers) -------------------------
+// NOT an exclusive segmented control any more. Canvas is the ALWAYS-ON base,
+// rendered as a static (non-interactive) label; Audio + Screen are INDEPENDENT
+// on/off toggle chips ADDED on top — each highlights when its layer is on. Only
+// rendered when the meeting has audio/screen media (a canvas-only meeting /
+// non-authority viewer sees no chooser at all). Disabled chips (no such media)
+// read as muted + non-interactive.
 .mcm-replay__along {
   display: inline-flex;
+  align-items: center;
   background: var(--mcm-surface-2);
   border-radius: 9px;
   padding: 3px;
-  gap: 2px;
+  gap: 3px;
 
-  &-seg {
+  // Canvas — the always-on base label. Static: no hover, no press, just a quiet
+  // reminder that the canvas is always playing under whatever layers are on.
+  &-base {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--mcm-text-soft);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 9px;
+    border-radius: 7px;
+    cursor: default;
+    // A faint divider so the toggles read as "added on top of" the base.
+    border-right: 1px solid var(--mcm-hairline);
+    padding-right: 11px;
+    margin-right: 1px;
+  }
+
+  // Audio / Screen — independent toggle chips. Off = muted; on = accent fill.
+  &-chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -430,14 +452,18 @@
 
     &:hover:not(:disabled) {
       color: var(--mcm-text);
+      background: var(--mcm-accent-soft);
     }
 
-    &--active {
+    // ON: the layer is playing — accent fill so on/off is obvious at a glance.
+    &--on {
       background: var(--mcm-accent);
       color: #fff;
 
-      &:hover {
+      &:hover:not(:disabled) {
+        background: var(--mcm-accent);
         color: #fff;
+        filter: brightness(1.06);
       }
     }
 
@@ -447,7 +473,7 @@
     }
   }
 
-  // Hide the segment label on tight bars — the icon carries the meaning, the
+  // Hide the chip label on tight bars — the icon carries the meaning, the
   // title attribute the words. Keeps the chooser from forcing a wrap.
   &-text {
     white-space: nowrap;

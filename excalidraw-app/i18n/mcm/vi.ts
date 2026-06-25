@@ -1522,10 +1522,11 @@ export const vi = {
       perSpeaker: "Xem theo từng người",
       others: "Người khác ({count})",
     },
-    // P3 — chooser "Phát kèm" (canvas / âm thanh / màn hình)
+    // P3 — chooser "Phát kèm" (canvas LUÔN bật; âm thanh + màn hình là 2 lớp bật/tắt độc lập)
     chooser: {
       label: "Phát kèm canvas",
       canvas: "Canvas",
+      canvasAlways: "Canvas luôn bật — bật thêm âm thanh / màn hình tuỳ ý",
       audio: "Âm thanh",
       screen: "Màn hình",
     },

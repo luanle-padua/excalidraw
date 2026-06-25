@@ -1446,10 +1446,11 @@ export const en: Widened<typeof vi> = {
       perSpeaker: "Per-speaker lanes",
       others: "Others ({count})",
     },
-    // P3 — "Play along" chooser (canvas / audio / screen)
+    // P3 — "Play along" chooser (canvas ALWAYS on; audio + screen are independent on/off layers)
     chooser: {
       label: "Play alongside canvas",
       canvas: "Canvas",
+      canvasAlways: "Canvas is always on — add audio / screen on top",
       audio: "Audio",
       screen: "Screen",
     },

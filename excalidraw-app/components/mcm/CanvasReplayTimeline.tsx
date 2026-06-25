@@ -30,7 +30,6 @@ import { useT } from "../../i18n/mcm";
 
 import { SpeakerLanes } from "./SpeakerLanes";
 
-import type { ReplayMediaMode } from "./useReplayMedia";
 import type { SpeakerTimelineModel } from "../../data/replayTimeline";
 
 // Playback speeds offered in the toolbar. The playhead advances by real elapsed
@@ -85,8 +84,10 @@ export const CanvasReplayTimeline = ({
   onClose,
   speakerTimeline,
   onSoloSpeaker,
-  mode = "canvas",
-  onMode,
+  audioOn = false,
+  screenOn = false,
+  onToggleAudio,
+  onToggleScreen,
   canAudio = false,
   canScreen = false,
   soloId = null,
@@ -100,16 +101,22 @@ export const CanvasReplayTimeline = ({
   speakerTimeline?: SpeakerTimelineModel;
   /** P3 seam — solo a speaker's audio. Threaded straight to SpeakerLanes. */
   onSoloSpeaker?: (speakerId: string) => void;
-  // ── P3 "Play along" chooser (unified-replay-ux.md §3) ──────────────────
-  /** which media plays alongside the canvas (parent-owned). */
-  mode?: ReplayMediaMode;
-  /** switch the play-along mode (keeps the playhead). */
-  onMode?: (mode: ReplayMediaMode) => void;
-  /** enable the Audio segment — true only when a mic / screen-audio row exists. */
+  // ── P3 "Play along" chooser (unified-replay-ux.md §3, 06-25 additive) ───
+  // Canvas is ALWAYS on (a static label). Audio + Screen are INDEPENDENT
+  // toggles ADDED on top — any subset can be on at once.
+  /** is the Audio layer (per-speaker mics) on? (parent-owned). */
+  audioOn?: boolean;
+  /** is the Screen layer (screen-video + screen-audio) on? (parent-owned). */
+  screenOn?: boolean;
+  /** toggle the Audio layer (keeps the playhead). */
+  onToggleAudio?: () => void;
+  /** toggle the Screen layer (keeps the playhead). */
+  onToggleScreen?: () => void;
+  /** enable the Audio chip — true only when a mic (or legacy mixed) row exists. */
   canAudio?: boolean;
-  /** enable the Screen segment — true only when a screen-video row exists. */
+  /** enable the Screen chip — true only when a screen-video row exists. */
   canScreen?: boolean;
-  /** the soloed speaker id (audio mode), for an "× clear solo" affordance. */
+  /** the soloed speaker id (audio layer), for an "× clear solo" affordance. */
   soloId?: string | null;
   /** any media track placed by the legacy null-started_at_ms fallback — surfaces
    *  an "approximate sync" hint so a reviewer isn't surprised by the offset. */
@@ -185,40 +192,38 @@ export const CanvasReplayTimeline = ({
           ))}
         </div>
 
-        {/* P3 "Play along" chooser (§3). Canvas is always present; Audio /
-            Screen appear only when the meeting has that media (and the viewer is
-            authorised — non-authority → [] recordings → neither flag set, so
-            this collapses to a lone Canvas segment, i.e. P1 behaviour). Switching
-            keeps the playhead — the parent rebuilds + reseeks the media. */}
-        {hasMedia && onMode && (
+        {/* "Play along" chooser (§3, 06-25 additive layers). Canvas is ALWAYS
+            on — shown as a static label, no toggle. Audio + Screen are
+            INDEPENDENT on/off chips ADDED on top, each enabled only when the
+            meeting has that media (and the viewer is authorised — non-authority
+            → [] recordings → neither flag set, so the chooser disappears and the
+            transport is exactly the canvas-only behaviour). Toggling a chip keeps
+            the playhead — the parent rebuilds + reseeks that layer's media. */}
+        {hasMedia && (onToggleAudio || onToggleScreen) && (
           <div
             className="mcm-replay__along"
             role="group"
             aria-label={t("replay.chooser.label")}
           >
-            <button
-              type="button"
-              className={`mcm-replay__along-seg${
-                mode === "canvas" ? " mcm-replay__along-seg--active" : ""
-              }`}
-              onClick={() => onMode("canvas")}
-              title={t("replay.chooser.canvas")}
-              aria-pressed={mode === "canvas" ? "true" : "false"}
+            {/* Canvas is the always-on base — a static label, never toggled. */}
+            <span
+              className="mcm-replay__along-base"
+              title={t("replay.chooser.canvasAlways")}
             >
               <PenLine size={14} />
               <span className="mcm-replay__along-text">
                 {t("replay.chooser.canvas")}
               </span>
-            </button>
+            </span>
             <button
               type="button"
-              className={`mcm-replay__along-seg${
-                mode === "audio" ? " mcm-replay__along-seg--active" : ""
+              className={`mcm-replay__along-chip${
+                audioOn ? " mcm-replay__along-chip--on" : ""
               }`}
-              onClick={() => onMode("audio")}
-              disabled={!canAudio}
+              onClick={onToggleAudio}
+              disabled={!canAudio || !onToggleAudio}
               title={t("replay.chooser.audio")}
-              aria-pressed={mode === "audio" ? "true" : "false"}
+              aria-pressed={audioOn}
             >
               <Headphones size={14} />
               <span className="mcm-replay__along-text">
@@ -227,13 +232,13 @@ export const CanvasReplayTimeline = ({
             </button>
             <button
               type="button"
-              className={`mcm-replay__along-seg${
-                mode === "screen" ? " mcm-replay__along-seg--active" : ""
+              className={`mcm-replay__along-chip${
+                screenOn ? " mcm-replay__along-chip--on" : ""
               }`}
-              onClick={() => onMode("screen")}
-              disabled={!canScreen}
+              onClick={onToggleScreen}
+              disabled={!canScreen || !onToggleScreen}
               title={t("replay.chooser.screen")}
-              aria-pressed={mode === "screen" ? "true" : "false"}
+              aria-pressed={screenOn}
             >
               <MonitorPlay size={14} />
               <span className="mcm-replay__along-text">
@@ -258,7 +263,7 @@ export const CanvasReplayTimeline = ({
 
       <div className="mcm-replay__hint">
         {t("replay.spanLabel")} {fmtClock(T0)} → {fmtClock(T1)}
-        {legacyMedia && mode !== "canvas" && (
+        {legacyMedia && (audioOn || screenOn) && (
           <span
             className="mcm-replay__approx"
             title={t("replay.approxSyncHint")}
@@ -269,11 +274,11 @@ export const CanvasReplayTimeline = ({
         )}
       </div>
 
-      {/* SOLO chip — only in audio mode with a speaker soloed. Shows who is
-          isolated + a one-click clear (re-solo'ing the same name in the lanes
-          also clears it). Keeps the "only this person" state visible so a
-          reviewer never wonders why they hear one voice. */}
-      {mode === "audio" && soloId && onSoloSpeaker && (
+      {/* SOLO chip — only while the Audio layer is on with a speaker soloed.
+          Shows who is isolated + a one-click clear (re-solo'ing the same name in
+          the lanes also clears it). Keeps the "only this person" state visible so
+          a reviewer never wonders why they hear one voice. */}
+      {audioOn && soloId && onSoloSpeaker && (
         <div className="mcm-replay__solo">
           <span className="mcm-replay__solo-label">
             {t("replay.soloOnly", {

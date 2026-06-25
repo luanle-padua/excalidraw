@@ -58,7 +58,7 @@ import { transcriptionLogAtom } from "../../data/transcription";
 import { useT } from "../../i18n/mcm";
 
 import { CanvasReplayTimeline, type ReplaySpeed } from "./CanvasReplayTimeline";
-import { useReplayMedia, type ReplayMediaMode } from "./useReplayMedia";
+import { useReplayMedia } from "./useReplayMedia";
 
 import "./CanvasReplay.scss";
 
@@ -126,13 +126,18 @@ const keyframeIndexAt = (
   return -1;
 };
 
-// ── SCREEN-ALONG floating pane (§3) ──────────────────────────────────────────
-// A small, draggable <video> over the review canvas, shown only in screen mode.
-// It is NOT a self-controlled player: the media hook owns its currentTime /
-// play / pause (driven by the shared playhead), so the element carries no
-// `controls` — the transport below is the single source of control. We only own
-// the chrome: a drag handle (pointer-events) + a close that drops back to
-// Canvas. The element ref comes from the hook so the sync loop can drive it.
+// ── SCREEN floating pane (§3, 06-25 refinement 3) ────────────────────────────
+// A small, draggable <video> over the review canvas. The Screen LAYER is an
+// independent toggle (not an exclusive mode), and the pane AUTO-SHOWS whenever
+// the playhead is inside a window where screen was shared — so the reviewer sees
+// the shared content without hunting for a control. It is NOT a self-controlled
+// player: the media hook owns its currentTime / play / pause (driven by the
+// shared playhead), so the element carries no `controls` — the transport below
+// is the single source of control. The video itself is MUTED; the shared
+// window's sound is its own `screen-audio` track (also bound to this layer). We
+// only own the chrome: a drag handle (pointer-events) + a close that turns the
+// Screen layer off. The element ref comes from the hook so the sync loop can
+// drive it.
 const ScreenReplayPane = ({
   videoRef,
   src,
@@ -216,14 +221,15 @@ const ScreenReplayPane = ({
             <span className="mcm-replay__spinner" /> {t("replay.loading")}
           </div>
         )}
-        {/* No `controls`: the transport drives this element's time. Muted is
-            off so the screen-share audio plays along; playsInline keeps it in
-            the pane on mobile. */}
+        {/* No `controls`: the transport drives this element's time. MUTED —
+            the shared window's sound is a separate `screen-audio` track (so it
+            never double-plays); playsInline keeps it in the pane on mobile. */}
         <video
           ref={videoRef}
           className="mcm-replay__screen-video"
           src={src ?? undefined}
           preload="auto"
+          muted
           playsInline
         />
       </div>
@@ -267,13 +273,20 @@ export const CanvasReplayPlayer = ({
   const speedRef = useRef(speed);
   speedRef.current = speed;
 
-  // ── P3 PLAY-ALONG state ────────────────────────────────────────────────
-  // Which media plays alongside the canvas, and (for audio mode) the soloed
-  // speaker. Switching mode KEEPS playheadT (§3) — no restart. Default "canvas"
-  // is byte-for-byte the P1 behaviour: with no recordings the chooser collapses
-  // to Canvas and this state never changes anything.
-  const [mode, setMode] = useState<ReplayMediaMode>("canvas");
+  // ── P3 PLAY-ALONG state (06-25: ADDITIVE LAYERS, not an exclusive mode) ──
+  // Canvas is ALWAYS the base. Audio + Screen are INDEPENDENT on/off layers
+  // stacked on top — any subset is valid. Toggling a layer KEEPS playheadT (§3)
+  // — no restart. With no recordings both stay off + disabled, so this is
+  // byte-for-byte the canvas-only P1 behaviour. `soloId` isolates one speaker in
+  // the Audio layer (null = mix everyone).
+  const [audioOn, setAudioOn] = useState(false);
+  const [screenOn, setScreenOn] = useState(false);
   const [soloId, setSoloId] = useState<string | null>(null);
+  // AUTO-SHOW default: once we know the meeting has screen-video, default the
+  // Screen layer ON so the reviewer sees shared content without hunting for a
+  // toggle (06-25 refinement 3). Run-once per discovery; the user can still turn
+  // it off, and we don't re-force it on every recordings refresh.
+  const screenAutoDefaultedRef = useRef(false);
   // Recordings for this room (auth-gated; a non-authority reviewer gets [] →
   // chooser collapses to Canvas, lanes/transcript still work). Fetched once when
   // the room id is known; fail-soft ([]) so a hiccup never breaks the replay.
@@ -303,18 +316,29 @@ export const CanvasReplayPlayer = ({
   // past the last (computeReplayBounds(entries, { starts, ends })).
   const canvasBounds = useMemo(() => computeReplayBounds(entries), [entries]);
 
-  // The play-along engine. In "canvas" mode it builds nothing (mode-gated), so
-  // this is inert until the reviewer picks Audio/Screen. It still reports
-  // capabilities + bounds candidates so the chooser knows what to offer.
+  // The play-along engine. With both layers off it builds nothing (layer-gated),
+  // so this is inert until the reviewer toggles Audio/Screen. It still reports
+  // capabilities + bounds candidates so the chooser knows what to offer, and
+  // `screenInWindow` so we can auto-show the floating pane.
   const media = useReplayMedia({
     recordings,
-    mode,
+    audioOn,
+    screenOn,
     soloId,
     t0: canvasBounds.T0,
     playheadT,
     playing,
     speed,
   });
+
+  // AUTO-SHOW (06-25 refinement 3): default the Screen layer ON the first time we
+  // learn the meeting has any screen-video, so shared content appears for free.
+  useEffect(() => {
+    if (media.hasScreen && !screenAutoDefaultedRef.current) {
+      screenAutoDefaultedRef.current = true;
+      setScreenOn(true);
+    }
+  }, [media.hasScreen]);
 
   // [T0, T1] — the absolute-ms window the playhead travels. The canvas span
   // WIDENED by every media track's window so a mic that started before the first
@@ -548,23 +572,28 @@ export const CanvasReplayPlayer = ({
     setPlayheadT(T0);
   }, [T0]);
 
-  // CHOOSER (§3): switch what plays alongside the canvas. Keep playheadT (no
-  // restart); the media hook tears down the old elements + builds/seeks the new
-  // ones to the current playhead and resumes if we were playing. Leaving audio
-  // mode drops any solo so it doesn't silently apply when re-entered.
-  const handleMode = useCallback((next: ReplayMediaMode) => {
-    setMode(next);
-    if (next !== "audio") {
-      setSoloId(null);
-    }
+  // CHOOSER (§3, additive): toggle the Audio / Screen layers independently. Keep
+  // playheadT (no restart); the media hook tears down / builds + seeks the layer's
+  // elements to the current playhead and resumes if we were playing. Turning the
+  // Audio layer off drops any solo so it doesn't silently apply when re-enabled.
+  const toggleAudio = useCallback(() => {
+    setAudioOn((on) => {
+      if (on) {
+        setSoloId(null);
+      }
+      return !on;
+    });
+  }, []);
+  const toggleScreen = useCallback(() => {
+    setScreenOn((on) => !on);
   }, []);
 
   // P3 SEAM (SpeakerLanes onSoloSpeaker): clicking a speaker name solos that
-  // mic. Toggle off when the same speaker is clicked again. A solo click while
-  // not in audio mode flips us into audio mode (the reviewer clearly wants to
-  // hear that person), keeping the playhead where it is.
+  // mic. Toggle off when the same speaker is clicked again. A solo click ensures
+  // the Audio layer is on (the reviewer clearly wants to hear that person),
+  // keeping the playhead where it is.
   const handleSolo = useCallback((speakerId: string) => {
-    setMode((m) => (m === "audio" ? m : "audio"));
+    setAudioOn(true);
     setSoloId((cur) => (cur === speakerId ? null : speakerId));
   }, []);
 
@@ -598,15 +627,18 @@ export const CanvasReplayPlayer = ({
 
   return (
     <div className="mcm-replay">
-      {/* Screen-along: a small draggable floating <video> over the canvas. Only
-          mounted in screen mode (the hook fetches/revokes its blob by mode); its
-          currentTime is driven by the same playhead via the media hook's ref. */}
-      {mode === "screen" && media.hasScreen && (
+      {/* Screen layer: a small draggable floating <video> over the canvas. The
+          Screen toggle gates its blob (fetch/revoke in the hook); the pane only
+          APPEARS when the playhead is inside a screen-share window (auto-show /
+          auto-hide). Its currentTime is driven by the same playhead via the media
+          hook's ref; the shared window's sound plays via the separate
+          screen-audio track. Closing the pane turns the Screen layer off. */}
+      {screenOn && media.hasScreen && media.screenInWindow && (
         <ScreenReplayPane
           videoRef={media.screenVideoRef}
           src={media.screenUrl}
           loading={media.screenLoading}
-          onClose={() => handleMode("canvas")}
+          onClose={() => setScreenOn(false)}
         />
       )}
 
@@ -624,8 +656,10 @@ export const CanvasReplayPlayer = ({
         onClose={onClose}
         speakerTimeline={speakerTimeline}
         onSoloSpeaker={handleSolo}
-        mode={mode}
-        onMode={handleMode}
+        audioOn={audioOn}
+        screenOn={screenOn}
+        onToggleAudio={toggleAudio}
+        onToggleScreen={toggleScreen}
         canAudio={media.hasAudio}
         canScreen={media.hasScreen}
         soloId={soloId}

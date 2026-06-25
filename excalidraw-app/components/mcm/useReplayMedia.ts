@@ -7,6 +7,17 @@
 // media here is a FOLLOWER that plays natively for smoothness and is only nudged
 // back onto the playhead when it drifts past a threshold.
 //
+// ── ADDITIVE LAYERS, NOT AN EXCLUSIVE MODE (06-25 owner refinement) ──────────
+// The canvas is ALWAYS the base. Audio and Screen are INDEPENDENT on/off layers
+// stacked on top — any combination (Canvas alone, Canvas+Audio, Canvas+Screen,
+// or all three) is valid. So instead of one `mode`, this hook takes two booleans
+// `audioOn` + `screenOn`, and the two layers never gate each other.
+//
+//   • AUDIO layer  = per-speaker `mic` tracks ONLY (the meeting voices).
+//   • SCREEN layer = `screen-video` (the floating pane) PLUS `screen-audio`
+//     (the sound of the shared window). `screen-audio` is bound to the SCREEN
+//     toggle — it is the screen's own sound, never folded into the mic mix.
+//
 // ── HOW A TRACK MAPS TO THE TIMELINE (§4) ────────────────────────────────────
 // Each recording row carries `started_at_ms` (the wall-clock instant its capture
 // began) and `duration` (seconds). That gives an absolute window:
@@ -18,13 +29,14 @@
 // LEGACY rows with `started_at_ms == null` fall back to the window start `T0`
 // (approximate placement — accepted, never a crash; surfaced via `legacy`).
 //
-// ── WHAT PLAYS, BY MODE (§3) ─────────────────────────────────────────────────
-//   • "canvas"  → nothing here (the parent renders the vector replay alone).
-//   • "audio"   → EVERY in-window `mic` (+ `screen-audio`) element plays at once;
-//     the BROWSER mixes them (no graph). SOLO: if a speakerId is soloed, only
-//     that speaker's mic is audible (others paused).
-//   • "screen"  → the single `screen-video` track in a floating <video> (its own
-//     audio on; mics off in this mode).
+// ── WHAT PLAYS, BY LAYER (§3) ────────────────────────────────────────────────
+//   • AUDIO layer ON  → EVERY in-window `mic` element plays at once; the BROWSER
+//     mixes them (no graph). SOLO: if a speakerId is soloed, only that speaker's
+//     mic is audible (others paused). `screen-audio` is NOT here.
+//   • SCREEN layer ON → the single `screen-video` track plays in a floating
+//     <video> AND the `screen-audio` track plays through a hidden <audio>; both
+//     seek to the same playhead. They live and die with `screenOn`.
+//   • Both OFF        → nothing here; the parent renders the vector replay alone.
 //
 // ── SYNC LOOP (§4) ───────────────────────────────────────────────────────────
 //   PLAY  : media plays NATIVE. Every ~500ms we compare `el.currentTime` to the
@@ -36,15 +48,12 @@
 // ── MEMORY (§4, §8) ──────────────────────────────────────────────────────────
 // We only build elements for tracks whose window is near the playhead (current +
 // a small look-ahead). Object URLs are fetched lazily via the gated
-// `fetchRecordingObjectUrl` and REVOKED on teardown / mode-switch / out-of-window
-// so a 15-mic meeting never holds every speaker's blob at once.
+// `fetchRecordingObjectUrl` and REVOKED on teardown / layer-toggle-off /
+// out-of-window so a 15-mic meeting never holds every speaker's blob at once.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchRecordingObjectUrl, type Recording } from "../../data/recordings";
-
-/** Which media plays ALONGSIDE the canvas. "canvas" = vector replay only. */
-export type ReplayMediaMode = "canvas" | "audio" | "screen";
 
 /** How far ahead of the playhead (ms) we pre-build + buffer a track's element so
  *  it is ready to play the instant the playhead enters its window. Kept small —
@@ -82,19 +91,23 @@ export type ReplayMediaBounds = {
 
 /** What `useReplayMedia` hands back to the player + transport. */
 export type ReplayMediaState = {
-  /** mic / screen-audio tracks → the chooser enables "Audio" only when > 0. */
+  /** mic tracks → the chooser enables the "Audio" toggle only when > 0. */
   hasAudio: boolean;
-  /** a screen-video track exists → enables "Screen". */
+  /** a screen-video track exists → enables the "Screen" toggle + drives the
+   *  auto-show default (the parent flips screenOn on when this is true). */
   hasScreen: boolean;
+  /** a screen-audio track exists (the shared window's sound) — informational; it
+   *  is bound to the Screen layer, not surfaced as its own toggle. */
+  hasScreenAudio: boolean;
   /** any track placed by the legacy null-started_at_ms fallback (label it). */
   hasLegacy: boolean;
   /** distinct mic speakers (id == transcript socketId where available), for the
-   *  chooser/solo affordances. Empty in canvas/screen mode is fine. */
+   *  chooser/solo affordances. Empty when audio is off is fine. */
   audioSpeakers: { id: string; name: string }[];
   /** `started_at_ms` / end candidates to WIDEN the playhead window via
    *  computeReplayBounds(entries, { starts, ends }). Memoised + stable. */
   bounds: ReplayMediaBounds;
-  /** object URL for the active screen-video (screen mode), else null — the
+  /** object URL for the active screen-video (screen layer), else null — the
    *  parent binds this to the floating <video>. */
   screenUrl: string | null;
   /** true while the screen-video blob is still being fetched (show a spinner). */
@@ -102,16 +115,26 @@ export type ReplayMediaState = {
   /** ref the parent attaches to the floating <video> so the sync loop can drive
    *  its currentTime / play / pause. */
   screenVideoRef: React.RefObject<HTMLVideoElement | null>;
-  /** the resolved screen track (for its window / duration), or null. */
+  /** the resolved screen-video track (for its window / duration), or null. */
   screenTrack: MediaTrack | null;
+  /** true when the playhead is currently INSIDE the screen-video window — the
+   *  parent uses this to AUTO-SHOW / hide the floating pane while the Screen
+   *  layer is on (§ 06-25 owner refinement 3). */
+  screenInWindow: boolean;
 };
 
 const kindOf = (r: Recording): Recording["kind"] => r.kind ?? "mixed";
+/** AUDIO layer source: per-speaker mic ONLY. screen-audio is deliberately NOT
+ *  here — it belongs to the Screen layer (06-25 refinement 2). `mixed` legacy
+ *  single-file rows are treated as mic-equivalent voices so old meetings still
+ *  play their audio under the Audio toggle. */
 const isMicLike = (r: Recording): boolean => {
   const k = kindOf(r);
-  return k === "mic" || k === "screen-audio";
+  return k === "mic" || k === "mixed";
 };
 const isScreenVideo = (r: Recording): boolean => kindOf(r) === "screen-video";
+/** SCREEN layer's sound: the shared window's audio, bound to the screen toggle. */
+const isScreenAudio = (r: Recording): boolean => kindOf(r) === "screen-audio";
 
 /** Resolve a recording row onto the absolute timeline. `t0` is the playhead
  *  window start used as the legacy fallback anchor (design §4 / §5). */
@@ -162,9 +185,10 @@ type AudioSlot = {
  * The play-along sync engine.
  *
  * @param recordings  rows from `listRecordings` ([] for a non-authority viewer
- *                    or canvas-only meeting → the chooser collapses to Canvas).
- * @param mode        which media plays alongside the canvas.
- * @param soloId      speaker id to solo in audio mode (null = mix everyone).
+ *                    or canvas-only meeting → both layers stay off + disabled).
+ * @param audioOn     whether the AUDIO layer (per-speaker mics) is playing.
+ * @param screenOn    whether the SCREEN layer (screen-video + screen-audio) is on.
+ * @param soloId      speaker id to solo in the audio layer (null = mix everyone).
  * @param t0          playhead window start (epoch ms) — legacy fallback anchor.
  * @param playheadT   the single absolute-ms playhead (canvas-owned).
  * @param playing     whether the rAF clock is advancing.
@@ -172,7 +196,8 @@ type AudioSlot = {
  */
 export const useReplayMedia = ({
   recordings,
-  mode,
+  audioOn,
+  screenOn,
   soloId,
   t0,
   playheadT,
@@ -180,7 +205,8 @@ export const useReplayMedia = ({
   speed,
 }: {
   recordings: readonly Recording[];
-  mode: ReplayMediaMode;
+  audioOn: boolean;
+  screenOn: boolean;
   soloId: string | null;
   t0: number;
   playheadT: number;
@@ -188,6 +214,7 @@ export const useReplayMedia = ({
   speed: number;
 }): ReplayMediaState => {
   // --- resolve rows onto the timeline (only `ready` rows are playable) -------
+  // AUDIO layer tracks = mic (+ legacy mixed) only.
   const audioTracks = useMemo<MediaTrack[]>(
     () =>
       recordings
@@ -204,17 +231,28 @@ export const useReplayMedia = ({
     return row ? toTrack(row, t0) : null;
   }, [recordings, t0]);
 
+  // SCREEN layer's own sound — its own track, bound to the screen toggle.
+  const screenAudioTrack = useMemo<MediaTrack | null>(() => {
+    const row = recordings.find(
+      (r) => r.status === "ready" && isScreenAudio(r),
+    );
+    return row ? toTrack(row, t0) : null;
+  }, [recordings, t0]);
+
   // Capabilities + bounds-widening candidates (stable: memoised on the tracks).
   const hasAudio = audioTracks.length > 0;
   const hasScreen = screenTrack !== null;
+  const hasScreenAudio = screenAudioTrack !== null;
   const hasLegacy =
-    audioTracks.some((tr) => tr.legacy) || (screenTrack?.legacy ?? false);
+    audioTracks.some((tr) => tr.legacy) ||
+    (screenTrack?.legacy ?? false) ||
+    (screenAudioTrack?.legacy ?? false);
 
   const audioSpeakers = useMemo(() => {
     const seen = new Map<string, string>();
     for (const tr of audioTracks) {
       if (kindOf(tr.rec) !== "mic") {
-        continue; // screen-audio is not a "speaker"
+        continue; // only mic rows carry a per-speaker identity
       }
       const id = tr.rec.speaker_id || tr.rec.id;
       if (!seen.has(id)) {
@@ -235,21 +273,34 @@ export const useReplayMedia = ({
       starts.push(screenTrack.startMs);
       ends.push(screenTrack.endMs);
     }
+    if (screenAudioTrack) {
+      starts.push(screenAudioTrack.startMs);
+      ends.push(screenAudioTrack.endMs);
+    }
     return { starts, ends };
-  }, [audioTracks, screenTrack]);
+  }, [audioTracks, screenTrack, screenAudioTrack]);
+
+  // The playhead is inside the screen window → the parent auto-shows the pane.
+  const screenInWindow = screenTrack
+    ? inWindow(screenTrack, playheadT)
+    : false;
 
   // --- audio elements: a map keyed by recording id -------------------------
   // We hold the live elements in a ref (imperative DOM, never React children) so
   // re-renders from the rAF-driven playhead don't tear them down. Each slot is
-  // created on demand (near-window) and revoked when it leaves the window.
+  // created on demand (near-window) and revoked when it leaves the window. The
+  // map serves BOTH the Audio layer (mic slots) and the Screen layer's audio
+  // (the single screen-audio slot); whether a slot is wanted is gated per kind.
   const audioSlotsRef = useRef<Map<string, AudioSlot>>(new Map());
   // Bump to force a re-render when a slot's loading state changes (so the player
   // can reflect e.g. a screen spinner). Audio slots don't need to surface state.
   const [, forceRerender] = useState(0);
 
   // Always-fresh mirrors for the interval loop (which closes over one render).
-  const modeRef = useRef(mode);
-  modeRef.current = mode;
+  const audioOnRef = useRef(audioOn);
+  audioOnRef.current = audioOn;
+  const screenOnRef = useRef(screenOn);
+  screenOnRef.current = screenOn;
   const soloRef = useRef(soloId);
   soloRef.current = soloId;
   const playheadRef = useRef(playheadT);
@@ -278,7 +329,7 @@ export const useReplayMedia = ({
     audioSlotsRef.current.delete(id);
   }, []);
 
-  // Tear down ALL audio slots (mode switch / unmount).
+  // Tear down ALL audio slots (full unmount).
   const destroyAllAudio = useCallback(() => {
     for (const id of Array.from(audioSlotsRef.current.keys())) {
       destroyAudioSlot(id);
@@ -294,29 +345,34 @@ export const useReplayMedia = ({
   // The screen-video id currently loaded (so we don't refetch on every render).
   const loadedScreenIdRef = useRef<string | null>(null);
 
-  // ── ensure the right elements exist for the current mode + playhead ───────
-  // Runs whenever the playhead / mode / tracks change. Builds near-window slots,
-  // lazily loads their gated blob, and destroys slots that have left the window.
-  // No element plays here — the sync effect below owns play/pause/seek.
+  // ── ensure the right media elements exist for the current layers + playhead ─
+  // Runs whenever the playhead / layer toggles / tracks change. Builds the
+  // near-window slots that the ON layers want (mic slots iff audioOn; the
+  // screen-audio slot iff screenOn), lazily loads each gated blob, and destroys
+  // slots no longer wanted (out of window OR their layer turned off). No element
+  // plays here — the sync effect below owns play/pause/seek.
   useEffect(() => {
-    if (mode !== "audio") {
-      // Leaving audio mode → drop every mic element + blob immediately.
-      if (audioSlotsRef.current.size > 0) {
-        destroyAllAudio();
+    const wanted = new Set<string>();
+
+    // AUDIO layer → near-window mic slots.
+    if (audioOn) {
+      for (const track of audioTracks) {
+        if (!nearWindow(track, playheadT)) {
+          continue;
+        }
+        wanted.add(track.rec.id);
       }
-      return;
+    }
+    // SCREEN layer's sound → the near-window screen-audio slot (if any).
+    if (screenOn && screenAudioTrack && nearWindow(screenAudioTrack, playheadT)) {
+      wanted.add(screenAudioTrack.rec.id);
     }
 
-    const wanted = new Set<string>();
-    for (const track of audioTracks) {
-      if (!nearWindow(track, playheadT)) {
-        continue;
-      }
-      wanted.add(track.rec.id);
+    // Build any wanted slot that doesn't yet exist.
+    const buildSlot = (track: MediaTrack) => {
       if (audioSlotsRef.current.has(track.rec.id)) {
-        continue;
+        return;
       }
-      // Create the element now; fetch its gated blob lazily.
       const el = new Audio();
       el.preload = "auto";
       el.playbackRate = speedRef.current;
@@ -344,20 +400,38 @@ export const useReplayMedia = ({
         current.el.currentTime = localTimeSec(track, playheadRef.current);
         forceRerender((n) => n + 1);
       })();
+    };
+
+    if (audioOn) {
+      for (const track of audioTracks) {
+        if (nearWindow(track, playheadT)) {
+          buildSlot(track);
+        }
+      }
+    }
+    if (screenOn && screenAudioTrack && nearWindow(screenAudioTrack, playheadT)) {
+      buildSlot(screenAudioTrack);
     }
 
-    // Destroy any slot no longer near the playhead window.
+    // Destroy any slot no longer wanted (left the window OR its layer is off).
     for (const id of Array.from(audioSlotsRef.current.keys())) {
       if (!wanted.has(id)) {
         destroyAudioSlot(id);
       }
     }
-  }, [mode, audioTracks, playheadT, destroyAllAudio, destroyAudioSlot]);
+  }, [
+    audioOn,
+    screenOn,
+    audioTracks,
+    screenAudioTrack,
+    playheadT,
+    destroyAudioSlot,
+  ]);
 
-  // ── load / unload the screen-video blob for screen mode ──────────────────
+  // ── load / unload the screen-video blob for the screen layer ─────────────
   useEffect(() => {
-    if (mode !== "screen" || !screenTrack) {
-      // Leaving screen mode → revoke the buffered video blob.
+    if (!screenOn || !screenTrack) {
+      // Screen layer off → revoke the buffered video blob.
       if (screenUrlRef.current) {
         URL.revokeObjectURL(screenUrlRef.current);
         setScreenUrl(null);
@@ -391,104 +465,112 @@ export const useReplayMedia = ({
     return () => {
       cancelled = true;
     };
-  }, [mode, screenTrack]);
+  }, [screenOn, screenTrack]);
 
   // ── the SYNC heartbeat: position + play/pause every active element ───────
   // One function, called both on an interval (while playing, for drift nudges)
-  // and synchronously on every playhead/mode change (so a scrub lands frames).
+  // and synchronously on every playhead/layer change (so a scrub lands frames).
   const syncNow = useCallback(() => {
     const head = playheadRef.current;
     const isPlaying = playingRef.current;
     const rate = speedRef.current;
-    const m = modeRef.current;
+    const aOn = audioOnRef.current;
+    const sOn = screenOnRef.current;
     const solo = soloRef.current;
+    const screenAudioId = screenAudioTrack?.rec.id ?? null;
 
-    if (m === "audio") {
-      for (const slot of audioSlotsRef.current.values()) {
-        const { el, track } = slot;
-        if (!slot.url) {
-          continue; // still loading — the loader will seed currentTime
-        }
-        const active = inWindow(track, head);
-        // SOLO: a mic that isn't the soloed speaker is silenced (paused). Only
-        // applies to mic kind; screen-audio always follows the window.
-        const isMic = kindOf(track.rec) === "mic";
-        const soloed =
-          solo && isMic
-            ? (track.rec.speaker_id || track.rec.id) === solo
-            : true;
-        const shouldPlay = active && isPlaying && soloed;
-        const target = localTimeSec(track, head);
-
-        if (el.playbackRate !== rate) {
-          el.playbackRate = rate;
-        }
-        // Nudge only on meaningful drift so native playback stays smooth.
-        if (Math.abs(el.currentTime - target) * 1000 > NUDGE_THRESHOLD_MS) {
-          try {
-            el.currentTime = target;
-          } catch {
-            /* seeking a not-yet-ready element is a no-op */
-          }
-        }
-        if (shouldPlay) {
-          if (el.paused) {
-            void el.play().catch(() => {
-              /* autoplay can reject; the next tick retries */
-            });
-          }
-        } else if (!el.paused) {
-          el.pause();
-        }
+    // Every mounted <audio> slot — mic slots (Audio layer) + the screen-audio
+    // slot (Screen layer). Each is gated by ITS layer's toggle.
+    for (const slot of audioSlotsRef.current.values()) {
+      const { el, track } = slot;
+      if (!slot.url) {
+        continue; // still loading — the loader will seed currentTime
       }
-      return;
-    }
-
-    if (m === "screen") {
-      const el = screenVideoRef.current;
-      const track = screenTrack;
-      if (!el || !track || !screenUrlRef.current) {
-        return;
-      }
+      const isScreenSound = track.rec.id === screenAudioId;
+      const layerOn = isScreenSound ? sOn : aOn;
       const active = inWindow(track, head);
+      // SOLO applies only to the Audio layer's mic tracks (not screen-audio).
+      const isMic = !isScreenSound && kindOf(track.rec) === "mic";
+      const soloed =
+        solo && isMic
+          ? (track.rec.speaker_id || track.rec.id) === solo
+          : true;
+      const shouldPlay = layerOn && active && isPlaying && soloed;
       const target = localTimeSec(track, head);
+
       if (el.playbackRate !== rate) {
         el.playbackRate = rate;
       }
+      // Nudge only on meaningful drift so native playback stays smooth.
       if (Math.abs(el.currentTime - target) * 1000 > NUDGE_THRESHOLD_MS) {
         try {
           el.currentTime = target;
         } catch {
-          /* not ready yet */
+          /* seeking a not-yet-ready element is a no-op */
         }
       }
-      if (active && isPlaying) {
+      if (shouldPlay) {
         if (el.paused) {
           void el.play().catch(() => {
-            /* retried next tick */
+            /* autoplay can reject; the next tick retries */
           });
         }
       } else if (!el.paused) {
         el.pause();
       }
     }
-  }, [screenTrack]);
 
-  // Sync synchronously on every playhead / mode / solo / playing / speed change
-  // (covers scrubs + play/pause/solo toggles landing immediately).
+    // SCREEN layer's video (the floating pane element the parent renders).
+    {
+      const el = screenVideoRef.current;
+      const track = screenTrack;
+      if (sOn && el && track && screenUrlRef.current) {
+        const active = inWindow(track, head);
+        const target = localTimeSec(track, head);
+        if (el.playbackRate !== rate) {
+          el.playbackRate = rate;
+        }
+        if (Math.abs(el.currentTime - target) * 1000 > NUDGE_THRESHOLD_MS) {
+          try {
+            el.currentTime = target;
+          } catch {
+            /* not ready yet */
+          }
+        }
+        // The video carries NO sound (screen-audio is its own <audio> track);
+        // mute it so it never double-plays the shared window's audio.
+        el.muted = true;
+        if (active && isPlaying) {
+          if (el.paused) {
+            void el.play().catch(() => {
+              /* retried next tick */
+            });
+          }
+        } else if (!el.paused) {
+          el.pause();
+        }
+      } else if (el && !el.paused) {
+        el.pause();
+      }
+    }
+  }, [screenTrack, screenAudioTrack]);
+
+  // Sync synchronously on every playhead / layer / solo / playing / speed change
+  // (covers scrubs + play/pause/toggle/solo landing immediately).
   useEffect(() => {
     syncNow();
-  }, [syncNow, playheadT, mode, soloId, playing, speed, screenUrl]);
+  }, [syncNow, playheadT, audioOn, screenOn, soloId, playing, speed, screenUrl]);
 
-  // While playing, run the drift-correcting heartbeat every SYNC_INTERVAL_MS.
-  // Native playback advances currentTime on its own; this only nudges on drift.
+  // While playing with at least one media layer on, run the drift-correcting
+  // heartbeat every SYNC_INTERVAL_MS. Native playback advances currentTime on
+  // its own; this only nudges on drift.
   useEffect(() => {
-    if (!playing || mode === "canvas") {
+    if (!playing || (!audioOn && !screenOn)) {
       return;
     }
     const id = window.setInterval(syncNow, SYNC_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [playing, mode, syncNow]);
+  }, [playing, audioOn, screenOn, syncNow]);
 
   // Pause everything the moment the playhead stops advancing (covers reaching
   // the end / an external pause that the heartbeat would otherwise miss).
@@ -521,6 +603,7 @@ export const useReplayMedia = ({
   return {
     hasAudio,
     hasScreen,
+    hasScreenAudio,
     hasLegacy,
     audioSpeakers,
     bounds,
@@ -528,6 +611,7 @@ export const useReplayMedia = ({
     screenLoading,
     screenVideoRef,
     screenTrack,
+    screenInWindow,
   };
 };
 

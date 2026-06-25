@@ -1454,10 +1454,11 @@ export const ko: Widened<typeof vi> = {
       perSpeaker: "발화자별 레인",
       others: "기타 ({count})",
     },
-    // P3 — "함께 재생" 선택 (캔버스 / 오디오 / 화면)
+    // P3 — "함께 재생" 선택 (캔버스 항상 켜짐; 오디오 + 화면은 독립 켜기/끄기 레이어)
     chooser: {
       label: "캔버스와 함께 재생",
       canvas: "캔버스",
+      canvasAlways: "캔버스는 항상 켜짐 — 오디오 / 화면을 위에 추가",
       audio: "오디오",
       screen: "화면",
     },
