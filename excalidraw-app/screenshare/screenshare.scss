@@ -1,6 +1,10 @@
-// Floating screen-share viewer. Dark card (a video viewer reads best on dark,
-// Zoom-style) docked above the participants bar / call pill, out of the way of
-// the canvas so people can keep annotating while they watch.
+// Floating screen-share viewer. Restyled to share ONE "Glass Desk" floating-pane
+// language with the Live Transcript panel (.mcm-stt): a theme-aware card built on
+// the --mcm-* tokens so the chrome auto-switches light(cream)/dark(Olive-Royal)
+// in lock-step with the STT panel sitting beside it. The VIDEO WELL stays solid
+// black for accurate footage — only the surrounding chrome is themed. Docked above
+// the participants bar / call pill, out of the way of the canvas so people can keep
+// annotating while they watch.
 
 .mcm-ss-pane {
   position: fixed;
@@ -8,10 +12,13 @@
   right: 24px;
   bottom: 96px;
   width: min(520px, 42vw);
-  background: #1b1b1f;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  // Frame mirrors .mcm-stt: themed surface, hairline border, soft elevation,
+  // --mcm-radius-md corners (14px fallback for the in-canvas scope, where the
+  // lobby-only radius tokens may be absent — same literal .mcm-stt uses).
+  background: var(--mcm-surface);
+  border: 1px solid var(--mcm-hairline);
+  border-radius: var(--mcm-radius-md, 14px);
+  box-shadow: var(--mcm-elev);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -22,14 +29,16 @@
     width: 300px;
   }
 
+  // Header row — title + actions. Mirrors the .mcm-stt header: a slightly
+  // sunken surface-2 strip closed off by a hairline divider.
   &__header {
     display: flex;
     align-items: center;
     gap: 8px;
     height: 38px;
     padding: 0 8px 0 12px;
-    background: rgba(255, 255, 255, 0.06);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--mcm-surface-2);
+    border-bottom: 1px solid var(--mcm-hairline);
     flex-shrink: 0;
   }
 
@@ -41,19 +50,22 @@
     gap: 7px;
     font-size: 12.5px;
     font-weight: 600;
-    color: #ffffff;
+    color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
+  // Live recording cue — themed danger token (auto light/dark) instead of a
+  // hardcoded red, so it stays on-palette like the STT status dot.
   &__dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #ef4444;
+    background: var(--mcm-danger);
     flex-shrink: 0;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--mcm-danger) 22%, transparent);
     animation: mcm-ss-pulse 1.8s ease-in-out infinite;
   }
 
@@ -63,13 +75,15 @@
     flex-shrink: 0;
   }
 
+  // Soft icon controls — match the STT header controls: idle in --mcm-text-soft,
+  // hover washes to --mcm-surface-2 and resolves to full --mcm-text.
   &__btn {
     width: 28px;
     height: 28px;
     border: 0;
     border-radius: 7px;
     background: transparent;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--mcm-text-soft);
     font-size: 15px;
     line-height: 1;
     cursor: pointer;
@@ -79,11 +93,20 @@
     transition: background-color 120ms ease, color 120ms ease;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #ffffff;
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
+    }
+
+    // Destructive control (e.g. close ✕): reds out on hover, mirroring the
+    // STT panel's close affordance.
+    &--close:hover {
+      background: var(--mcm-danger-soft);
+      color: var(--mcm-danger);
     }
   }
 
+  // The actual screen-VIDEO well stays solid black for accurate footage — the
+  // ONE intentional non-themed surface in the pane.
   &__body {
     position: relative;
     aspect-ratio: 16 / 9;
@@ -104,6 +127,9 @@
     display: none;
   }
 
+  // Pop-out placeholder sits over the black video well, so its text reads on a
+  // dark backdrop regardless of theme — keep it a soft light tone rather than
+  // the themed --mcm-text-soft (which goes dark in light mode and would vanish).
   &__popped {
     position: absolute;
     inset: 0;

@@ -15585,10 +15585,12 @@ body:has(.excalidraw.theme--dark) {
   left: 24px;
   bottom: 96px;
   width: 240px;
-  background: #1b1b1f;
+  // Theme-aware chrome (was hardcoded #1b1b1f → no UI in white theme); only the
+  // video preview well below stays black. Accent border keeps the brand cue.
+  background: var(--mcm-surface);
   border: 2px solid var(--mcm-accent);
-  border-radius: 12px;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4);
+  border-radius: var(--mcm-radius-md, 12px);
+  box-shadow: var(--mcm-elev, 0 14px 40px rgba(0, 0, 0, 0.4));
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -15662,7 +15664,7 @@ body:has(.excalidraw.theme--dark) {
   &__label {
     flex: 1;
     min-width: 0;
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--mcm-text-soft);
     // keep: meeting-view overlay (own -apple-system family, outside scope).
     font-size: 11.5px;
     line-height: 1.3;
@@ -15670,7 +15672,7 @@ body:has(.excalidraw.theme--dark) {
     text-overflow: ellipsis;
 
     strong {
-      color: #ffffff;
+      color: var(--mcm-text);
       font-weight: 600;
     }
   }
@@ -15678,10 +15680,10 @@ body:has(.excalidraw.theme--dark) {
   &__stop {
     flex-shrink: 0;
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 7px);
     padding: 6px 10px;
-    background: #ef4444;
-    color: #ffffff;
+    background: var(--mcm-danger);
+    color: #fff; // white on the danger fill reads in both themes
     // keep: meeting-view overlay (own -apple-system family, outside scope).
     font-size: 11.5px;
     font-weight: 600;
@@ -15690,7 +15692,7 @@ body:has(.excalidraw.theme--dark) {
     transition: background-color 120ms ease;
 
     &:hover {
-      background: #dc2626;
+      background: color-mix(in srgb, var(--mcm-danger) 85%, #000);
     }
   }
 }
