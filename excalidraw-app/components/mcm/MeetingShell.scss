@@ -391,6 +391,24 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   @include mcm-lobby-tokens-dark;
 }
 
+// In-canvas SIDEBAR panels (Meeting Library + Chat) ride the Glass Desk
+// vocabulary so they match the DASHBOARD instead of the neutral shell chrome
+// ("đồng bộ panel canvas giống dashboard"). They live in the Excalidraw sidebar
+// (inside .mcm-shell) so they do NOT inherit the .mcm-lobby scope — stamp the
+// lobby tokens here, where the mixins live. This is ALSO what makes the radius
+// scale + --mcm-surface-0 + shadow tokens those panels' SCSS now references
+// resolve at all (the shell base token set doesn't define them), and what gives
+// them the Olive-Royal dark set instead of the shell's neutral #121212.
+.excalidraw .MeetingLibrary,
+.excalidraw .ChatView {
+  @include mcm-lobby-tokens-light;
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+}
+.excalidraw.theme--dark .MeetingLibrary,
+.excalidraw.theme--dark .ChatView {
+  @include mcm-lobby-tokens-dark;
+}
+
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
 // the FULL-VIEWPORT home frame (not .mcm-3col — moved 06-12 per anh Luân:
 // "muốn nó liên tục… mọi thứ nhìn nó liền lạc") so header + all 3 columns

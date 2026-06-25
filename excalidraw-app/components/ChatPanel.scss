@@ -24,44 +24,23 @@
   // scrolls. Body & footer stay pinned.
   // -----------------------------------------------------------------
   .ChatView {
-    --chat-bg: var(--island-bg-color);
-    --chat-text: var(--text-primary-color);
-    --chat-text-soft: color-mix(
-      in srgb,
-      var(--text-primary-color) 60%,
-      transparent
-    );
-    --chat-text-faint: color-mix(
-      in srgb,
-      var(--text-primary-color) 38%,
-      transparent
-    );
-    --chat-hairline: color-mix(
-      in srgb,
-      var(--text-primary-color) 12%,
-      transparent
-    );
-    --chat-hairline-soft: color-mix(
-      in srgb,
-      var(--text-primary-color) 6%,
-      transparent
-    );
-    --chat-surface: color-mix(
-      in srgb,
-      var(--text-primary-color) 5%,
-      var(--island-bg-color)
-    );
-    --chat-surface-hover: color-mix(
-      in srgb,
-      var(--text-primary-color) 8%,
-      var(--island-bg-color)
-    );
-    --chat-accent: var(--color-primary);
-    --chat-accent-soft: color-mix(
-      in srgb,
-      var(--color-primary) 14%,
-      transparent
-    );
+    // Glass Desk palette remap — the Lead stamps mcm-lobby-tokens-light/dark
+    // on .ChatView (MeetingShell.scss), so these --mcm-* tokens resolve to
+    // Glass Desk and switch with theme. Every var(--chat-*) reference below
+    // inherits Glass Desk automatically via this single remap layer. The
+    // AI-bot hue stays a hardcoded distinct violet (see --chat-bot below).
+    --chat-bg: var(--mcm-bg);
+    --chat-text: var(--mcm-text);
+    --chat-text-soft: var(--mcm-text-soft);
+    --chat-text-faint: var(--mcm-text-faint);
+    --chat-hairline: var(--mcm-hairline);
+    --chat-hairline-soft: var(--mcm-hairline-2);
+    --chat-surface: var(--mcm-surface);
+    --chat-surface-hover: var(--mcm-surface-2);
+    --chat-accent: var(--mcm-accent);
+    --chat-accent-soft: var(--mcm-accent-soft);
+    // KEEP DISTINCT: AI-bot violet is intentionally NOT remapped to the
+    // Glass Desk accent — the bot must stay visually unambiguous.
     --chat-bot: #7c6bff;
     --chat-bot-tint: color-mix(in srgb, #7c6bff 10%, transparent);
 
@@ -70,7 +49,7 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    font-family: inherit;
+    font-family: var(--mcm-font-ui);
     color: var(--chat-text);
     font-size: 14px;
     line-height: 1.45;

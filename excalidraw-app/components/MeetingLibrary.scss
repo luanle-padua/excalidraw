@@ -6,7 +6,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    color: var(--text-primary-color);
+    color: var(--mcm-text);
+    font-family: var(--mcm-font-ui);
     font-size: 0.875rem;
 
     &__file-input {
@@ -15,12 +16,12 @@
 
     &__toolbar {
       padding: 0.75rem;
-      border-bottom: 1px solid var(--default-border-color);
+      border-bottom: 1px solid var(--mcm-hairline);
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
-      background: var(--island-bg-color);
+      background: var(--mcm-surface);
     }
 
     // ---- Search + filter + sort + view toggle -----------------------
@@ -28,17 +29,17 @@
       width: 100%;
       box-sizing: border-box;
       padding: 0.4rem 0.6rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--default-border-color);
-      background: var(--input-bg-color, var(--island-bg-color));
-      color: var(--text-primary-color);
+      border-radius: var(--mcm-radius-xs);
+      border: 1px solid var(--mcm-hairline);
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
       font: inherit;
       font-size: 0.8rem;
       transition: border-color 0.12s ease;
 
       &:focus {
         outline: none;
-        border-color: var(--color-primary);
+        border-color: var(--mcm-accent);
       }
     }
 
@@ -53,10 +54,10 @@
       align-items: center;
       gap: 0.3rem;
       padding: 0.2rem 0.55rem;
-      border-radius: 999px;
-      border: 1px solid var(--default-border-color);
+      border-radius: var(--mcm-radius-pill);
+      border: 1px solid var(--mcm-hairline);
       background: transparent;
-      color: var(--text-primary-color);
+      color: var(--mcm-text);
       font: inherit;
       font-size: 0.72rem;
       font-weight: 600;
@@ -65,12 +66,12 @@
         color 0.12s ease;
 
       &:hover {
-        background: var(--button-hover-bg);
+        background: var(--mcm-surface-2);
       }
 
       &--active {
-        background: var(--color-primary);
-        border-color: var(--color-primary);
+        background: var(--mcm-accent);
+        border-color: var(--mcm-accent);
         color: #fff;
       }
     }
@@ -82,8 +83,8 @@
       min-width: 1.05rem;
       height: 1.05rem;
       padding: 0 0.3rem;
-      border-radius: 999px;
-      background: rgba(0, 0, 0, 0.12);
+      border-radius: var(--mcm-radius-pill);
+      background: var(--mcm-surface-0);
       font-size: 0.62rem;
       font-weight: 700;
       line-height: 1;
@@ -104,10 +105,10 @@
       flex: 1;
       min-width: 0;
       padding: 0.3rem 0.45rem;
-      border-radius: 0.4rem;
-      border: 1px solid var(--default-border-color);
-      background: var(--input-bg-color, var(--island-bg-color));
-      color: var(--text-primary-color);
+      border-radius: var(--mcm-radius-xs);
+      border: 1px solid var(--mcm-hairline);
+      background: var(--mcm-surface-2);
+      color: var(--mcm-text);
       font: inherit;
       font-size: 0.74rem;
       cursor: pointer;
@@ -117,8 +118,8 @@
       display: inline-flex;
       gap: 0.15rem;
       padding: 0.15rem;
-      border-radius: 0.4rem;
-      background: var(--button-hover-bg);
+      border-radius: var(--mcm-radius-xs);
+      background: var(--mcm-surface-0);
     }
 
     &__view-btn {
@@ -126,10 +127,10 @@
       height: 1.65rem;
       border: 0;
       background: transparent;
-      color: var(--text-primary-color);
+      color: var(--mcm-text);
       font-size: 0.85rem;
       line-height: 1;
-      border-radius: 0.3rem;
+      border-radius: var(--mcm-radius-xs);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -137,21 +138,21 @@
       transition: background-color 0.12s ease, color 0.12s ease;
 
       &:hover {
-        background: var(--island-bg-color);
+        background: var(--mcm-surface);
       }
 
       &--active {
-        background: var(--color-primary);
+        background: var(--mcm-accent);
         color: #fff;
       }
     }
 
     &__upload {
       width: 100%;
-      border: 1.5px dashed var(--default-border-color);
+      border: 1.5px dashed var(--mcm-hairline);
       background: transparent;
-      color: var(--text-primary-color);
-      border-radius: 0.5rem;
+      color: var(--mcm-text);
+      border-radius: var(--mcm-radius-sm);
       padding: 0.625rem 0.75rem;
       cursor: pointer;
       font: inherit;
@@ -161,9 +162,9 @@
 
       &:hover,
       &--dragover {
-        border-color: var(--color-primary);
-        color: var(--color-primary);
-        background: var(--color-primary-light);
+        border-color: var(--mcm-accent);
+        color: var(--mcm-accent);
+        background: var(--mcm-accent-soft);
       }
 
       &:disabled {
@@ -173,8 +174,7 @@
     }
 
     &__hint-line {
-      color: var(--text-primary-color);
-      opacity: 0.55;
+      color: var(--mcm-text-soft);
       font-size: 0.6875rem;
       text-align: center;
       line-height: 1.4;
@@ -207,8 +207,7 @@
     &__empty {
       margin: 1.5rem 0.75rem;
       text-align: center;
-      color: var(--text-primary-color);
-      opacity: 0.55;
+      color: var(--mcm-text-soft);
       line-height: 1.6;
     }
 
@@ -216,16 +215,16 @@
       margin-top: 0.4rem;
       padding: 0.25rem 0.7rem;
       background: transparent;
-      border: 1px solid var(--default-border-color);
-      border-radius: 999px;
-      color: var(--color-primary);
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-pill);
+      color: var(--mcm-accent);
       font: inherit;
       font-size: 0.72rem;
       cursor: pointer;
       transition: background-color 0.12s ease;
 
       &:hover {
-        background: var(--color-primary-light);
+        background: var(--mcm-accent-soft);
       }
     }
 
@@ -243,8 +242,8 @@
       padding: 0.3rem 0.4rem;
       background: transparent;
       border: 0;
-      border-radius: 0.35rem;
-      color: var(--text-primary-color);
+      border-radius: var(--mcm-radius-xs);
+      color: var(--mcm-text);
       font: inherit;
       font-size: 0.72rem;
       font-weight: 700;
@@ -254,7 +253,7 @@
       transition: background-color 0.12s ease;
 
       &:hover {
-        background: var(--button-hover-bg);
+        background: var(--mcm-surface-2);
       }
     }
 
@@ -279,7 +278,7 @@
       top: 0.3rem;
       left: 0.3rem;
       padding: 0.1rem 0.35rem;
-      border-radius: 0.3rem;
+      border-radius: var(--mcm-radius-xs);
       background: rgba(0, 0, 0, 0.7);
       color: #fff;
       font-size: 0.6rem;
@@ -293,8 +292,8 @@
       &--inline {
         position: static;
         margin-left: 0.4rem;
-        background: var(--button-hover-bg);
-        color: var(--text-primary-color);
+        background: var(--mcm-surface-2);
+        color: var(--mcm-text);
         font-weight: 600;
       }
 
@@ -326,8 +325,7 @@
       min-width: 0;
       max-width: 100%;
       font-size: 0.65rem;
-      color: var(--text-primary-color);
-      opacity: 0.85;
+      color: var(--mcm-text-soft);
     }
 
     &__author-avatar {
@@ -354,9 +352,9 @@
     }
 
     &__item {
-      border: 1px solid var(--default-border-color);
-      border-radius: 0.5rem;
-      background: var(--island-bg-color);
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-sm);
+      background: var(--mcm-surface);
       overflow: hidden;
       cursor: pointer;
       display: flex;
@@ -366,7 +364,7 @@
       position: relative;
 
       &:hover {
-        border-color: var(--color-primary);
+        border-color: var(--mcm-accent);
         box-shadow: var(--shadow-island);
       }
 
@@ -377,15 +375,15 @@
       &-thumb {
         width: 100%;
         aspect-ratio: 1 / 1;
-        background-color: var(--color-surface-low, var(--button-hover-bg));
+        background-color: var(--mcm-surface-0);
         background-image: linear-gradient(
             45deg,
-            var(--button-hover-bg) 25%,
+            var(--mcm-surface-2) 25%,
             transparent 25%
           ),
-          linear-gradient(-45deg, var(--button-hover-bg) 25%, transparent 25%),
-          linear-gradient(45deg, transparent 75%, var(--button-hover-bg) 75%),
-          linear-gradient(-45deg, transparent 75%, var(--button-hover-bg) 75%);
+          linear-gradient(-45deg, var(--mcm-surface-2) 25%, transparent 25%),
+          linear-gradient(45deg, transparent 75%, var(--mcm-surface-2) 75%),
+          linear-gradient(-45deg, transparent 75%, var(--mcm-surface-2) 75%);
         background-size: 12px 12px;
         background-position: 0 0, 0 6px, 6px -6px, -6px 0;
         display: flex;
@@ -401,7 +399,7 @@
       }
 
       &-fallback {
-        opacity: 0.55;
+        color: var(--mcm-text-soft);
         font-size: 0.6875rem;
       }
 
@@ -419,7 +417,7 @@
       }
 
       &-author {
-        opacity: 0.55;
+        color: var(--mcm-text-soft);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -473,7 +471,7 @@
         }
 
         &--locked {
-          background: var(--color-primary);
+          background: var(--mcm-accent);
 
           &:hover:not(:disabled) {
             background: var(--color-primary-hover);
@@ -492,16 +490,16 @@
       align-items: center;
       gap: 0.55rem;
       padding: 0.35rem 0.45rem;
-      border: 1px solid var(--default-border-color);
-      border-radius: 0.45rem;
-      background: var(--island-bg-color);
+      border: 1px solid var(--mcm-hairline);
+      border-radius: var(--mcm-radius-sm);
+      background: var(--mcm-surface);
       cursor: pointer;
       position: relative;
       transition: border-color 0.12s ease, background-color 0.12s ease;
 
       &:hover {
-        border-color: var(--color-primary);
-        background: var(--button-hover-bg);
+        border-color: var(--mcm-accent);
+        background: var(--mcm-surface-2);
       }
     }
 
@@ -509,12 +507,12 @@
       flex-shrink: 0;
       width: 2.4rem;
       height: 2.4rem;
-      border-radius: 0.35rem;
+      border-radius: var(--mcm-radius-xs);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--button-hover-bg);
+      background: var(--mcm-surface-0);
 
       img {
         width: 100%;
@@ -557,7 +555,7 @@
       align-items: center;
       gap: 0.5rem;
       font-size: 0.65rem;
-      opacity: 0.75;
+      color: var(--mcm-text-soft);
       min-width: 0;
     }
 
@@ -567,7 +565,7 @@
 
     &__row-lock {
       flex-shrink: 0;
-      color: var(--color-primary);
+      color: var(--mcm-accent);
     }
 
     // Row actions need to stay visible (the row is a flex container,
