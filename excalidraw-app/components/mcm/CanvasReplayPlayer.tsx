@@ -40,6 +40,7 @@
 // exact same `playheadT` without re-architecting this component.
 
 import { CaptureUpdateAction, restoreElements } from "@excalidraw/excalidraw";
+import { GripVertical, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
@@ -50,12 +51,14 @@ import {
   type CanvasHistoryEntry,
   reconstructSceneAt,
 } from "../../data/canvasHistory";
+import { listRecordings, type Recording } from "../../data/recordings";
 import { buildSpeakerTimeline } from "../../data/replayTimeline";
 import { loadCanvasHistoryFromStorage } from "../../data/storage";
 import { transcriptionLogAtom } from "../../data/transcription";
 import { useT } from "../../i18n/mcm";
 
 import { CanvasReplayTimeline, type ReplaySpeed } from "./CanvasReplayTimeline";
+import { useReplayMedia, type ReplayMediaMode } from "./useReplayMedia";
 
 import "./CanvasReplay.scss";
 
@@ -123,6 +126,111 @@ const keyframeIndexAt = (
   return -1;
 };
 
+// ── SCREEN-ALONG floating pane (§3) ──────────────────────────────────────────
+// A small, draggable <video> over the review canvas, shown only in screen mode.
+// It is NOT a self-controlled player: the media hook owns its currentTime /
+// play / pause (driven by the shared playhead), so the element carries no
+// `controls` — the transport below is the single source of control. We only own
+// the chrome: a drag handle (pointer-events) + a close that drops back to
+// Canvas. The element ref comes from the hook so the sync loop can drive it.
+const ScreenReplayPane = ({
+  videoRef,
+  src,
+  loading,
+  onClose,
+}: {
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+  src: string | null;
+  loading: boolean;
+  onClose: () => void;
+}) => {
+  const t = useT();
+  // Pane position (top-left, viewport px). Seeded once near the top-centre so it
+  // doesn't cover the dock; dragging updates it. Clamped into the viewport so it
+  // can never be dragged fully off-screen.
+  const [pos, setPos] = useState<{ x: number; y: number }>(() => ({
+    x: Math.max(16, Math.round(window.innerWidth / 2 - 180)),
+    y: 84,
+  }));
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
+      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    },
+    [pos.x, pos.y],
+  );
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) {
+      return;
+    }
+    const w = 360;
+    const x = Math.min(
+      Math.max(8, e.clientX - d.dx),
+      Math.max(8, window.innerWidth - w - 8),
+    );
+    const y = Math.min(
+      Math.max(8, e.clientY - d.dy),
+      Math.max(8, window.innerHeight - 80),
+    );
+    setPos({ x, y });
+  }, []);
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    dragRef.current = null;
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+  }, []);
+
+  return (
+    <div
+      className="mcm-replay__screen-pane"
+      style={{ left: pos.x, top: pos.y }}
+      role="dialog"
+      aria-label={t("replay.chooser.screen")}
+    >
+      <div
+        className="mcm-replay__screen-bar"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      >
+        <GripVertical size={14} aria-hidden />
+        <span className="mcm-replay__screen-title">
+          {t("replay.chooser.screen")}
+        </span>
+        <button
+          type="button"
+          className="mcm-replay__screen-close"
+          onClick={onClose}
+          aria-label={t("replay.exit")}
+          title={t("replay.exit")}
+        >
+          <X size={14} />
+        </button>
+      </div>
+      <div className="mcm-replay__screen-body">
+        {loading && (
+          <div className="mcm-replay__screen-loading">
+            <span className="mcm-replay__spinner" /> {t("replay.loading")}
+          </div>
+        )}
+        {/* No `controls`: the transport drives this element's time. Muted is
+            off so the screen-share audio plays along; playsInline keeps it in
+            the pane on mobile. */}
+        <video
+          ref={videoRef}
+          className="mcm-replay__screen-video"
+          src={src ?? undefined}
+          preload="auto"
+          playsInline
+        />
+      </div>
+    </div>
+  );
+};
+
 export const CanvasReplayPlayer = ({
   roomId,
   roomKey,
@@ -159,9 +267,66 @@ export const CanvasReplayPlayer = ({
   const speedRef = useRef(speed);
   speedRef.current = speed;
 
-  // [T0, T1] — the absolute-ms window the playhead travels. Derived purely from
-  // the canvas entries today; widen-able by P3 via computeReplayBounds(extra).
-  const { T0, T1 } = useMemo(() => computeReplayBounds(entries), [entries]);
+  // ── P3 PLAY-ALONG state ────────────────────────────────────────────────
+  // Which media plays alongside the canvas, and (for audio mode) the soloed
+  // speaker. Switching mode KEEPS playheadT (§3) — no restart. Default "canvas"
+  // is byte-for-byte the P1 behaviour: with no recordings the chooser collapses
+  // to Canvas and this state never changes anything.
+  const [mode, setMode] = useState<ReplayMediaMode>("canvas");
+  const [soloId, setSoloId] = useState<string | null>(null);
+  // Recordings for this room (auth-gated; a non-authority reviewer gets [] →
+  // chooser collapses to Canvas, lanes/transcript still work). Fetched once when
+  // the room id is known; fail-soft ([]) so a hiccup never breaks the replay.
+  const [recordings, setRecordings] = useState<Recording[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!roomId) {
+      setRecordings([]);
+      return;
+    }
+    void (async () => {
+      const list = await listRecordings(roomId);
+      if (!cancelled) {
+        setRecordings(list);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
+  // Canvas-only span first, so we have a T0 to anchor legacy (null
+  // started_at_ms) tracks before they widen the window. The media hook resolves
+  // every track against THIS t0; we then fold its start/end candidates back in
+  // to WIDEN [T0, T1] to cover media that begins before the first stroke or runs
+  // past the last (computeReplayBounds(entries, { starts, ends })).
+  const canvasBounds = useMemo(() => computeReplayBounds(entries), [entries]);
+
+  // The play-along engine. In "canvas" mode it builds nothing (mode-gated), so
+  // this is inert until the reviewer picks Audio/Screen. It still reports
+  // capabilities + bounds candidates so the chooser knows what to offer.
+  const media = useReplayMedia({
+    recordings,
+    mode,
+    soloId,
+    t0: canvasBounds.T0,
+    playheadT,
+    playing,
+    speed,
+  });
+
+  // [T0, T1] — the absolute-ms window the playhead travels. The canvas span
+  // WIDENED by every media track's window so a mic that started before the first
+  // stroke (or a screen-video running past the last) is fully reachable.
+  const { T0, T1 } = useMemo(
+    () =>
+      computeReplayBounds(entries, {
+        starts: media.bounds.starts,
+        ends: media.bounds.ends,
+      }),
+    [entries, media.bounds],
+  );
   const durationMs = Math.max(0, T1 - T0);
   const t1Ref = useRef(T1);
   t1Ref.current = T1;
@@ -383,6 +548,26 @@ export const CanvasReplayPlayer = ({
     setPlayheadT(T0);
   }, [T0]);
 
+  // CHOOSER (§3): switch what plays alongside the canvas. Keep playheadT (no
+  // restart); the media hook tears down the old elements + builds/seeks the new
+  // ones to the current playhead and resumes if we were playing. Leaving audio
+  // mode drops any solo so it doesn't silently apply when re-entered.
+  const handleMode = useCallback((next: ReplayMediaMode) => {
+    setMode(next);
+    if (next !== "audio") {
+      setSoloId(null);
+    }
+  }, []);
+
+  // P3 SEAM (SpeakerLanes onSoloSpeaker): clicking a speaker name solos that
+  // mic. Toggle off when the same speaker is clicked again. A solo click while
+  // not in audio mode flips us into audio mode (the reviewer clearly wants to
+  // hear that person), keeping the playhead where it is.
+  const handleSolo = useCallback((speakerId: string) => {
+    setMode((m) => (m === "audio" ? m : "audio"));
+    setSoloId((cur) => (cur === speakerId ? null : speakerId));
+  }, []);
+
   // The bar is bottom-docked at every state: loading / empty / error show a
   // compact status row with a close button so the reviewer is never trapped
   // (there is no surrounding modal × to fall back on).
@@ -413,6 +598,18 @@ export const CanvasReplayPlayer = ({
 
   return (
     <div className="mcm-replay">
+      {/* Screen-along: a small draggable floating <video> over the canvas. Only
+          mounted in screen mode (the hook fetches/revokes its blob by mode); its
+          currentTime is driven by the same playhead via the media hook's ref. */}
+      {mode === "screen" && media.hasScreen && (
+        <ScreenReplayPane
+          videoRef={media.screenVideoRef}
+          src={media.screenUrl}
+          loading={media.screenLoading}
+          onClose={() => handleMode("canvas")}
+        />
+      )}
+
       <CanvasReplayTimeline
         T0={T0}
         T1={T1}
@@ -426,6 +623,13 @@ export const CanvasReplayPlayer = ({
         onSpeed={setSpeed}
         onClose={onClose}
         speakerTimeline={speakerTimeline}
+        onSoloSpeaker={handleSolo}
+        mode={mode}
+        onMode={handleMode}
+        canAudio={media.hasAudio}
+        canScreen={media.hasScreen}
+        soloId={soloId}
+        legacyMedia={media.hasLegacy}
       />
     </div>
   );

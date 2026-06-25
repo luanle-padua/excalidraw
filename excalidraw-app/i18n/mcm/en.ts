@@ -1425,8 +1425,7 @@ export const en: Widened<typeof vi> = {
     error: "Couldn't load the canvas replay.",
     empty:
       "No canvas replay for this meeting. Drawing during a meeting is captured automatically — older meetings won't have a replay.",
-    lead:
-      'Replay how the whiteboard evolved on the canvas you\'re reviewing. Toggle "show canvas" to watch as you scrub.',
+    lead: 'Replay how the whiteboard evolved on the canvas you\'re reviewing. Toggle "show canvas" to watch as you scrub.',
     play: "Play",
     pause: "Pause",
     exit: "Exit replay",
@@ -1447,6 +1446,18 @@ export const en: Widened<typeof vi> = {
       perSpeaker: "Per-speaker lanes",
       others: "Others ({count})",
     },
+    // P3 — "Play along" chooser (canvas / audio / screen)
+    chooser: {
+      label: "Play alongside canvas",
+      canvas: "Canvas",
+      audio: "Audio",
+      screen: "Screen",
+    },
+    soloOnly: "Solo: {name}",
+    soloClear: "Clear solo",
+    approxSync: "approximate sync",
+    approxSyncHint:
+      "Some recordings have no start timestamp, so they're placed approximately — playback may be off by a few seconds.",
   },
 
   stt: {

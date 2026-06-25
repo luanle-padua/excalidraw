@@ -136,12 +136,12 @@
 
   // Placeholder shown before a track is picked (multi-track case).
   &__placeholder {
-    // Cap to the same box as a playing track (&__video max-height) so the empty
-    // "pick a track" state never grows taller than the player and overflows the
-    // modal (owner #22: placeholder lớn hơn player, tràn ra ngoài).
-    aspect-ratio: 16 / 9;
+    // Compact empty-state hint (owner #22: the 16:9 box rendered ~430px tall on
+    // the wide player — bigger than its boundary). It's only "pick a track", so a
+    // modest fixed-ish height, NOT the full 16:9 of the player width.
     width: 100%;
-    max-height: 46vh;
+    min-height: 132px;
+    max-height: 200px;
     border-radius: 10px;
     border: 1px dashed var(--mcm-hairline);
     background: var(--mcm-surface-2);

@@ -1501,8 +1501,7 @@ export const vi = {
     error: "Không tải được bản tua canvas.",
     empty:
       "Cuộc họp này chưa có bản tua canvas. Vẽ trong lúc họp sẽ được ghi lại tự động — cuộc họp cũ sẽ không có.",
-    lead:
-      'Tua lại quá trình bảng vẽ tiến triển ngay trên canvas đang xem. Bấm "hiện canvas" để xem khi tua.',
+    lead: 'Tua lại quá trình bảng vẽ tiến triển ngay trên canvas đang xem. Bấm "hiện canvas" để xem khi tua.',
     play: "Phát",
     pause: "Tạm dừng",
     exit: "Thoát tua lại",
@@ -1523,6 +1522,18 @@ export const vi = {
       perSpeaker: "Xem theo từng người",
       others: "Người khác ({count})",
     },
+    // P3 — chooser "Phát kèm" (canvas / âm thanh / màn hình)
+    chooser: {
+      label: "Phát kèm canvas",
+      canvas: "Canvas",
+      audio: "Âm thanh",
+      screen: "Màn hình",
+    },
+    soloOnly: "Chỉ nghe: {name}",
+    soloClear: "Bỏ chỉ nghe",
+    approxSync: "đồng bộ xấp xỉ",
+    approxSyncHint:
+      "Một số bản ghi không có mốc thời gian bắt đầu nên được đặt xấp xỉ — có thể lệch vài giây.",
   },
 
   // ---------------- Speech-to-text panel ---------------------------

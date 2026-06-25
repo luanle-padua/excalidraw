@@ -16,12 +16,21 @@
 // lane strip line up a vertical playhead with this scrubber pixel-for-pixel: the
 // fraction is always `(playheadT - T0) / (T1 - T0)`.
 
-import { Pause, Play, RotateCcw, X } from "lucide-react";
+import {
+  Headphones,
+  MonitorPlay,
+  Pause,
+  PenLine,
+  Play,
+  RotateCcw,
+  X,
+} from "lucide-react";
 
 import { useT } from "../../i18n/mcm";
 
 import { SpeakerLanes } from "./SpeakerLanes";
 
+import type { ReplayMediaMode } from "./useReplayMedia";
 import type { SpeakerTimelineModel } from "../../data/replayTimeline";
 
 // Playback speeds offered in the toolbar. The playhead advances by real elapsed
@@ -76,6 +85,12 @@ export const CanvasReplayTimeline = ({
   onClose,
   speakerTimeline,
   onSoloSpeaker,
+  mode = "canvas",
+  onMode,
+  canAudio = false,
+  canScreen = false,
+  soloId = null,
+  legacyMedia = false,
 }: ReplayClock & {
   /** Exit replay — restores the static finished-meeting view. */
   onClose: () => void;
@@ -85,11 +100,29 @@ export const CanvasReplayTimeline = ({
   speakerTimeline?: SpeakerTimelineModel;
   /** P3 seam — solo a speaker's audio. Threaded straight to SpeakerLanes. */
   onSoloSpeaker?: (speakerId: string) => void;
+  // ── P3 "Play along" chooser (unified-replay-ux.md §3) ──────────────────
+  /** which media plays alongside the canvas (parent-owned). */
+  mode?: ReplayMediaMode;
+  /** switch the play-along mode (keeps the playhead). */
+  onMode?: (mode: ReplayMediaMode) => void;
+  /** enable the Audio segment — true only when a mic / screen-audio row exists. */
+  canAudio?: boolean;
+  /** enable the Screen segment — true only when a screen-video row exists. */
+  canScreen?: boolean;
+  /** the soloed speaker id (audio mode), for an "× clear solo" affordance. */
+  soloId?: string | null;
+  /** any media track placed by the legacy null-started_at_ms fallback — surfaces
+   *  an "approximate sync" hint so a reviewer isn't surprised by the offset. */
+  legacyMedia?: boolean;
 }) => {
   const t = useT();
   if (durationMs <= 0) {
     return null;
   }
+  // The chooser only appears when there is SOMETHING to play along (a mic or a
+  // screen-video). A canvas-only meeting / non-authority viewer ([] recordings)
+  // → no chooser at all, i.e. the transport is exactly the P1 single mode.
+  const hasMedia = canAudio || canScreen;
   // Clamp for display so a parked / mid-load playhead never overflows the range.
   const curTs = Math.max(T0, Math.min(playheadT, T1));
 
@@ -152,6 +185,64 @@ export const CanvasReplayTimeline = ({
           ))}
         </div>
 
+        {/* P3 "Play along" chooser (§3). Canvas is always present; Audio /
+            Screen appear only when the meeting has that media (and the viewer is
+            authorised — non-authority → [] recordings → neither flag set, so
+            this collapses to a lone Canvas segment, i.e. P1 behaviour). Switching
+            keeps the playhead — the parent rebuilds + reseeks the media. */}
+        {hasMedia && onMode && (
+          <div
+            className="mcm-replay__along"
+            role="group"
+            aria-label={t("replay.chooser.label")}
+          >
+            <button
+              type="button"
+              className={`mcm-replay__along-seg${
+                mode === "canvas" ? " mcm-replay__along-seg--active" : ""
+              }`}
+              onClick={() => onMode("canvas")}
+              title={t("replay.chooser.canvas")}
+              aria-pressed={mode === "canvas" ? "true" : "false"}
+            >
+              <PenLine size={14} />
+              <span className="mcm-replay__along-text">
+                {t("replay.chooser.canvas")}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`mcm-replay__along-seg${
+                mode === "audio" ? " mcm-replay__along-seg--active" : ""
+              }`}
+              onClick={() => onMode("audio")}
+              disabled={!canAudio}
+              title={t("replay.chooser.audio")}
+              aria-pressed={mode === "audio" ? "true" : "false"}
+            >
+              <Headphones size={14} />
+              <span className="mcm-replay__along-text">
+                {t("replay.chooser.audio")}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`mcm-replay__along-seg${
+                mode === "screen" ? " mcm-replay__along-seg--active" : ""
+              }`}
+              onClick={() => onMode("screen")}
+              disabled={!canScreen}
+              title={t("replay.chooser.screen")}
+              aria-pressed={mode === "screen" ? "true" : "false"}
+            >
+              <MonitorPlay size={14} />
+              <span className="mcm-replay__along-text">
+                {t("replay.chooser.screen")}
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Exit replay — the only "close" affordance now that the bar floats
             directly over the canvas (no modal chrome to host a × button). */}
         <button
@@ -167,7 +258,41 @@ export const CanvasReplayTimeline = ({
 
       <div className="mcm-replay__hint">
         {t("replay.spanLabel")} {fmtClock(T0)} → {fmtClock(T1)}
+        {legacyMedia && mode !== "canvas" && (
+          <span
+            className="mcm-replay__approx"
+            title={t("replay.approxSyncHint")}
+          >
+            {" · "}
+            {t("replay.approxSync")}
+          </span>
+        )}
       </div>
+
+      {/* SOLO chip — only in audio mode with a speaker soloed. Shows who is
+          isolated + a one-click clear (re-solo'ing the same name in the lanes
+          also clears it). Keeps the "only this person" state visible so a
+          reviewer never wonders why they hear one voice. */}
+      {mode === "audio" && soloId && onSoloSpeaker && (
+        <div className="mcm-replay__solo">
+          <span className="mcm-replay__solo-label">
+            {t("replay.soloOnly", {
+              name:
+                speakerTimeline?.speakers.find((s) => s.id === soloId)?.name ??
+                soloId,
+            })}
+          </span>
+          <button
+            type="button"
+            className="mcm-replay__solo-clear"
+            onClick={() => onSoloSpeaker(soloId)}
+            title={t("replay.soloClear")}
+            aria-label={t("replay.soloClear")}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* P2 — "who spoke when" lane strip. Collapsed to nothing by default; the
           chevron inside opts into depth. Shares this transport's exact [T0, T1]

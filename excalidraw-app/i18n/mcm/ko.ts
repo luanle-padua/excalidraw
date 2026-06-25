@@ -1433,8 +1433,7 @@ export const ko: Widened<typeof vi> = {
     error: "캔버스 다시 보기를 불러오지 못했습니다.",
     empty:
       "이 회의에는 캔버스 다시 보기가 없습니다. 회의 중 그리기는 자동으로 기록됩니다 — 이전 회의에는 없습니다.",
-    lead:
-      '검토 중인 캔버스에서 화이트보드가 어떻게 발전했는지 다시 봅니다. "캔버스 보기"를 켜고 스크럽하며 확인하세요.',
+    lead: '검토 중인 캔버스에서 화이트보드가 어떻게 발전했는지 다시 봅니다. "캔버스 보기"를 켜고 스크럽하며 확인하세요.',
     play: "재생",
     pause: "일시정지",
     exit: "리플레이 종료",
@@ -1455,6 +1454,18 @@ export const ko: Widened<typeof vi> = {
       perSpeaker: "발화자별 레인",
       others: "기타 ({count})",
     },
+    // P3 — "함께 재생" 선택 (캔버스 / 오디오 / 화면)
+    chooser: {
+      label: "캔버스와 함께 재생",
+      canvas: "캔버스",
+      audio: "오디오",
+      screen: "화면",
+    },
+    soloOnly: "단독 재생: {name}",
+    soloClear: "단독 해제",
+    approxSync: "대략적 동기화",
+    approxSyncHint:
+      "일부 녹음에는 시작 타임스탬프가 없어 대략적으로 배치됩니다 — 재생이 몇 초 어긋날 수 있습니다.",
   },
 
   stt: {

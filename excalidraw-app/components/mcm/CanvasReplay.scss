@@ -401,6 +401,196 @@
   }
 }
 
+// ---- P3 "PLAY ALONG" CHOOSER ----------------------------------------------
+// A segmented control in the transport choosing what plays WITH the canvas:
+// [Canvas | Audio | Screen]. Only rendered when the meeting has audio/screen
+// media (a canvas-only meeting / non-authority viewer sees no chooser at all).
+// Disabled segments (no such media) read as muted + non-interactive.
+.mcm-replay__along {
+  display: inline-flex;
+  background: var(--mcm-surface-2);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 2px;
+
+  &-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 9px;
+    border-radius: 7px;
+    transition: background-color 150ms ease, color 150ms ease;
+
+    &:hover:not(:disabled) {
+      color: var(--mcm-text);
+    }
+
+    &--active {
+      background: var(--mcm-accent);
+      color: #fff;
+
+      &:hover {
+        color: #fff;
+      }
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  // Hide the segment label on tight bars — the icon carries the meaning, the
+  // title attribute the words. Keeps the chooser from forcing a wrap.
+  &-text {
+    white-space: nowrap;
+  }
+}
+
+// SOLO chip — "only hearing {name}" with a clear button, shown under the bar in
+// audio mode when a speaker is isolated.
+.mcm-replay__solo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  margin-top: 2px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: var(--mcm-accent-soft);
+  color: var(--mcm-accent);
+  font-size: 12px;
+  font-weight: 600;
+
+  &-label {
+    white-space: nowrap;
+  }
+
+  &-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      background: color-mix(in srgb, var(--mcm-accent) 20%, transparent);
+    }
+  }
+}
+
+// Approximate-sync hint (legacy rows with no started_at_ms).
+.mcm-replay__approx {
+  color: var(--mcm-warning, #d97706);
+  font-weight: 600;
+}
+
+// ---- P3 SCREEN-ALONG floating pane ----------------------------------------
+// A small draggable <video> over the review canvas (screen mode only). It floats
+// ABOVE the dock; its time is driven by the transport (no native controls). The
+// title bar is the drag handle; the body holds the video (object-fit contain so
+// any aspect ratio fits). pointer-events on so it can be grabbed/closed while the
+// canvas behind stays interactive elsewhere.
+.mcm-replay__screen-pane {
+  position: fixed;
+  z-index: 1200;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--mcm-hairline);
+  box-shadow: var(--mcm-elev);
+  pointer-events: auto;
+  animation: mcm-replay-dock-in 160ms ease both;
+
+  .mcm-replay__screen-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: color-mix(in srgb, var(--mcm-surface) 92%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    color: var(--mcm-text-soft);
+    cursor: grab;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  .mcm-replay__screen-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mcm-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mcm-replay__screen-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--mcm-danger-soft);
+      color: var(--mcm-danger);
+    }
+  }
+
+  .mcm-replay__screen-body {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+  }
+
+  .mcm-replay__screen-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .mcm-replay__screen-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #fff;
+    font-size: 13px;
+  }
+}
+
 // On a narrow viewport let the bar span the full width and keep the controls
 // from overflowing — the scrubber takes the whole first wrap row.
 @media (max-width: 640px) {
