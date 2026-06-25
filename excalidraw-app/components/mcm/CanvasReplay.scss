@@ -204,6 +204,203 @@
   }
 }
 
+// ---- SPEAKER LANES (P2 — "who spoke when") ---------------------------------
+// A compact strip under the transport. Collapsed to a single chevron row by
+// default; opening reveals per-speaker lanes (or, when crowded, a single
+// conversation ribbon). Every block + the vertical playhead are positioned by
+// the SAME [T0, T1] fraction the transport scrubber uses, so the playhead lines
+// up across both. The lane tracks are offset past a fixed-width sticky name
+// column (`--mcm-lane-name-w`); the playhead overlay shares that offset so it
+// tracks the blocks, not the labels.
+.mcm-lanes {
+  --mcm-lane-name-w: 96px;
+  --mcm-lane-row-h: 18px;
+  position: relative;
+  margin-top: 8px;
+  border-top: 1px solid var(--mcm-hairline);
+  padding-top: 6px;
+
+  &__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 7px;
+    transition: color 150ms ease, background-color 150ms ease;
+
+    &:hover {
+      color: var(--mcm-text);
+      background: var(--mcm-accent-soft);
+    }
+  }
+
+  &__toggle-label {
+    white-space: nowrap;
+  }
+
+  &__body {
+    position: relative;
+    margin-top: 6px;
+  }
+
+  // Scrollable when the lane list gets tall (crowded meetings) — cap at ~40vh
+  // and scroll internally so the canvas behind the dock stays usable.
+  &__scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 40vh;
+    overflow-y: auto;
+    // room so the playhead overlay (z above) doesn't sit under the scrollbar
+    padding-right: 2px;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--mcm-lane-row-h);
+
+    &--others .mcm-lanes__name,
+    &--ribbon .mcm-lanes__name {
+      font-style: normal;
+    }
+  }
+
+  // Sticky speaker name at the left (stays put while the track scrolls under a
+  // long meeting). Truncates; the dot carries the tint even when text clips.
+  &__name {
+    position: sticky;
+    left: 0;
+    flex: none;
+    width: var(--mcm-lane-name-w);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--mcm-text);
+    text-align: left;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &--static {
+      cursor: default;
+      color: var(--mcm-text-soft);
+
+      &:hover {
+        text-decoration: none;
+      }
+    }
+  }
+
+  &__dot {
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  // The block track: a flat rounded rail per lane; blocks are absolutely
+  // positioned by [left%, width%]. No waveform — cosmetic talk spans only.
+  &__track {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: var(--mcm-lane-row-h);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--mcm-text-soft) 12%, transparent);
+    overflow: hidden;
+  }
+
+  &__block {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    border: 0;
+    border-radius: 4px;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.92;
+    transition: opacity 120ms ease, filter 120ms ease;
+
+    &:hover {
+      opacity: 1;
+      filter: brightness(1.1);
+    }
+
+    // Overlapping talk (two people at once) → diagonal stripe so it reads as
+    // contested airtime rather than a clean turn.
+    &--striped {
+      background-image: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.28) 0,
+        rgba(255, 255, 255, 0.28) 3px,
+        transparent 3px,
+        transparent 6px
+      );
+    }
+  }
+
+  // Secondary affordances: switch ribbon <-> per-speaker lanes.
+  &__more {
+    align-self: flex-start;
+    margin-top: 2px;
+    border: 0;
+    background: transparent;
+    color: var(--mcm-accent);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 6px;
+
+    &:hover {
+      background: var(--mcm-accent-soft);
+    }
+  }
+
+  // Vertical playhead: lives in an overlay offset past the name column so its
+  // fraction matches the blocks' fraction (and thus the transport scrubber).
+  &__playhead-overlay {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--mcm-lane-name-w) + 8px);
+    right: 2px;
+    pointer-events: none;
+  }
+
+  &__playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--mcm-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mcm-accent) 35%, transparent);
+    border-radius: 1px;
+  }
+}
+
 // On a narrow viewport let the bar span the full width and keep the controls
 // from overflowing — the scrubber takes the whole first wrap row.
 @media (max-width: 640px) {

@@ -306,11 +306,15 @@ export const CloudRecordingControls = () => {
     //    instant recording ends — the owner-side uploads below can be slow.
     collabAPI.releaseRecordingLock();
 
-    // 2) Stop the owner-side recorders, collect non-null blobs.
+    // 2) Stop the owner-side recorders, collect non-null blobs. Each recorder's
+    //    startedAtMs (the absolute instant ITS capture began) is read BEFORE
+    //    close() — which resets it — and threaded to started_at_ms so the replay
+    //    can align this track on the shared timeline (#28).
     const uploads: Array<{
       blob: Blob;
       kind: "screen-video" | "screen-audio";
       durationSec: number;
+      startedAtMs: number | null;
     }> = [];
     const baseStart = startedAtRef.current;
     const durationSec =
@@ -319,12 +323,14 @@ export const CloudRecordingControls = () => {
         : undefined;
     if (sv) {
       try {
+        const startedAtMs = sv.startedAtMs();
         const blob = await sv.stop();
         if (blob) {
           uploads.push({
             blob,
             kind: "screen-video",
             durationSec: durationSec ?? 0,
+            startedAtMs,
           });
         }
       } catch {
@@ -335,12 +341,14 @@ export const CloudRecordingControls = () => {
     }
     if (sa) {
       try {
+        const startedAtMs = sa.startedAtMs();
         const blob = await sa.stop();
         if (blob) {
           uploads.push({
             blob,
             kind: "screen-audio",
             durationSec: durationSec ?? 0,
+            startedAtMs,
           });
         }
       } catch {
@@ -364,6 +372,7 @@ export const CloudRecordingControls = () => {
         kind: u.kind,
         durationSec: u.durationSec,
         ...(sessionId ? { sessionId } : {}),
+        ...(u.startedAtMs != null ? { startedAtMs: u.startedAtMs } : {}),
       });
       if (!ok) {
         anyFailed = true;

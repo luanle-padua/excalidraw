@@ -1513,6 +1513,16 @@ export const vi = {
     spanLabel: "Khoảng:",
     showCanvas: "Hiện canvas",
     hideCanvas: "Ẩn canvas",
+    // P2 — dải "ai nói lúc nào"
+    lanes: {
+      summary: "Ai nói lúc nào · {count} người",
+      expand: "Mở dải người nói",
+      collapse: "Thu dải người nói",
+      conversation: "Hội thoại",
+      conversationView: "Xem dạng hội thoại",
+      perSpeaker: "Xem theo từng người",
+      others: "Người khác ({count})",
+    },
   },
 
   // ---------------- Speech-to-text panel ---------------------------

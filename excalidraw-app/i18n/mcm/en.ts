@@ -1437,6 +1437,16 @@ export const en: Widened<typeof vi> = {
     spanLabel: "Span:",
     showCanvas: "Show canvas",
     hideCanvas: "Hide canvas",
+    // P2 — "who spoke when" lane strip
+    lanes: {
+      summary: "Who spoke when · {count} people",
+      expand: "Show speaker lanes",
+      collapse: "Hide speaker lanes",
+      conversation: "Conversation",
+      conversationView: "Conversation view",
+      perSpeaker: "Per-speaker lanes",
+      others: "Others ({count})",
+    },
   },
 
   stt: {

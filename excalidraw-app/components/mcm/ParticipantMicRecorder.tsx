@@ -85,10 +85,16 @@ export const ParticipantMicRecorder = () => {
     const durationSec = Math.round(
       Math.max(0, Date.now() - run.startedAt) / 1000,
     );
+    // The absolute instant THIS mic's capture actually began (e.g. a late unmute
+    // starts a later track). Survives stop(); threaded to started_at_ms so the
+    // replay can place this track on the shared timeline (#28). null → legacy
+    // fallback to the session start, server-side.
+    const startedAtMs = run.recorder.startedAtMs();
     await uploadRecording(run.roomId, blob, {
       kind: "mic",
       durationSec,
       ...(run.sessionId ? { sessionId: run.sessionId } : {}),
+      ...(startedAtMs != null ? { startedAtMs } : {}),
     });
   };
 

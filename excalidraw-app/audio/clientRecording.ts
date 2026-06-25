@@ -178,6 +178,10 @@ class StreamRecorder {
   private recorder: MediaRecorder | null = null;
   private chunks: BlobPart[] = [];
   private startedAt = 0;
+  // Absolute wall-clock instant (Date.now(), epoch ms) at which this recorder's
+  // MediaRecorder.start() ACTUALLY fired — the true bytes-begin moment, used to
+  // place the track on the unified-replay timeline (#28). null until start().
+  private startedAtMs: number | null = null;
   private readonly mimeType: string | undefined;
   private readonly audioBps: number;
 
@@ -192,6 +196,11 @@ class StreamRecorder {
 
   elapsedMs(): number {
     return this.startedAt ? performance.now() - this.startedAt : 0;
+  }
+
+  /** Epoch-ms wall-clock instant capture actually began, or null before start(). */
+  startedAtMsValue(): number | null {
+    return this.startedAtMs;
   }
 
   /** Begin recording the given stream. Throws if MediaRecorder init fails. */
@@ -221,6 +230,9 @@ class StreamRecorder {
       console.error("[recorder] error", (e as any)?.error ?? e);
     };
     // chunk every second so a long recording doesn't pin one monolithic blob.
+    // Stamp the absolute capture-start instant at the exact line start() fires —
+    // this is the true bytes-begin moment for the replay timeline (#28).
+    this.startedAtMs = Date.now();
     this.recorder.start(1000);
   }
 
@@ -279,6 +291,7 @@ class StreamRecorder {
     this.recorder = null;
     this.chunks = [];
     this.startedAt = 0;
+    this.startedAtMs = null;
   }
 }
 
@@ -316,6 +329,13 @@ export class MicRecorder {
 
   elapsedMs(): number {
     return this.inner.elapsedMs();
+  }
+
+  /** Epoch-ms wall-clock instant this mic's capture actually began (the moment
+   *  MediaRecorder.start() fired), or null before start(). Used to align the
+   *  per-speaker track on the unified-replay timeline (#28). */
+  startedAtMs(): number | null {
+    return this.inner.startedAtMsValue();
   }
 
   /** Start recording the participant's local mic. Pass the SAME device mic
@@ -374,6 +394,13 @@ export class ScreenAudioRecorder {
 
   elapsedMs(): number {
     return this.inner.elapsedMs();
+  }
+
+  /** Epoch-ms wall-clock instant this screen-audio capture actually began (the
+   *  moment MediaRecorder.start() fired), or null before start(). Aligns the
+   *  track on the unified-replay timeline (#28). */
+  startedAtMs(): number | null {
+    return this.inner.startedAtMsValue();
   }
 
   /** Start recording the shared window's audio. Throws if the stream has no
@@ -439,6 +466,10 @@ export class ScreenVideoRecorder {
   private recorder: MediaRecorder | null = null;
   private chunks: BlobPart[] = [];
   private startedAt = 0;
+  // Absolute wall-clock instant (Date.now(), epoch ms) at which this recorder's
+  // MediaRecorder.start() ACTUALLY fired — used to place the screen-video track
+  // on the unified-replay timeline (#28). null until start().
+  private startedAtMsValue: number | null = null;
   private mimeType: string | undefined;
 
   // ---- canvas compositor -------------------------------------------------
@@ -467,6 +498,13 @@ export class ScreenVideoRecorder {
 
   hasScreen(): boolean {
     return this.hasActiveScreen;
+  }
+
+  /** Epoch-ms wall-clock instant this screen-video capture actually began (the
+   *  moment MediaRecorder.start() fired), or null before start(). Aligns the
+   *  track on the unified-replay timeline (#28). */
+  startedAtMs(): number | null {
+    return this.startedAtMsValue;
   }
 
   /**
@@ -595,6 +633,9 @@ export class ScreenVideoRecorder {
     this.recorder.onerror = (e) => {
       console.error("[screen-video-recorder] error", (e as any)?.error ?? e);
     };
+    // Stamp the absolute capture-start instant at the exact line start() fires —
+    // the true bytes-begin moment for the replay timeline (#28).
+    this.startedAtMsValue = Date.now();
     this.recorder.start(1000);
   }
 
@@ -651,6 +692,7 @@ export class ScreenVideoRecorder {
     this.recorder = null;
     this.chunks = [];
     this.startedAt = 0;
+    this.startedAtMsValue = null;
     if (this.screenAudioSource) {
       try {
         this.screenAudioSource.disconnect();

@@ -8748,6 +8748,15 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
   const duration = durationParam
     ? Math.max(0, parseInt(durationParam, 10)) || null
     : null;
+  // Absolute wall-clock instant (epoch ms) this track's capture actually began,
+  // stamped client-side at MediaRecorder.start() (#28). Optional — legacy/unknown
+  // tracks omit it and the column stays NULL (the replay falls back to the
+  // session start). Stored opaquely; only a positive integer is accepted.
+  const startedAtMsParam = c.req.query("startedAtMs");
+  const startedAtMs =
+    startedAtMsParam && Number.isFinite(Number(startedAtMsParam))
+      ? Math.max(0, Math.round(Number(startedAtMsParam))) || null
+      : null;
 
   const recordingId = crypto.randomUUID();
   const key = recordingWebmKey(meetingId, recordingId);
@@ -8791,8 +8800,8 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
     `INSERT INTO recording
        (id, meeting_id, project_id, r2_key, duration, bytes, status,
         started_by, created_at, ready_at, kind, speaker_id, speaker_name,
-        session_id)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'ready', ?7, ?8, ?8, ?9, ?10, ?11, ?12)`,
+        session_id, started_at_ms)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'ready', ?7, ?8, ?8, ?9, ?10, ?11, ?12, ?13)`,
   )
     .bind(
       recordingId,
@@ -8807,6 +8816,7 @@ app.put("/v1/recordings/:roomId/upload", async (c) => {
       speakerId,
       speakerName,
       sessionId,
+      startedAtMs,
     )
     .run();
 
@@ -9075,7 +9085,8 @@ app.get("/v1/recordings/:roomId", async (c) => {
   }
   const { results } = await c.env.DB.prepare(
     `SELECT id, meeting_id, project_id, duration, bytes, status, started_by,
-            created_at, ready_at, kind, speaker_id, speaker_name, session_id
+            created_at, ready_at, kind, speaker_id, speaker_name, session_id,
+            started_at_ms
        FROM recording
       WHERE meeting_id = ?1 AND status <> 'deleted'
       ORDER BY created_at DESC`,

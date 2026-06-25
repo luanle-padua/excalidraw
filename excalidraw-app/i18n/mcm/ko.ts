@@ -1445,6 +1445,16 @@ export const ko: Widened<typeof vi> = {
     spanLabel: "구간:",
     showCanvas: "캔버스 보기",
     hideCanvas: "캔버스 숨기기",
+    // P2 — "누가 언제 말했는지" 레인
+    lanes: {
+      summary: "누가 언제 말했나 · {count}명",
+      expand: "발화자 레인 펼치기",
+      collapse: "발화자 레인 접기",
+      conversation: "대화",
+      conversationView: "대화 보기",
+      perSpeaker: "발화자별 레인",
+      others: "기타 ({count})",
+    },
   },
 
   stt: {

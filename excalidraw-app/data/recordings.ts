@@ -41,6 +41,10 @@ export type Recording = {
   speaker_id: string | null;
   speaker_name: string | null;
   session_id: string | null;
+  // Absolute wall-clock instant (epoch ms) this track's capture actually began,
+  // stamped client-side at MediaRecorder.start() (migration 0038, unified replay
+  // #28). NULL on legacy rows → the replay falls back to the session start.
+  started_at_ms: number | null;
 };
 
 /** Host: start a Daily cloud recording for this meeting's recordable room.
@@ -96,6 +100,12 @@ export const stopRecording = async (roomId: string): Promise<boolean> => {
  *  `durationSec` is the client-measured length (MediaRecorder gives no reliable
  *  duration); it is passed as a query param so the row + UI can show it.
  *
+ *  `startedAtMs` is the absolute wall-clock instant (epoch ms) this track's
+ *  capture actually began (stamped at MediaRecorder.start()); it is threaded
+ *  through to the `started_at_ms` column so the unified replay can place the
+ *  track on the same timeline as the canvas/transcript (#28). Optional — omit
+ *  for legacy/unknown-start tracks (the row's column stays NULL).
+ *
  *  Backward-compatible: a caller that omits `kind` records `mixed` (the legacy
  *  single-file shape). */
 export const uploadRecording = async (
@@ -105,6 +115,7 @@ export const uploadRecording = async (
     durationSec?: number;
     kind?: RecordingKind;
     sessionId?: string;
+    startedAtMs?: number;
   } = {},
 ): Promise<boolean> => {
   if (!IS_PROJECTS_CONFIGURED || !roomId || blob.size === 0) {
@@ -124,6 +135,9 @@ export const uploadRecording = async (
     params.set("kind", kind);
     if (opts.sessionId) {
       params.set("sessionId", opts.sessionId);
+    }
+    if (opts.startedAtMs != null && Number.isFinite(opts.startedAtMs)) {
+      params.set("startedAtMs", String(Math.round(opts.startedAtMs)));
     }
     const qs = params.toString();
     const res = await fetchWithAuth(
