@@ -436,17 +436,13 @@ body:has(.excalidraw.theme--dark) .mcm-log-modal-backdrop {
   @include mcm-lobby-tokens-light;
   --mcm-surface-3: var(--mcm-surface-2);
   --mcm-font-ui: #{$mcm-font-ui-stack};
-  // Frosted-glass menubar (like the dashboard chrome): a translucent surface +
-  // backdrop blur + a faint inner top highlight, instead of a flat fill.
-  background: var(--mcm-glass-bg-tr);
-  // #{}-escape bare saturate() — dart-sass intercepts it as its own color fn.
-  -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 22px))
-    #{"saturate(var(--mcm-glass-sat, 1.5))"}
-    brightness(var(--mcm-glass-bright, 1.05));
-  backdrop-filter: blur(var(--mcm-glass-blur, 22px))
-    #{"saturate(var(--mcm-glass-sat, 1.5))"}
-    brightness(var(--mcm-glass-bright, 1.05));
-  box-shadow: var(--mcm-highlight, inset 0 1px 0 rgba(255, 255, 255, 0.6));
+  // NO backdrop-filter here: a blurred header creates a STACKING CONTEXT that
+  // trapped its own dropdown menus (Layout) under the canvas — the "bấm Layout
+  // không thấy gì" bug. Keep an opaque surface + the inner top highlight for a
+  // refined look; the frosted-glass treatment lives on the menu-free floating
+  // panes (screen-share self-view, etc.) where there's nothing to trap.
+  background: var(--mcm-surface);
+  box-shadow: var(--mcm-highlight, inset 0 1px 0 rgba(255, 255, 255, 0.5));
 }
 body:has(.excalidraw.theme--dark) .mcm-header {
   @include mcm-lobby-tokens-dark;
@@ -475,10 +471,14 @@ body:has(.excalidraw.theme--dark) .mcm-settings {
 .mcm-shell .excalidraw {
   @include mcm-lobby-tokens-light;
   --mcm-surface-3: var(--mcm-surface-2);
-  // Glass toolbar / islands (owner: "menubar glass như dashboard") — translucent
-  // island + popup surfaces; the blur lives on the .Island rule below.
-  --island-bg-color: var(--mcm-glass-bg-tr);
-  --popup-bg-color: var(--mcm-glass-bg-tr);
+  // Chrome surfaces stay OPAQUE/readable. A translucent island/popup buried the
+  // toolbar against the canvas ("toolbar chìm") and made menus + reaction
+  // popovers see-through to the content below; a blurred .Island also created
+  // stacking contexts that buried the Layout dropdown. So the toolbar/islands
+  // are a clean opaque surface — glass lives only on the menu-free floating
+  // panes, where it can't trap a dropdown.
+  --island-bg-color: var(--mcm-surface);
+  --popup-bg-color: var(--mcm-surface);
   --text-primary-color: var(--mcm-text);
   --color-on-surface: var(--mcm-text);
   --color-primary: var(--mcm-accent);
@@ -489,14 +489,6 @@ body:has(.excalidraw.theme--dark) .mcm-settings {
 body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
   @include mcm-lobby-tokens-dark;
   --mcm-surface-3: var(--mcm-surface-2);
-}
-// Frost the Excalidraw floating islands (toolbar, panels, popups) so the
-// translucent --island/--popup surfaces above read as glass over the canvas.
-.mcm-shell .excalidraw .Island {
-  -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 22px))
-    #{"saturate(var(--mcm-glass-sat, 1.5))"};
-  backdrop-filter: blur(var(--mcm-glass-blur, 22px))
-    #{"saturate(var(--mcm-glass-sat, 1.5))"};
 }
 
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
@@ -591,12 +583,17 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
 .mcm-header {
   flex-shrink: 0;
   min-height: 56px;
-  padding: 0 14px;
+  padding: 6px 14px;
   background: var(--mcm-surface);
   border-bottom: 1px solid var(--mcm-hairline);
   display: flex;
   align-items: center;
+  // Wrap to a SECOND row when the browser is narrow / on tablet — the owner
+  // prefers two rows over horizontal scrolling, since there are many header
+  // tools. The rail (below) also wraps so buttons never collide/clip.
+  flex-wrap: wrap;
   gap: 8px;
+  row-gap: 6px;
   z-index: 10;
 
   // LEFT identity cluster: logo · divider · title · timer · people.
@@ -725,18 +722,14 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
   &__actions {
     display: flex;
     align-items: center;
+    // WRAP to a second row when narrow (owner pref over horizontal scroll). The
+    // children stay rigid so they wrap whole instead of squishing/colliding.
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 4px;
-    // The rail must SHRINK + scroll at ANY width (not just ≤820px) so the live
-    // controls never overflow off-screen or collide on a narrow browser /
-    // tablet. Its children stay rigid (below) and the rail scrolls instead of
-    // squishing them into each other.
+    row-gap: 4px;
     flex-shrink: 1;
     min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-    &::-webkit-scrollbar {
-      display: none;
-    }
 
     > * {
       flex-shrink: 0;
