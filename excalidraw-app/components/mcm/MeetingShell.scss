@@ -296,20 +296,30 @@
 // =========================================================================
 
 .mcm-shell {
-  // ----- LIGHT MODE TOKENS (default) ---------------------------------
-  @include mcm-tokens-light;
+  // ----- DASHBOARD (Glass Desk) PALETTE — the WHOLE meeting surface ------
+  // 06-25: the entire meeting (header, EVERY floating pane + dock, banners,
+  // people bar, call controls, transcript, screen-share) now speaks the SAME
+  // palette as the dashboard — soft CREAM in light, Olive-Royal in dark —
+  // instead of the old neutral shell set. That's what makes the panels cohesive
+  // with each other AND with the dashboard ("đồng bộ theo thiết kế chung").
+  // Alias --mcm-surface-3 (the one base token the lobby LIGHT set omits) so
+  // nothing referencing it goes undefined in light.
+  @include mcm-lobby-tokens-light;
+  --mcm-surface-3: var(--mcm-surface-2);
+  --mcm-font-ui: #{$mcm-font-ui-stack};
   // Width Excalidraw reserves for its docked right sidebar. We pin the
   // people bar to stop exactly at the sidebar's left edge — no visible
   // dark strip in between. Falls back to 302px (Excalidraw's default
   // --right-sidebar-width) when that variable isn't defined yet.
   --mcm-sidebar-gutter: var(--right-sidebar-width, 302px);
 
-  // ----- DARK MODE TOKENS ---------------------------------------------
+  // ----- DARK MODE (Olive-Royal) --------------------------------------
   // Triggered when Excalidraw is in dark theme (it stamps the
   // `.theme--dark` class on its root element). `:has()` lets us
   // detect a descendant from the parent without JS.
   &:has(.excalidraw.theme--dark) {
-    @include mcm-tokens-dark;
+    @include mcm-lobby-tokens-dark;
+    --mcm-surface-3: var(--mcm-surface-2);
   }
 
   display: flex;
