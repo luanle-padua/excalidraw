@@ -685,8 +685,27 @@ export const CanvasReplayPlayer = ({
   // The bar is bottom-docked at every state: loading / empty / error show a
   // compact status row with a close button so the reviewer is never trapped
   // (there is no surrounding modal × to fall back on).
+  //
+  // PORTAL TO <body> (06-25 fix): the `.mcm-replay-dock` mount point lives INSIDE
+  // <header.mcm-header>, and the dock is `position: fixed` (bottom-anchored). A
+  // fixed element only anchors to the VIEWPORT when no ancestor is a containing
+  // block — but the Glass Desk header is a glass-family surface that can carry
+  // `backdrop-filter`/`transform`, EITHER of which makes the header the containing
+  // block for the fixed dock. `bottom: 18px` then resolves against the HEADER's
+  // box, slamming the bar UP over the header (the reported overlap). We escape the
+  // header by rendering the whole dock under <body> — exactly what ScreenReplayPane
+  // already does (same root cause). The `.mcm-replay-dock` div in MeetingHeader is
+  // now just an (empty) React host; the visible, viewport-anchored bar lives here.
+  const dockBar = (children: React.ReactNode) =>
+    createPortal(
+      <div className="mcm-replay-dock" role="region" aria-label={t("header.replay")}>
+        {children}
+      </div>,
+      document.body,
+    );
+
   if (state !== "ready") {
-    return (
+    return dockBar(
       <div className="mcm-replay mcm-replay--status-only">
         <div className="mcm-replay__status">
           {state === "loading" && (
@@ -706,11 +725,11 @@ export const CanvasReplayPlayer = ({
         >
           ×
         </button>
-      </div>
+      </div>,
     );
   }
 
-  return (
+  return dockBar(
     <div className="mcm-replay">
       {/* Screen layer: a small draggable floating <video> over the canvas. The
           Screen toggle gates its blob (fetch/revoke in the hook); the pane only
@@ -760,7 +779,7 @@ export const CanvasReplayPlayer = ({
         soloId={soloId}
         legacyMedia={media.hasLegacy}
       />
-    </div>
+    </div>,
   );
 };
 

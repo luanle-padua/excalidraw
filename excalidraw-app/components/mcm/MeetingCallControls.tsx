@@ -11,8 +11,9 @@
 // Call lifecycle still drives what shows:
 //   • idle       → "Call" icon button (NO mic prompt — joins listener-only)
 //   • connecting → spinner icon (disabled)
-//   • live       → an ACTIVE "Call" toggle (click = leave the call, stay on the
-//                  canvas) + mic / camera / raise-hand / reactions / recording
+//   • live       → an ACTIVE "Leave call" toggle (PhoneOff glyph; click = leave
+//                  the call, stay on the canvas) + mic / camera / raise-hand /
+//                  reactions / recording
 //   • error      → a single error icon button (tooltip carries the message);
 //                  click = retry
 //
@@ -25,6 +26,7 @@ import {
   Mic,
   MicOff,
   Phone,
+  PhoneOff,
   Smile,
   Video,
   VideoOff,
@@ -256,8 +258,11 @@ export const MeetingCallControls = () => {
         {/* CALL toggle (active) — the leftmost media control in BOTH idle and
             live states, so its position never shifts. Active highlight signals
             "you're in the call"; clicking it leaves ONLY the audio/video call
-            (drops Daily) and stays on the canvas / in the meeting. Distinct from
-            the header's "Leave meeting" (LogOut) and "End for all" (Power). */}
+            (drops Daily) and stays on the canvas / in the meeting. The glyph is
+            PhoneOff (hung-up handset) — distinct from the idle Phone (join) so
+            the two call-lifecycle states never read as the same button — and
+            distinct from the header's "Leave meeting" (LogOut) and "End for all"
+            (Power). */}
         <button
           type="button"
           className="mcm-header__icon-btn mcm-header__icon-btn--labeled mcm-tip mcm-header__icon-btn--active"
@@ -266,9 +271,9 @@ export const MeetingCallControls = () => {
           aria-pressed={true}
           data-mcm-tip={t("callControls.leaveCall")}
         >
-          <Phone size={ICON_SIZE} />
+          <PhoneOff size={ICON_SIZE} />
           <span className="mcm-header__icon-label">
-            {t("callControls.call")}
+            {t("callControls.leaveCall")}
           </span>
         </button>
 
@@ -441,11 +446,12 @@ export const MeetingCallControls = () => {
     );
   }
 
-  // IDLE — the "Call" entry point (same Phone glyph + label as the live toggle,
-  // sans the active highlight). Joining no longer prompts for the mic
-  // (listener-only; the mic is acquired on the first unmute), so the phone reads
-  // "join the call" without promising the mic turns on. Same leftmost slot as
-  // the live toggle so it never jumps when the call state flips.
+  // IDLE — the "Call" entry point (Phone glyph, sans the active highlight). The
+  // live toggle uses PhoneOff so join vs leave-call never read as the same
+  // button. Joining no longer prompts for the mic (listener-only; the mic is
+  // acquired on the first unmute), so the phone reads "join the call" without
+  // promising the mic turns on. Same leftmost slot as the live toggle so it
+  // never jumps when the call state flips.
   return (
     <button
       type="button"

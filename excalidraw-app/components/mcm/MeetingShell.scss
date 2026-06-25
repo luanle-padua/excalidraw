@@ -798,6 +798,10 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
     // joined the button swaps to the --active leave state and the pulse stops.
     &--call-cta {
       color: var(--mcm-accent);
+      // Static accent tint; the pulse animates ONLY the ring (box-shadow). The
+      // fill used to animate to transparent each loop → a flicker ("hiệu ứng
+      // nút call bị lỗi"). Keep the fill constant.
+      background: var(--mcm-accent-soft);
       animation: mcm-call-cta-pulse 2.2s var(--mcm-ease, ease) infinite;
 
       &:hover {
@@ -992,15 +996,12 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
 // moving the button (box-shadow only, so layout never shifts).
 @keyframes mcm-call-cta-pulse {
   0% {
-    background: var(--mcm-accent-soft);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-accent) 50%, transparent);
   }
   70% {
-    background: var(--mcm-accent-soft);
     box-shadow: 0 0 0 7px color-mix(in srgb, var(--mcm-accent) 0%, transparent);
   }
   100% {
-    background: transparent;
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--mcm-accent) 0%, transparent);
   }
 }

@@ -604,7 +604,9 @@ export const en: Widened<typeof vi> = {
     createScheduled: "Create & invite",
     createNow: "Create & join",
     reopen: "Reopen",
-    joinCall: "Join call",
+    // Meeting-card primary action for a LIVE meeting. "Join meeting" (not "Join
+    // call"): the card enters the whole meeting room, not merely the audio call.
+    joinCall: "Join meeting",
     openRoom: "Open room",
     reviewMeeting: "Review",
     meetingFallbackTitle: "Untitled meeting",
