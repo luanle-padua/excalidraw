@@ -116,6 +116,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     },
     tools: {
       image: props.UIOptions?.tools?.image ?? true,
+      // MCM: Web Embed tool is opt-out (defaults to enabled upstream).
+      embeddable: props.UIOptions?.tools?.embeddable ?? true,
     },
   };
 

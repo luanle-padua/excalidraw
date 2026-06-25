@@ -75,15 +75,18 @@
 // overlay roots, which sit under <body> and need their own stamp). The
 // in-meeting canvas keeps the original tokens untouched.
 @mixin mcm-lobby-tokens-light {
-  // Palette overrides (base tokens, new values)
-  --mcm-bg: #eef0f5;
+  // Palette overrides (base tokens, new values). 06-25: warmed the light theme
+  // to a soft CREAM (was a cool near-white that read "trắng quá / chói") — a
+  // gentle ivory desk + warm off-white surfaces, "sang nhẹ nhàng". Subtle so it
+  // stays elegant, not muddy.
+  --mcm-bg: #f3efe6; // warm cream desk (was cool #eef0f5)
   --mcm-text: #1d1d1f;
   --mcm-text-soft: #6e6e73; // SOLID — readable secondary text
   --mcm-text-faint: rgba(29, 29, 31, 0.48); // placeholder/decor only
-  --mcm-surface: #ffffff;
-  --mcm-surface-2: #f2f3f7;
-  --mcm-hairline: rgba(20, 20, 24, 0.1);
-  --mcm-hairline-2: rgba(20, 20, 24, 0.05);
+  --mcm-surface: #fdfcf8; // warm off-white (was pure #ffffff — the glare)
+  --mcm-surface-2: #f5f1e9; // warm sunken
+  --mcm-hairline: rgba(40, 34, 22, 0.12);
+  --mcm-hairline-2: rgba(40, 34, 22, 0.06);
   --mcm-elev: var(--mcm-shadow-3);
   --mcm-accent: #5e5ad8;
   --mcm-accent-soft: rgba(94, 90, 216, 0.12);
@@ -97,15 +100,15 @@
   --mcm-warning: #b45309;
   --mcm-warning-soft: rgba(180, 83, 9, 0.1);
   // Surfaces / material
-  --mcm-surface-0: #e9ebf1; // sunken: segmented track, drop zone
-  --mcm-glass-bg: #f7f8fb; // opaque fallback
+  --mcm-surface-0: #ece6d9; // sunken: segmented track, drop zone (warm cream)
+  --mcm-glass-bg: #faf7f0; // opaque fallback (warm)
   // Only under @supports backdrop-filter. 06-12 frosted-mirror rev (PM đảo
   // hướng: "hình nền … cho rõ lên đi, các nền của các thành phần glass cho
   // nó kiểu gương mờ, frost á"): wallpaper is SHARP now — the frost lives
   // here instead. Alpha .52 + blur 22px + sat 1.5 + brightness 1.05: nền
   // xuyên rõ ràng nhưng nhòe mịn như gương mờ; the heavy blur is what keeps
   // glass text AA over arbitrary imagery (old ≥70% floor retired).
-  --mcm-glass-bg-tr: rgba(250, 250, 253, 0.52);
+  --mcm-glass-bg-tr: rgba(252, 250, 244, 0.55); // warm frosted glass
   --mcm-glass-blur: 22px;
   --mcm-glass-sat: 1.5;
   --mcm-glass-bright: 1.05;
@@ -433,8 +436,32 @@ body:has(.excalidraw.theme--dark) .mcm-log-modal-backdrop {
   @include mcm-lobby-tokens-light;
   --mcm-surface-3: var(--mcm-surface-2);
   --mcm-font-ui: #{$mcm-font-ui-stack};
+  // Frosted-glass menubar (like the dashboard chrome): a translucent surface +
+  // backdrop blur + a faint inner top highlight, instead of a flat fill.
+  background: var(--mcm-glass-bg-tr);
+  // #{}-escape bare saturate() — dart-sass intercepts it as its own color fn.
+  -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+    #{"saturate(var(--mcm-glass-sat, 1.5))"}
+    brightness(var(--mcm-glass-bright, 1.05));
+  backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+    #{"saturate(var(--mcm-glass-sat, 1.5))"}
+    brightness(var(--mcm-glass-bright, 1.05));
+  box-shadow: var(--mcm-highlight, inset 0 1px 0 rgba(255, 255, 255, 0.6));
 }
 body:has(.excalidraw.theme--dark) .mcm-header {
+  @include mcm-lobby-tokens-dark;
+  --mcm-surface-3: var(--mcm-surface-2);
+}
+
+// Account Settings modal (UserSettings.tsx, .mcm-settings) — stamp Glass Desk
+// so it matches the dashboard (its SCSS already consumes --mcm-* but inherited
+// the neutral shell tokens). Same pattern as .mcm-folder / .mcm-admin.
+.mcm-settings {
+  @include mcm-lobby-tokens-light;
+  --mcm-surface-3: var(--mcm-surface-2);
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+}
+body:has(.excalidraw.theme--dark) .mcm-settings {
   @include mcm-lobby-tokens-dark;
   --mcm-surface-3: var(--mcm-surface-2);
 }
@@ -448,8 +475,10 @@ body:has(.excalidraw.theme--dark) .mcm-header {
 .mcm-shell .excalidraw {
   @include mcm-lobby-tokens-light;
   --mcm-surface-3: var(--mcm-surface-2);
-  --island-bg-color: var(--mcm-surface);
-  --popup-bg-color: var(--mcm-surface);
+  // Glass toolbar / islands (owner: "menubar glass như dashboard") — translucent
+  // island + popup surfaces; the blur lives on the .Island rule below.
+  --island-bg-color: var(--mcm-glass-bg-tr);
+  --popup-bg-color: var(--mcm-glass-bg-tr);
   --text-primary-color: var(--mcm-text);
   --color-on-surface: var(--mcm-text);
   --color-primary: var(--mcm-accent);
@@ -460,6 +489,14 @@ body:has(.excalidraw.theme--dark) .mcm-header {
 body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
   @include mcm-lobby-tokens-dark;
   --mcm-surface-3: var(--mcm-surface-2);
+}
+// Frost the Excalidraw floating islands (toolbar, panels, popups) so the
+// translucent --island/--popup surfaces above read as glass over the canvas.
+.mcm-shell .excalidraw .Island {
+  -webkit-backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+    #{"saturate(var(--mcm-glass-sat, 1.5))"};
+  backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+    #{"saturate(var(--mcm-glass-sat, 1.5))"};
 }
 
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
@@ -568,7 +605,9 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
     align-items: center;
     gap: 10px;
     min-width: 0;
-    flex-shrink: 1;
+    // Yield (collapse brand/title) BEFORE the action rail so the live controls
+    // win the space race on tight widths.
+    flex-shrink: 5;
   }
 
   // Real Canvas M wordmark — same asset + dark-mode invert recipe as the lobby
@@ -687,7 +726,21 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-shrink: 0;
+    // The rail must SHRINK + scroll at ANY width (not just ≤820px) so the live
+    // controls never overflow off-screen or collide on a narrow browser /
+    // tablet. Its children stay rigid (below) and the rail scrolls instead of
+    // squishing them into each other.
+    flex-shrink: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex-shrink: 0;
+    }
   }
 
   // One logical cluster of related controls (tight intra-group rhythm).

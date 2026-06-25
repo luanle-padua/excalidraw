@@ -763,7 +763,16 @@ export type UIOptions = Partial<{
   dockedSidebarBreakpoint: number;
   canvasActions: CanvasActions;
   tools: {
-    image: boolean;
+    // Optional: the editor normalizes a missing `image`/`embeddable` to `true`
+    // (see index.tsx), so host apps can supply either flag on its own.
+    image?: boolean;
+    /**
+     * MCM: when `false`, hides the Web Embed (embeddable) tool from the
+     * "More tools" dropdown (desktop + mobile). Defaults to `true`.
+     * The embeddable tool loads arbitrary external web pages into the canvas,
+     * which is a security / fit concern for an internal meeting tool.
+     */
+    embeddable?: boolean;
   };
   /**
    * Optionally control the editor form factor and desktop UI mode from the host app.

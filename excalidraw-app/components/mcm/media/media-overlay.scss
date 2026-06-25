@@ -1,0 +1,131 @@
+// MEDIA (video / audio) canvas overlay styles. Sibling of the
+// `.mcm-pdf-layer*` / `.mcm-ifc-layer*` rules: an absolutely-positioned
+// layer pinned over the canvas-area whose anchors follow pan/zoom (their
+// left/top/width/height are recomputed from element bounds + appState by
+// MediaCanvasOverlay). The LAYER is pointer-events:none so canvas
+// selection / drawing pass straight through to the Excalidraw image
+// element underneath; only the PLAYER opts back into pointer events so
+// its native controls work. Imported by MediaCanvasOverlay.tsx.
+//
+// The video WELL stays #000 for accurate playback; the surrounding
+// frame uses Glass Desk --mcm-* tokens (surface / hairline / radius) so
+// it reads as part of the same panel family as the other overlays.
+
+.mcm-media-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 2;
+
+  // One positioned wrapper per anchor. Excalidraw owns selection / drag
+  // of the underlying image element, so the wrapper itself stays
+  // pointer-events:none — only the inner player re-enables them.
+  &__anchor {
+    position: absolute;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  // Glass Desk frame around the media. A faint hairline + soft shadow so
+  // it matches the PDF / IFC panels; the inner well is what actually
+  // shows the media.
+  &__frame {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: var(--mcm-radius-md, 12px);
+    background: var(--mcm-surface, #fff);
+    box-shadow: var(--mcm-shadow-3, 0 8px 28px rgba(0, 0, 0, 0.18));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  // VIDEO well — black for accurate playback regardless of theme. The
+  // <video> element fills it (object-fit: contain so letterboxing is
+  // black, never a stretched frame). pointer-events:auto so the native
+  // controls (play / scrub / volume / fullscreen) are usable.
+  &__video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    object-fit: contain;
+    pointer-events: auto;
+  }
+
+  // AUDIO bar — a compact Glass Desk strip with the native <audio>
+  // controls. No black well (there's no picture); the controls sit on
+  // the panel surface, centred vertically.
+  &__audio-wrap {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 0 10px;
+    box-sizing: border-box;
+    background: var(--mcm-surface-2, #f5f6f8);
+    pointer-events: auto;
+  }
+
+  &__audio {
+    width: 100%;
+    pointer-events: auto;
+  }
+
+  // Floating type/name label above the frame — mirrors the PDF/IFC label
+  // chip so a placed media anchor reads as "video: clip.mp4" at a glance.
+  &__label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: translateY(-100%);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: var(--mcm-radius-sm, 8px) var(--mcm-radius-sm, 8px) 0 0;
+    background: var(--mcm-surface, #fff);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-bottom: none;
+    color: var(--mcm-text-soft, #4b5563);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+
+  &__label-type {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--mcm-text-faint, #9ca3af);
+  }
+
+  &__label-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Waiting state — the anchor arrived (peer broadcast) before the media
+  // bytes hydrated from R2. Mirrors the PDF/IFC "waiting" placeholder.
+  &__waiting {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    text-align: center;
+    color: var(--mcm-text-faint, #9ca3af);
+    font-size: 12px;
+    background: var(--mcm-surface-2, #f5f6f8);
+  }
+}

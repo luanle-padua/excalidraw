@@ -105,6 +105,65 @@ export const isIfcFile = (input: {
   return name.toLowerCase().endsWith(".ifc");
 };
 
+/** Filename extensions we accept as VIDEO when the browser hands back an
+ *  empty / generic mime (some shells & network shares set
+ *  `application/octet-stream` for .mov / .mkv). The mime check is the
+ *  primary signal; this is the fallback. */
+const VIDEO_EXTENSIONS = [
+  ".mp4",
+  ".webm",
+  ".mov",
+  ".m4v",
+  ".ogv",
+  ".mkv",
+  ".avi",
+];
+
+/** Filename extensions we accept as AUDIO when the mime is empty/generic. */
+const AUDIO_EXTENSIONS = [
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".ogg",
+  ".oga",
+  ".aac",
+  ".flac",
+  ".opus",
+  ".weba",
+];
+
+/** Quick predicate for VIDEO uploads — analogous to isPdfFile. The mime
+ *  check (`video/...`) covers most browser-set types; the extension
+ *  fallback catches untyped uploads (drag from a shell / share that sets
+ *  `application/octet-stream`). */
+export const isVideoFile = (input: {
+  name?: string;
+  type?: string;
+  mimeType?: string;
+}): boolean => {
+  const mime = input.type ?? input.mimeType ?? "";
+  if (mime.startsWith("video/")) {
+    return true;
+  }
+  const name = (input.name ?? "").toLowerCase();
+  return VIDEO_EXTENSIONS.some((ext) => name.endsWith(ext));
+};
+
+/** Quick predicate for AUDIO uploads — mime `audio/...` first, extension
+ *  fallback for untyped uploads. */
+export const isAudioFile = (input: {
+  name?: string;
+  type?: string;
+  mimeType?: string;
+}): boolean => {
+  const mime = input.type ?? input.mimeType ?? "";
+  if (mime.startsWith("audio/")) {
+    return true;
+  }
+  const name = (input.name ?? "").toLowerCase();
+  return AUDIO_EXTENSIONS.some((ext) => name.endsWith(ext));
+};
+
 /** A library entry that has been baked into an IFC model — it carries
  *  the GLB in `dataURL` and the extracted metadata in `ifcMeta`. */
 export const isIfcModelFile = (file: MeetingFile): boolean => !!file.ifcMeta;

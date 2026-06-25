@@ -9,6 +9,24 @@
 
 @use "../type" as *; // house type-scale mixins (t-body/t-caption/t-label/t-subtitle)
 
+// Local Glass Desk frosted-surface helper (twin of the one in ifc-pane.scss).
+// The shell's `mcm-glass` mixin lives inside MeetingShell.scss (not a shared
+// partial), so we re-express the recipe against the global `--mcm-glass-*`
+// tokens so the on-canvas IFC chrome sits on the SAME material as the app.
+@mixin mcm-ifc-glass($radius: var(--mcm-radius-md, 14px)) {
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+  border-radius: $radius;
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.18));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
+}
+
 // =========================================================================
 // IFC anchor overlay — sibling of mcm-dxf-layer, same pattern: pointer
 // events pass through to the underlying Excalidraw rectangle (so it
@@ -27,20 +45,22 @@
   // background gradients (no pseudo-elements, so the anchor stays
   // pointer-events:none and clicks/draws pass straight through).
   &__anchor {
-    --ibm-blue: #0f62fe;
+    // Registration-frame brackets in the app accent (was hardcoded IBM-blue
+    // #0f62fe). Theme-aware via --mcm-accent.
+    --reg-accent: var(--mcm-accent, #6965db);
     position: absolute;
     box-sizing: border-box;
-    border-radius: 0;
-    border: 1px solid rgba(15, 98, 254, 0.22);
+    border-radius: var(--mcm-radius-xs, 6px);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     background-repeat: no-repeat;
-    background-image: linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue)),
-      linear-gradient(var(--ibm-blue), var(--ibm-blue));
+    background-image: linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent));
     background-size: 15px 2px, 2px 15px, 15px 2px, 2px 15px, 15px 2px, 2px 15px,
       15px 2px, 2px 15px;
     background-position: top left, top left, top right, top right, bottom left,
@@ -48,17 +68,9 @@
     // pointer-events stays none so Excalidraw owns selection / drag.
   }
 
-  // Focused = active viewer: drop the brackets for a solid IBM-blue frame
-  // + glow so it reads as "live / editing".
-  &__anchor--focused {
-    background-image: none;
-    border: 1px solid var(--ibm-blue, #0f62fe);
-    box-shadow: 0 0 0 1px rgba(15, 98, 254, 0.35),
-      0 10px 34px rgba(0, 0, 0, 0.5);
-  }
-
-  // Two-part Carbon tag: a solid blue [TYPE] chip + a dark name block.
-  // Monospace + uppercase for the precise, technical IBM feel.
+  // Two-part Glass Desk tag: an accent [TYPE] chip + a frosted name block.
+  // Uppercase + tight tracking keeps the precise technical read, but on the
+  // app's own material/colours instead of the old dark IBM-Carbon block.
   &__label {
     position: absolute;
     top: 0;
@@ -67,15 +79,12 @@
     display: inline-flex;
     align-items: stretch;
     max-width: calc(100% + 2px);
-    font-family: ui-monospace, "Cascadia Code", "IBM Plex Mono",
-      "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 10px;
-    font-weight: 600;
+    @include t-micro; // uppercase technical tag → house micro scale (was 10/600)
     line-height: 1;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
     white-space: nowrap;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+    border-radius: var(--mcm-radius-xs, 6px);
+    overflow: hidden;
+    box-shadow: var(--mcm-shadow-2, 0 2px 10px rgba(0, 0, 0, 0.18));
     -webkit-user-select: none;
     user-select: none;
 
@@ -83,9 +92,8 @@
       display: inline-flex;
       align-items: center;
       padding: 4px 7px;
-      background: #0f62fe;
-      color: #ffffff;
-      font-weight: 700;
+      background: var(--mcm-accent, #6965db);
+      color: var(--mcm-surface, #fff);
     }
 
     &-name {
@@ -96,8 +104,14 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      background: #161616;
-      color: #f4f4f4;
+      background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+      color: var(--mcm-text, #1b1b1f);
+
+      @supports (backdrop-filter: blur(1px)) {
+        background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+        backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+          #{"saturate(var(--mcm-glass-sat, 1.5))"};
+      }
     }
   }
 
@@ -108,7 +122,7 @@
     width: 100%;
     height: 100%;
     overflow: hidden;
-    border-radius: 0; // IBM Carbon — sharp corners
+    border-radius: var(--mcm-radius-xs, 6px); // follow the rounded anchor
     background: transparent;
   }
 
@@ -195,15 +209,15 @@
     border-style: solid;
     border-color: var(--mcm-accent, #6965db);
     border-width: 2px;
-    box-shadow: 0 0 0 4px
-      color-mix(in srgb, var(--mcm-accent, #6965db) 22%, transparent);
+    box-shadow: 0 0 0 4px var(--mcm-accent-soft, rgba(105, 101, 219, 0.14)),
+      var(--mcm-shadow-2, 0 10px 24px rgba(0, 0, 0, 0.18));
   }
 
   // Focus toolbar — Fit / Tầng / Mặt cắt / Đo / Ghost / Thoát grouped
   // into a single pill row below the anchor's right edge.
   &__focus-toolbar {
     position: absolute;
-    bottom: -28px;
+    bottom: -30px;
     right: 0;
     display: inline-flex;
     align-items: center;
@@ -211,18 +225,26 @@
     pointer-events: auto;
   }
 
-  // Generic tool pill. White-on-surface secondary weight so the
-  // accent-coloured Exit button stays the primary CTA.
+  // Generic tool pill on the app's glass material so the floating toolbar
+  // sits on the same surface as the rest of the chrome (accent-coloured
+  // Exit button stays the primary CTA).
   &__tool {
-    padding: 2px 10px;
-    background: var(--mcm-surface, #fff);
+    padding: 3px 10px;
+    background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 999px;
+    border-radius: var(--mcm-radius-pill, 999px);
     @include t-caption; // compact tool pill → house caption scale (was 11/600)
+    white-space: nowrap;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    transition: background-color 140ms, transform 140ms;
+    box-shadow: var(--mcm-shadow-1, 0 2px 6px rgba(0, 0, 0, 0.12));
+    transition: background-color 140ms, transform 140ms, border-color 140ms;
+
+    @supports (backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+      backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+        #{"saturate(var(--mcm-glass-sat, 1.5))"};
+    }
 
     &:hover {
       background: var(--mcm-surface-2, #f0f0f3);
@@ -237,7 +259,7 @@
   // Active state for tool pills — used on a toggled tool (storeys
   // popover open, section on, measure on, ghost on, view-style open).
   &__tool--active {
-    background: color-mix(in srgb, var(--mcm-accent, #6965db) 16%, transparent);
+    background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
     border-color: var(--mcm-accent, #6965db);
     color: var(--mcm-accent, #6965db);
   }
@@ -261,10 +283,7 @@
     flex-direction: column;
     gap: 6px;
     padding: 6px;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 7;
     pointer-events: auto;
     white-space: nowrap;
@@ -281,11 +300,12 @@
   &__seg {
     flex: 1;
     padding: 4px 10px;
-    background: transparent;
+    background: var(--mcm-surface, #fff);
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 6px);
     @include t-caption; // segmented option → house caption scale (was 11/600)
+    white-space: nowrap;
     cursor: pointer;
     transition: background-color 100ms, border-color 100ms, color 100ms;
 
@@ -294,11 +314,7 @@
     }
 
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 16%,
-        transparent
-      );
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
       font-weight: 640; // in-system emphasis (was 700)
@@ -309,11 +325,12 @@
   &__menu-action {
     flex: 1;
     padding: 4px 10px;
-    background: transparent;
+    background: var(--mcm-surface, #fff);
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 6px);
     @include t-caption; // menu action → house caption scale (was 11/600)
+    white-space: nowrap;
     cursor: pointer;
     transition: background-color 100ms;
 
@@ -329,20 +346,21 @@
 
   // Exit affordance in focus mode — primary action, accent-coloured.
   &__exit {
-    padding: 2px 10px;
+    padding: 3px 10px;
     background: var(--mcm-accent, #6965db);
-    color: #fff;
+    color: var(--mcm-surface, #fff);
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--mcm-radius-pill, 999px);
     @include t-caption; // primary exit pill → house caption scale (was 11/700)
     font-weight: 640; // in-system emphasis for the primary CTA
     letter-spacing: 0.02em;
+    white-space: nowrap;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--mcm-shadow-1, 0 2px 6px rgba(0, 0, 0, 0.12));
     transition: filter 140ms, transform 140ms;
 
     &:hover {
-      filter: brightness(1.1);
+      filter: brightness(1.08);
       transform: translateY(-1px);
     }
 
@@ -359,11 +377,12 @@
     bottom: 8px;
     padding: 3px 10px;
     background: var(--mcm-accent, #6965db);
-    color: #fff;
-    border-radius: 999px;
+    color: var(--mcm-surface, #fff);
+    border-radius: var(--mcm-radius-pill, 999px);
     @include t-caption; // measure readout → house caption scale (was 11/700)
     font-weight: 640; // numeric emphasis, in-system
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    font-variant-numeric: tabular-nums; // steady width as the distance ticks
+    box-shadow: var(--mcm-shadow-1, 0 2px 6px rgba(0, 0, 0, 0.12));
     pointer-events: none;
     z-index: 6;
   }
@@ -379,10 +398,7 @@
     max-height: calc(100% - 16px);
     display: flex;
     flex-direction: column;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 5;
     overflow: hidden;
     pointer-events: auto;
@@ -436,11 +452,7 @@
     }
 
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 16%,
-        transparent
-      );
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       color: var(--mcm-accent, #6965db);
       font-weight: 640; // in-system emphasis (was 700)
     }
@@ -456,6 +468,7 @@
   &__storey-elev {
     flex-shrink: 0;
     @include t-caption; // elevation meta (was 10.5px)
+    font-variant-numeric: tabular-nums; // align elevations in the column
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -469,10 +482,7 @@
     max-height: calc(100% - 16px);
     display: flex;
     flex-direction: column;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 5;
     overflow: hidden;
     pointer-events: auto;
@@ -563,10 +573,17 @@
   pointer-events: auto;
   min-width: 200px;
   padding: 4px;
-  background: var(--mcm-surface, #ffffff);
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  border-radius: var(--mcm-radius-sm, 10px);
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.22));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
   // System font-family fallback removed — inherit Manrope from the shell.
   @include t-body; // menu text (was 13px)
   color: var(--mcm-text, #1b1b1f);
@@ -686,7 +703,7 @@
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     @include t-caption; // capacity-ceiling status (was 12px)
     border: 1px dashed var(--mcm-hairline, rgba(0, 0, 0, 0.18));
-    border-radius: 4px;
+    border-radius: var(--mcm-radius-xs, 6px);
   }
 
   &__capacity-icon {

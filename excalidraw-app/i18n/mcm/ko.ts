@@ -1198,7 +1198,9 @@ export const ko: Widened<typeof vi> = {
 
   // ---------------- Meeting library (room file shelf) ---------------
   library: {
-    unsupportedType: "지금은 이미지, DXF, PDF, IFC만 지원해요. 건너뜀: {name}",
+    unsupportedType:
+      "지금은 이미지, DXF, PDF, IFC, 동영상, 오디오만 지원해요. 건너뜀: {name}",
+    mediaTooLarge: "파일이 너무 커요(최대 512MB): {name}. 압축한 뒤 다시 올려주세요.",
     ifcProcessFailed: "IFC 파일을 처리하지 못했어요: {name}",
     deleteLockedAlert:
       "이 파일은 {lockedBy}님이 잠갔어요. 먼저 잠금 해제를 요청해 주세요.",
@@ -1222,14 +1224,17 @@ export const ko: Widened<typeof vi> = {
     sectionDxf: "CAD 도면",
     sectionIfc: "IFC 모델",
     sectionPdf: "PDF 문서",
+    sectionVideo: "동영상",
+    sectionAudio: "오디오",
     sectionImage: "이미지",
     sectionOther: "기타 파일",
     chipAll: "전체",
     chipImage: "이미지",
     chipOther: "기타",
     dropToUpload: "파일을 놓으면 업로드돼요",
-    uploadButton: "+ 이미지 / DXF / PDF / IFC 업로드 · 드래그 앤 드롭 가능",
-    fileInputAria: "회의실 라이브러리에 업로드할 이미지, DXF, PDF, IFC 선택",
+    uploadButton: "+ 이미지 / DXF / PDF / IFC / 동영상 / 오디오 업로드 · 드래그 앤 드롭 가능",
+    fileInputAria:
+      "회의실 라이브러리에 업로드할 이미지, DXF, PDF, IFC, 동영상, 오디오 선택",
     searchPlaceholder: "이름이나 업로더로 검색…",
     searchAria: "라이브러리 검색",
     sortAria: "정렬",
@@ -1275,6 +1280,11 @@ export const ko: Widened<typeof vi> = {
     exitTitle: "PDF 편집 모드 나가기 (ESC)",
     menuEdit: "PDF 편집 (페이지 이동)",
     menuCancel: "취소",
+  },
+
+  // ---------------- Media (video / audio) canvas overlay -----------
+  mediaOverlay: {
+    waitingPeer: "피어로부터 미디어 파일을 기다리는 중…",
   },
 
   // ---------------- Canvas navigation widget ------------------------

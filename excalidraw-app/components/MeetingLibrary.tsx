@@ -1,4 +1,13 @@
-import { FolderHeart, X } from "lucide-react";
+import {
+  ArrowUpToLine,
+  BadgeCheck,
+  FolderHeart,
+  Link2,
+  Lock,
+  LockOpen,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useExcalidrawAPI } from "@excalidraw/excalidraw";
@@ -16,12 +25,14 @@ import { collabAPIAtom, meetingViewOnlyAtom } from "../collab/Collab";
 import {
   canDeleteFile,
   canUnlockFile,
+  isAudioFile,
   isDxfFile,
   isFileSeen,
   isIfcFile,
   isIfcModelFile,
   isPdfFile,
   isPromotedToProject,
+  isVideoFile,
   markFileSeen,
   markMeetingFilePromoted,
   meetingFilesAtom,
@@ -49,6 +60,7 @@ import { DXF_ANCHOR_KIND } from "./mcm/dxf/DXFCanvasOverlay";
 import { IFC_ANCHOR_KIND } from "./mcm/ifc/ifcAnchor";
 import { bakeIfc } from "./mcm/ifc/ifcBake";
 import { bakeIfcThumbnail } from "./mcm/ifc/ifcThumbnail";
+import { MEDIA_ANCHOR_KIND, type MediaKind } from "./mcm/media/mediaAnchor";
 import { PDF_ANCHOR_KIND } from "./mcm/pdf/PDFCanvasOverlay";
 import { probePdf } from "./mcm/pdf/pdfRendering";
 
@@ -63,6 +75,90 @@ const newFileId = () =>
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 const MAX_INSERT_DIMENSION = 480; // px (logical) — keeps images sane in viewport
+
+// Hard upper bound for an uploaded MEDIA file. Mirrors LIBRARY_FILE_MAX_BYTES
+// in collab/Collab.tsx (the R2 per-file cap) — that constant isn't exported,
+// so we keep the same value here as the local ingest guard. Files under
+// ~256KB ride inline over the socket; larger ones auto-route to R2. Anything
+// over this cap can't be stored, so we reject it before reading the bytes
+// (with a friendly "compress it" alert) rather than failing mid-upload.
+const MEDIA_FILE_MAX_BYTES = 512 * 1024 * 1024;
+
+// Canvas anchor default sizes for media (scene units). Video gets a 16:9-ish
+// frame; audio a short, wide control bar (no picture to show).
+const VIDEO_DEFAULT_W = 480;
+const VIDEO_DEFAULT_H = 300;
+const AUDIO_DEFAULT_W = 360;
+const AUDIO_DEFAULT_H = 84;
+
+// 1×1 transparent PNG — the universal "nothing yet" poster seed (same inline
+// data URL the PDF anchor uses). Excalidraw needs a file under the image
+// element's fileId immediately; MediaCanvasOverlay paints the real player on
+// top, so the poster only ever shows for the split second before the overlay
+// mounts (and underneath the controls thereafter).
+const TRANSPARENT_PNG_1PX =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=";
+
+/** Build a dark video poster with a centred play glyph (drawn on a canvas
+ *  → PNG dataURL). Used as the IMAGE element's file so a placed video reads
+ *  as "a video" on the canvas before/under the live player. Falls back to a
+ *  1×1 transparent PNG if canvas 2D isn't available. */
+const makeVideoPoster = (): string => {
+  if (typeof document === "undefined") {
+    return TRANSPARENT_PNG_1PX;
+  }
+  const c = document.createElement("canvas");
+  c.width = 480;
+  c.height = 300;
+  const ctx = c.getContext("2d");
+  if (!ctx) {
+    return TRANSPARENT_PNG_1PX;
+  }
+  ctx.fillStyle = "#0b0d10";
+  ctx.fillRect(0, 0, c.width, c.height);
+  // Play triangle.
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  const cx = c.width / 2;
+  const cy = c.height / 2;
+  const r = 34;
+  ctx.beginPath();
+  ctx.moveTo(cx - r * 0.5, cy - r);
+  ctx.lineTo(cx - r * 0.5, cy + r);
+  ctx.lineTo(cx + r, cy);
+  ctx.closePath();
+  ctx.fill();
+  return c.toDataURL("image/png");
+};
+
+/** Build a compact audio-bar poster — a flat strip with a small waveform
+ *  hint — so a placed audio anchor isn't a blank box before the player
+ *  mounts. */
+const makeAudioPoster = (): string => {
+  if (typeof document === "undefined") {
+    return TRANSPARENT_PNG_1PX;
+  }
+  const c = document.createElement("canvas");
+  c.width = 360;
+  c.height = 84;
+  const ctx = c.getContext("2d");
+  if (!ctx) {
+    return TRANSPARENT_PNG_1PX;
+  }
+  ctx.fillStyle = "#eef1f5";
+  ctx.fillRect(0, 0, c.width, c.height);
+  // A few bars to read as "audio".
+  ctx.fillStyle = "rgba(60,70,90,0.55)";
+  const heights = [18, 34, 26, 44, 30, 52, 24, 38, 20, 30];
+  const barW = 6;
+  const gap = 8;
+  let x = 18;
+  const baseY = c.height / 2;
+  for (const h of heights) {
+    ctx.fillRect(x, baseY - h / 2, barW, h);
+    x += barW + gap;
+  }
+  return c.toDataURL("image/png");
+};
 
 // Custom MIME used when the user drags a library item onto the canvas.
 // The browser would otherwise treat the dragged <img> as a generic image
@@ -139,7 +235,7 @@ const extractRoomId = (link: string | null | undefined): string | null => {
 // File-type classification — drives the type chip, filter chips, and
 // (later) section grouping. We treat the "other" bucket as a catch-all
 // so future formats (docx, xlsx…) still render without code changes.
-type FileType = "image" | "dxf" | "pdf" | "ifc" | "other";
+type FileType = "image" | "dxf" | "pdf" | "ifc" | "video" | "audio" | "other";
 
 const fileTypeOf = (file: MeetingFile): FileType => {
   // IFC must be checked FIRST: a baked IFC's mime is "model/gltf-binary",
@@ -153,6 +249,15 @@ const fileTypeOf = (file: MeetingFile): FileType => {
   }
   if (file.mimeType === "application/pdf") {
     return "pdf";
+  }
+  // Media checks BEFORE the generic image check: an uploaded media file
+  // carries a video/* or audio/* mime (or a recognised extension), so the
+  // `image/` test below can't shadow it.
+  if (isVideoFile(file)) {
+    return "video";
+  }
+  if (isAudioFile(file)) {
+    return "audio";
   }
   if (file.mimeType.startsWith("image/")) {
     return "image";
@@ -173,6 +278,9 @@ const INTERNAL_FILE_ID_PREFIXES = [
   "pdf-snap-",
   "dxf-snap-",
   "mcm-deco-",
+  // Per-anchor media posters (video play-glyph / audio bar) — app-generated
+  // placeholders, not user content. Never auto-publish them to the library.
+  "media-poster-",
 ];
 const isInternalCanvasFile = (
   fileId: string,
@@ -194,6 +302,8 @@ const TYPE_LABEL: Record<FileType, string> = {
   dxf: "DXF",
   pdf: "PDF",
   ifc: "IFC",
+  video: "VID",
+  audio: "AUD",
   other: "FILE",
 };
 
@@ -257,6 +367,8 @@ const TYPE_SECTION_ORDER: { type: FileType; titleKey: McmKey }[] = [
   { type: "dxf", titleKey: "library.sectionDxf" },
   { type: "ifc", titleKey: "library.sectionIfc" },
   { type: "pdf", titleKey: "library.sectionPdf" },
+  { type: "video", titleKey: "library.sectionVideo" },
+  { type: "audio", titleKey: "library.sectionAudio" },
   { type: "image", titleKey: "library.sectionImage" },
   { type: "other", titleKey: "library.sectionOther" },
 ];
@@ -382,6 +494,8 @@ export const MeetingLibrary = () => {
       dxf: 0,
       pdf: 0,
       ifc: 0,
+      video: 0,
+      audio: 0,
       other: 0,
     };
     // Count over the SAME deduped, internal-stripped population the list
@@ -539,8 +653,23 @@ export const MeetingLibrary = () => {
         const isDxf = isDxfFile(file);
         const isPdf = isPdfFile(file);
         const isIfc = isIfcFile(file);
-        if (!isImage && !isDxf && !isPdf && !isIfc) {
+        // Media checks BEFORE image so a video/* upload isn't swallowed by
+        // the generic image test. DXF / PDF / IFC are extension-led and
+        // never collide with audio/video.
+        const isVideo = !isImage && !isDxf && !isPdf && !isIfc && isVideoFile(file);
+        const isAudio =
+          !isImage && !isDxf && !isPdf && !isIfc && !isVideo && isAudioFile(file);
+        if (!isImage && !isDxf && !isPdf && !isIfc && !isVideo && !isAudio) {
           window.alert(t("library.unsupportedType", { name: file.name }));
+          continue;
+        }
+        // SIZE GUARD (media only): an over-cap media file can't be stored
+        // (R2 per-file cap) — reject it up front with a friendly
+        // "compress it" alert rather than failing mid-upload. Images / DXF /
+        // PDF stay on their existing paths; IFC bakes down to a compact GLB
+        // so the raw size doesn't apply.
+        if ((isVideo || isAudio) && file.size > MEDIA_FILE_MAX_BYTES) {
+          window.alert(t("library.mediaTooLarge", { name: file.name }));
           continue;
         }
         if (isIfc) {
@@ -630,6 +759,25 @@ export const MeetingLibrary = () => {
                       thumbnail: meta.thumbnail || undefined,
                     }
                   : undefined,
+              },
+              { allowContentDup: true },
+            );
+          } else if (isVideo || isAudio) {
+            // Media (video/audio) — publish the bytes like any other kind.
+            // The browser sometimes hands back an empty mime for untyped
+            // uploads (drag from a share); pin a sensible default so peers
+            // detect the kind the same way. Larger files auto-route to R2
+            // inside publishLibraryFile; nothing media-specific to do here.
+            const mimeType =
+              file.type || (isVideo ? "video/mp4" : "audio/mpeg");
+            collabAPI.publishLibraryFile(
+              {
+                id,
+                name: file.name,
+                ts: Date.now(),
+                author: username,
+                mimeType,
+                dataURL,
               },
               { allowContentDup: true },
             );
@@ -1029,6 +1177,64 @@ export const MeetingLibrary = () => {
     [excalidrawAPI],
   );
 
+  // Insert a MEDIA (video / audio) anchor. Mirrors insertPdfAt exactly:
+  // build an Excalidraw IMAGE element (so the canvas owns its position /
+  // size / lock / collab-sync) whose own fileId points at a poster PNG in
+  // Excalidraw's file map, and tag customData with the media kind + the
+  // library file id so MediaCanvasOverlay can find the bytes and mount the
+  // live <video>/<audio> player on top. Audio defaults to a short wide bar
+  // (no picture); video to a 16:9-ish frame.
+  const insertMediaAt = useCallback(
+    (file: MeetingFile, kind: MediaKind, at: { sceneX: number; sceneY: number }) => {
+      if (!excalidrawAPI) {
+        return;
+      }
+      const elements = excalidrawAPI.getSceneElementsIncludingDeleted();
+      // Derive the element id up front so the poster file id is a pure
+      // function of it (`media-poster-{elementId}`) — the same pattern PDF
+      // uses for its snapshot id, which keeps copy/paste deterministic.
+      const anchorElementId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const posterFileId = `media-poster-${anchorElementId}` as FileId;
+      const poster = kind === "video" ? makeVideoPoster() : makeAudioPoster();
+      excalidrawAPI.addFiles([
+        {
+          id: posterFileId,
+          dataURL: poster as unknown as BinaryFileData["dataURL"],
+          mimeType: "image/png" as BinaryFileData["mimeType"],
+          created: Date.now(),
+        },
+      ]);
+      const w = kind === "video" ? VIDEO_DEFAULT_W : AUDIO_DEFAULT_W;
+      const h = kind === "video" ? VIDEO_DEFAULT_H : AUDIO_DEFAULT_H;
+      const baseAnchor = newImageElement({
+        type: "image",
+        x: at.sceneX - w / 2,
+        y: at.sceneY - h / 2,
+        width: w,
+        height: h,
+        fileId: posterFileId,
+        status: "saved",
+        customData: {
+          mcmType: MEDIA_ANCHOR_KIND,
+          mediaFileId: file.id,
+          mediaType: kind,
+          // Carried explicitly so peers + reload locate the per-anchor
+          // poster without inspecting `el.fileId` (mirrors PDF's
+          // pdfSnapshotFileId).
+          mediaPosterFileId: posterFileId,
+        },
+      });
+      const anchor = { ...baseAnchor, id: anchorElementId };
+      excalidrawAPI.updateScene({
+        elements: syncInvalidIndices([...elements, anchor]),
+      });
+    },
+    [excalidrawAPI],
+  );
+
   // Shared insert helper. `at` is the scene-space CENTER of the new
   // image; callers pick whether that's the viewport centre (click) or
   // the drop position (drag-from-library). Reusing this guarantees
@@ -1090,11 +1296,15 @@ export const MeetingLibrary = () => {
     const isDxf = isDxfFile(file);
     const isPdf = isPdfFile(file);
     const isIfc = isIfcModelFile(file);
+    const isVideo = !isIfc && !isDxf && !isPdf && isVideoFile(file);
+    const isAudio = !isIfc && !isDxf && !isPdf && !isVideo && isAudioFile(file);
+    const isMedia = isVideo || isAudio;
 
     // If this file already lives on the canvas, scroll to it instead
     // of dropping a duplicate. For DXF we look for the matching anchor
     // rectangle (via customData.dxfFileId), for IFC via ifcFileId, for
-    // PDF via pdfFileId, and for images via the image element's fileId.
+    // PDF via pdfFileId, for media via the media anchor's mediaFileId, and
+    // for images via the image element's fileId.
     const existing = elements.find((el) => {
       const data = el.customData as Record<string, unknown> | undefined;
       if (isDxf) {
@@ -1120,6 +1330,13 @@ export const MeetingLibrary = () => {
           data?.pdfFileId === file.id
         );
       }
+      if (isMedia) {
+        return (
+          el.type === "image" &&
+          data?.mcmType === MEDIA_ANCHOR_KIND &&
+          data?.mediaFileId === file.id
+        );
+      }
       return el.type === "image" && (el as any).fileId === file.id;
     });
     if (existing) {
@@ -1136,7 +1353,9 @@ export const MeetingLibrary = () => {
       sceneX: -appState.scrollX + appState.width / 2 / appState.zoom.value,
       sceneY: -appState.scrollY + appState.height / 2 / appState.zoom.value,
     };
-    if (isDxf) {
+    if (isMedia) {
+      insertMediaAt(file, isVideo ? "video" : "audio", at);
+    } else if (isDxf) {
       insertDxfAt(file, at);
     } else if (isIfc) {
       void insertIfcAt(file, at);
@@ -1202,6 +1421,9 @@ export const MeetingLibrary = () => {
       const isDxf = isDxfFile(file);
       const isPdf = isPdfFile(file);
       const isIfc = isIfcModelFile(file);
+      const isVideo = !isIfc && !isDxf && !isPdf && isVideoFile(file);
+      const isAudio = !isIfc && !isDxf && !isPdf && !isVideo && isAudioFile(file);
+      const isMedia = isVideo || isAudio;
       // Jump to existing canvas instance instead of duplicating.
       const elements = excalidrawAPI.getSceneElements();
       const existing = elements.find((el) => {
@@ -1229,6 +1451,13 @@ export const MeetingLibrary = () => {
             data?.pdfFileId === file.id
           );
         }
+        if (isMedia) {
+          return (
+            el.type === "image" &&
+            data?.mcmType === MEDIA_ANCHOR_KIND &&
+            data?.mediaFileId === file.id
+          );
+        }
         return el.type === "image" && (el as any).fileId === file.id;
       });
       if (existing) {
@@ -1246,7 +1475,9 @@ export const MeetingLibrary = () => {
         sceneY:
           -appState.scrollY + (e.clientY - rect.top) / appState.zoom.value,
       };
-      if (isDxf) {
+      if (isMedia) {
+        insertMediaAt(file, isVideo ? "video" : "audio", at);
+      } else if (isDxf) {
         insertDxfAt(file, at);
       } else if (isIfc) {
         void insertIfcAt(file, at);
@@ -1270,6 +1501,7 @@ export const MeetingLibrary = () => {
     insertDxfAt,
     insertIfcAt,
     insertPdfAt,
+    insertMediaAt,
   ]);
 
   const me = collabAPI?.getUsername() || "Local";
@@ -1491,6 +1723,53 @@ export const MeetingLibrary = () => {
         </span>
       );
     }
+    if (type === "video") {
+      return (
+        <span
+          className="MeetingLibrary__item-fallback MeetingLibrary__item-fallback--video"
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="32"
+            height="32"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="5" width="14" height="14" rx="2" />
+            <path d="M17 9l4-2v10l-4-2z" />
+          </svg>
+          <span className="MeetingLibrary__item-fallback-label">VIDEO</span>
+        </span>
+      );
+    }
+    if (type === "audio") {
+      return (
+        <span
+          className="MeetingLibrary__item-fallback MeetingLibrary__item-fallback--audio"
+          aria-hidden="true"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="32"
+            height="32"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 18V5l10-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="16" cy="16" r="3" />
+          </svg>
+          <span className="MeetingLibrary__item-fallback-label">AUDIO</span>
+        </span>
+      );
+    }
     if (type === "image") {
       return (
         <img
@@ -1553,18 +1832,20 @@ export const MeetingLibrary = () => {
           title={t("library.linkTextTitle")}
           onClick={(e) => handleLinkText(file, e)}
         >
-          🔗
+          <Link2 size={13} aria-hidden="true" />
         </button>
         {canPromote && (
           <button
             type="button"
-            className="MeetingLibrary__item-action MeetingLibrary__item-action--promote"
+            className={`MeetingLibrary__item-action MeetingLibrary__item-action--promote${
+              isPromoting ? " MeetingLibrary__item-action--busy" : ""
+            }`}
             aria-label={t("library.promoteAria")}
             title={isPromoting ? t("library.promoting") : t("library.promoteTitle")}
             onClick={(e) => void handlePromoteToProject(file, e)}
             disabled={isPromoting}
           >
-            {isPromoting ? "…" : "⤴"}
+            <ArrowUpToLine size={13} aria-hidden="true" />
           </button>
         )}
         <button
@@ -1582,7 +1863,11 @@ export const MeetingLibrary = () => {
           }
           onClick={(e) => handleToggleLock(file, e)}
         >
-          {file.lockedBy ? "🔒" : "🔓"}
+          {file.lockedBy ? (
+            <Lock size={13} aria-hidden="true" />
+          ) : (
+            <LockOpen size={13} aria-hidden="true" />
+          )}
         </button>
         {promoted ? (
           // Promoted files can't be deleted from the library — they live in
@@ -1592,7 +1877,8 @@ export const MeetingLibrary = () => {
             className="MeetingLibrary__in-project-badge"
             title={t("library.promotedDeleteDisabledTitle")}
           >
-            ✓ {t("library.inProjectBadge")}
+            <BadgeCheck size={12} aria-hidden="true" />
+            {t("library.inProjectBadge")}
           </span>
         ) : (
           <button
@@ -1609,7 +1895,7 @@ export const MeetingLibrary = () => {
             onClick={(e) => handleDelete(file, e)}
             disabled={!canDeleteFile(file, me)}
           >
-            ✕
+            <Trash2 size={13} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -1697,6 +1983,8 @@ export const MeetingLibrary = () => {
       dxf: [],
       ifc: [],
       pdf: [],
+      video: [],
+      audio: [],
       image: [],
       other: [],
     };
@@ -1742,6 +2030,8 @@ export const MeetingLibrary = () => {
         { key: "dxf", label: "DXF", count: typeCounts.dxf },
         { key: "ifc", label: "IFC", count: typeCounts.ifc },
         { key: "pdf", label: "PDF", count: typeCounts.pdf },
+        { key: "video", label: "Video", count: typeCounts.video },
+        { key: "audio", label: "Audio", count: typeCounts.audio },
         {
           key: "image",
           label: t("library.chipImage"),
@@ -1784,25 +2074,43 @@ export const MeetingLibrary = () => {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.dxf,application/dxf,image/vnd.dxf,.pdf,application/pdf,.ifc"
+          accept="image/*,.dxf,application/dxf,image/vnd.dxf,.pdf,application/pdf,.ifc,video/*,audio/*"
           multiple
           aria-label={t("library.fileInputAria")}
           className="MeetingLibrary__file-input"
           onChange={handleFileInputChange}
         />
-        {isInternal && (
-          <button
-            type="button"
-            className={`mcm-shelfpick__toggle${
-              shelfOpen ? " mcm-shelfpick__toggle--open" : ""
-            }`}
-            onClick={toggleShelf}
-            disabled={!excalidrawAPI}
-            aria-expanded={shelfOpen ? "true" : "false"}
-          >
-            <FolderHeart size={14} aria-hidden="true" />
-            {t("myfiles.fromShelf")}
-          </button>
+        {(isInternal || projectId) && (
+          <div className="MeetingLibrary__source-row">
+            {isInternal && (
+              <button
+                type="button"
+                className={`mcm-shelfpick__toggle MeetingLibrary__source-btn${
+                  shelfOpen ? " mcm-shelfpick__toggle--open" : ""
+                }`}
+                onClick={toggleShelf}
+                disabled={!excalidrawAPI}
+                aria-expanded={shelfOpen ? "true" : "false"}
+              >
+                <FolderHeart size={14} aria-hidden="true" />
+                {t("myfiles.fromShelf")}
+              </button>
+            )}
+            {projectId && (
+              <button
+                type="button"
+                className={`mcm-shelfpick__toggle MeetingLibrary__source-btn${
+                  projectPickOpen ? " mcm-shelfpick__toggle--open" : ""
+                }`}
+                onClick={toggleProjectPick}
+                disabled={!excalidrawAPI}
+                aria-expanded={projectPickOpen ? "true" : "false"}
+              >
+                <FolderHeart size={14} aria-hidden="true" />
+                {t("library.fromProject")}
+              </button>
+            )}
+          </div>
         )}
         {isInternal && shelfOpen && (
           <div
@@ -1871,20 +2179,6 @@ export const MeetingLibrary = () => {
               </ul>
             )}
           </div>
-        )}
-        {projectId && (
-          <button
-            type="button"
-            className={`mcm-shelfpick__toggle${
-              projectPickOpen ? " mcm-shelfpick__toggle--open" : ""
-            }`}
-            onClick={toggleProjectPick}
-            disabled={!excalidrawAPI}
-            aria-expanded={projectPickOpen ? "true" : "false"}
-          >
-            <FolderHeart size={14} aria-hidden="true" />
-            {t("library.fromProject")}
-          </button>
         )}
         {projectId && projectPickOpen && (
           <div

@@ -6,6 +6,26 @@
 
 @use "../type" as *; // house type-scale mixins (t-body/t-caption/t-label/t-subtitle)
 
+// Local Glass Desk frosted-surface helper. The shell's `mcm-glass` mixin
+// lives inside MeetingShell.scss (not a shared partial), so we re-express
+// the same recipe here against the global `--mcm-glass-*` tokens: a
+// translucent surface + backdrop blur/saturate + the gradient rim stroke.
+// Keeps the IFC chrome on the SAME material as the rest of the app without
+// reaching across files.
+@mixin mcm-ifc-glass($radius: var(--mcm-radius-md, 14px)) {
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+  border-radius: $radius;
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.18));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
+}
+
 .mcm-ifc-view {
   position: relative;
   display: flex;
@@ -134,15 +154,25 @@
 
   // Toolbar row below the tabs — primary actions (Fit, Storeys, Section,
   // Measure, Ghost) that operate on the currently-active model.
+  // Frosted Glass Desk toolbar — translucent surface + backdrop blur so it
+  // reads as the same material as the rest of the app chrome (was a flat
+  // opaque --mcm-surface strip that looked "lạc quẻ" over the 3D canvas).
   &__toolbar {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
-    background: var(--mcm-surface, #fff);
-    border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+    background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+    border-bottom: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
     flex-shrink: 0;
     flex-wrap: wrap;
+
+    @supports (backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+      backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+        #{"saturate(var(--mcm-glass-sat, 1.5))"}
+        brightness(var(--mcm-glass-bright, 1));
+    }
   }
 
   &__tool {
@@ -150,29 +180,33 @@
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
-    background: transparent;
+    background: var(--mcm-surface, #fff);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 7px;
-    @include t-body; // toolbar action button (was 12/600, font-family:inherit)
+    border-radius: var(--mcm-radius-xs, 6px);
+    @include t-btn; // toolbar action button → house button scale (was 12/600)
     color: var(--mcm-text, #1b1b1f);
+    white-space: nowrap; // never wrap the label inside a pill
     cursor: pointer;
-    transition: background-color 120ms, border-color 120ms;
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
+    transition: background-color 120ms, border-color 120ms, color 120ms;
 
     &:hover:not(:disabled) {
       background: var(--mcm-surface-2, #f0f0f3);
+      border-color: var(--mcm-hairline, rgba(0, 0, 0, 0.18));
+    }
+
+    &:active:not(:disabled) {
+      background: var(--mcm-surface-0, #e9ebf1);
     }
 
     &:disabled {
       opacity: 0.4;
       cursor: not-allowed;
+      box-shadow: none;
     }
 
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 14%,
-        transparent
-      );
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
     }
@@ -185,10 +219,11 @@
     min-width: 18px;
     height: 16px;
     padding: 0 5px;
-    background: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    color: #fff;
-    border-radius: 999px;
+    background: var(--mcm-accent, #6965db);
+    color: var(--mcm-surface, #fff);
+    border-radius: var(--mcm-radius-pill, 999px);
     @include t-micro; // count badge → house pill/badge scale (was 10/700)
+    font-variant-numeric: tabular-nums; // align multi-digit counts (44 / 512)
     line-height: 1; // hold the fixed 16px badge height
   }
 
@@ -199,10 +234,11 @@
     align-items: center;
     gap: 4px;
     padding: 4px 8px;
-    background: color-mix(in srgb, var(--mcm-accent, #6965db) 10%, transparent);
-    border-radius: 6px;
+    background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+    border-radius: var(--mcm-radius-xs, 6px);
     @include t-caption; // distance readout (was 11.5/700)
     font-weight: 640; // numeric emphasis, in-system
+    font-variant-numeric: tabular-nums; // steady width as the distance ticks
     color: var(--mcm-accent, #6965db);
   }
 
@@ -222,21 +258,29 @@
     display: inline-flex;
     align-items: center;
     gap: 0;
+    background: var(--mcm-surface, #fff);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 7px;
+    border-radius: var(--mcm-radius-xs, 6px);
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
     overflow: hidden;
   }
 
+  // The section group is a loose row of discrete pills (axis chips + Flip +
+  // Plane), not a flush segmented control — drop the wrapping pill chrome.
   &__section-group {
     gap: 4px;
     padding: 0 4px;
+    background: transparent;
     border: 0;
+    box-shadow: none;
     overflow: visible;
   }
 
   &__section-label {
+    display: inline-flex;
+    align-items: center;
     @include t-caption; // axis label (was 12px)
-    opacity: 0.65;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
   }
 
   &__segment {
@@ -244,8 +288,9 @@
     background: transparent;
     border: 0;
     border-right: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    @include t-body; // segmented control button (was 12/600, font-family:inherit)
+    @include t-btn; // segmented control button → house button scale (was 12/600)
     color: var(--mcm-text, #1b1b1f);
+    white-space: nowrap;
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
 
@@ -263,22 +308,25 @@
     }
 
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 16%,
-        transparent
-      );
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       color: var(--mcm-accent, #6965db);
     }
   }
 
   // The section group's segments sit in their own pill, so re-add a border
-  // to make each X/Y/Z toggle read as a discrete button.
+  // + surface so each X/Y/Z toggle reads as a discrete button.
   &__section-group &__segment {
+    background: var(--mcm-surface, #fff);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 6px;
+    border-radius: var(--mcm-radius-xs, 6px);
+    box-shadow: var(--mcm-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.05));
+
+    &:hover:not(:disabled) {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
 
     &--active {
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       border-color: var(--mcm-accent, #6965db);
     }
   }
@@ -301,10 +349,7 @@
     max-height: calc(100% - 16px);
     display: flex;
     flex-direction: column;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 5;
     overflow: hidden;
     animation: mcm-ifc-popover-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -382,6 +427,7 @@
   &__storey-elev {
     flex-shrink: 0;
     @include t-caption; // elevation meta (was 10.5px)
+    font-variant-numeric: tabular-nums; // align elevations in the column
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -396,10 +442,7 @@
     max-height: calc(100% - 16px);
     display: flex;
     flex-direction: column;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 6;
     overflow: hidden;
     animation: mcm-ifc-popover-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -515,6 +558,7 @@
   &__tree-count {
     flex-shrink: 0;
     @include t-micro; // count badge → house pill/badge scale (was 10/700)
+    font-variant-numeric: tabular-nums; // align element counts down the tree
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -522,11 +566,12 @@
     flex-shrink: 0;
     padding: 2px 6px;
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 5px;
+    border-radius: var(--mcm-radius-xs, 6px);
     background: transparent;
     // Vietnamese label ("Cô lập") → keep non-uppercase caption scale, not the
     // uppercase t-micro badge (was 10/600, font-family:inherit).
     @include t-caption;
+    white-space: nowrap; // never clip the "Cô lập" label
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.65));
     cursor: pointer;
     transition: background-color 100ms, color 100ms, border-color 100ms;
@@ -537,11 +582,7 @@
     }
 
     &--active {
-      background: color-mix(
-        in srgb,
-        var(--mcm-accent, #6965db) 14%,
-        transparent
-      );
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
     }
@@ -592,10 +633,7 @@
     max-height: calc(100% - 16px);
     display: flex;
     flex-direction: column;
-    background: var(--mcm-surface, #fff);
-    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    @include mcm-ifc-glass(var(--mcm-radius-sm, 10px));
     z-index: 5;
     overflow: hidden;
     animation: mcm-ifc-popover-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -800,10 +838,17 @@
   z-index: 1000;
   width: 280px;
   max-height: 360px;
-  background: var(--mcm-surface, #ffffff);
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-  border-radius: 14px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  border-radius: var(--mcm-radius-md, 14px);
+  box-shadow: var(--mcm-shadow-3, 0 12px 28px rgba(0, 0, 0, 0.18));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -898,10 +943,17 @@
   pointer-events: auto;
   min-width: 220px;
   padding: 4px;
-  background: var(--mcm-surface, #ffffff);
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  border-radius: var(--mcm-radius-sm, 10px);
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.22));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
   // System font-family fallback removed — lead with Manrope via t-body.
   @include t-body; // menu text (was 13px)
   color: var(--mcm-text, #1b1b1f);

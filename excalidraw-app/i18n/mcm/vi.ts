@@ -1258,7 +1258,10 @@ export const vi = {
 
   // ---------------- Meeting library (room file shelf) ---------------
   library: {
-    unsupportedType: "Tạm thời chỉ hỗ trợ ảnh, DXF, PDF và IFC. Bỏ qua: {name}",
+    unsupportedType:
+      "Tạm thời chỉ hỗ trợ ảnh, DXF, PDF, IFC, video và audio. Bỏ qua: {name}",
+    mediaTooLarge:
+      "File quá lớn (tối đa 512MB): {name}. Hãy nén lại rồi tải lên.",
     ifcProcessFailed: "Không thể xử lý file IFC: {name}",
     deleteLockedAlert:
       "File này đang bị khoá bởi {lockedBy}. Yêu cầu họ mở khoá trước.",
@@ -1282,14 +1285,17 @@ export const vi = {
     sectionDxf: "Bản vẽ CAD",
     sectionIfc: "Mô hình IFC",
     sectionPdf: "Tài liệu PDF",
+    sectionVideo: "Video",
+    sectionAudio: "Âm thanh",
     sectionImage: "Hình ảnh",
     sectionOther: "File khác",
     chipAll: "Tất cả",
     chipImage: "Ảnh",
     chipOther: "Khác",
     dropToUpload: "Thả file để tải lên",
-    uploadButton: "+ Tải ảnh / DXF / PDF / IFC lên · hoặc kéo thả",
-    fileInputAria: "Chọn ảnh, DXF, PDF hoặc IFC để tải lên thư viện phòng",
+    uploadButton: "+ Tải ảnh / DXF / PDF / IFC / video / audio lên · hoặc kéo thả",
+    fileInputAria:
+      "Chọn ảnh, DXF, PDF, IFC, video hoặc audio để tải lên thư viện phòng",
     searchPlaceholder: "Tìm theo tên hoặc người tải…",
     searchAria: "Tìm kiếm trong thư viện",
     sortAria: "Sắp xếp",
@@ -1334,6 +1340,11 @@ export const vi = {
     exitTitle: "Thoát chế độ chỉnh PDF (ESC)",
     menuEdit: "Chỉnh PDF (đổi trang)",
     menuCancel: "Huỷ",
+  },
+
+  // ---------------- Media (video / audio) canvas overlay -----------
+  mediaOverlay: {
+    waitingPeer: "Đang chờ file media từ peer…",
   },
 
   // ---------------- Canvas navigation widget ------------------------

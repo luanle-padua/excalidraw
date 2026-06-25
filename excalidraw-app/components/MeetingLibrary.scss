@@ -15,20 +15,41 @@
     }
 
     &__toolbar {
-      padding: 0.75rem;
+      padding: 0.5rem 0.6rem;
       border-bottom: 1px solid var(--mcm-hairline);
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.35rem;
       background: var(--mcm-surface);
+    }
+
+    // Two material-source buttons ("From my shelf" + "From project") share
+    // ONE row to reclaim the vertical space they used to eat stacked. Each
+    // flexes to an equal half; with only one present it simply fills the row.
+    &__source-row {
+      display: flex;
+      gap: 0.35rem;
+    }
+
+    &__source-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      // Override the shared .mcm-shelfpick__toggle full-width default so the
+      // pair packs side by side; keep the label from wrapping/overflowing.
+      width: auto;
+      padding-left: 0.5rem;
+      padding-right: 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     // ---- Search + filter + sort + view toggle -----------------------
     &__search {
       width: 100%;
       box-sizing: border-box;
-      padding: 0.4rem 0.6rem;
+      padding: 0.3rem 0.55rem;
       border-radius: var(--mcm-radius-xs);
       border: 1px solid var(--mcm-hairline);
       background: var(--mcm-surface-2);
@@ -153,9 +174,12 @@
       background: transparent;
       color: var(--mcm-text);
       border-radius: var(--mcm-radius-sm);
-      padding: 0.625rem 0.75rem;
+      // Slimmer dropzone — half the old vertical padding so files surface
+      // sooner; drop target is still comfortably tappable.
+      padding: 0.375rem 0.75rem;
       cursor: pointer;
       font: inherit;
+      font-size: 0.8rem;
       font-weight: 500;
       transition: border-color 0.12s ease, background-color 0.12s ease,
         color 0.12s ease;
@@ -429,17 +453,33 @@
         margin-top: 0.15rem;
       }
 
+      // ---- Action chip group ---------------------------------------
+      // A single frosted Glass Desk surface that hosts all per-file
+      // actions (link · promote · lock · delete) as one tidy cluster
+      // instead of four loose dark circles. Hairline + soft shadow +
+      // backdrop-blur keep it legible over any thumbnail (light photo or
+      // dark tile) while reading as part of the design system, not a
+      // raw scrim. Always visible (owner wanted them discoverable).
       &-actions {
         position: absolute;
-        top: 0.25rem;
-        right: 0.25rem;
+        top: 0.3rem;
+        right: 0.3rem;
         display: flex;
-        gap: 0.25rem;
-        // Owner: the delete + promote (⤴) actions were hover-only (opacity:0) on
-        // grid tiles → "nhìn không thấy". Keep them ALWAYS visible; the dark
-        // scrim buttons stay legible over any thumbnail (and over a dark tile).
+        align-items: center;
+        gap: 0.05rem;
+        padding: 0.1rem;
+        border-radius: var(--mcm-radius-pill);
+        border: 1px solid var(--mcm-hairline);
+        background: var(--mcm-surface);
+        box-shadow: var(--mcm-shadow-1);
+        -webkit-backdrop-filter: blur(8px) saturate(1.1);
+        backdrop-filter: blur(8px) saturate(1.1);
         opacity: 1;
-        transition: opacity 0.12s ease;
+        transition: opacity 0.12s ease, box-shadow 0.12s ease;
+      }
+
+      &:hover &-actions {
+        box-shadow: var(--mcm-shadow-2);
       }
 
       &:hover &-actions,
@@ -449,49 +489,75 @@
 
       &-action {
         border: 0;
-        background: rgba(0, 0, 0, 0.55);
-        color: #fff;
-        width: 1.375rem;
-        height: 1.375rem;
-        border-radius: 50%;
+        background: transparent;
+        color: var(--mcm-text-soft);
+        width: 1.4rem;
+        height: 1.4rem;
+        border-radius: var(--mcm-radius-pill);
         cursor: pointer;
-        font-size: 0.6875rem;
         line-height: 1;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 0;
-        -webkit-backdrop-filter: blur(4px);
-        backdrop-filter: blur(4px);
+        transition: background-color 0.12s ease, color 0.12s ease;
+
+        svg {
+          width: 0.85rem;
+          height: 0.85rem;
+        }
 
         &:hover:not(:disabled) {
-          background: rgba(0, 0, 0, 0.78);
+          background: var(--mcm-surface-2);
+          color: var(--mcm-text);
         }
 
         &:disabled {
-          opacity: 0.45;
+          opacity: 0.4;
           cursor: not-allowed;
         }
 
+        // Lock + promote read as the "active / primary" affordances —
+        // tint with the accent so they stand apart from the neutral
+        // link/delete glyphs without shouting.
         &--locked {
-          background: var(--mcm-accent);
+          color: var(--mcm-accent);
 
           &:hover:not(:disabled) {
-            background: var(--color-primary-hover);
+            background: var(--mcm-accent-soft);
+            color: var(--mcm-accent);
           }
         }
 
         &--promote {
-          background: var(--mcm-accent);
+          color: var(--mcm-accent);
 
           &:hover:not(:disabled) {
-            background: var(--color-primary-hover);
+            background: var(--mcm-accent-soft);
+            color: var(--mcm-accent);
           }
         }
 
-        &--danger:hover:not(:disabled) {
-          background: var(--color-danger);
+        // In-flight promote: subtle pulse so the disabled state reads as
+        // "working", not "broken".
+        &--busy {
+          animation: mcm-lib-action-pulse 1s ease-in-out infinite;
         }
+
+        &--danger:hover:not(:disabled) {
+          background: var(--mcm-danger-soft, var(--mcm-accent-soft));
+          color: var(--mcm-danger, var(--color-danger));
+        }
+      }
+    }
+
+    @keyframes mcm-lib-action-pulse {
+      0%,
+      100% {
+        opacity: 0.45;
+      }
+      50% {
+        opacity: 0.85;
       }
     }
 
@@ -500,24 +566,31 @@
     // its delete affordance is gone (the file lives in the project now),
     // so this badge both labels the state and carries the "delete it from
     // the project's Files" hint via its title attribute.
+    // Sits INSIDE the frosted action chip group (replacing the delete
+    // button on promoted files), so it stays flush with the bar — no
+    // nested border/surface/blur, just an accent-tinted pill that reads
+    // as "this lives in the project now".
     &__in-project-badge {
       display: inline-flex;
       align-items: center;
       gap: 0.2rem;
-      height: 1.375rem;
-      padding: 0 0.45rem;
+      height: 1.4rem;
+      padding: 0 0.45rem 0 0.35rem;
       border-radius: var(--mcm-radius-pill);
-      border: 1px solid var(--mcm-hairline);
-      background: var(--mcm-surface-2);
+      background: var(--mcm-accent-soft);
       color: var(--mcm-accent);
       font-size: 0.6rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 0.01em;
       line-height: 1;
       white-space: nowrap;
       cursor: default;
-      -webkit-backdrop-filter: blur(4px);
-      backdrop-filter: blur(4px);
+
+      svg {
+        width: 0.75rem;
+        height: 0.75rem;
+        flex-shrink: 0;
+      }
     }
 
     // ---- List row (compact horizontal layout) -----------------------

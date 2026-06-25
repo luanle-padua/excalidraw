@@ -1193,7 +1193,9 @@ export const en: Widened<typeof vi> = {
   // ---------------- Meeting library (room file shelf) ---------------
   library: {
     unsupportedType:
-      "Only images, DXF, PDF and IFC are supported for now. Skipped: {name}",
+      "Only images, DXF, PDF, IFC, video and audio are supported for now. Skipped: {name}",
+    mediaTooLarge:
+      "File too large (max 512MB): {name}. Please compress it and try again.",
     ifcProcessFailed: "Couldn't process IFC file: {name}",
     deleteLockedAlert:
       "This file is locked by {lockedBy}. Ask them to unlock it first.",
@@ -1217,14 +1219,17 @@ export const en: Widened<typeof vi> = {
     sectionDxf: "CAD drawings",
     sectionIfc: "IFC models",
     sectionPdf: "PDF documents",
+    sectionVideo: "Video",
+    sectionAudio: "Audio",
     sectionImage: "Images",
     sectionOther: "Other files",
     chipAll: "All",
     chipImage: "Image",
     chipOther: "Other",
     dropToUpload: "Drop files to upload",
-    uploadButton: "+ Upload image / DXF / PDF / IFC · or drag & drop",
-    fileInputAria: "Pick images, DXF, PDF or IFC to upload to the room library",
+    uploadButton: "+ Upload image / DXF / PDF / IFC / video / audio · or drag & drop",
+    fileInputAria:
+      "Pick images, DXF, PDF, IFC, video or audio to upload to the room library",
     searchPlaceholder: "Search by name or uploader…",
     searchAria: "Search the library",
     sortAria: "Sort",
@@ -1271,6 +1276,11 @@ export const en: Widened<typeof vi> = {
     exitTitle: "Exit PDF edit mode (ESC)",
     menuEdit: "Edit PDF (change page)",
     menuCancel: "Cancel",
+  },
+
+  // ---------------- Media (video / audio) canvas overlay -----------
+  mediaOverlay: {
+    waitingPeer: "Waiting for media file from peer…",
   },
 
   // ---------------- Canvas navigation widget ------------------------

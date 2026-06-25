@@ -52,6 +52,7 @@ import { IFCCanvasOverlay } from "./ifc/IFCCanvasOverlay";
 import { IFC3DViewPane } from "./ifc/IFC3DViewPane";
 import { IFC3DViewTriggers } from "./ifc/IFC3DViewTriggers";
 import { PDFCanvasOverlay } from "./pdf/PDFCanvasOverlay";
+import { MediaCanvasOverlay } from "./media/MediaCanvasOverlay";
 import { MeetingConsentGate } from "./MeetingConsentGate";
 import { MeetingDueNotice } from "./MeetingDueNotice";
 import { MeetingHeader } from "./MeetingHeader";
@@ -454,6 +455,12 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
           <DXFCanvasOverlay />
           <PDFCanvasOverlay />
           <IFCCanvasOverlay />
+          {/* Inline playback of uploaded video/audio media — mounted
+              alongside the other anchor overlays (the player follows
+              pan/zoom the same way). Like its siblings it is NOT gated on
+              viewOnly: reviewing a finished meeting still lets you play
+              back media that was placed on the canvas. */}
+          <MediaCanvasOverlay />
           <PinnedImagesOverlay />
           {/* Content-creating tools are hidden while reviewing a finished
               meeting — it's immutable, extract-only. */}

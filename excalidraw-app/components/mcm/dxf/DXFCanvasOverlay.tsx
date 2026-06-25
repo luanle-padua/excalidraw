@@ -35,6 +35,11 @@ import {
 
 import type { DXFRendererControls, DXFViewState } from "./DXFRenderer";
 
+// Glass Desk re-skin of the `.mcm-dxf-layer*` chrome. The base rules live in
+// MeetingShell.scss; this sheet (loaded after it) overrides the dark IBM look
+// with the app's `--mcm-*` glass tokens. See dxf-overlay.scss header.
+import "./dxf-overlay.scss";
+
 /** A stable string fingerprint for a persisted view — used as the
  *  third component of the snapshot cache key. We round to 2 decimals
  *  so subpixel drift in the camera math doesn't produce a different

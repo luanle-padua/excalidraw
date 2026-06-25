@@ -1,0 +1,195 @@
+// DXF (2D CAD) canvas-overlay chrome — Glass Desk pass.
+//
+// The base `.mcm-dxf-layer*` + `.mcm-dxf-context-menu` rules live in
+// MeetingShell.scss (shared with the PDF/IFC anchors) and historically used
+// the dark "IBM Carbon" registration look (hardcoded #0f62fe / #161616) plus
+// raw rgba() shadows — which reads "lạc quẻ" against the rest of the app.
+//
+// We deliberately do NOT edit MeetingShell.scss. Instead this stylesheet —
+// imported by DXFCanvasOverlay.tsx — re-skins the same selectors onto the
+// Glass Desk material using the global `--mcm-*` tokens.
+//
+// CASCADE NOTE: MeetingShell.tsx imports DXFCanvasOverlay *before* it imports
+// MeetingShell.scss, so in the bundled CSS this sheet may land BEFORE the base
+// rules. To win deterministically regardless of bundle order we raise
+// specificity one notch by doubling the layer class
+// (`.mcm-dxf-layer.mcm-dxf-layer` = 0,2,0 > the base 0,1,0) and likewise
+// double the context-menu root. The 2D CAD render itself is untouched.
+
+@use "../type" as *; // house type-scale mixins (t-caption/t-micro/t-body…)
+
+// Local frosted-surface helper (twin of the IFC one). Re-expresses the
+// shell's `mcm-glass` recipe against the global `--mcm-glass-*` tokens so the
+// DXF chrome sits on the SAME material as the rest of the app.
+@mixin mcm-dxf-glass($radius: var(--mcm-radius-sm, 10px)) {
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+  border-radius: $radius;
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.18));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
+}
+
+// `.mcm-dxf-layer.mcm-dxf-layer` — doubled class, +1 specificity over base.
+.mcm-dxf-layer.mcm-dxf-layer {
+  // Registration-frame brackets in the app accent (was hardcoded IBM-blue
+  // #0f62fe). Theme-aware via --mcm-accent.
+  .mcm-dxf-layer__anchor {
+    --reg-accent: var(--mcm-accent, #6965db);
+    border-radius: var(--mcm-radius-xs, 6px);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    background-image: linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent)),
+      linear-gradient(var(--reg-accent), var(--reg-accent));
+  }
+
+  // Focused = active viewer: solid accent frame + soft accent glow (was a
+  // harsh 0 10px 34px rgba(0,0,0,.5) drop on a sharp border).
+  .mcm-dxf-layer__anchor--focused {
+    border-radius: var(--mcm-radius-xs, 6px);
+    border-style: solid;
+    border-color: var(--mcm-accent, #6965db);
+    border-width: 2px;
+    box-shadow: 0 0 0 4px var(--mcm-accent-soft, rgba(105, 101, 219, 0.14)),
+      var(--mcm-shadow-2, 0 10px 24px rgba(0, 0, 0, 0.18));
+  }
+
+  // Frame follows the rounded anchor so 2D content clips on the radius.
+  .mcm-dxf-layer__frame {
+    border-radius: var(--mcm-radius-xs, 6px);
+  }
+
+  // Two-part tag: accent [TYPE] chip + frosted name block (was a solid blue
+  // chip + a dark #161616 name block in monospace).
+  .mcm-dxf-layer__label {
+    @include t-micro; // uppercase technical tag → house micro scale
+    line-height: 1;
+    border-radius: var(--mcm-radius-xs, 6px);
+    overflow: hidden;
+    box-shadow: var(--mcm-shadow-2, 0 2px 10px rgba(0, 0, 0, 0.18));
+  }
+
+  .mcm-dxf-layer__label-type {
+    background: var(--mcm-accent, #6965db);
+    color: var(--mcm-surface, #fff);
+  }
+
+  .mcm-dxf-layer__label-name {
+    background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+    color: var(--mcm-text, #1b1b1f);
+
+    @supports (backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+      backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+        #{"saturate(var(--mcm-glass-sat, 1.5))"};
+    }
+  }
+
+  // Focus toolbar pills (📋 Layers / ↻ Fit) on the app's glass material.
+  .mcm-dxf-layer__focus-toolbar {
+    bottom: -30px;
+  }
+
+  .mcm-dxf-layer__tool {
+    padding: 3px 10px;
+    background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+    color: var(--mcm-text, #1b1b1f);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+    border-radius: var(--mcm-radius-pill, 999px);
+    white-space: nowrap; // never clip the pill label
+    box-shadow: var(--mcm-shadow-1, 0 2px 6px rgba(0, 0, 0, 0.12));
+
+    @supports (backdrop-filter: blur(1px)) {
+      background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+      backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+        #{"saturate(var(--mcm-glass-sat, 1.5))"};
+    }
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+  }
+
+  .mcm-dxf-layer__tool--active {
+    background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+    border-color: var(--mcm-accent, #6965db);
+    color: var(--mcm-accent, #6965db);
+  }
+
+  // Primary Exit pill — accent, tokenised radius/shadow + no-wrap label.
+  .mcm-dxf-layer__exit {
+    padding: 3px 10px;
+    background: var(--mcm-accent, #6965db);
+    color: var(--mcm-surface, #fff);
+    border-radius: var(--mcm-radius-pill, 999px);
+    font-weight: 640;
+    white-space: nowrap;
+    box-shadow: var(--mcm-shadow-1, 0 2px 6px rgba(0, 0, 0, 0.12));
+
+    &:hover {
+      filter: brightness(1.08);
+    }
+  }
+
+  // Layer panel → frosted glass surface (was flat surface + raw shadow).
+  .mcm-dxf-layer__layer-panel {
+    @include mcm-dxf-glass(var(--mcm-radius-sm, 10px));
+  }
+
+  .mcm-dxf-layer__layer-panel-action {
+    border-radius: var(--mcm-radius-xs, 6px);
+    white-space: nowrap;
+
+    &:hover {
+      background: var(--mcm-accent-soft, rgba(105, 101, 219, 0.14));
+      color: var(--mcm-accent, #6965db);
+    }
+  }
+
+  .mcm-dxf-layer__layer-row {
+    border-radius: var(--mcm-radius-xs, 6px);
+  }
+
+  .mcm-dxf-layer__layer-swatch {
+    border-radius: var(--mcm-radius-xs, 4px);
+    border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.15));
+  }
+
+  .mcm-dxf-layer__layer-name {
+    white-space: nowrap;
+  }
+}
+
+// Right-click context menu → glass surface, tokenised radius/shadow.
+// Doubled class for the same +1 specificity guarantee.
+.mcm-dxf-context-menu.mcm-dxf-context-menu {
+  background: var(--mcm-glass-bg, var(--mcm-surface, #fff));
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
+  border-radius: var(--mcm-radius-sm, 10px);
+  box-shadow: var(--mcm-shadow-2, 0 8px 24px rgba(0, 0, 0, 0.22));
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--mcm-glass-bg-tr, var(--mcm-surface, #fff));
+    backdrop-filter: blur(var(--mcm-glass-blur, 22px))
+      #{"saturate(var(--mcm-glass-sat, 1.5))"}
+      brightness(var(--mcm-glass-bright, 1));
+  }
+
+  .mcm-dxf-context-menu__item {
+    border-radius: var(--mcm-radius-xs, 6px);
+
+    &:hover {
+      background: var(--mcm-surface-2, #f0f0f3);
+    }
+  }
+}

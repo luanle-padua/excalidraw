@@ -978,6 +978,11 @@ const ExcalidrawWrapper = () => {
             // Returning undefined leaves the scene untouched (no text copy).
             return changed ? remapped : undefined;
           }}
+          // MCM: the AI tools (Text-to-diagram / Mermaid / Wireframe-to-code)
+          // route to the EXTERNAL Excalidraw AI backend (oss-ai.excalidraw.com),
+          // not MCM's own AI — disabling them removes that data leak from the
+          // "More tools" menu.
+          aiEnabled={false}
           UIOptions={{
             canvasActions: {
               toggleTheme: true,
@@ -986,6 +991,12 @@ const ExcalidrawWrapper = () => {
                 // MCM fork: no Excalidraw+ cloud-export card in the
                 // export dialog — internal tool, no cloud upsell.
               },
+            },
+            // MCM: hide the Web Embed tool — it loads arbitrary external web
+            // pages into the canvas (security / fit concern for an internal
+            // meeting tool). Frame / Laser / Lasso are untouched.
+            tools: {
+              embeddable: false,
             },
           }}
           langCode={langCode}
