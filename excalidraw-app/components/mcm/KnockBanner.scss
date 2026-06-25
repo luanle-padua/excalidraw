@@ -10,6 +10,8 @@
 // matches the existing "N waiting" chip badge. Tokens only (--mcm-*) so it
 // tracks every theme (light / dark / forest) automatically.
 
+@use "./type" as *; // dashboard type-scale mixins (t-title…t-micro) + font stacks
+
 .mcm-knock {
   position: absolute;
   // Top rung of the TOP-CENTER BANNER LADDER (z-index map in MeetingShell.scss):
@@ -69,9 +71,7 @@
   &__title {
     flex: 1;
     min-width: 0;
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.1px;
+    @include t-subtitle; // 13.5/640 — banner heading (kills weight-700 drift)
     color: var(--mcm-text);
   }
 
@@ -83,8 +83,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--mcm-warning) 26%, transparent);
     color: var(--mcm-text);
-    font-size: 11px;
-    font-weight: 700;
+    @include t-micro; // 10/700 uppercase — "+N" queue-depth pill
     font-variant-numeric: tabular-nums;
   }
 
@@ -113,8 +112,7 @@
   }
 
   &__name {
-    font-size: 13px;
-    font-weight: 600;
+    @include t-subtitle; // 13.5/640 — knocker name
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -122,7 +120,7 @@
   }
 
   &__email {
-    font-size: 11px;
+    @include t-caption; // 11.5/500 — secondary email meta line
     color: var(--mcm-text-soft);
     white-space: nowrap;
     overflow: hidden;
@@ -143,9 +141,7 @@
     padding: 6px 12px;
     border: none;
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.1px;
+    @include t-btn; // 13/640 — Admit / Deny action buttons (kills weight-700 drift)
     cursor: pointer;
     white-space: nowrap;
     transition: filter 120ms, transform 80ms, background-color 120ms;
@@ -185,8 +181,7 @@
     border: none;
     background: transparent;
     color: var(--mcm-warning);
-    font-size: 11.5px;
-    font-weight: 700;
+    @include t-caption; // 11.5/500 — secondary "open full list" text link (kills weight-700 drift)
     cursor: pointer;
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -206,6 +201,10 @@
 .mcm-knock-badge {
   // Override the faint tint + muted text with a solid, high-contrast amber.
   padding: 2px 9px;
+  // PRESERVED bare size: this is a size-only override of the EXTERNAL
+  // .mcm-people-bar__chip-waiting base (MeetingShell.scss) — applying the full
+  // t-micro mixin would re-impose family/lh/uppercase the base already owns and
+  // risk the chip layout. No weight/family decl here → no drift to snap.
   font-size: 11px;
   background: var(--mcm-warning);
   color: #fff;

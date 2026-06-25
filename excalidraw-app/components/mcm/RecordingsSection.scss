@@ -1,3 +1,5 @@
+@use "./type" as *; // dashboard type-scale mixins (t-display…t-btn) + font stacks
+
 // RECORDINGS (review-mode) — per-speaker session list + clean player. Glass Desk.
 //
 // PER-SPEAKER MODEL (owner 06-24): one Record→Stop SESSION yields many tracks
@@ -27,8 +29,7 @@
   }
 
   &__count {
-    font-size: 13px;
-    font-weight: 600;
+    @include t-subtitle; // recordings-count heading — emphasis role
     color: var(--mcm-text);
   }
 
@@ -39,9 +40,7 @@
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text-soft);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-btn; // refresh button
     padding: 6px 10px;
     border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
@@ -121,8 +120,7 @@
   }
 
   &__audio-label {
-    font-size: 14px;
-    font-weight: 600;
+    @include t-subtitle; // audio-player track name — name/emphasis role
     color: var(--mcm-text);
     text-align: center;
     max-width: 100%;
@@ -155,8 +153,7 @@
     gap: 8px;
     color: var(--mcm-text-soft);
     text-align: center;
-    font-size: 13px;
-    line-height: 1.4;
+    @include t-body; // slim placeholder hint strip — running-text role
     padding: 12px 16px;
 
     // shrink the kind icon so the strip stays slim
@@ -197,8 +194,7 @@
   }
 
   &__player-title {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle; // now-playing track name — name role (13.5 exact)
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -206,9 +202,9 @@
   }
 
   &__player-sub {
-    font-size: 12px;
+    @include t-caption; // meta line under the now-playing title
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
-    font-variant-numeric: tabular-nums;
   }
 
   &__download {
@@ -219,9 +215,7 @@
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-btn; // download button
     padding: 7px 12px;
     border-radius: var(--mcm-radius-sm, 10px);
     cursor: pointer;
@@ -265,25 +259,24 @@
   }
 
   &__session-title {
-    font-size: 13px;
-    font-weight: 700;
+    @include t-subtitle; // session-group title — name/emphasis role
     color: var(--mcm-text);
   }
 
   &__session-sub {
-    font-size: 11.5px;
+    @include t-caption; // session meta (timestamp/size) — 11.5 exact
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-variant-numeric: tabular-nums;
   }
 
   &__session-pending {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    @include t-caption; // pending status meta
     color: var(--mcm-text-soft);
     padding: 4px 2px;
   }
@@ -391,8 +384,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-subtitle; // track name — name/emphasis role
     color: var(--mcm-text);
     min-width: 0;
   }
@@ -406,29 +398,28 @@
 
   &__track-dur {
     flex: 0 0 auto;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // duration badge (digits, not uppercase → not t-micro)
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
-    font-variant-numeric: tabular-nums;
     border: 1px solid var(--mcm-hairline);
     border-radius: var(--mcm-radius-xs, 6px);
     padding: 1px 6px;
   }
 
   &__track-meta {
-    font-size: 12px;
+    @include t-caption; // track meta line
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-variant-numeric: tabular-nums;
   }
 
   &__track-status {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    @include t-caption; // inline track status
     color: var(--mcm-text-soft);
   }
 }

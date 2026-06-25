@@ -10,6 +10,8 @@
 // the base font size so one variable resizes the whole strip — including the
 // pop-out window, whose stylesheet is a clone of this one.
 
+@use "./type" as *; // house type-scale mixins (t-micro for the chrome toggles)
+
 .mcm-caption {
   // Base size the S/M/L scale multiplies. 14px feels like a caption, not a
   // paragraph; L (×1.25) reaches ~17.5px for a room display.
@@ -247,9 +249,8 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     color: rgba(255, 255, 255, 0.62);
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    // Chrome toggle → house micro pill scale (was 11px/800, a weight outlier).
+    @include t-micro;
     cursor: pointer;
     transition: color 120ms ease, background-color 120ms ease,
       border-color 120ms ease, box-shadow 120ms ease;
@@ -321,8 +322,10 @@
     border-radius: var(--mcm-radius-pill, 999px);
     background: transparent;
     color: rgba(255, 255, 255, 0.6);
-    font-size: 11px;
-    font-weight: 700;
+    // Chrome toggle → house micro pill scale (was 11px/700, a weight outlier).
+    // The per-variant font-size previews below (--font-s/m/l, --dual) still
+    // override the base micro size; line-height:1 holds the fixed button height.
+    @include t-micro;
     line-height: 1;
     cursor: pointer;
     transition: background-color 120ms ease, color 120ms ease;

@@ -2,6 +2,8 @@
 // PeopleGrid (.mcm-pgrid/.mcm-pchip, styled in MeetingShell.scss); this file
 // only owns the container + the add-member button.
 
+@use "./type" as *;
+
 .mcm-roster {
   display: flex;
   flex-direction: column;
@@ -42,7 +44,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.84rem;
+    @include t-body;
     color: var(--mcm-text, inherit);
   }
 
@@ -169,7 +171,8 @@
 
   &__hint {
     margin: 0;
-    font-size: 0.78rem;
+    @include t-caption;
+    // Multi-line helper copy: keep the roomier 1.5 leading.
     line-height: 1.5;
     color: var(--mcm-text-soft, #6b7280);
   }
@@ -182,10 +185,7 @@
   }
 
   &__field-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-soft, #6b7280);
   }
 
@@ -214,8 +214,7 @@
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     background: var(--mcm-surface, #fff);
     color: var(--mcm-text, inherit);
-    font: inherit;
-    font-size: 0.82rem;
+    @include t-body;
     transition: border-color 160ms ease, box-shadow 160ms ease;
 
     &::placeholder {
@@ -283,7 +282,7 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 0.82rem;
+    @include t-body;
   }
   &__project-caret {
     flex: 0 0 auto;
@@ -315,7 +314,7 @@
     background: none;
     border-radius: var(--mcm-radius-sm, 8px);
     color: var(--mcm-text, #111);
-    font-size: 0.82rem;
+    @include t-body;
     text-align: left;
     cursor: pointer;
 
@@ -343,13 +342,13 @@
   }
   &__project-empty {
     padding: 8px 9px;
-    font-size: 0.8rem;
+    @include t-caption;
     color: var(--mcm-text-soft, #6b7280);
   }
 
   &__empty {
     margin: 2px 0;
-    font-size: 0.8rem;
+    @include t-caption;
     color: var(--mcm-text-soft, #6b7280);
   }
 
@@ -369,7 +368,7 @@
 
     p {
       margin: 0;
-      font-size: 0.82rem;
+      @include t-caption;
     }
   }
 
@@ -423,8 +422,7 @@
   }
 
   &__guest-name {
-    font-weight: 600;
-    font-size: 0.86rem;
+    @include t-subtitle;
     color: var(--mcm-text, inherit);
   }
 
@@ -497,7 +495,7 @@
     align-items: center;
     gap: 4px;
     min-width: 0;
-    font-size: 0.74rem;
+    @include t-caption;
     color: var(--mcm-text-soft, #6b7280);
 
     svg {
@@ -560,8 +558,7 @@
     gap: 7px;
     min-width: 0;
     margin: 0;
-    font-size: 0.88rem;
-    font-weight: 700;
+    @include t-subtitle;
     color: var(--mcm-text, inherit);
 
     svg {
@@ -601,16 +598,18 @@
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
 
   strong {
-    font-size: 0.84rem;
+    @include t-subtitle;
     color: var(--mcm-text, inherit);
   }
 
   p {
     margin: 0;
-    font-size: 0.76rem;
+    @include t-caption;
     color: var(--mcm-text-soft, #6b7280);
   }
 
+  // Credentials block — intentional MONOSPACE code display (login/password).
+  // Not mixin'd: keep ui-monospace so the chars line up + read as a code value.
   code {
     display: block;
     white-space: pre-wrap;

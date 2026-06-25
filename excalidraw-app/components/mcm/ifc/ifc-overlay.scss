@@ -7,6 +7,8 @@
 // `--interactive` modifier the renderer sets from its `interactive`
 // prop). Imported by IFCCanvasOverlay.tsx.
 
+@use "../type" as *; // house type-scale mixins (t-body/t-caption/t-label/t-subtitle)
+
 // =========================================================================
 // IFC anchor overlay — sibling of mcm-dxf-layer, same pattern: pointer
 // events pass through to the underlying Excalidraw rectangle (so it
@@ -129,7 +131,7 @@
     align-items: center;
     justify-content: center;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 12px;
+    @include t-caption;
     font-style: italic;
     background: color-mix(
       in srgb,
@@ -168,8 +170,7 @@
   }
 
   &__placeholder-name {
-    font-size: 12.5px;
-    font-weight: 700;
+    @include t-subtitle;
     color: var(--mcm-text, #1b1b1f);
     max-width: 100%;
     white-space: nowrap;
@@ -178,12 +179,11 @@
   }
 
   &__placeholder-count {
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
   }
 
   &__placeholder-hint {
-    font-size: 10.5px;
+    @include t-caption;
     font-style: italic;
     opacity: 0.85;
   }
@@ -219,8 +219,7 @@
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // compact tool pill → house caption scale (was 11/600)
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: background-color 140ms, transform 140ms;
@@ -286,9 +285,7 @@
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 7px;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // segmented option → house caption scale (was 11/600)
     cursor: pointer;
     transition: background-color 100ms, border-color 100ms, color 100ms;
 
@@ -304,7 +301,7 @@
       );
       border-color: var(--mcm-accent, #6965db);
       color: var(--mcm-accent, #6965db);
-      font-weight: 700;
+      font-weight: 640; // in-system emphasis (was 700)
     }
   }
 
@@ -316,9 +313,7 @@
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 7px;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // menu action → house caption scale (was 11/600)
     cursor: pointer;
     transition: background-color 100ms;
 
@@ -339,8 +334,8 @@
     color: #fff;
     border: 0;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    @include t-caption; // primary exit pill → house caption scale (was 11/700)
+    font-weight: 640; // in-system emphasis for the primary CTA
     letter-spacing: 0.02em;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
@@ -366,8 +361,8 @@
     background: var(--mcm-accent, #6965db);
     color: #fff;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
+    @include t-caption; // measure readout → house caption scale (was 11/700)
+    font-weight: 640; // numeric emphasis, in-system
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     pointer-events: none;
     z-index: 6;
@@ -400,8 +395,7 @@
   }
 
   &__storey-panel-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-subtitle; // panel heading (was 12/700)
     color: var(--mcm-text, #1b1b1f);
   }
 
@@ -433,8 +427,7 @@
     border-radius: 6px;
     text-align: left;
     cursor: pointer;
-    font: inherit;
-    font-size: 11.5px;
+    @include t-body; // storey row label (was 11.5px, font:inherit)
     color: var(--mcm-text, #1b1b1f);
     transition: background-color 100ms;
 
@@ -449,7 +442,7 @@
         transparent
       );
       color: var(--mcm-accent, #6965db);
-      font-weight: 700;
+      font-weight: 640; // in-system emphasis (was 700)
     }
   }
 
@@ -462,7 +455,7 @@
 
   &__storey-elev {
     flex-shrink: 0;
-    font-size: 10.5px;
+    @include t-caption; // elevation meta (was 10.5px)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -495,8 +488,7 @@
   }
 
   &__props-name {
-    font-size: 12.5px;
-    font-weight: 700;
+    @include t-subtitle; // element name heading (was 12.5/700)
     color: var(--mcm-text, #1b1b1f);
     white-space: nowrap;
     overflow: hidden;
@@ -504,8 +496,7 @@
   }
 
   &__props-type {
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // accent sub-label (was 11/600)
     color: var(--mcm-accent, #6965db);
   }
 
@@ -532,7 +523,7 @@
     gap: 8px;
     padding: 4px 0;
     border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.05));
-    font-size: 11px;
+    @include t-caption; // Pset key/value row (was 11px)
 
     &:last-child {
       border-bottom: 0;
@@ -544,7 +535,7 @@
     min-width: 84px;
     max-width: 96px;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-weight: 600;
+    font-weight: 640; // in-system emphasis on the key (was 600)
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -576,8 +567,8 @@
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  font-size: 13px;
+  // System font-family fallback removed — inherit Manrope from the shell.
+  @include t-body; // menu text (was 13px)
   color: var(--mcm-text, #1b1b1f);
   animation: mcm-ifc-menu-in 120ms ease-out both;
 
@@ -659,7 +650,7 @@
     gap: 8px;
     background: var(--mcm-surface-2, rgba(240, 240, 243, 0.7));
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-size: 12px;
+    @include t-caption; // loading status (was 12px)
   }
 
   &__spinner {
@@ -680,7 +671,7 @@
     justify-content: center;
     padding: 8px 12px;
     color: var(--mcm-danger, #dc2626);
-    font-size: 12px;
+    @include t-caption; // error status (was 12px)
     text-align: center;
   }
 
@@ -693,7 +684,7 @@
     padding: 12px;
     background: var(--mcm-surface-2, #f0f0f3);
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-size: 12px;
+    @include t-caption; // capacity-ceiling status (was 12px)
     border: 1px dashed var(--mcm-hairline, rgba(0, 0, 0, 0.18));
     border-radius: 4px;
   }

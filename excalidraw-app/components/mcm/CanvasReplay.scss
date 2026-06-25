@@ -1,3 +1,5 @@
+@use "./type" as *; // dashboard type-scale mixins (t-display…t-btn) + font stacks
+
 // CANVAS REPLAY (review-mode whiteboard timeline) — Glass Desk.
 //
 // NATIVE player: there is NO embedded Excalidraw here. The replay drives the
@@ -63,8 +65,7 @@
     align-items: center;
     gap: 8px;
     color: var(--mcm-text-soft);
-    font-size: 13px;
-    line-height: 1.5;
+    @include t-body;
   }
 
   &__spinner {
@@ -139,9 +140,11 @@
   }
 
   &__time {
+    // Transport time readout: t-caption keeps it compact in the slim bar
+    // (t-number's 17px would dominate the 34px-button row). tnum kept — the
+    // mixin doesn't set it.
+    @include t-caption;
     font-variant-numeric: tabular-nums;
-    font-size: 13px;
-    font-weight: 600;
     color: var(--mcm-text);
     min-width: 64px;
   }
@@ -154,9 +157,9 @@
   }
 
   &__meta {
-    font-size: 12px;
+    @include t-caption;
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
@@ -173,9 +176,7 @@
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-btn; // small segmented speed toggle = button role
     padding: 5px 9px;
     border-radius: var(--mcm-radius-xs, 7px);
     transition: background-color 150ms ease, color 150ms ease;
@@ -191,9 +192,9 @@
   }
 
   &__hint {
-    font-size: 12px;
+    @include t-caption;
+    font-variant-numeric: tabular-nums; // mixin doesn't set tnum
     color: var(--mcm-text-soft);
-    font-variant-numeric: tabular-nums;
     text-align: center;
   }
 }
@@ -228,9 +229,7 @@
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-btn; // lanes expand/collapse = button role
     padding: 2px 4px;
     border-radius: var(--mcm-radius-xs, 7px);
     transition: color 150ms ease, background-color 150ms ease;
@@ -287,9 +286,7 @@
     border: 0;
     background: transparent;
     cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // small speaker-name label
     padding: 0;
     overflow: hidden;
     white-space: nowrap;
@@ -389,9 +386,7 @@
     background: transparent;
     color: var(--mcm-accent);
     cursor: pointer;
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption; // tiny secondary ribbon/lanes link — match lane scale
     padding: 2px 4px;
     border-radius: var(--mcm-radius-xs, 6px);
 
@@ -445,8 +440,7 @@
     align-items: center;
     gap: 5px;
     color: var(--mcm-text-soft);
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption; // static "Canvas" base label — small label role
     padding: 5px 9px;
     border-radius: var(--mcm-radius-xs, 7px);
     cursor: default;
@@ -465,9 +459,7 @@
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption; // Audio/Screen toggle chip — matches the base label
     padding: 5px 9px;
     border-radius: var(--mcm-radius-xs, 7px);
     transition: background-color 150ms ease, color 150ms ease;
@@ -514,8 +506,7 @@
   border-radius: 999px;
   background: var(--mcm-accent-soft);
   color: var(--mcm-accent);
-  font-size: 12px;
-  font-weight: 600;
+  @include t-caption; // "only hearing {name}" status pill
 
   &-label {
     white-space: nowrap;
@@ -542,7 +533,7 @@
 // Approximate-sync hint (legacy rows with no started_at_ms).
 .mcm-replay__approx {
   color: var(--mcm-warning, #d97706);
-  font-weight: 600;
+  font-weight: 640; // emphasis on caption text — licensed weight (was 600 drift)
 }
 
 // ---- P3 SCREEN-ALONG floating pane ----------------------------------------
@@ -596,8 +587,7 @@
   .mcm-replay__screen-title {
     flex: 1;
     min-width: 0;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption; // small pane title in the drag-handle chrome
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;

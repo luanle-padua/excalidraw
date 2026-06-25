@@ -533,8 +533,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 14px;
-    font-weight: 600;
+    @include t-btn-lg;
     min-width: 0;
     cursor: pointer;
     color: var(--mcm-text);
@@ -580,8 +579,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     gap: 5px;
     padding: 5px 10px;
     border-radius: var(--mcm-radius-pill, 999px);
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
     background: var(--mcm-surface-0, var(--mcm-surface-2));
     flex-shrink: 0;
@@ -769,9 +767,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   // typography that inherits the button's state colour (accent on --active,
   // white on --danger:hover, etc.) so it never fights the glyph.
   &__icon-label {
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    @include t-btn;
     line-height: 1;
     white-space: nowrap;
   }
@@ -802,9 +798,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: var(--mcm-radius-xs, 6px);
     background: var(--mcm-text);
     color: var(--mcm-surface);
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    @include t-caption;
     line-height: 1.2;
     box-shadow: var(
       --mcm-shadow-2,
@@ -1151,7 +1145,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
   z-index: 6;
   color: var(--mcm-text);
-  font-size: 12px;
+  @include t-caption;
   max-width: min(560px, calc(100vw - 32px));
 
   &__label {
@@ -1245,9 +1239,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     background: var(--mcm-surface-2);
     border-radius: 999px;
     color: var(--mcm-text-soft);
-    font-size: 12px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    @include t-caption;
     gap: 8px;
   }
 
@@ -1285,10 +1277,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     background: var(--mcm-accent-soft);
     color: var(--mcm-accent);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    @include t-micro;
   }
 
   // "N waiting" — guests knocking at the door. Amber so it draws a glance
@@ -1299,10 +1288,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     background: color-mix(in srgb, #f59e0b 18%, transparent);
     color: #b45309;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    @include t-micro;
   }
 
   // Avatar list — the scrolling part. Padding-right gives the last
@@ -1684,11 +1670,9 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: center;
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text);
     white-space: nowrap;
-    letter-spacing: -0.005em;
     line-height: 1.25;
   }
 
@@ -1813,8 +1797,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__title {
     flex: 1;
     margin: 0;
-    font-size: 16px;
-    font-weight: 700;
+    @include t-title;
   }
 
   &__close {
@@ -1879,8 +1862,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__preview-name {
-    font-size: 15px;
-    font-weight: 700;
+    @include t-title;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1888,7 +1870,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__preview-company {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     white-space: nowrap;
     overflow: hidden;
@@ -1903,10 +1885,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__label {
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include t-label;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
   }
 
@@ -1916,8 +1895,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 9px;
     background: var(--mcm-surface, #fff);
     color: var(--mcm-text, #1b1b1f);
-    font: inherit;
-    font-size: 14px;
+    @include t-body;
     transition: border-color 120ms, box-shadow 120ms;
 
     &:focus {
@@ -1952,9 +1930,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     background: var(--mcm-surface, #fff);
     color: var(--mcm-text, #1b1b1f);
-    font: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
 
@@ -1972,7 +1948,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__error {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-danger, #dc2626);
     padding: 4px 0;
   }
@@ -2039,9 +2015,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__btn {
     padding: 9px 18px;
     border-radius: 9px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 700;
+    @include t-btn;
     cursor: pointer;
     border: 1px solid transparent;
     transition: background-color 140ms, filter 140ms;
@@ -2260,10 +2234,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-weight: 700;
-    font-size: 14px;
+    @include t-btn-lg; // 14px heading-weight; slim panel header, t-title (16px) would break it
     color: var(--mcm-text);
-    letter-spacing: -0.015em;
     min-width: 0;
 
     > span {
@@ -2287,10 +2259,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     height: 22px;
     padding: 0 9px;
     border-radius: 999px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    @include t-micro;
     flex-shrink: 0;
 
     &--live {
@@ -2400,8 +2369,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border: 0;
     border-radius: 7px;
     padding: 4px 22px 4px 10px;
-    font: inherit;
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text);
     cursor: pointer;
     background-image: linear-gradient(
@@ -2436,9 +2404,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__provider-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    @include t-caption;
     color: var(--mcm-text-soft);
     white-space: nowrap;
   }
@@ -2452,9 +2418,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border: 0;
     border-radius: 6px;
     padding: 2px 16px 2px 4px;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text);
     cursor: pointer;
     max-width: 130px;
@@ -2480,8 +2444,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   // reads as metadata, not a control. Tabular figures keep "$0.0048"
   // from jittering as the value changes.
   &__provider-price {
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-faint);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -2532,11 +2495,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    font: inherit;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    @include t-micro;
     flex-shrink: 0;
     transition: background-color 160ms ease, color 160ms ease,
       transform 120ms ease;
@@ -2574,10 +2533,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     cursor: pointer;
     padding: 5px 10px;
     border-radius: 8px;
-    font: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    @include t-caption;
     transition: background-color 160ms ease, color 160ms ease;
 
     svg {
@@ -2622,9 +2578,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     cursor: pointer;
     padding: 4px 10px;
     border-radius: 8px;
-    font: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     transition: background-color 160ms ease, color 160ms ease,
       border-color 160ms ease;
 
@@ -2658,7 +2612,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__empty {
     margin: auto;
     color: var(--mcm-text-faint);
-    font-size: 12.5px;
+    @include t-caption;
     text-align: center;
     padding: 20px 12px;
   }
@@ -2666,8 +2620,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   // Surface error message in the footer in red.
   &__err {
     color: var(--mcm-danger);
-    font-size: 11.5px;
-    font-weight: 500;
+    @include t-caption;
   }
 
   &__lines {
@@ -2759,7 +2712,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 11px;
+      @include t-caption;
       margin-bottom: 2px;
       letter-spacing: 0;
     }
@@ -2786,8 +2739,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     // accuracy; tabular-nums keeps the digits from jittering.
     &-at {
       color: var(--mcm-text-faint);
-      font-size: 11px;
-      font-weight: 500;
+      @include t-caption;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
     }
@@ -2803,19 +2755,14 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     // two panels share one label style. Keeps its per-speaker palette
     // colour (set inline) for fast "who said this" scanning.
     &-spk {
-      font-weight: 600;
-      letter-spacing: -0.005em;
-      font-size: 12.5px;
+      @include t-subtitle;
     }
 
     // Per-segment detected language chip (e.g. "ko", "vi"). Helps
     // when room is mixed-language and you want to know what
     // Deepgram thought it was hearing.
     &-lang {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      @include t-micro;
       color: var(--mcm-text-faint);
       background: var(--mcm-surface-2);
       padding: 1px 5px;
@@ -2824,8 +2771,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
     &-orig {
       color: var(--mcm-text);
-      font-size: 13.5px;
-      font-weight: 500;
+      @include t-body;
       word-wrap: break-word;
     }
 
@@ -2833,7 +2779,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     // chat translation style (em-dash + muted accent colour).
     &-trans {
       color: color-mix(in srgb, var(--mcm-accent) 65%, var(--mcm-text) 35%);
-      font-size: 12.5px;
+      @include t-caption;
       font-style: italic;
       margin-top: 3px;
       line-height: 1.45;
@@ -2845,7 +2791,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__footer {
     padding: 8px 16px 10px;
     border-top: 1px solid var(--mcm-hairline);
-    font-size: 11.5px;
+    @include t-caption;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -2863,10 +2809,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
   &__live-text {
     color: var(--mcm-success);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    font-size: 10px;
-    text-transform: uppercase;
+    @include t-micro;
   }
 
   // Custom resize handle — bottom-right corner. The native browser
@@ -2917,9 +2860,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
+  @include t-caption;
   color: var(--mcm-text);
   display: flex;
   align-items: center;
@@ -2948,9 +2889,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    @include t-micro;
+    letter-spacing: 0.02em; // tighter than t-micro: numeric badge, no caps
     font-variant-numeric: tabular-nums;
   }
 }
@@ -3000,14 +2940,12 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__title {
-    font-weight: 600;
-    font-size: 13px;
+    @include t-subtitle;
     color: var(--mcm-text);
-    letter-spacing: -0.005em;
   }
 
   &__sub {
-    font-size: 11px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     margin-top: 1px;
   }
@@ -3039,9 +2977,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   border-radius: 999px;
   background: var(--mcm-accent);
   color: #fff;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  @include t-micro;
+  letter-spacing: 0.02em; // tighter than t-micro: numeric badge, no caps
   font-variant-numeric: tabular-nums;
 }
 
@@ -3107,14 +3044,12 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
   &__title {
     margin: 0;
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.015em;
+    @include t-title;
     color: var(--mcm-text);
   }
 
   &__meta {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
   }
@@ -3131,9 +3066,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     background: transparent;
     color: var(--mcm-text-soft);
     cursor: pointer;
-    font: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-btn;
     padding: 6px 14px;
     border-radius: 8px;
     position: relative;
@@ -3202,7 +3135,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     padding: 40px 12px;
     text-align: center;
     color: var(--mcm-text-soft);
-    font-size: 13.5px;
+    @include t-body;
     line-height: 1.55;
   }
 
@@ -3232,12 +3165,11 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     }
 
     &-spk {
-      font-weight: 700;
-      font-size: 13.5px;
-      letter-spacing: -0.005em;
+      @include t-subtitle;
     }
 
     &-at {
+      // keep: monospace timestamp — t-caption mixin would clobber the mono family
       font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
       font-size: 11.5px;
       color: var(--mcm-text-faint);
@@ -3249,7 +3181,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     padding: 4px 0 4px 14px;
     border-left: 2px solid var(--mcm-hairline);
     margin-bottom: 4px;
-    font-size: 13.5px;
+    @include t-body;
     line-height: 1.55;
     color: var(--mcm-text);
 
@@ -3260,10 +3192,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
   &__seg-lang {
     margin-left: 8px;
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    @include t-micro;
     color: var(--mcm-text-faint);
     background: var(--mcm-surface-2);
     padding: 1px 5px;
@@ -3281,16 +3210,13 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
     h3 {
       margin: 0 0 10px;
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+      @include t-label;
       color: var(--mcm-text-soft);
     }
 
     p {
       margin: 0;
-      font-size: 14px;
+      @include t-body;
       line-height: 1.6;
       color: var(--mcm-text);
     }
@@ -3309,8 +3235,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     padding: 4px 10px;
     border-radius: 999px;
     border: 1px solid var(--mcm-hairline);
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     background: transparent;
 
     &--neutral {
@@ -3332,7 +3257,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__bullets li {
     padding-left: 16px;
     position: relative;
-    font-size: 13.5px;
+    @include t-body;
     line-height: 1.55;
 
     &::before {
@@ -3348,7 +3273,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     padding: 8px 12px;
     border-radius: 10px;
     background: var(--mcm-surface-2);
-    font-size: 13.5px;
+    @include t-body;
     line-height: 1.55;
 
     strong {
@@ -3358,7 +3283,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
   &__due {
     color: var(--mcm-text-faint);
-    font-size: 12px;
+    @include t-caption;
   }
 
   &__error {
@@ -3366,7 +3291,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 10px;
     background: color-mix(in srgb, var(--mcm-danger) 12%, transparent);
     color: var(--mcm-danger);
-    font-size: 12.5px;
+    @include t-caption;
     margin-bottom: 16px;
   }
 
@@ -3400,9 +3325,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     height: 34px;
     padding: 0 14px;
     border-radius: 9px;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     cursor: pointer;
     border: 0;
     transition: background-color 160ms ease, color 160ms ease,
@@ -3470,8 +3393,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   textarea {
     width: 100%;
     box-sizing: border-box;
-    font: inherit;
-    font-size: 14px;
+    @include t-body;
     color: var(--mcm-text);
     background: var(--mcm-surface-2);
     border: 1px solid var(--mcm-hairline);
@@ -3492,7 +3414,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 
 .mcm-pkg-empty {
   margin: 0;
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-text-soft);
 }
 
@@ -3526,14 +3448,14 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   &__name {
     flex: 1;
     min-width: 0;
-    font-size: 13.5px;
+    @include t-body;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   &__size {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
   }
@@ -3542,7 +3464,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 // Additional attachments (curator's local files added to the package).
 .mcm-pkg-attach {
   &__hint {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     margin-bottom: 2px;
   }
@@ -3626,27 +3548,26 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &__label {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
   }
 
   &__hint {
     grid-column: 2;
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 }
 
 .mcm-pkg-warn {
   margin: 2px 0 0;
-  font-size: 12.5px;
+  @include t-caption;
   color: var(--mcm-danger, #d23f3f);
 }
 
 .mcm-pkg-phase {
   margin: 0;
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-accent);
 }
 
@@ -3675,8 +3596,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
       flex: 1;
       min-width: 0;
       box-sizing: border-box;
-      font: inherit;
-      font-size: 14px;
+      @include t-body;
       color: var(--mcm-text);
       background: var(--mcm-surface-2);
       border: 1px solid var(--mcm-hairline);
@@ -3725,7 +3645,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
 .mcm-pkgv-summary {
   margin: 0;
   white-space: pre-wrap;
-  font-size: 14px;
+  @include t-body;
   line-height: 1.6;
   color: var(--mcm-text);
 }
@@ -3780,8 +3700,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &-title {
-    font-size: 14px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3789,7 +3708,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
   }
 
   &-meta {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -3850,7 +3769,7 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    font-size: 13px;
+    @include t-body;
     color: var(--mcm-text);
 
     &-email--revoked {
@@ -4187,8 +4106,8 @@ body:has(.excalidraw.theme--dark) .mcm-admin {
     border-radius: 999px;
     background: rgba(17, 17, 20, 0.82);
     color: #fff;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-micro;
+    letter-spacing: 0.02em; // tighter than t-micro: numeric badge
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
     pointer-events: none;
@@ -4246,14 +4165,12 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__title {
-    font-weight: 700;
-    font-size: 13px;
+    @include t-subtitle;
     color: var(--mcm-text, #1b1b1f);
-    letter-spacing: -0.01em;
   }
 
   &__hint {
-    font-size: 11px;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(27, 27, 31, 0.6));
   }
 
@@ -4421,8 +4338,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     resize: none;
     min-height: 48px;
     padding: 8px 10px;
-    font-family: inherit;
-    font-size: 13px;
+    @include t-body;
     line-height: 1.4;
     color: var(--mcm-text, #1b1b1f);
     background: var(--mcm-surface, #ffffff);
@@ -4451,9 +4367,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   &__send {
     margin-left: auto;
     padding: 7px 16px;
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     color: #ffffff;
     background: var(--mcm-accent);
     border: none;
@@ -4482,7 +4396,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     width: 28px;
     height: 28px;
     padding: 0;
-    font-size: 16px;
+    font-size: 16px; // keep: icon close "×" button
     line-height: 1;
     color: var(--mcm-text-soft, rgba(27, 27, 31, 0.55));
     background: transparent;
@@ -4619,7 +4533,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     align-items: center;
     justify-content: center;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 12px;
+    @include t-caption;
     font-style: italic;
     background: color-mix(
       in srgb,
@@ -4663,8 +4577,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: background-color 140ms, transform 140ms;
@@ -4694,9 +4607,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: #fff;
     border: 0;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    @include t-caption;
+    letter-spacing: 0.02em; // keep: tighter accent-pill tracking
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     transition: filter 140ms, transform 140ms;
@@ -4742,8 +4654,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__layer-panel-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
   }
 
@@ -4758,9 +4669,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-surface-2, #f0f0f3);
     border: 0;
     border-radius: 5px;
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
@@ -4795,7 +4704,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     padding: 5px 8px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
     transition: background-color 100ms, opacity 120ms;
 
@@ -4849,8 +4758,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-text, #1b1b1f);
   animation: mcm-dxf-menu-in 120ms ease-out both;
 
@@ -4918,10 +4826,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-surface, #fff);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
-    letter-spacing: -0.005em;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     max-width: 100%;
     white-space: nowrap;
@@ -5009,7 +4915,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     align-items: center;
     justify-content: center;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 12px;
+    @include t-caption;
     font-style: italic;
     background: color-mix(
       in srgb,
@@ -5045,8 +4951,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     transition: background-color 140ms, transform 140ms;
@@ -5072,8 +4977,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text, #1b1b1f);
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     font-variant-numeric: tabular-nums;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     pointer-events: none;
@@ -5085,9 +4989,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: #fff;
     border: 0;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
+    @include t-caption;
+    letter-spacing: 0.02em; // keep: tighter accent-pill tracking
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
     transition: filter 140ms, transform 140ms;
@@ -5116,8 +5019,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-text, #1b1b1f);
 
   &__item {
@@ -5171,7 +5073,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     justify-content: center;
     background: rgba(255, 255, 255, 0.92);
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-size: 12px;
+    @include t-caption;
   }
 
   &__error {
@@ -5195,7 +5097,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     justify-content: center;
     font-style: italic;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 12px;
+    @include t-caption;
   }
 }
 
@@ -5249,7 +5151,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     gap: 8px;
     background: var(--mcm-surface-2, rgba(240, 240, 243, 0.7));
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-size: 12px;
+    @include t-caption;
   }
 
   &__spinner {
@@ -5265,7 +5167,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   &__error {
     padding: 8px 12px;
     color: var(--mcm-danger, #dc2626);
-    font-size: 12px;
+    @include t-caption;
     text-align: center;
   }
 
@@ -5278,13 +5180,13 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     padding: 12px;
     background: var(--mcm-surface-2, #f0f0f3);
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-size: 12px;
+    @include t-caption;
     border: 1px dashed var(--mcm-hairline, rgba(0, 0, 0, 0.18));
     border-radius: 4px;
   }
 
   &__capacity-icon {
-    font-size: 22px;
+    font-size: 22px; // keep: emoji/icon glyph size
     margin-bottom: 6px;
   }
 
@@ -5373,9 +5275,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: transparent;
     border: 0;
     padding: 0;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     text-align: left;
@@ -5393,7 +5293,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: transparent;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     cursor: pointer;
-    font-size: 14px;
+    font-size: 14px; // keep: icon close "×" button
     line-height: 1;
     display: flex;
     align-items: center;
@@ -5416,7 +5316,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 0;
     background: transparent;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 18px;
+    font-size: 18px; // keep: icon close "×" button
     line-height: 1;
     cursor: pointer;
     transition: background-color 140ms, color 140ms;
@@ -5452,9 +5352,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: transparent;
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 7px;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     transition: background-color 120ms, border-color 120ms;
@@ -5489,8 +5387,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     color: #fff;
     border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
+    @include t-micro;
+    letter-spacing: 0.02em; // tighter than t-micro: numeric badge
     line-height: 1;
   }
 
@@ -5532,8 +5430,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__layer-panel-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
   }
 
@@ -5548,9 +5445,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     background: var(--mcm-surface-2, #f0f0f3);
     border: 0;
     border-radius: 5px;
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
@@ -5586,7 +5481,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     padding: 5px 8px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text, #1b1b1f);
     transition: background-color 100ms, opacity 120ms;
 
@@ -5627,7 +5522,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     align-items: center;
     justify-content: center;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 13px;
+    @include t-body;
     font-style: italic;
     padding: 16px;
     text-align: center;
@@ -5770,13 +5665,12 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__title {
-    font-weight: 700;
-    font-size: 13px;
+    @include t-subtitle;
     color: var(--mcm-text, #1b1b1f);
   }
 
   &__hint {
-    font-size: 11px;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
   }
 
@@ -5789,7 +5683,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   &__empty {
     padding: 24px 16px;
     text-align: center;
-    font-size: 12px;
+    @include t-caption;
     line-height: 1.5;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     font-style: italic;
@@ -5805,8 +5699,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     border: 0;
     border-radius: 8px;
     cursor: pointer;
-    font: inherit;
-    font-size: 13px;
+    @include t-body;
     color: var(--mcm-text, #1b1b1f);
     text-align: left;
     transition: background-color 120ms;
@@ -5825,7 +5718,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__item-icon {
-    font-size: 16px;
+    font-size: 16px; // keep: emoji/icon glyph size
   }
 
   &__item-name {
@@ -5836,11 +5729,8 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   }
 
   &__item-tag {
-    font-size: 10px;
-    font-weight: 700;
+    @include t-micro;
     color: var(--mcm-accent, #6965db);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 }
 
@@ -5855,18 +5745,14 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-text, #1b1b1f);
   animation: mcm-cad-popover-in 120ms ease-out both;
 
   &__header {
     padding: 6px 10px 4px;
-    font-size: 11px;
-    font-weight: 700;
+    @include t-label;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 
   &__item {
@@ -5945,7 +5831,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text, #1b1b1f);
     border-radius: 6px;
     font-family: inherit;
-    font-size: 16px;
+    font-size: 16px; // keep: icon-glyph zoom button (−/+/map), not a type role
     font-weight: 600;
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
@@ -5969,7 +5855,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     }
 
     &--map {
-      font-size: 14px;
+      font-size: 14px; // keep: icon-glyph variant of __btn, not a type role
     }
   }
 
@@ -5982,8 +5868,7 @@ body:has(.mcm-placing-ghost) .excalidraw-container {
     color: var(--mcm-text, #1b1b1f);
     border-radius: 6px;
     font-family: inherit;
-    font-size: 11px;
-    font-weight: 700;
+    @include t-caption;
     font-variant-numeric: tabular-nums;
     cursor: pointer;
     transition: background-color 120ms;
@@ -6092,8 +5977,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 8px 0 0 8px;
     border-right: 0;
     font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-btn;
     color: var(--mcm-text, #1b1b1f);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
     cursor: pointer;
@@ -6141,7 +6025,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
     border-radius: 0 8px 8px 0;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    font-size: 10px;
+    font-size: 10px; // keep: chevron caret glyph, not a type role
     cursor: pointer;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
     transition: background-color 120ms;
@@ -6177,8 +6061,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     background: transparent;
     border-radius: 6px;
     font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
+    @include t-body;
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     text-align: left;
@@ -6226,10 +6109,8 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   border-radius: 999px;
   background: color-mix(in srgb, #dc2626 16%, var(--mcm-surface, #fff));
   color: #991b1b;
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  @include t-micro; // mixin sets the font-family (was font-family: inherit)
+  font-variant-numeric: tabular-nums; // keep: live timer digits
   cursor: pointer;
   transition: background-color 120ms;
   animation: mcm-recording-slide 220ms ease-out both;
@@ -6351,8 +6232,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 999px;
     background: #dc2626;
     color: #ffffff;
-    font-weight: 700;
-    font-size: 11px;
+    @include t-micro;
   }
 }
 
@@ -6420,10 +6300,8 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 999px;
     background: color-mix(in srgb, #dc2626 16%, var(--mcm-surface, #fff));
     color: #991b1b;
-    font-family: inherit;
-    font-size: 11px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
+    @include t-micro; // mixin sets the font-family (was font-family: inherit)
+    font-variant-numeric: tabular-nums; // keep: live timer digits
     cursor: pointer;
     transition: background-color 120ms;
     animation: mcm-recording-slide 220ms ease-out both;
@@ -6494,8 +6372,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 999px;
     background: #dc2626;
     color: #fff;
-    font-weight: 700;
-    font-size: 11px;
+    @include t-micro;
   }
 
   // Content-picker popover — Glass Desk surface, drops below the button.
@@ -6514,8 +6391,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__popover-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-subtitle;
     color: var(--mcm-text, #1b1b1f);
     margin-bottom: 8px;
   }
@@ -6525,7 +6401,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     align-items: center;
     gap: 8px;
     padding: 5px 2px;
-    font-size: 13px;
+    @include t-body;
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
 
@@ -6538,15 +6414,14 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
   &__hint {
     margin: 6px 2px 0;
-    font-size: 11px;
+    @include t-caption;
     line-height: 1.4;
     color: var(--mcm-text-muted, #6b7280);
   }
 
   &__summary {
     margin: 8px 2px 0;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: #991b1b;
   }
 
@@ -6562,8 +6437,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 10px;
     background: #dc2626;
     color: #fff;
-    font-size: 13px;
-    font-weight: 700;
+    @include t-btn;
     cursor: pointer;
     transition: background-color 120ms;
 
@@ -6591,7 +6465,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   background: #dc2626;
   border: 1px solid #dc2626;
   color: #fff;
-  font-size: 11.5px;
+  font-size: 11.5px; // keep: legal REC badge, fw800 intentional (QA)
   font-weight: 800;
   letter-spacing: 0.04em;
   box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 20%, transparent),
@@ -6674,8 +6548,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__count {
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-muted, #6b7280);
   }
 
@@ -6688,7 +6561,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 8px;
     background: transparent;
     color: var(--mcm-text, #1b1b1f);
-    font-size: 12px;
+    @include t-caption;
     cursor: pointer;
 
     &:hover {
@@ -6727,7 +6600,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 12px;
     background: var(--mcm-hover, rgba(0, 0, 0, 0.04));
     color: var(--mcm-text-muted, #6b7280);
-    font-size: 13px;
+    @include t-body;
   }
 
   &__row {
@@ -6738,7 +6611,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__meta {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-muted, #6b7280);
     font-variant-numeric: tabular-nums;
   }
@@ -6751,8 +6624,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border-radius: 8px;
     background: color-mix(in srgb, var(--mcm-accent, #6965db) 12%, transparent);
     color: var(--mcm-accent, #6965db);
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     text-decoration: none;
     white-space: nowrap;
 
@@ -6794,9 +6666,8 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
     sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
+  @include t-caption;
+  line-height: 1; // keep: single-line pill, tight vertical
   color: var(--mcm-text, #1b1b1f);
   white-space: nowrap;
   pointer-events: none;
@@ -6814,11 +6685,11 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     justify-content: center;
     // 18px badge → small initials so two letters still fit cleanly. The
     // bot 🤖 glyph wants the larger size, so only shrink the text avatar.
-    font-size: 12px;
+    font-size: 12px; // keep: avatar glyph (🤖) size, not a type role
     background: var(--mcm-surface-2, #f0f0f3);
 
     &.mcm-avatar--initials {
-      font-size: 9px;
+      font-size: 9px; // keep: avatar initials size
     }
 
     img {
@@ -6912,7 +6783,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__logo {
-    font-size: 24px;
+    font-size: 24px; // keep: brand logo glyph, not a type role
     line-height: 1;
     color: var(--mcm-accent);
   }
@@ -6958,7 +6829,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     align-items: center;
     gap: 10px;
     color: var(--mcm-text-faint);
-    font-size: 12px;
+    @include t-caption;
 
     &::before,
     &::after {
@@ -7019,7 +6890,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
   &__error {
     margin: -8px 0 0;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-danger);
   }
 
@@ -7031,7 +6902,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     margin-top: 4px;
     padding: 6px;
     color: var(--mcm-text-soft);
-    font-size: 13px;
+    @include t-body;
     transition: color 200ms ease;
 
     &:hover {
@@ -7050,8 +6921,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   border: 1px solid var(--mcm-hairline);
   background: var(--mcm-surface);
   color: var(--mcm-text);
-  font-size: 14px;
-  font-weight: 600;
+  @include t-btn-lg;
   transition: background 200ms ease;
 
   &:hover {
@@ -7110,7 +6980,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: none;
     background: none;
     cursor: pointer;
-    font-size: 16px;
+    font-size: 16px; // keep: close "×" button glyph, not a type role
     color: var(--mcm-text-soft);
     padding: 4px 8px;
     border-radius: 8px;
@@ -7154,7 +7024,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     padding: 9px 10px;
     border-radius: 8px;
     color: var(--mcm-text);
-    font-size: 14px;
+    @include t-subtitle; // project NAME row (640 weight carries the active emphasis)
 
     &:hover {
       background: var(--mcm-surface-2);
@@ -7162,7 +7032,6 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     &--active {
       background: var(--mcm-accent-soft);
       color: var(--mcm-accent);
-      font-weight: 600;
     }
   }
 
@@ -7170,7 +7039,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   &__hint {
     padding: 16px;
     color: var(--mcm-text-faint);
-    font-size: 13px;
+    @include t-body;
   }
 
   &__new-project {
@@ -7188,7 +7057,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
-    font-size: 13px;
+    @include t-body;
     outline: none;
 
     &:focus {
@@ -7204,8 +7073,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: none;
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
 
     &:disabled {
       opacity: 0.5;
@@ -7247,8 +7115,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: 1px solid var(--mcm-accent);
     background: var(--mcm-accent-soft);
     color: var(--mcm-accent);
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
 
     &:disabled {
       opacity: 0.5;
@@ -7310,7 +7177,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__thumb-glyph {
-    font-size: 32px;
+    font-size: 32px; // keep: thumbnail placeholder glyph, not a type role
     color: var(--mcm-text-faint);
   }
 
@@ -7322,8 +7189,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__card-title {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -7423,8 +7289,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   border: 0;
   background: transparent;
   color: var(--mcm-text-soft);
-  font-size: 13px;
-  font-weight: 600;
+  @include t-btn;
   white-space: nowrap;
   transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
     color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
@@ -7468,7 +7333,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   height: 26px;
   padding: 0 9px;
   border-radius: var(--mcm-radius-pill, 999px);
-  font-size: 11.5px;
+  @include t-caption;
   transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
     color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
 
@@ -7509,8 +7374,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   border: none;
   background: var(--mcm-accent);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
+  @include t-btn-lg;
 
   &:disabled {
     opacity: 0.5;
@@ -7670,8 +7534,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   margin-bottom: 10px;
 }
 .mcm-portal__cal-month {
-  font-size: 13px;
-  font-weight: 700;
+  @include t-subtitle;
   color: var(--mcm-text);
 }
 .mcm-portal__cal-nav {
@@ -7698,9 +7561,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 .mcm-portal__cal-dow {
   text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
+  @include t-micro;
   color: var(--mcm-text-faint);
   padding-bottom: 4px;
 }
@@ -7710,7 +7571,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  @include t-caption;
   border-radius: 8px;
   color: var(--mcm-text-soft);
 }
@@ -7776,7 +7637,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 
 .mcm-portal__brand {
-  font-size: 17px;
+  font-size: 17px; // keep: display wordmark (Cormorant Garamond eyebrow), sans mixin would clobber the display family (QA)
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -7786,7 +7647,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 // The customer greeting ("Hi {name}") is the HERO — the biggest line.
 .mcm-portal__hello {
   margin: 2px 0 0;
-  font-size: clamp(36px, 5vw, 52px);
+  font-size: clamp(36px, 5vw, 52px); // keep: responsive clamp hero, do not touch
   font-weight: 600;
   line-height: 1.05;
   color: #fff;
@@ -7795,7 +7656,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 // "Your meetings with MAP" — quiet subtitle under the greeting.
 .mcm-portal__title {
   margin: 0;
-  font-size: 22px;
+  font-size: 22px; // keep: display subtitle (Cormorant Garamond hero), sans mixin would clobber the display family (QA)
   font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
 }
@@ -7846,10 +7707,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
 .mcm-portal__section-title {
   margin: 0;
-  font-size: 11px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  @include t-label;
   color: var(--mcm-text-soft);
 }
 
@@ -7875,8 +7733,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 .mcm-portal__recap-project-title {
   margin: 0;
-  font-size: 13px;
-  font-weight: 680;
+  @include t-subtitle;
   color: var(--mcm-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7891,8 +7748,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 .mcm-portal__recap-meeting-title {
   margin: 0;
-  font-size: 12px;
-  font-weight: 600;
+  @include t-caption;
   color: var(--mcm-text-soft);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7921,8 +7777,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 
 .mcm-portal__row-title {
-  font-size: 14.5px;
-  font-weight: 600;
+  @include t-subtitle;
   color: var(--mcm-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7933,7 +7788,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12.5px;
+  @include t-caption;
   color: var(--mcm-text-soft);
 }
 
@@ -7953,7 +7808,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
   p {
     margin: 0;
-    font-size: 14px;
+    @include t-body;
   }
 }
 
@@ -7967,7 +7822,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   border-radius: 14px;
   border: 1px dashed color-mix(in srgb, var(--mcm-text-soft) 35%, transparent);
   background: color-mix(in srgb, var(--mcm-surface) 40%, transparent);
-  font-size: 13px;
+  @include t-body;
   color: var(--mcm-text-soft);
 
   svg {
@@ -7979,7 +7834,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 .mcm-portal__hint {
   padding: 40px 24px;
   text-align: center;
-  font-size: 14px;
+  @include t-body;
   color: var(--mcm-text-soft);
 }
 
@@ -8004,8 +7859,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
 .mcm-folder__project-stage {
   flex-shrink: 0;
-  font-size: 10.5px;
-  font-weight: 600;
+  @include t-micro;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--mcm-accent-soft);
@@ -8022,8 +7876,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 
 .mcm-folder__stage {
   flex-shrink: 0;
-  font-size: 11.5px;
-  font-weight: 600;
+  @include t-micro;
   padding: 2px 9px;
   border-radius: 999px;
   background: var(--mcm-accent-soft);
@@ -8038,7 +7891,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   flex-shrink: 0;
   padding: 4px 6px;
   border-radius: 7px;
-  font-size: 13px;
+  font-size: 13px; // keep: inline edit affordance may hold a pencil glyph, not a clear type role (QA)
   color: var(--mcm-text-soft);
   transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
 
@@ -8051,7 +7904,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 .mcm-folder__project-desc {
   margin: 0;
   padding: 0 18px 4px;
-  font-size: 12.5px;
+  @include t-body;
   color: var(--mcm-text-soft);
 }
 
@@ -8074,7 +7927,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
 }
 
 .mcm-folder__card-topic {
-  font-size: 12px;
+  @include t-caption;
   color: var(--mcm-accent);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8085,7 +7938,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   display: flex;
   gap: 10px;
   margin-top: 2px;
-  font-size: 11px;
+  @include t-caption;
   color: var(--mcm-text-soft);
 }
 
@@ -8130,7 +7983,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: none;
     background: none;
     cursor: pointer;
-    font-size: 15px;
+    font-size: 15px; // keep: close "×" button glyph, not a type role
     color: var(--mcm-text-soft);
     padding: 4px 8px;
     border-radius: 8px;
@@ -8155,8 +8008,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
   }
 
   &__label {
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -8169,8 +8021,7 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface); // solid control on the glass panel
     color: var(--mcm-text);
-    font-size: 14px;
-    font-family: inherit;
+    @include t-body; // form input; mixin sets Manrope (replaces font-family: inherit)
     outline: none;
     transition: border-color 200ms ease;
 
@@ -8244,14 +8095,12 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   line-height: 1.15;
 }
 .mcm-header__project {
-  font-size: 11px;
-  font-weight: 500;
+  @include t-caption;
   color: var(--mcm-text-faint);
   max-width: 240px;
 }
 .mcm-header__meeting-name {
-  font-size: 14px;
-  font-weight: 600;
+  @include t-btn-lg; // 14px name in a tight header bar (t-btn-lg = 14px/640)
   max-width: 340px;
 }
 
@@ -8484,8 +8333,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   border: none;
   background: transparent;
   padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 600;
+  @include t-caption;
   color: var(--mcm-text-soft);
 
   &.is-active {
@@ -8532,8 +8380,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   border: 1px solid var(--mcm-hairline);
   background: var(--mcm-surface-2);
   color: var(--mcm-text);
-  font-size: 14px;
-  font-family: inherit;
+  @include t-body; // form select; mixin sets Manrope (replaces font-family: inherit)
   outline: none;
   cursor: pointer;
 
@@ -8553,16 +8400,14 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   margin: 1px 0 1px;
 }
 .mcm-folder__card-type {
-  font-size: 10.5px;
-  font-weight: 600;
+  @include t-micro;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--mcm-surface-2);
   color: var(--mcm-text-soft);
 }
 .mcm-folder__card-status {
-  font-size: 10.5px;
-  font-weight: 600;
+  @include t-micro;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--mcm-surface-2);
@@ -8779,7 +8624,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 
   &__dev {
     margin: 0 0 18px;
-    font-size: 12px;
+    @include t-caption;
     font-style: italic;
     color: var(--mcm-text-faint);
   }
@@ -8792,7 +8637,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 
   &__subtitle {
     margin: 4px 0 20px;
-    font-size: 14px;
+    @include t-body;
     color: var(--mcm-text-soft);
   }
 
@@ -8809,10 +8654,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   }
 
   &__label {
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-soft);
   }
 
@@ -8824,8 +8666,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-0);
     color: var(--mcm-text);
-    font-size: 14.5px;
-    font-family: inherit;
+    @include t-body;
     outline: none;
     transition: border-color var(--mcm-dur-base) var(--mcm-ease),
       box-shadow var(--mcm-dur-base) var(--mcm-ease);
@@ -8844,7 +8685,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 
   &__error {
     margin: 0;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-danger);
   }
 
@@ -8855,8 +8696,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     border: none;
     padding: 13px;
     border-radius: var(--mcm-radius-md);
-    font-size: 15px;
-    font-weight: 650;
+    @include t-btn-lg;
     color: #fff;
     background: var(--mcm-accent);
     box-shadow: 0 8px 20px
@@ -8888,8 +8728,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     border: none;
     cursor: pointer;
     align-self: center;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-accent);
     padding: 4px;
 
@@ -8905,14 +8744,14 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     border-radius: var(--mcm-radius-md);
     background: var(--mcm-accent-soft);
     color: var(--mcm-text);
-    font-size: 13.5px;
+    @include t-body;
     line-height: 1.5;
   }
 
   &__help {
     margin: 16px 0 0;
     text-align: center;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
 
@@ -9044,7 +8883,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 
   &__hero-sub {
     margin: 0 0 30px;
-    font-size: 14px;
+    @include t-body;
     line-height: 1.55;
     color: rgba(255, 255, 255, 0.82);
   }
@@ -9072,7 +8911,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 17px;
+    @include t-number;
     color: #e6d4a4;
     background: rgba(214, 192, 138, 0.1);
     box-shadow: inset 0 0 0 1px rgba(214, 192, 138, 0.28),
@@ -9085,11 +8924,10 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     gap: 2px;
 
     strong {
-      font-size: 14px;
-      font-weight: 650;
+      @include t-subtitle;
     }
     span {
-      font-size: 12.5px;
+      @include t-caption;
       line-height: 1.4;
       color: rgba(255, 255, 255, 0.74);
     }
@@ -9220,7 +9058,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 }
 .mcm-confirm__message {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.92rem; // keep: rem-based prose, mixins are px
   line-height: 1.55;
   color: var(--mcm-text, inherit);
 }
@@ -9248,8 +9086,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
+  @include t-body;
   transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
 
   &:hover {
@@ -9259,7 +9096,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   }
 }
 .mcm-meditor__image-plus {
-  font-size: 26px;
+  font-size: 26px; // keep: "+" glyph size, not a type role
   line-height: 1;
 }
 .mcm-meditor__image-preview {
@@ -9290,8 +9127,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
     border: none;
     border-radius: 8px;
     padding: 6px 11px;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: #fff;
     background: rgba(17, 17, 20, 0.72);
     backdrop-filter: blur(6px);
@@ -9355,10 +9191,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   gap: 8px;
 }
 .mcm-login__demo-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
+  @include t-label;
   color: var(--mcm-text-faint);
 }
 .mcm-login__demo-list {
@@ -9403,8 +9236,8 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   justify-content: center;
   background: var(--mcm-accent-soft);
   color: var(--mcm-accent);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12px; // keep: avatar initials size
+  font-weight: 700; // keep: avatar initials weight
 
   &--admin {
     background: var(--mcm-warning-soft);
@@ -9414,8 +9247,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 .mcm-login__demo-name {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
+  @include t-body;
   color: var(--mcm-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9467,11 +9299,10 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   min-width: 0;
 
   strong {
-    font-size: 14px;
-    font-weight: 650;
+    @include t-subtitle;
   }
   span {
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -9498,9 +9329,7 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   gap: 7px;
   padding: 6px 13px;
   border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
+  @include t-caption;
   color: var(--mcm-text);
   background: color-mix(in srgb, var(--mcm-warning) 16%, var(--mcm-surface));
   box-shadow: inset 0 0 0 1px
@@ -9600,7 +9429,7 @@ body:has(.excalidraw.theme--dark) {
     height: 52px;
     padding: 0 16px;
     border-bottom: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
-    font-size: 14px;
+    @include t-body;
     flex-shrink: 0;
   }
   &__close {
@@ -9642,12 +9471,12 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 17px;
+    font-size: 17px; // keep: avatar emoji glyph size
     overflow: hidden;
 
     // Identity initials read better a touch smaller than the old emoji.
     &.mcm-avatar--initials {
-      font-size: 13px;
+      font-size: 13px; // keep: avatar initials size
     }
 
     img {
@@ -9695,7 +9524,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.16));
   }
   &__company {
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
     white-space: nowrap;
     overflow: hidden;
@@ -9747,8 +9576,7 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    font-size: 12px;
-    font-weight: 640;
+    @include t-caption;
     padding: 5px 9px;
     border-radius: 8px;
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
@@ -9826,9 +9654,8 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    // Content-bearing chip: 11.5/600 (not Micro — these hold real names).
-    font-size: 11.5px;
-    font-weight: 600;
+    // Content-bearing chip (holds real names) — Caption, not Micro.
+    @include t-caption;
     padding: 3px 4px 3px 10px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--mcm-accent, #6965db) 14%, transparent);
@@ -9898,18 +9725,17 @@ body:has(.excalidraw.theme--dark) {
         background: var(--mcm-surface-2, #f0f0f3);
       }
       strong {
-        font-size: 13.5px;
-        font-weight: 600;
+        @include t-subtitle;
       }
       span {
-        font-size: 11.5px;
+        @include t-caption;
         color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
       }
     }
   }
   &__empty {
     padding: 12px;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
     text-align: center;
   }
@@ -9917,7 +9743,7 @@ body:has(.excalidraw.theme--dark) {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    @include t-body;
 
     input {
       width: 17px;
@@ -9992,8 +9818,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 9px;
     background: var(--mcm-accent, #2563eb);
     color: #fff;
-    font-size: 12px;
-    font-weight: 640;
+    @include t-caption;
     padding: 7px 13px;
     cursor: pointer;
 
@@ -10254,9 +10079,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
     background: transparent;
     color: var(--mcm-text, #1b1b1f);
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     padding: 8px 13px;
     border-radius: 10px;
     cursor: pointer;
@@ -10290,7 +10113,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.14));
     border-radius: 9px;
     padding: 0 10px;
-    font-size: 13.5px;
+    @include t-body;
     background: var(--mcm-bg, #fff);
     color: var(--mcm-text, #1b1b1f);
   }
@@ -10354,9 +10177,7 @@ body:has(.excalidraw.theme--dark) {
   }
   &__hero-date {
     display: block; // block so ::first-letter applies
-    font-size: 14.5px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    @include t-subtitle;
     line-height: 1.3;
     color: var(--mcm-text);
 
@@ -10443,9 +10264,8 @@ body:has(.excalidraw.theme--dark) {
     justify-content: center;
     border-radius: 999px;
     background: var(--mcm-surface-2);
-    font-size: 10px;
-    font-weight: 650;
-    letter-spacing: 0;
+    @include t-micro;
+    letter-spacing: 0; // tighter than t-micro: numeric count badge
     color: var(--mcm-text-faint);
   }
 
@@ -10463,8 +10283,7 @@ body:has(.excalidraw.theme--dark) {
       display: contents;
     }
     dt {
-      font-size: 12.5px;
-      font-weight: 500;
+      @include t-caption;
       line-height: 1.45;
       color: var(--mcm-text-soft);
     }
@@ -10750,8 +10569,7 @@ body:has(.excalidraw.theme--dark) {
     height: 22px;
     padding: 0 5px;
     border-radius: 999px;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text);
 
     // Today gets the accent ring.
@@ -10804,7 +10622,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 3px 7px;
     border: none;
     border-radius: 7px;
-    font-size: 11.5px;
+    @include t-caption;
     line-height: 1.3;
     text-align: left;
     cursor: pointer;
@@ -10851,8 +10669,7 @@ body:has(.excalidraw.theme--dark) {
     align-self: flex-start;
     padding: 1px 6px;
     border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease;
@@ -10907,7 +10724,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px dashed var(--mcm-hairline);
     border-radius: 12px;
     color: var(--mcm-text-faint);
-    font-size: 13.5px;
+    @include t-body;
   }
 
   &__agenda {
@@ -10946,8 +10763,7 @@ body:has(.excalidraw.theme--dark) {
   &__row-time {
     flex-shrink: 0;
     width: 52px;
-    font-size: 13px;
-    font-weight: 650;
+    @include t-body;
     font-variant-numeric: tabular-nums;
     color: var(--mcm-text);
   }
@@ -11010,8 +10826,7 @@ body:has(.excalidraw.theme--dark) {
   &__row-detail {
     padding: 6px 13px;
     border-radius: 8px;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
   }
@@ -11051,8 +10866,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__notes-label {
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -11277,8 +11091,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline);
     border-radius: 8px;
     padding: 6px 8px;
-    font-size: 12px;
-    font-weight: 640;
+    @include t-caption;
     color: var(--mcm-text-soft);
     cursor: pointer;
     transition: border-color 120ms, background 120ms, color 120ms;
@@ -11512,9 +11325,7 @@ body:has(.excalidraw.theme--dark) {
     border: 1px solid var(--mcm-hairline);
     background: var(--mcm-surface-2);
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 12.5px;
-    font-weight: 640;
+    @include t-caption;
     cursor: pointer;
     transition: background 120ms, border-color 120ms, color 120ms;
 
@@ -11558,8 +11369,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     transition: background 120ms, border-color 120ms, color 120ms;
 
@@ -11725,9 +11535,9 @@ body:has(.excalidraw.theme--dark) {
     border-radius: var(--mcm-radius-pill, 999px);
     background: var(--mcm-accent);
     color: #fff;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 18px;
+    @include t-micro;
+    letter-spacing: 0; // tighter than t-micro: numeric count badge
+    line-height: 18px; // keep: fixed pill height
     text-align: center;
     font-variant-numeric: tabular-nums;
   }
@@ -11735,7 +11545,7 @@ body:has(.excalidraw.theme--dark) {
     list-style: none;
     padding: 14px 16px;
     color: var(--mcm-text-faint);
-    font-size: 12px;
+    @include t-caption;
   }
   // "Thử lại" when the project list failed to load.
   &__retry {
@@ -11745,8 +11555,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 6px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
 
     &:hover {
@@ -11845,7 +11654,7 @@ body:has(.excalidraw.theme--dark) {
   &--sm {
     height: 32px;
     padding: 0 12px;
-    font-size: 12.5px;
+    font-size: 12.5px; // keep: small-button variant override
     font-weight: 640;
   }
 
@@ -12108,7 +11917,7 @@ body:has(.excalidraw.theme--dark) {
 .mcm-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 13px; // keep: table structural default
 
   th,
   td {
@@ -12184,8 +11993,7 @@ body:has(.excalidraw.theme--dark) {
   // Grouping header row (e.g. department divider in the user list).
   &__grouprow td {
     background: var(--mcm-surface-2);
-    font-weight: 700;
-    font-size: 12px;
+    @include t-label;
     color: var(--mcm-text);
   }
   &__grouptoggle {
@@ -12208,8 +12016,7 @@ body:has(.excalidraw.theme--dark) {
   }
   &__gcount {
     margin-left: 4px;
-    font-size: 11px;
-    font-weight: 650;
+    @include t-caption;
     color: var(--mcm-text-soft);
     background: var(--mcm-surface);
     padding: 1px 8px;
@@ -12225,7 +12032,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   code {
-    font-size: 12px;
+    font-size: 12px; // keep: inline <code> monospace
     background: var(--mcm-surface-2);
     padding: 1px 6px;
     border-radius: 5px;
@@ -12319,9 +12126,7 @@ body:has(.excalidraw.theme--dark) {
     border: 0;
     background: transparent;
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     outline: none;
     padding-right: 2px;
@@ -12348,10 +12153,8 @@ body:has(.excalidraw.theme--dark) {
   border: 1px solid var(--mcm-hairline);
   background: transparent;
   color: var(--mcm-text-soft);
-  font: inherit;
-  // Content-bearing chip: 11.5/600 (not Micro — holds real words).
-  font-size: 11.5px;
-  font-weight: 600;
+  // Content-bearing chip (holds real words, not Micro).
+  @include t-caption;
   cursor: pointer;
   transition: background 120ms, border-color 120ms, color 120ms;
 
@@ -12543,7 +12346,7 @@ body:has(.excalidraw.theme--dark) {
   // accent colour).
   &__title-icon {
     margin-right: 5px;
-    font-size: 14px;
+    font-size: 14px; // keep: emoji glyph
     line-height: 1;
   }
 
@@ -12827,7 +12630,7 @@ body:has(.excalidraw.theme--dark) {
     border: 0;
     border-radius: var(--mcm-radius-xs, 6px);
     background: transparent;
-    font-size: 16px;
+    font-size: 16px; // keep: emoji glyph
     line-height: 1;
     cursor: pointer;
     transition: background-color 120ms ease, transform 120ms ease;
@@ -12849,9 +12652,8 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 999px;
     background: var(--mcm-surface-2);
     color: var(--mcm-text-soft);
-    font: inherit;
-    font-size: 11px;
-    font-weight: 600;
+    // Not uppercase — t-caption (t-label would force uppercase on "Clear").
+    @include t-caption;
     cursor: pointer;
     white-space: nowrap;
     transition: background-color 120ms ease, color 120ms ease;
@@ -12967,7 +12769,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 24px;
     text-align: center;
     color: var(--mcm-text-faint);
-    font-size: 13px;
+    @include t-body;
   }
   &__group {
     margin-bottom: 6px;
@@ -12998,7 +12800,7 @@ body:has(.excalidraw.theme--dark) {
     white-space: nowrap;
   }
   &__group-count {
-    font-size: 11px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
   &__row {
@@ -13029,7 +12831,7 @@ body:has(.excalidraw.theme--dark) {
   &__sub {
     flex: 1;
     min-width: 0;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -13082,8 +12884,7 @@ body:has(.excalidraw.theme--dark) {
   border: 1px solid var(--mcm-hairline);
   background: var(--mcm-surface-2);
   color: var(--mcm-accent);
-  font-size: 12px;
-  font-weight: 640;
+  @include t-caption;
   padding: 4px 9px;
   border-radius: 7px;
   cursor: pointer;
@@ -13123,7 +12924,7 @@ body:has(.excalidraw.theme--dark) {
   padding: 12px;
   text-align: center;
   color: var(--mcm-text-faint);
-  font-size: 12.5px;
+  @include t-caption;
 }
 
 // ---------------- Start gate (Phase 4.5 state machine) ---------------
@@ -13180,14 +12981,13 @@ body:has(.excalidraw.theme--dark) {
 
   &__meeting {
     margin: 0;
-    font-size: 14px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
   }
 
   &__desc {
     margin: 0;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
 
@@ -13196,7 +12996,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 8px;
     margin: 10px 0 0;
-    font-size: 13px;
+    @include t-body;
     color: var(--mcm-text-muted, var(--mcm-text-faint));
   }
 
@@ -13214,7 +13014,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 6px 10px;
     border: none;
     background: none;
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
     cursor: pointer;
 
@@ -13250,6 +13050,7 @@ body:has(.excalidraw.theme--dark) {
   // Title in the same brand serif as the portal greeting (đồng bộ với trang
   // khách, anh Luân 06-16).
   .mcm-gate__title {
+    // keep: brand display serif (a sans t-* mixin would clobber the family)
     font-family: "Cormorant Garamond", Georgia, serif;
     font-size: 27px;
     font-weight: 600;
@@ -13361,12 +13162,12 @@ body:has(.excalidraw.theme--dark) {
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    font-size: 26px;
+    font-size: 26px; // keep: avatar initials glyph
     font-weight: 700;
   }
 
   &__cam-hint {
-    font-size: 12px;
+    @include t-caption;
     color: rgba(255, 255, 255, 0.78);
   }
 
@@ -13416,14 +13217,13 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 13px;
+    @include t-body;
   }
 }
 
 .mcm-editm__note {
   margin: 2px 0 8px;
-  font-size: 12px;
+  @include t-caption;
   color: var(--mcm-text-faint);
 }
 
@@ -13433,7 +13233,7 @@ body:has(.excalidraw.theme--dark) {
   align-items: center;
   gap: 5px;
   min-width: 0;
-  font-size: 11.5px;
+  @include t-caption;
   color: var(--mcm-text-faint);
 
   .mcm-mcard__creator-ava {
@@ -13449,7 +13249,7 @@ body:has(.excalidraw.theme--dark) {
       var(--mcm-surface)
     );
     color: var(--pa, var(--mcm-accent));
-    font-size: 9px;
+    font-size: 9px; // keep: avatar initials glyph
     font-weight: 700;
     text-transform: uppercase;
   }
@@ -13514,7 +13314,7 @@ body:has(.excalidraw.theme--dark) {
   // Initials sizing: each call site's avatar class may set its own
   // font-size; this is the calm default for the ~20-28px boxes most
   // surfaces use. Larger avatars (profile header) bump it via their class.
-  font-size: 11px;
+  font-size: 11px; // keep: avatar initials glyph
   font-weight: 700;
   letter-spacing: 0.2px;
   text-transform: uppercase;
@@ -13557,7 +13357,7 @@ body:has(.excalidraw.theme--dark) {
   // Hairline lux ring — the "signed-in identity" gets the champagne detail.
   box-shadow: 0 0 0 1px
     color-mix(in srgb, var(--mcm-lux, var(--mcm-accent)) 55%, transparent);
-  font-size: 12px;
+  font-size: 12px; // keep: avatar initials glyph
   font-weight: 700;
   text-transform: uppercase;
 
@@ -13571,7 +13371,7 @@ body:has(.excalidraw.theme--dark) {
   &--lg {
     width: 40px;
     height: 40px;
-    font-size: 16px;
+    font-size: 16px; // keep: avatar initials glyph
   }
 }
 
@@ -13690,9 +13490,7 @@ body:has(.excalidraw.theme--dark) {
   border-radius: 8px;
   background: none;
   color: var(--mcm-text);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
+  @include t-body;
   text-align: left;
   cursor: pointer;
   transition: background 200ms ease;
@@ -13739,7 +13537,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 12px 10px;
     border: 1px dashed var(--mcm-hairline);
     border-radius: 10px;
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-faint);
     text-align: center;
   }
@@ -13775,8 +13573,7 @@ body:has(.excalidraw.theme--dark) {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -13788,8 +13585,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__cluster-n {
-    font-size: 10px;
-    font-weight: 600;
+    @include t-micro;
     padding: 0 5px;
     border-radius: 999px;
     background: var(--mcm-surface-2);
@@ -13830,8 +13626,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__name {
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -13840,7 +13635,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__title {
     flex: none;
-    font-size: 10.5px;
+    font-size: 10.5px; // keep: sub-caption micro-title
     color: var(--mcm-text-faint);
     white-space: nowrap;
   }
@@ -13954,9 +13749,9 @@ body:has(.excalidraw.theme--dark) {
     border-radius: var(--mcm-radius-pill, 999px);
     background: var(--mcm-surface-2);
     color: var(--mcm-text-faint);
-    font-size: 10.5px;
-    font-weight: 700;
-    line-height: 16px;
+    @include t-micro;
+    line-height: 16px; // re-assert: vertical-center in the fixed 16px chip
+    letter-spacing: 0; // tighter than t-micro for a numeric count
     text-align: center;
     font-variant-numeric: tabular-nums;
   }
@@ -14077,12 +13872,11 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__drop-text {
-    font-size: 13px;
-    font-weight: 600;
+    @include t-body;
   }
 
   &__drop-sub {
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
 
@@ -14115,7 +13909,7 @@ body:has(.excalidraw.theme--dark) {
   // tabular-nums group above).
   &__chip-count {
     margin-left: 5px;
-    font-size: 10px;
+    @include t-micro;
     opacity: 0.75;
   }
 
@@ -14143,7 +13937,7 @@ body:has(.excalidraw.theme--dark) {
   &__section-count {
     padding: 0 6px;
     border-radius: 8px;
-    font-size: 10px;
+    @include t-micro;
     color: var(--mcm-text-faint);
     background: var(--mcm-surface-2);
   }
@@ -14172,8 +13966,8 @@ body:has(.excalidraw.theme--dark) {
 
   &__empty-desc {
     max-width: 420px;
-    font-size: 12.5px;
-    line-height: 1.5;
+    @include t-caption;
+    line-height: 1.5; // keep: prose wrapping
     color: var(--mcm-text-soft);
   }
 
@@ -14184,8 +13978,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
 
     &:hover {
@@ -14413,8 +14206,7 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__name {
-    font-size: 13px;
-    font-weight: 600;
+    @include t-subtitle;
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -14494,7 +14286,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 99px;
     background: transparent;
     font: inherit;
-    font-size: 10.5px;
+    font-size: 10.5px; // keep: micro tag input, sized to the tag chips
     color: var(--mcm-text-soft);
 
     &::placeholder {
@@ -14611,8 +14403,7 @@ body:has(.excalidraw.theme--dark) {
     align-items: center;
     gap: 3px;
     color: var(--mcm-text-soft);
-    font-size: 11px;
-    font-weight: 600;
+    @include t-caption;
     max-width: 12ch;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -14655,9 +14446,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     background: transparent;
     color: var(--mcm-text-soft);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     transition: border-color 120ms, background 120ms, color 120ms;
 
@@ -14685,17 +14474,14 @@ body:has(.excalidraw.theme--dark) {
   }
 
   &__title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-soft);
   }
 
   &__hint {
     flex: 1;
     min-width: 0;
-    font-size: 10.5px;
+    font-size: 10.5px; // keep: sub-label hint, smaller than t-caption
     color: var(--mcm-text-faint);
     white-space: nowrap;
     overflow: hidden;
@@ -14723,8 +14509,8 @@ body:has(.excalidraw.theme--dark) {
 
   &__empty {
     padding: 8px 2px;
-    font-size: 12px;
-    line-height: 1.45;
+    @include t-caption;
+    line-height: 1.45; // keep: prose wrapping
     color: var(--mcm-text-faint);
   }
 
@@ -14765,7 +14551,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__kind {
     flex: none;
-    font-size: 9px;
+    font-size: 9px; // keep: badge micro
     font-weight: 700;
     letter-spacing: 0.4px;
     padding: 1px 5px;
@@ -14794,8 +14580,7 @@ body:has(.excalidraw.theme--dark) {
   &__name {
     flex: 1;
     min-width: 0;
-    font-size: 12.5px;
-    font-weight: 550;
+    @include t-caption;
     color: var(--mcm-text);
     white-space: nowrap;
     overflow: hidden;
@@ -14808,7 +14593,7 @@ body:has(.excalidraw.theme--dark) {
     flex: none;
     padding: 1px 6px;
     border-radius: 99px;
-    font-size: 9px;
+    font-size: 9px; // keep: badge micro
     font-weight: 700;
     letter-spacing: 0.3px;
 
@@ -14825,7 +14610,7 @@ body:has(.excalidraw.theme--dark) {
 
   &__size {
     flex: none;
-    font-size: 10.5px;
+    font-size: 10.5px; // keep: sub-caption size, smaller than t-caption
     color: var(--mcm-text-faint);
     font-variant-numeric: tabular-nums;
   }
@@ -14869,18 +14654,14 @@ body:has(.excalidraw.theme--dark) {
 
   // "Đến giờ họp" / "Cuộc họp sắp bắt đầu" — small, loud, accent-coloured.
   &__eyebrow {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-accent);
   }
 
   &__title {
-    font-size: 13.5px;
-    font-weight: 650;
+    @include t-subtitle;
     color: var(--mcm-text);
-    line-height: 1.3;
+    line-height: 1.3; // keep: prose wrapping
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -14888,7 +14669,7 @@ body:has(.excalidraw.theme--dark) {
 
   // Project name · scheduled time.
   &__when {
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     font-variant-numeric: tabular-nums;
     overflow: hidden;
@@ -14908,9 +14689,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 8px;
     background: var(--mcm-accent);
     color: #fff;
-    font: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
     transition: filter 120ms ease;
 
@@ -15003,9 +14782,8 @@ body:has(.excalidraw.theme--dark) {
   &__message {
     flex: 1;
     min-width: 0;
-    font-size: 13.5px;
-    font-weight: 450;
-    line-height: 1.45;
+    @include t-body;
+    line-height: 1.45; // keep: prose wrapping
     color: var(--mcm-text);
   }
 
@@ -15063,7 +14841,7 @@ body:has(.excalidraw.theme--dark) {
   // Generated-at stamp, pushed to the right of the section header.
   &-at {
     margin-left: auto;
-    font-size: 10.5px;
+    font-size: 10.5px; // keep: sub-caption timestamp, smaller than t-caption
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
@@ -15080,8 +14858,8 @@ body:has(.excalidraw.theme--dark) {
 
   &-text {
     margin: 0;
-    font-size: 12.5px;
-    line-height: 1.55;
+    @include t-caption;
+    line-height: 1.55; // keep: prose wrapping
     color: var(--mcm-text-soft);
     // The recap is plaintext with bullet lines — keep its line breaks.
     white-space: pre-line;
@@ -15105,9 +14883,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 0;
     border: 0;
     background: transparent;
-    font: inherit;
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-accent);
     cursor: pointer;
 
@@ -15191,10 +14967,7 @@ body:has(.excalidraw.theme--dark) {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  @include t-label;
   color: var(--mcm-text-faint);
 
   svg {
@@ -15305,8 +15078,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 9px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 13px;
+    @include t-body;
     font-variant-numeric: tabular-nums;
     outline: none;
     transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -15331,7 +15103,7 @@ body:has(.excalidraw.theme--dark) {
   }
   span {
     flex: none;
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 }
@@ -15350,8 +15122,7 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 9px;
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font: inherit;
-    font-size: 13.5px;
+    @include t-body;
     outline: none;
     transition: border-color 160ms ease, box-shadow 160ms ease;
 
@@ -15415,8 +15186,7 @@ body:has(.excalidraw.theme--dark) {
 .mcm-nmf__toggle-txt {
   flex: 1;
   min-width: 0;
-  font-size: 13.5px;
-  font-weight: 550;
+  @include t-body;
   color: var(--mcm-text);
 }
 
@@ -15690,6 +15460,8 @@ body:has(.excalidraw.theme--dark) {
     border-radius: 999px;
     background: rgba(0, 0, 0, 0.6);
     color: #ffffff;
+    // keep: meeting-view overlay, outside the type-system scope (the panel
+    // sets its own -apple-system family; a t-* mixin would clobber it).
     font-size: 10.5px;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -15717,6 +15489,7 @@ body:has(.excalidraw.theme--dark) {
     flex: 1;
     min-width: 0;
     color: rgba(255, 255, 255, 0.78);
+    // keep: meeting-view overlay (own -apple-system family, outside scope).
     font-size: 11.5px;
     line-height: 1.3;
     overflow: hidden;
@@ -15735,6 +15508,7 @@ body:has(.excalidraw.theme--dark) {
     padding: 6px 10px;
     background: #ef4444;
     color: #ffffff;
+    // keep: meeting-view overlay (own -apple-system family, outside scope).
     font-size: 11.5px;
     font-weight: 600;
     cursor: pointer;
@@ -15841,7 +15615,7 @@ body:has(.excalidraw.theme--dark) {
       gap: 8px;
     }
     &__middle-title {
-      font-size: 18px;
+      font-size: 18px; // keep: responsive phone override
     }
     // The Schedule-X calendar column can't render a usable month grid below
     // its 360px floor on a phone — hide it so the meetings list goes
@@ -16002,7 +15776,7 @@ body:has(.excalidraw.theme--dark) {
     font-size: clamp(28px, 9vw, 36px);
   }
   .mcm-portal__title {
-    font-size: 18px;
+    font-size: 18px; // keep: responsive phone override
   }
   // Card: thinner inner padding + reclaim corner radius so it reads edge-to-edge.
   .mcm-portal__inner {

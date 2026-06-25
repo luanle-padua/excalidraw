@@ -19,6 +19,8 @@
 // All colour comes from tokens / `color-mix`, never hard-coded per theme, so
 // dark mode follows automatically when `--mcm-*` flips.
 
+@use "./type" as *; // dashboard type-scale mixins (t-title…t-micro) + font stacks
+
 .mcm-calx {
   // --- container ----------------------------------------------------------
   // Glass continuity (yêu cầu anh Luân 06-12): the panel floats on the ONE
@@ -42,7 +44,7 @@
     justify-content: center;
     gap: 8px;
     padding: 6px 10px;
-    font-size: 12px;
+    @include t-caption;
     color: var(--mcm-danger);
     background: var(--mcm-danger-soft);
     border-bottom: 1px solid var(--mcm-hairline-2);
@@ -53,8 +55,7 @@
     border-radius: var(--mcm-radius-xs);
     background: var(--mcm-surface);
     color: var(--mcm-text);
-    font-size: 11.5px;
-    font-weight: 600;
+    @include t-caption;
     cursor: pointer;
 
     &:hover {
@@ -193,8 +194,7 @@
       border-radius: var(--mcm-radius-pill);
       background: transparent;
       color: var(--mcm-text);
-      font-weight: 600;
-      font-size: 13px;
+      @include t-btn;
       transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
         border-color var(--mcm-dur-fast) var(--mcm-ease);
 
@@ -211,9 +211,7 @@
   }
 
   .sx__range-heading {
-    font-size: 15px;
-    font-weight: 650;
-    letter-spacing: -0.01em;
+    @include t-title;
     color: var(--mcm-text);
   }
 
@@ -239,8 +237,7 @@
       border-radius: var(--mcm-radius-pill);
       background: var(--mcm-surface-2);
       color: var(--mcm-text);
-      font-size: 13px;
-      font-weight: 600;
+      @include t-btn;
       transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
         border-color var(--mcm-dur-fast) var(--mcm-ease);
 
@@ -271,8 +268,7 @@
       height: 32px;
       padding: 0 10px;
       border-radius: var(--mcm-radius-sm);
-      font-size: 13px;
-      font-weight: 500;
+      @include t-btn;
       color: var(--mcm-text);
       transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
         color var(--mcm-dur-fast) var(--mcm-ease);
@@ -287,7 +283,6 @@
       &.is-selected {
         background: var(--mcm-accent-soft);
         color: var(--mcm-accent);
-        font-weight: 600;
 
         &:hover,
         &:focus {
@@ -311,8 +306,7 @@
       border: 1px solid var(--mcm-hairline);
       border-radius: var(--mcm-radius-pill);
       color: var(--mcm-text);
-      font-size: 13px;
-      font-weight: 600;
+      @include t-btn;
       font-variant-numeric: tabular-nums;
       transition: background-color var(--mcm-dur-fast) var(--mcm-ease),
         border-color var(--mcm-dur-fast) var(--mcm-ease);
@@ -350,7 +344,7 @@
   }
   .sx__date-picker__day-name {
     color: var(--mcm-text-faint);
-    font-weight: 600;
+    font-weight: 640; // weight-snap to licensed (was 600 drift)
   }
   .sx__date-picker__day {
     border-radius: var(--mcm-radius-sm);
@@ -361,7 +355,7 @@
     }
     &--today {
       color: var(--mcm-accent);
-      font-weight: 700;
+      font-weight: 680; // weight-snap to licensed (was 700 drift)
     }
     &--selected {
       background: var(--mcm-accent);
@@ -370,7 +364,7 @@
   }
   .sx__date-picker__month-view-header__month-year {
     color: var(--mcm-text);
-    font-weight: 650;
+    font-weight: 680; // weight-snap to licensed (was 650 drift)
   }
 
   // === Month grid ==========================================================
@@ -411,11 +405,8 @@
   }
   // Weekday header row (Mon, Tue, …)
   .sx__month-grid-day__header-day-name {
+    @include t-label;
     color: var(--mcm-text-faint);
-    font-weight: 600;
-    font-size: 11px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
   }
   // The date number cell — our custom component is portaled in here, so strip
   // the default padding/sizing and let `.mcm-calx__date` own the layout.
@@ -440,7 +431,7 @@
   // "+ N more" affordance
   .sx__month-grid-day__events-more {
     color: var(--mcm-accent);
-    font-weight: 600;
+    font-weight: 640; // weight-snap to licensed (was 600 drift)
   }
 
   // === Event pills (month / week / day / agenda) ==========================
@@ -451,8 +442,8 @@
   .sx__date-grid-event,
   .sx__month-agenda-event {
     border-radius: var(--mcm-radius-xs); // 6px — keeps the chip density
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: 640; // weight-snap to licensed (was 600 drift)
+    font-size: 12px; // PRESERVED: tight event-pill density (t-caption 11.5 too light here)
     box-shadow: inset 0 0 0 1px
       color-mix(in srgb, currentColor 14%, transparent);
   }
@@ -514,8 +505,10 @@
     height: 22px;
     padding: 0 4px;
     border-radius: 999px;
+    // PRESERVED size: 17px (t-number) overflows the 22px day capsule; keep the
+    // grid-tuned 13px but snap weight to t-number's licensed 720 + tnum.
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 720;
     font-variant-numeric: tabular-nums;
     color: var(--mcm-text);
   }
@@ -528,8 +521,10 @@
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+    // PRESERVED 10px + 1.25 lh: tight in-cell wrapping label; t-caption (11.5)
+    // would overflow the date cell. Weight snapped to licensed 640 (was 600).
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 640;
     line-height: 1.25;
     letter-spacing: -0.01em;
     color: color-mix(in srgb, #e5484d 86%, var(--mcm-text));
@@ -613,8 +608,7 @@
   gap: 8px;
 }
 .mcm-calx__day-head {
-  font-size: 12.5px;
-  font-weight: 700;
+  @include t-title;
   color: var(--mcm-text);
   text-transform: capitalize;
 }
@@ -630,7 +624,7 @@
   scrollbar-width: thin;
 }
 .mcm-calx__day-empty {
-  font-size: 12px;
+  @include t-caption;
   color: var(--mcm-text-faint);
   padding: 2px;
 }
@@ -670,15 +664,14 @@
 .mcm-calx__day-time {
   flex-shrink: 0;
   min-width: 54px;
-  font-size: 11.5px;
-  font-weight: 600;
+  @include t-caption;
   color: var(--mcm-text-soft);
   font-variant-numeric: tabular-nums;
 }
 .mcm-calx__day-title {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  @include t-subtitle;
   color: var(--mcm-text);
   overflow: hidden;
   text-overflow: ellipsis;

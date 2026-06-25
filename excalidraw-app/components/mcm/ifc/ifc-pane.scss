@@ -4,6 +4,8 @@
 // extras over the CAD pane are the storeys dropdown, the section/measure/
 // ghost tools, and the floating element-properties panel.
 
+@use "../type" as *; // house type-scale mixins (t-body/t-caption/t-label/t-subtitle)
+
 .mcm-ifc-view {
   position: relative;
   display: flex;
@@ -13,8 +15,10 @@
   background: var(--mcm-surface, #ffffff);
   border-left: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   overflow: hidden;
-  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
-    sans-serif;
+  // Pane inheritance anchor: lead with Manrope (house UI stack) so the whole
+  // pane harmonizes with the app type system even on the meeting canvas, which
+  // doesn't carry the --mcm-font-ui stamp (mixin fallback covers that too).
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
   -webkit-font-smoothing: antialiased;
 
   &__header {
@@ -71,9 +75,7 @@
     background: transparent;
     border: 0;
     padding: 0;
-    font: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-body; // tab name (was 12/600, font:inherit)
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     text-align: left;
@@ -151,9 +153,7 @@
     background: transparent;
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 7px;
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-body; // toolbar action button (was 12/600, font-family:inherit)
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     transition: background-color 120ms, border-color 120ms;
@@ -188,9 +188,8 @@
     background: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     color: #fff;
     border-radius: 999px;
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
+    @include t-micro; // count badge → house pill/badge scale (was 10/700)
+    line-height: 1; // hold the fixed 16px badge height
   }
 
   // Live distance readout from the most recent measurement, shown in the
@@ -202,8 +201,8 @@
     padding: 4px 8px;
     background: color-mix(in srgb, var(--mcm-accent, #6965db) 10%, transparent);
     border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 700;
+    @include t-caption; // distance readout (was 11.5/700)
+    font-weight: 640; // numeric emphasis, in-system
     color: var(--mcm-accent, #6965db);
   }
 
@@ -211,7 +210,7 @@
   // the user the section plane is moved by dragging it in the 3D view.
   &__section-hint {
     flex-basis: 100%;
-    font-size: 10.5px;
+    @include t-caption; // toolbar hint (was 10.5px)
     font-style: italic;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
   }
@@ -236,7 +235,7 @@
   }
 
   &__section-label {
-    font-size: 12px;
+    @include t-caption; // axis label (was 12px)
     opacity: 0.65;
   }
 
@@ -245,9 +244,7 @@
     background: transparent;
     border: 0;
     border-right: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 600;
+    @include t-body; // segmented control button (was 12/600, font-family:inherit)
     color: var(--mcm-text, #1b1b1f);
     cursor: pointer;
     transition: background-color 120ms, color 120ms;
@@ -323,8 +320,7 @@
   }
 
   &__storey-panel-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-subtitle; // panel heading (was 12/700)
     color: var(--mcm-text, #1b1b1f);
   }
 
@@ -356,8 +352,7 @@
     border-radius: 6px;
     background: transparent;
     cursor: pointer;
-    font: inherit;
-    font-size: 11.5px;
+    @include t-body; // storey row label (was 11.5px, font:inherit)
     text-align: left;
     color: var(--mcm-text, #1b1b1f);
     transition: background-color 100ms;
@@ -373,7 +368,7 @@
         transparent
       );
       color: var(--mcm-accent, #6965db);
-      font-weight: 700;
+      font-weight: 640; // in-system emphasis (was 700)
     }
   }
 
@@ -386,7 +381,7 @@
 
   &__storey-elev {
     flex-shrink: 0;
-    font-size: 10.5px;
+    @include t-caption; // elevation meta (was 10.5px)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -421,8 +416,7 @@
   }
 
   &__browser-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-subtitle; // panel heading (was 12/700)
     color: var(--mcm-text, #1b1b1f);
   }
 
@@ -451,7 +445,7 @@
     width: 100%;
     padding: 4px 6px;
     border-radius: 6px;
-    font-size: 11.5px;
+    @include t-body; // tree row (was 11.5px)
     color: var(--mcm-text, #1b1b1f);
     transition: background-color 100ms;
 
@@ -460,12 +454,12 @@
     }
 
     &--storey {
-      font-weight: 700;
+      font-weight: 640; // in-system emphasis (was 700)
     }
 
     &--cat {
       padding-left: 18px;
-      font-weight: 600;
+      font-weight: 640; // in-system emphasis (was 600)
       color: var(--mcm-text-soft, rgba(0, 0, 0, 0.7));
     }
 
@@ -520,8 +514,7 @@
 
   &__tree-count {
     flex-shrink: 0;
-    font-size: 10px;
-    font-weight: 700;
+    @include t-micro; // count badge → house pill/badge scale (was 10/700)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
   }
 
@@ -531,9 +524,9 @@
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: 5px;
     background: transparent;
-    font-family: inherit;
-    font-size: 10px;
-    font-weight: 600;
+    // Vietnamese label ("Cô lập") → keep non-uppercase caption scale, not the
+    // uppercase t-micro badge (was 10/600, font-family:inherit).
+    @include t-caption;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.65));
     cursor: pointer;
     transition: background-color 100ms, color 100ms, border-color 100ms;
@@ -560,8 +553,7 @@
     border: 0;
     padding: 0;
     background: transparent;
-    font: inherit;
-    font-size: 11.5px;
+    @include t-body; // element leaf label (was 11.5px, font:inherit)
     color: inherit;
     text-align: left;
     cursor: pointer;
@@ -620,8 +612,7 @@
   }
 
   &__props-title {
-    font-size: 12px;
-    font-weight: 700;
+    @include t-subtitle; // panel heading (was 12/700)
     color: var(--mcm-text, #1b1b1f);
     white-space: nowrap;
     overflow: hidden;
@@ -670,10 +661,7 @@
 
   &__props-section-label {
     margin: 8px 0 4px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    @include t-label; // Pset section eyebrow (was 10/700 uppercase)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.5));
 
     &:first-child {
@@ -686,7 +674,7 @@
     align-items: baseline;
     gap: 8px;
     padding: 3px 0;
-    font-size: 11.5px;
+    @include t-caption; // Pset key/value row (was 11.5px)
     border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.04));
 
     &:last-child {
@@ -819,8 +807,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI",
-    sans-serif;
+  // System font-family fallback removed — lead with Manrope (house UI stack).
+  font-family: var(--mcm-font-ui, #{$mcm-font-ui-stack});
   animation: mcm-ifc-popover-in 140ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 
   &__header {
@@ -834,13 +822,12 @@
   }
 
   &__title {
-    font-weight: 700;
-    font-size: 13px;
+    @include t-subtitle; // popover heading (was 13/700)
     color: var(--mcm-text, #1b1b1f);
   }
 
   &__hint {
-    font-size: 11px;
+    @include t-caption; // header hint (was 11px)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
   }
 
@@ -853,7 +840,7 @@
   &__empty {
     padding: 24px 16px;
     text-align: center;
-    font-size: 12px;
+    @include t-caption; // empty-state message (was 12px)
     line-height: 1.5;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     font-style: italic;
@@ -869,8 +856,7 @@
     border: 0;
     border-radius: 8px;
     cursor: pointer;
-    font: inherit;
-    font-size: 13px;
+    @include t-body; // model-picker row (was 13px, font:inherit)
     color: var(--mcm-text, #1b1b1f);
     text-align: left;
     transition: background-color 120ms;
@@ -889,7 +875,7 @@
   }
 
   &__item-icon {
-    font-size: 16px;
+    font-size: 16px; // emoji/icon glyph — sizing, not type
   }
 
   &__item-name {
@@ -900,11 +886,8 @@
   }
 
   &__item-tag {
-    font-size: 10px;
-    font-weight: 700;
+    @include t-micro; // accent tag pill (was 10/700 uppercase)
     color: var(--mcm-accent, #6965db);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 }
 
@@ -919,18 +902,15 @@
   border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
-  font-size: 13px;
+  // System font-family fallback removed — lead with Manrope via t-body.
+  @include t-body; // menu text (was 13px)
   color: var(--mcm-text, #1b1b1f);
   animation: mcm-ifc-popover-in 120ms ease-out both;
 
   &__header {
     padding: 6px 10px 4px;
-    font-size: 11px;
-    font-weight: 700;
+    @include t-label; // menu section eyebrow (was 11/700 uppercase)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 
   &__item {

@@ -21,7 +21,8 @@
   backdrop-filter: blur(2px);
   color: var(--mcm-text, #1b1b1f);
   -webkit-font-smoothing: antialiased;
-  font-family: -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+  // font-family inherits the app Manrope stack (mixins set it per role); the
+  // local -apple-system re-declaration was redundant drift and is removed.
 
   &__card {
     width: min(820px, 100%);
@@ -45,9 +46,7 @@
   &__title {
     flex: 1;
     margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    @include t-title;
   }
   &__close {
     display: inline-flex;
@@ -95,9 +94,7 @@
     border: 0;
     background: transparent;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-btn;
     text-align: left;
     padding: 9px 11px;
     border-radius: var(--mcm-radius-sm, 10px);
@@ -135,10 +132,7 @@
   }
   &__h3 {
     margin: 8px 0 2px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    @include t-label;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
 
     &:first-child {
@@ -147,8 +141,7 @@
   }
   &__note {
     margin: 0;
-    font-size: 13px;
-    line-height: 1.5;
+    @include t-body;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
 
     &--block {
@@ -162,8 +155,7 @@
   &__banner {
     padding: 10px 14px;
     border-radius: var(--mcm-radius-md, 14px);
-    font-size: 13px;
-    font-weight: 600;
+    @include t-subtitle; // 13.5/640 — short emphasized status line
     background: var(--mcm-warning-soft, rgba(214, 158, 46, 0.16));
     color: var(--mcm-warning, #b7791f);
 
@@ -199,16 +191,12 @@
       }
     }
     dt {
-      font-size: 11.5px;
-      font-weight: 650;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
+      @include t-label;
       color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
     }
     dd {
       margin: 0;
-      font-size: 13.5px;
-      font-weight: 600;
+      @include t-subtitle; // 13.5/640 — value text in the read-only DL
       text-align: right;
       word-break: break-word;
     }
@@ -221,8 +209,7 @@
     gap: 6px;
 
     > span {
-      font-size: 12px;
-      font-weight: 600;
+      @include t-caption; // small sentence-case field label (not uppercase → not t-label)
       color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     }
     input {
@@ -231,8 +218,7 @@
       border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
       border-radius: var(--mcm-radius-md, 14px);
       padding: 0 12px;
-      font-size: 13.5px;
-      font-family: inherit;
+      @include t-body; // form input — 13.5/450
       background: var(--mcm-surface-0, #fbfbfd);
       color: var(--mcm-text, #1b1b1f);
       outline: none;
@@ -262,9 +248,7 @@
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     background: var(--mcm-surface, #fff);
     color: var(--mcm-text, #1b1b1f);
-    font-family: inherit;
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-btn-lg; // 14/640 — standard action button
     padding: 9px 16px;
     border-radius: var(--mcm-radius-md, 14px);
     cursor: pointer;
@@ -323,13 +307,11 @@
     min-width: 0;
   }
   &__pref-label {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle; // 13.5/640 — setting row name
     color: var(--mcm-text, #1b1b1f);
   }
   &__pref-hint {
-    font-size: 12px;
-    line-height: 1.45;
+    @include t-caption; // 11.5/500 — secondary hint under the label
     color: var(--mcm-text-faint, rgba(0, 0, 0, 0.45));
   }
   &__pref-ctl {
@@ -342,8 +324,7 @@
     border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.12));
     border-radius: var(--mcm-radius-sm, 10px);
     padding: 0 10px;
-    font-size: 13px;
-    font-family: inherit;
+    @include t-body; // form <select> control — 13.5/450
     background: var(--mcm-surface-0, #fbfbfd);
     color: var(--mcm-text, #1b1b1f);
     outline: none;
@@ -402,9 +383,7 @@
     border: 0;
     background: transparent;
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-btn; // 13/640 — segmented pill toggle
     padding: 5px 11px;
     border-radius: var(--mcm-radius-xs, 7px);
     cursor: pointer;
@@ -446,9 +425,7 @@
     flex: 1 1 auto;
     min-width: 72px;
     padding: 7px 10px;
-    font-family: inherit;
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-btn; // 13/640 — blur-level chip button
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
     background: var(--mcm-surface-2, #f0f0f3);
     border: 1px solid transparent;
@@ -523,12 +500,11 @@
     }
   }
   &__list-main {
-    font-size: 13.5px;
-    font-weight: 600;
+    @include t-subtitle; // 13.5/640 — data list row name
     color: var(--mcm-text, #1b1b1f);
   }
   &__list-sub {
-    font-size: 12px;
+    @include t-caption; // 11.5/500 — secondary line under the row
     color: var(--mcm-text-faint, rgba(0, 0, 0, 0.45));
   }
 

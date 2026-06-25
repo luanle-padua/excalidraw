@@ -104,9 +104,7 @@
     gap: 10px;
 
     strong {
-      font-size: 14px;
-      font-weight: 650;
-      letter-spacing: -0.01em;
+      @include t-title;
     }
   }
   &__logo-img {
@@ -147,8 +145,7 @@
     background: transparent;
     color: var(--mcm-text-soft);
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     padding: 7px 12px;
     border-radius: var(--mcm-radius-sm);
     cursor: pointer;
@@ -215,14 +212,14 @@
     }
   }
   &__card-num {
+    @include t-number;
+    // Big dashboard stat: keep the 30px display size (t-number is 17px for
+    // inline stats); the mixin still harmonizes weight/tnum/tracking.
     font-size: 30px;
-    font-weight: 700;
     line-height: 1;
-    font-feature-settings: "tnum" 1;
-    letter-spacing: -0.01em;
   }
   &__card-label {
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -254,7 +251,7 @@
       border: 1px solid var(--mcm-hairline);
       border-radius: var(--mcm-radius-sm);
       padding: 0 11px;
-      font-size: 13px;
+      @include t-body;
       font-family: inherit;
       background: var(--mcm-surface-0);
       color: var(--mcm-text);
@@ -281,8 +278,7 @@
     border-bottom: 1px solid var(--mcm-hairline-2);
   }
   &__count {
-    font-size: 12.5px;
-    font-weight: 600;
+    @include t-caption;
     color: var(--mcm-text-soft);
   }
 
@@ -302,10 +298,7 @@
     gap: 6px;
 
     > span {
-      font-size: 11px;
-      font-weight: 650;
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
+      @include t-label;
       color: var(--mcm-text-soft);
     }
     input {
@@ -313,7 +306,7 @@
       border: 1px solid var(--mcm-hairline);
       border-radius: var(--mcm-radius-md);
       padding: 0 12px;
-      font-size: 13.5px;
+      @include t-body;
       font-family: inherit;
       background: var(--mcm-surface-0);
       color: var(--mcm-text);
@@ -327,7 +320,7 @@
       }
     }
     small {
-      font-size: 11.5px;
+      @include t-caption;
       color: var(--mcm-text-faint);
     }
 
@@ -343,10 +336,10 @@
         accent-color: var(--mcm-accent);
       }
       > span {
-        font-weight: 600;
+        // Inline checkbox label (not the uppercase eyebrow) — reset the
+        // t-label cast from the parent to running-text body.
+        @include t-body;
         text-transform: none;
-        letter-spacing: 0;
-        font-size: 13px;
         color: var(--mcm-text);
       }
     }
@@ -370,8 +363,7 @@
     height: 30px;
     padding: 0 14px;
     border-radius: calc(var(--mcm-radius-md) - 3px);
-    font-size: 13px;
-    font-weight: 600;
+    @include t-btn;
     font-family: inherit;
     color: var(--mcm-text-soft);
     background: transparent;
@@ -395,13 +387,12 @@
     text-align: center;
   }
   &__note {
-    font-size: 12.5px;
+    @include t-caption;
     color: var(--mcm-text-soft);
     margin: 0 0 14px;
   }
   &__h4 {
-    font-size: 13px;
-    font-weight: 700;
+    @include t-subtitle;
     margin: 20px 0 8px;
   }
   &__links {
@@ -410,8 +401,7 @@
     gap: 10px;
 
     a {
-      font-size: 13px;
-      font-weight: 600;
+      @include t-btn;
       color: var(--mcm-accent);
       text-decoration: none;
       padding: 7px 12px;
@@ -453,7 +443,8 @@
     border-radius: var(--mcm-radius-md);
     box-shadow: var(--mcm-shadow-1);
     padding: 14px 18px;
-    font-size: 13.5px;
+    @include t-body;
+    // Long-form AI text: keep the model's own breaks + a roomier 1.55 leading.
     line-height: 1.55;
     white-space: pre-wrap;
     margin: 0 0 6px;
@@ -461,14 +452,12 @@
   &__summary-when {
     display: block;
     margin-top: 10px;
-    font-size: 11.5px;
+    @include t-caption;
     color: var(--mcm-text-faint);
   }
 
   &__detail-title {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    @include t-display;
     margin: 0 0 6px;
     display: flex;
     align-items: center;
@@ -491,16 +480,12 @@
       gap: 3px;
     }
     dt {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
+      @include t-label;
       color: var(--mcm-text-soft);
-      font-weight: 650;
     }
     dd {
       margin: 0;
-      font-size: 13.5px;
-      line-height: 1.4;
+      @include t-body;
     }
   }
 

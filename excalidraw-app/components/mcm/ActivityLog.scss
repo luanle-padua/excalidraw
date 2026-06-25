@@ -1,6 +1,8 @@
 // Personal activity log — History icon + dropdown next to the notification
 // bell in the lobby top bar. Mirrors NotificationBell's visual language.
 
+@use "./type" as *; // dashboard type-scale mixins (t-body…t-micro) + font stacks
+
 .mcm-activity {
   position: relative;
 
@@ -43,14 +45,13 @@
 
   &__head {
     padding: 8px 10px 6px;
-    font-size: 12px;
-    font-weight: 700;
+    @include t-label; // 11/680 uppercase — dropdown section header (per audit: t-body/t-caption/t-micro family; label is the eyebrow form)
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
   }
 
   &__empty {
     padding: 12px 10px 16px;
-    font-size: 13px;
+    @include t-body; // 13.5/450 — empty-state running text
     color: var(--mcm-text-faint, rgba(0, 0, 0, 0.4));
   }
 
@@ -79,10 +80,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
+    @include t-micro; // 10/700 uppercase — event-type tag
     color: var(--mcm-accent, #6965db);
 
     .--upload & {
@@ -93,6 +91,9 @@
   &__answer {
     padding: 1px 6px;
     border-radius: 6px;
+    // PRESERVED 10px non-uppercase inline status pill — t-micro is uppercase
+    // (would fight this pill's intentional sentence-case); no licensed
+    // non-uppercase 10px role exists. No weight set → no drift to snap.
     font-size: 10px;
     text-transform: none;
     letter-spacing: 0;
@@ -109,7 +110,7 @@
   }
 
   &__subject {
-    font-size: 13px;
+    @include t-body; // 13.5/450 — activity subject line
     color: var(--mcm-text, #1b1b1f);
     white-space: nowrap;
     overflow: hidden;
@@ -117,7 +118,7 @@
   }
 
   &__meta {
-    font-size: 11.5px;
+    @include t-caption; // 11.5/500 — timestamp / meta line
     color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
   }
 }
