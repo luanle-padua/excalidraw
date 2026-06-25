@@ -435,7 +435,10 @@
         right: 0.25rem;
         display: flex;
         gap: 0.25rem;
-        opacity: 0;
+        // Owner: the delete + promote (⤴) actions were hover-only (opacity:0) on
+        // grid tiles → "nhìn không thấy". Keep them ALWAYS visible; the dark
+        // scrim buttons stay legible over any thumbnail (and over a dark tile).
+        opacity: 1;
         transition: opacity 0.12s ease;
       }
 

@@ -422,6 +422,46 @@ body:has(.excalidraw.theme--dark) .mcm-log-modal-backdrop {
   @include mcm-lobby-tokens-dark;
 }
 
+// ===== Canvas-chrome palette unification (header + Excalidraw toolbar) =====
+// The meeting canvas had THREE different palettes: header (neutral shell),
+// Excalidraw toolbar (its own blue-gray dark), side panels (now Glass Desk).
+// Move the header + toolbar onto the SAME Glass Desk vocabulary as the panels
+// + dashboard, in BOTH light/white AND dark. (`--mcm-surface-3` is the one
+// base-shell token the lobby LIGHT set omits → alias it so nothing that
+// references it goes undefined in light.)
+.mcm-header {
+  @include mcm-lobby-tokens-light;
+  --mcm-surface-3: var(--mcm-surface-2);
+  --mcm-font-ui: #{$mcm-font-ui-stack};
+}
+body:has(.excalidraw.theme--dark) .mcm-header {
+  @include mcm-lobby-tokens-dark;
+  --mcm-surface-3: var(--mcm-surface-2);
+}
+
+// Excalidraw's native toolbar / islands / "More tools" menu / popups use
+// Excalidraw's OWN theme vars — a separate dark. Stamp Glass Desk tokens on the
+// in-meeting .excalidraw and REMAP Excalidraw's CHROME vars onto them (the
+// remap is written once; only the token VALUES flip via the dark block below).
+// We deliberately leave the canvas DRAWING surface (--default-bg-color) native
+// so the board itself is unchanged — only the chrome is unified.
+.mcm-shell .excalidraw {
+  @include mcm-lobby-tokens-light;
+  --mcm-surface-3: var(--mcm-surface-2);
+  --island-bg-color: var(--mcm-surface);
+  --popup-bg-color: var(--mcm-surface);
+  --text-primary-color: var(--mcm-text);
+  --color-on-surface: var(--mcm-text);
+  --color-primary: var(--mcm-accent);
+  --color-primary-light: var(--mcm-accent-soft);
+  --button-hover-bg: color-mix(in srgb, var(--mcm-text) 8%, transparent);
+  --default-border-color: var(--mcm-hairline);
+}
+body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
+  @include mcm-lobby-tokens-dark;
+  --mcm-surface-3: var(--mcm-surface-2);
+}
+
 // "Desk" backdrop — two static radial washes over the solid bg. Painted on
 // the FULL-VIEWPORT home frame (not .mcm-3col — moved 06-12 per anh Luân:
 // "muốn nó liên tục… mọi thứ nhìn nó liền lạc") so header + all 3 columns
