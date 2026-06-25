@@ -1,6 +1,6 @@
 # Unified Meeting Replay — Design + Plan (#28)
 
-> Status: **PROPOSED — chờ anh Luân duyệt trước khi build.** 2026-06-25.
+> Status: **DEPLOYED 2026-06-25** — full P0–P3 built (owner-approved: trọn P0→P3, audio trộn+solo, zoom hoãn). Pages `ce3f75d8` · Worker `466b11a6` · D1 0038; commits `999dd6f8` (P0–P2) + `1dd2993e` (P3+#22). Còn lại = P4 polish (zoom/keyboard) khi cần.
 > Tổng hợp từ 3 bản design (timeline-centric / player-centric / minimal) qua team. Mục tiêu owner: *hiểu cả cuộc họp — ai nói gì, lúc nào* — bằng 1 replay hợp nhất canvas + audio per-speaker + screen, **gọn, đừng lố quá, không phá tính năng cũ**.
 
 ## 1. Ý tưởng cốt lõi — "1 đồng hồ, 1 playhead"
