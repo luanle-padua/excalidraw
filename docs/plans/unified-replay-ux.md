@@ -32,6 +32,13 @@ Một scrubber, một playhead chạy ngang **dùng chung trục X** với dải
 - **Gọn, không thành DAW:** 1 hàng mỏng ~18px/người, **không waveform**, block bo tròn phẳng; cap **top-N (~6) + "+k nữa"**; tint `personColor(email)` (khớp avatar/transcript). Lane chia sẻ **đúng trục X với scrubber** → 1 playhead dọc cắt hết.
 - **Tương tác:** click block/lane → playhead nhảy tới → canvas + audio seek theo. Click *tên* người → solo nghe người đó (chế độ audio). Hover → tooltip snippet transcript (tùy chọn).
 
+## 2.1 NHIỀU NGƯỜI — hiển thị cho khéo (owner nhấn mạnh)
+KHÔNG đổ ra 20 lane thành bức tường. Quy tắc:
+- **Mặc định khi đông = 1 "dải hội thoại" DUY NHẤT (1 hàng):** mỗi block tô **màu `personColor` của người đang nói** → nhìn 1 phát thấy turn-taking (ai nói, nối ai) bất kể bao nhiêu người. 2 người nói chồng → block sọc/chia đôi. Tên hiện khi block đủ rộng / hover. Cực gọn, luôn 1 hàng.
+- **Xổ ra (chevron) = lane per-người**, sắp theo **thời lượng nói giảm dần**: hiện **top-N (~6) + 1 lane gộp "Người khác (k)"** (heatmap khi bất-kỳ-ai-trong-nhóm nói — không mất thông tin). Bấm lane gộp → mở full list **cuộn được, tên dính trái (sticky)**.
+- Avatar + màu/người, tên cắt gọn. Solo = bấm tên (trong nhóm gộp thì mở rộng trước). Lane strip cao tối đa ~40vh, cuộn trong; canvas vẫn thao tác phía sau.
+- **Ngưỡng tự chuyển:** ≤ ~5 người → lanes thẳng; > ngưỡng → mặc định thu về "dải hội thoại 1 hàng", per-người là opt-in. Giữ đúng "đừng lố quá" dù 3 hay 30 người.
+
 ## 3. Chooser "Play along" (3 chế độ)
 Segmented `[Along ▾]` trong transport — đổi **cái gì play KÈM canvas**, KHÔNG đụng playhead/trục (đổi giữa chừng giữ nguyên `T`):
 | Chế độ | Play kèm canvas | Hành vi |
