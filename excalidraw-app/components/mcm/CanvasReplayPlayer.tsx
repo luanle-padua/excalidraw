@@ -42,6 +42,7 @@
 import { CaptureUpdateAction, restoreElements } from "@excalidraw/excalidraw";
 import { GripVertical, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/element/types";
@@ -649,14 +650,23 @@ export const CanvasReplayPlayer = ({
           auto-hide). Its currentTime is driven by the same playhead via the media
           hook's ref; the shared window's sound plays via the separate
           screen-audio track. Closing the pane turns the Screen layer off. */}
-      {screenOn && media.hasScreen && media.screenInWindow && (
-        <ScreenReplayPane
-          videoRef={media.screenVideoRef}
-          src={media.screenUrl}
-          loading={media.screenLoading}
-          onClose={() => setScreenOn(false)}
-        />
-      )}
+      {screenOn &&
+        media.hasScreen &&
+        media.screenInWindow &&
+        // Portal to <body> so the floating pane ESCAPES the dock: the dock is
+        // position:fixed WITH transform: translateX(-50%) + overflow:hidden, and
+        // a fixed child of a TRANSFORMED ancestor is positioned relative to that
+        // ancestor (not the viewport) — which trapped the pane inside the dock.
+        // On <body> it floats freely over the whole page, draggable anywhere.
+        createPortal(
+          <ScreenReplayPane
+            videoRef={media.screenVideoRef}
+            src={media.screenUrl}
+            loading={media.screenLoading}
+            onClose={() => setScreenOn(false)}
+          />,
+          document.body,
+        )}
 
       <CanvasReplayTimeline
         T0={T0}

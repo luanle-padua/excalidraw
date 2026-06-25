@@ -87,6 +87,7 @@
   // show a kind icon + label above the native <audio> controls. Capped to the
   // same box as the video player so layouts never jump between track kinds.
   &__audio {
+    box-sizing: border-box; // border + padding inside width:100% (no right spill)
     width: 100%;
     max-height: 46vh;
     aspect-ratio: 16 / 9;
@@ -136,9 +137,11 @@
 
   // Placeholder shown before a track is picked (multi-track case).
   &__placeholder {
-    // SLIM hint strip (owner #22, 3rd pass): a 200px box still dominated the
-    // panel — it's only "pick a track". Single compact row (icon + text inline),
-    // auto height (~50px). Never a big empty box.
+    // SLIM hint strip (owner #22): a small single row (icon + text inline), auto
+    // height. box-sizing:border-box is REQUIRED — width:100% + its own dashed
+    // border + padding would otherwise (content-box) make the box ~34px wider
+    // than the player's inner area and spill past the player's right edge.
+    box-sizing: border-box;
     width: 100%;
     border-radius: 10px;
     border: 1px dashed var(--mcm-hairline);
