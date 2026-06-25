@@ -919,7 +919,11 @@ body:has(.excalidraw.theme--dark) .mcm-shell .excalidraw {
     top: calc(100% + 7px);
     left: 50%;
     transform: translateX(-50%) translateY(-2px);
-    z-index: 50;
+    // Above the Excalidraw docked sidebar (chat/library) which sits in the same
+    // un-contexted canvas-area and otherwise covered the downward tooltip
+    // ("tooltip nằm dưới"). No ancestor of the tooltip makes a stacking context,
+    // so this propagates freely; it's a transient hover bubble so a high z is OK.
+    z-index: 2000;
     pointer-events: none;
     white-space: nowrap;
     max-width: 220px;
@@ -9533,11 +9537,17 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
 // the swatches popover portals into .mcm-shell, the app toast mounts as a
 // shell sibling of the lobby — neither inherits the lobby token scope.
 .mcm-swatches--pop,
+// The Canvas Replay dock (transport bar + floating screen pane) PORTALS to
+// <body> (so its fixed bar can't be trapped by the header's containing block) —
+// so it ALSO escapes .mcm-shell's tokens; without this its --mcm-surface panels
+// computed to nothing → the transport + screen pane "mất nền / mất UI".
+.mcm-replay-dock,
 .mcm-toast {
   @include mcm-tokens-light;
   // Glass-Desk dashboard tokens — EVERY new/changed token must be stamped
   // here too, or portaled overlays fall back to the base palette.
   @include mcm-lobby-tokens-light;
+  --mcm-surface-3: var(--mcm-surface-2);
   // Dashboard typefaces (same scoping note as .mcm-lobby) — theme-agnostic,
   // so stamping them once here covers the dark portal context too.
   --mcm-font-ui: #{$mcm-font-ui-stack};
@@ -9550,9 +9560,11 @@ body:has(.excalidraw.theme--dark) {
   .mcm-meditor,
   .mcm-pkg-backdrop,
   .mcm-swatches--pop,
+  .mcm-replay-dock,
   .mcm-toast {
     @include mcm-tokens-dark;
     @include mcm-lobby-tokens-dark;
+    --mcm-surface-3: var(--mcm-surface-2);
   }
 }
 
