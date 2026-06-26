@@ -705,26 +705,130 @@
   }
 }
 
-// On a narrow viewport let the bar span the full width and keep the controls
-// from overflowing — the scrubber takes the whole first wrap row.
-@media (max-width: 640px) {
+// ===========================================================================
+// RESPONSIVE — TABLET (≤768px) + PHONE (≤480px)
+// ===========================================================================
+// These docks/panes are position:fixed over the review canvas. On narrow
+// viewports the centered transform + a 760px target width would push the bar
+// off both edges, the many-control transport row would run off-screen (the X
+// becomes unreachable), the floating screen pane could exceed the viewport,
+// and the 96px sticky lane-name column would crush the talk-block track. The
+// rules below pin everything inside the viewport, let the transport wrap on a
+// phone (so the X + scrubber + speeds all stay reachable), clamp the screen
+// pane, and shrink the lane name column. Glass-Desk tokens are untouched.
+
+@keyframes mcm-replay-dock-in-narrow {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ---- TABLET (≤768px) ------------------------------------------------------
+@media (max-width: 768px) {
+  // Edge-anchor the dock (drop the centering transform) so the wide bar can use
+  // the full viewport width minus a small gutter without overflowing either side.
   .mcm-replay-dock {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
     width: auto;
+    max-width: none;
     transform: none;
     animation: mcm-replay-dock-in-narrow 180ms ease both;
   }
 
-  @keyframes mcm-replay-dock-in-narrow {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  // Touch targets: grow the play/restart/close buttons toward the 40px class.
+  .mcm-replay__btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  // Clamp the floating screen pane to the viewport with a slightly larger gutter
+  // so it can't graze either edge on a tablet.
+  .mcm-replay__screen-pane {
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  // Narrower sticky speaker-name column so the talk-block track keeps usable width.
+  .mcm-lanes {
+    --mcm-lane-name-w: 80px;
+  }
+}
+
+// ---- PHONE (≤480px) -------------------------------------------------------
+@media (max-width: 480px) {
+  // Hug the edges with a tight gutter — every px of width counts at 390px.
+  .mcm-replay-dock {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+  }
+
+  // The transport has too many controls to keep on one row at phone width, and
+  // horizontal-scroll would hide the X. WRAP instead: the scrubber+time take the
+  // first row (scrubber grows full-width), the speed pills / media chips / X
+  // flow onto a second row. The X keeps margin-left:auto so it pins to the right
+  // end of whatever row it lands on, staying reachable.
+  .mcm-replay__controls {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    row-gap: 8px;
+    column-gap: 8px;
+  }
+
+  // Scrubber takes the entire first wrap row so it stays grabbable at full width.
+  .mcm-replay__scrubber {
+    flex: 1 1 100%;
+    min-width: 0;
+    order: -1; // float the scrubber to the top row above the control pills
+  }
+
+  // Comfortable tap targets on a phone.
+  .mcm-replay__btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  // Slightly larger speed pills so 0.5×/1×/2×/4× stay tappable when wrapped.
+  .mcm-replay__speed {
+    padding: 7px 11px;
+  }
+
+  // Bigger media chooser chips (Canvas/Audio/Screen) for touch.
+  .mcm-replay__along-base,
+  .mcm-replay__along-chip {
+    padding: 7px 10px;
+  }
+
+  // Tighter clamp + gutter for the floating screen pane on a phone; on a 390px
+  // screen the pane must never exceed the viewport regardless of its inline size.
+  .mcm-replay__screen-pane {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  // Larger pane close + resize affordances for touch.
+  .mcm-replay__screen-pane .mcm-replay__screen-close {
+    width: 30px;
+    height: 30px;
+  }
+  .mcm-replay__screen-pane .mcm-replay__screen-resize {
+    width: 26px;
+    height: 26px;
+  }
+
+  // Shrink the sticky name column further so the talk-block track survives at
+  // 390px; cap lane scroll height lower so the dock never eats the whole screen.
+  .mcm-lanes {
+    --mcm-lane-name-w: 64px;
+  }
+  .mcm-lanes__scroll {
+    max-height: 32vh;
   }
 }

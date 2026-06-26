@@ -26,7 +26,9 @@
   // local -apple-system re-declaration was redundant drift and is removed.
 
   &__card {
-    width: min(820px, 100%);
+    // Clamp to the viewport (minus the 24px scrim padding on each side) so the
+    // card never overflows on a tablet; desktop still gets the full 820px.
+    width: min(820px, 100vw - 48px);
     // Fixed height (not max-height): the card frame stays the same size and
     // position no matter which tab is active. Short tabs no longer shrink the
     // card and tall tabs no longer grow it — the body becomes the scroll region
@@ -536,6 +538,42 @@
     }
   }
 
+  // ----- TABLET (≤768px): tab rail → top strip, labels kept -----
+  // On a tablet the 196px side rail eats too much of the body, so the rail
+  // collapses to a horizontally-scrolling top strip (labels stay — there's
+  // room) and the body takes the full card width. The card itself already
+  // clamps to `100vw - 48px`, so it fits; just trim the scrim padding a touch.
+  @media (max-width: 768px) {
+    padding: 16px;
+
+    &__card {
+      height: min(94vh, 760px);
+    }
+    &__main {
+      flex-direction: column;
+    }
+    &__tabs {
+      width: auto;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 4px;
+      padding: 8px 10px;
+      overflow-x: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--mcm-hairline-2, rgba(0, 0, 0, 0.06));
+      scrollbar-width: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+    &__tab {
+      width: auto;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  }
+
   // ----- narrow viewports: tab rail → top strip -----
   @media (max-width: 620px) {
     padding: 0;
@@ -565,6 +603,11 @@
     &__tab {
       width: auto;
       white-space: nowrap;
+      // Icons-only on phones → square, ≥44px tap target so each is easy to hit.
+      min-width: 44px;
+      min-height: 44px;
+      justify-content: center;
+      padding: 10px;
 
       span {
         display: none; // icons-only on phones to keep the strip short
@@ -572,6 +615,44 @@
       svg {
         opacity: 1;
       }
+    }
+  }
+
+  // ----- PHONE (≤480px): touch targets + tighter body gutter -----
+  @media (max-width: 480px) {
+    &__body {
+      padding: 16px 14px;
+    }
+    // Close glyph → 44px tap target (the 30px circle is hard to hit on a phone).
+    &__close {
+      width: 44px;
+      height: 44px;
+    }
+    // Action buttons + selects to a comfortable 44px tap height.
+    &__btn {
+      min-height: 44px;
+    }
+    &__select {
+      height: 40px;
+    }
+    // Account/Org DL: let long values wrap under the label so the row never
+    // forces horizontal overflow on a narrow phone.
+    &__dl > div {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+
+      dd {
+        text-align: left;
+      }
+    }
+    // Preference rows can stack the control under the text when space is tight.
+    &__pref {
+      flex-wrap: wrap;
+    }
+    // Background presets: 2-up instead of 3-up so tiles aren't crushed.
+    &__bg-grid {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 }

@@ -888,13 +888,57 @@
     flex: 1 1 100%;
     max-width: none;
   }
+
+  // Touch: the scoped --sm palette/icon chips are 28px (mouse density). On a
+  // tablet that's below the 40px finger target — pad the hit area up WITHOUT
+  // changing the shared .mcm-icon-btn (it's also used by the in-meeting drawers).
+  .mcm-pmgr__row .mcm-icon-btn--sm,
+  .mcm-pmgr__card-actions .mcm-icon-btn--sm,
+  .mcm-pdetail__actions .mcm-icon-btn--sm,
+  .mcm-pdetail__actions .mcm-icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+  // List rows: 44px already, but tighten the cover so the bumped palette chip
+  // + chevron still fit the row without the name being crushed.
+  .mcm-pmgr__row {
+    min-height: 48px;
+  }
+
+  // Status segmented picker (detail view) — text labels need a 40px finger
+  // target on tablet too, not only at the 480px phone breakpoint below.
+  .mcm-segmented--status .mcm-segmented__btn {
+    min-height: 40px;
+  }
 }
 
 // ---- PHONE (≤480px) --------------------------------------------------
 @media (max-width: 480px) {
+  // List/card panel: trim the side gutter so the content edge isn't eaten on a
+  // ~390px screen (16→12 each side gives ~8px more usable width per row/card).
+  .mcm-pmgr {
+    padding: 10px 12px 24px;
+  }
+
   // Single-column project cards on phone — full width, comfortable tap area.
   .mcm-pmgr__cards {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  // Touch: lift the scoped --sm palette/action chips to the 44px phone target
+  // (still scoped — never the shared .mcm-icon-btn). The card-actions overlay
+  // chip and the list-row palette both ride this rule.
+  .mcm-pmgr__row .mcm-icon-btn--sm,
+  .mcm-pmgr__card-actions .mcm-icon-btn--sm,
+  .mcm-pdetail__actions .mcm-icon-btn--sm,
+  .mcm-pdetail__actions .mcm-icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+  // Roomier rows so the bumped chip never collides with the name/meta.
+  .mcm-pmgr__row {
+    min-height: 52px;
     gap: 10px;
   }
 
@@ -917,6 +961,12 @@
       margin-left: 0;
       width: 100%;
       flex-wrap: wrap;
+
+      // Text actions (Edit / View meetings) wrap onto their own line here —
+      // give them a full phone tap target so they aren't a thin strip.
+      .mcm-btn {
+        min-height: 44px;
+      }
     }
     // Danger zone → stack the hint above a full-width button so the
     // destructive target isn't a thin sliver next to long text.

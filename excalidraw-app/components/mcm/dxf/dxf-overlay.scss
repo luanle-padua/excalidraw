@@ -193,3 +193,62 @@
     }
   }
 }
+
+// =========================================================================
+// RESPONSIVE — tablet (≤1024px) + phone (≤480px).
+//
+// The base `&__focus-toolbar` (MeetingShell.scss) is a nowrap `inline-flex`
+// row pinned to the anchor's right edge (`right: 0`), and `&__layer-panel`
+// is a fixed `width: 220px` at `left: 8px`. On a narrow viewport the toolbar
+// pills run off-screen and the panel can exceed a 390px phone width. We can't
+// edit MeetingShell, so we override the same selectors here (this sheet wins
+// via the doubled `.mcm-dxf-layer.mcm-dxf-layer` specificity).
+//
+// Fixes: let the toolbar WRAP, keep it right-tucked, clamp to the viewport;
+// clamp the layer panel to `calc(100vw - margin)`; grow tap targets. Desktop
+// (>1024px) is untouched.
+// =========================================================================
+@media (max-width: 1024px) {
+  .mcm-dxf-layer.mcm-dxf-layer {
+    .mcm-dxf-layer__focus-toolbar {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      max-width: calc(100vw - 16px);
+      row-gap: 6px;
+    }
+
+    .mcm-dxf-layer__tool,
+    .mcm-dxf-layer__exit {
+      padding: 9px 12px;
+      min-height: 40px;
+    }
+
+    .mcm-dxf-layer__layer-panel {
+      max-width: calc(100vw - 16px);
+    }
+
+    .mcm-dxf-layer__layer-row {
+      min-height: 40px;
+    }
+
+    .mcm-dxf-layer__layer-panel-action {
+      min-height: 36px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .mcm-dxf-layer.mcm-dxf-layer {
+    .mcm-dxf-layer__focus-toolbar {
+      max-width: calc(100vw - 8px);
+    }
+
+    // Phone: narrower auto layer panel pulled toward the edge so it fits.
+    .mcm-dxf-layer__layer-panel {
+      left: 4px;
+      width: auto;
+      min-width: 180px;
+      max-width: calc(100vw - 8px);
+    }
+  }
+}

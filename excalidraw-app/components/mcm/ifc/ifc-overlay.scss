@@ -721,3 +721,94 @@
     transform: rotate(360deg);
   }
 }
+
+// =========================================================================
+// RESPONSIVE — tablet (≤1024px) + phone (≤480px).
+//
+// On a narrow viewport the on-canvas focus chrome overflows: the
+// `&__focus-toolbar` is a single nowrap `inline-flex` row of ~13 pills
+// (Fit / Storeys / Objects / Shaded / Clay / Wireframe / cut X·Y·Z / Flip /
+// Plane / Measure / Ghost / Exit) anchored to the anchor's right edge, so it
+// runs straight off the viewport. The `&__storey-panel` (220px) and
+// `&__props` (240px) are fixed-width and can exceed a 390px phone screen.
+//
+// Fixes: let the toolbar WRAP (we keep wrap rather than overflow-scroll so the
+// upward-opening `&__menu` popovers in `&__tool-wrap` stay visible) and clamp
+// its max-width to the viewport; clamp the panels to `calc(100vw - margin)`;
+// grow pill/row touch targets to ≥40–44px. Desktop (>1024px) is untouched.
+// =========================================================================
+@media (max-width: 1024px) {
+  .mcm-ifc-layer {
+    // Toolbar: wrap instead of running off-screen, stay tucked to the right
+    // edge of the anchor, and never exceed the viewport width.
+    &__focus-toolbar {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      max-width: calc(100vw - 16px);
+      row-gap: 6px;
+    }
+
+    // Touch targets — keep the compact look but reach ~40px tall so pills are
+    // tappable. Padding-driven so labels stay readable.
+    &__tool,
+    &__exit {
+      padding: 9px 12px;
+      min-height: 40px;
+    }
+
+    &__seg,
+    &__menu-action {
+      padding: 9px 12px;
+      min-height: 40px;
+    }
+
+    // Floating panels must fit the viewport, not the desktop fixed width.
+    &__storey-panel {
+      max-width: calc(100vw - 16px);
+    }
+
+    &__props {
+      width: 240px;
+      max-width: calc(100vw - 16px);
+    }
+
+    &__storey-row {
+      min-height: 40px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .mcm-ifc-layer {
+    // Phone: narrower auto-ish panels so two panels never fight for the
+    // ~390px width; left/right insets shrink so the clamp leaves usable room.
+    &__storey-panel {
+      left: 4px;
+      width: auto;
+      min-width: 180px;
+      max-width: calc(100vw - 8px);
+    }
+
+    &__props {
+      right: 4px;
+      width: auto;
+      min-width: 200px;
+      max-width: calc(100vw - 8px);
+    }
+
+    &__focus-toolbar {
+      max-width: calc(100vw - 8px);
+    }
+
+    // Section/view popovers can be wider than the small anchor — clamp + allow
+    // their segmented rows to wrap so X/Y/Z + Flip/Plane don't overflow.
+    &__menu {
+      max-width: calc(100vw - 16px);
+      white-space: normal;
+    }
+
+    &__menu-row {
+      flex-wrap: wrap;
+    }
+  }
+}

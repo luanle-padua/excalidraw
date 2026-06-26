@@ -585,6 +585,75 @@
     font-weight: 600;
     text-align: center;
   }
+
+  // =====================================================================
+  // RESPONSIVE — roster on tablet/phone. Purely additive (every rule below
+  // is inside a max-width query → desktop layout unchanged). The roster
+  // renders inside the project side panel and inside the centralized Guest
+  // Manager page; both narrow on a tablet/phone. Mirrors the 768/480
+  // breakpoints used across the MCM chrome.
+  // =====================================================================
+
+  // ---- TABLET (≤768px) -----------------------------------------------
+  @media (max-width: 768px) {
+    // Role-delegation rows: let a long name + role badge + action button
+    // wrap rather than squash the name to a sliver or overflow.
+    &__role-row {
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+
+    // Guest row: keep the contact block + actions on the row but allow the
+    // actions to wrap under when the name line is long.
+    &__guest-actions {
+      flex-wrap: wrap;
+    }
+  }
+
+  // ---- PHONE (≤480px) ------------------------------------------------
+  @media (max-width: 480px) {
+    // The full-page Guest Manager carries its own 16px edge padding; trim it
+    // a touch so cards use the narrow width.
+    &--page {
+      padding: 12px;
+    }
+
+    // Issue-card contact grid → single column (the 520px rule already does
+    // this, restated here to keep the phone block self-contained/explicit).
+    &__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    // Form inputs + custom project picker → 40px so they're comfortable taps.
+    &__in,
+    &__project-select {
+      height: 40px;
+    }
+
+    // Guest row stacks the contact card above its action cluster so neither
+    // is crushed; the actions align to the start under the card.
+    &__guest {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    &__guest-actions {
+      align-self: flex-start;
+    }
+
+    // Touch targets: the quiet × remove (26px) and the in-row action buttons
+    // get a ≥40px hit area on a phone.
+    &__role-remove {
+      width: 40px;
+      height: 40px;
+    }
+
+    // Group head can wrap (title + count) instead of overflowing.
+    &__group-head {
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+  }
 }
 
 // Credentials shown ONCE after issuing/resetting a project guest.

@@ -422,7 +422,15 @@
 // ---- TABLET (≤768px) -------------------------------------------------
 @media (max-width: 768px) {
   .mcm-caption--overlay {
+    // Clamp to the viewport with a gutter so the centered band can never run off
+    // either edge (the 880px target would overflow a 768px tablet otherwise).
     width: min(880px, 90%);
+    max-width: calc(100vw - 24px);
+  }
+  // Let the control cluster wrap rather than overflow the band on a tablet.
+  .mcm-caption__controls {
+    flex-wrap: wrap;
+    max-width: calc(100vw - 24px);
   }
   // CC toggle + quick-hide grow toward a tap-friendly height.
   .mcm-caption__cc {
@@ -443,6 +451,9 @@
   // Near full-width band so two-line subtitles read cleanly on a phone.
   .mcm-caption--overlay {
     width: 94%;
+    // Hard ceiling so the band never overflows the phone viewport regardless of
+    // the 94% target or wide content inside.
+    max-width: calc(100vw - 12px);
     // Extra headroom over the people bar on a phone. The bar is a FIXED-height
     // flex row (height:var(--mcm-bar-height); the avatar list scrolls
     // horizontally rather than wrapping), so --mcm-bar-clearance already clears
@@ -473,5 +484,19 @@
   // Slightly larger base caption text on a phone-sized band.
   .mcm-caption {
     --mcm-caption-base: 15px;
+  }
+  // The control cluster (CC + font group + dual + hide) is the widest fixed row;
+  // let it wrap so it never pushes the strip past the band edge on a phone.
+  .mcm-caption__controls {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  // The popout + embedded bands are full-width inside their own window/pane;
+  // trim their side padding so the strip + controls keep room on a phone.
+  .mcm-caption--popout {
+    padding: 8px 8px;
+  }
+  .mcm-caption--embedded {
+    padding: 6px 6px;
   }
 }

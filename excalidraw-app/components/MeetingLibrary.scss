@@ -29,11 +29,15 @@
     // flexes to an equal half; with only one present it simply fills the row.
     &__source-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 0.35rem;
     }
 
     &__source-btn {
-      flex: 1 1 0;
+      // Each button wants ~9rem; when both don't fit the panel width the row
+      // wraps (flex-wrap on __source-row) and each takes a full row instead of
+      // being crushed to an unreadable stub.
+      flex: 1 1 9rem;
       min-width: 0;
       // Override the shared .mcm-shelfpick__toggle full-width default so the
       // pair packs side by side; keep the label from wrapping/overflowing.
@@ -217,7 +221,11 @@
 
     &__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+      // `min(7rem, 100%)` keeps the desktop 7rem tile floor but lets the track
+      // shrink to the panel width at the narrowest sidebar — so the grid never
+      // forces horizontal overflow (a fixed 7rem min would overflow a panel
+      // narrower than 7rem + gap).
+      grid-template-columns: repeat(auto-fill, minmax(min(7rem, 100%), 1fr));
       gap: 0.5rem;
       align-content: start;
     }
@@ -694,6 +702,59 @@
       justify-content: center;
       gap: 0.2rem;
       opacity: 0.85;
+    }
+
+    // =================================================================
+    // RESPONSIVE — PHONE (≤480px). On a phone Excalidraw's sidebar goes
+    // full-width, so this panel is wider than its desktop sidebar slot.
+    // Purely additive (inside a max-width query → desktop unchanged): give
+    // the dense controls bigger tap targets and let the grid breathe with a
+    // larger tile floor now that there's full-screen width.
+    // =================================================================
+    @media (max-width: 480px) {
+      &__toolbar {
+        gap: 0.5rem;
+      }
+
+      // Full-screen width → roomier tiles (≈9rem) instead of many tiny ones.
+      &__grid {
+        grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+      }
+
+      // Tap targets for the per-file action chips: bump the 1.4rem glyph
+      // buttons closer to a finger-friendly size.
+      &__item-action {
+        width: 2rem;
+        height: 2rem;
+
+        svg {
+          width: 1rem;
+          height: 1rem;
+        }
+      }
+
+      // Filter chips + sort/search a touch larger so they're easy to hit.
+      &__filter-chip {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.78rem;
+      }
+      &__sort {
+        padding: 0.45rem 0.5rem;
+        font-size: 0.8rem;
+      }
+      &__search {
+        padding: 0.45rem 0.55rem;
+        font-size: 0.85rem;
+      }
+      &__view-btn {
+        width: 2rem;
+        height: 2rem;
+      }
+
+      // List rows a bit taller for comfortable tapping.
+      &__row {
+        padding: 0.5rem;
+      }
     }
   }
 }

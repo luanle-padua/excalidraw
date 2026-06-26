@@ -957,4 +957,35 @@
     flex-wrap: wrap;
     gap: 10px;
   }
+
+  // Backdrop upload pane: the title input + country <select> are capped at
+  // 320/220px on desktop, which leaves them stranded mid-row on a phone. Let
+  // them grow to the full row so the pane reads as a clean stack.
+  .mcm-admin__backdrop-titleinput,
+  .mcm-admin__backdrop-countryinput {
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    height: 40px;
+  }
+
+  // Segmented enum pills: bump to a 44px tap target on a phone.
+  .mcm-admin__seg-btn {
+    height: 40px;
+  }
+
+  // Settings-form inputs to a comfortable tap height.
+  .mcm-admin__field input {
+    height: 40px;
+  }
+
+  // Detail-head action cluster can wrap rather than overflow.
+  .mcm-admin__detail-actions {
+    flex-wrap: wrap;
+  }
+
+  // Backup pane buttons + links wrap instead of forcing horizontal scroll.
+  .mcm-admin__links {
+    gap: 8px;
+  }
 }

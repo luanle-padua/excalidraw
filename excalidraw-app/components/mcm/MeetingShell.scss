@@ -8471,6 +8471,13 @@ body:has(.excalidraw.theme--dark) .mcm-meditor__save {
   .mcm-people-bar__chip {
     height: 32px;
   }
+  // Excalidraw's MOBILE bottom bar (.App-bottom-bar: tools + zoom + undo/redo)
+  // is anchored to the very bottom and OVERLAPPED the people-bar strip on phone
+  // (toolbar bottom ~834 vs people-bar 768–844). Lift it above the people bar so
+  // the two STACK instead of colliding — the live controls stay tappable.
+  .mcm-shell .excalidraw .App-bottom-bar {
+    bottom: calc(var(--mcm-bar-height, 76px) + 6px);
+  }
 
   // Docked right sidebar (chat / library) → full-width drawer over the
   // canvas on phone instead of a crushed column. Excalidraw renders the
