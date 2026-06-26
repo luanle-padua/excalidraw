@@ -49,6 +49,7 @@ import {
 import { useT } from "../../i18n/mcm";
 
 import { CloudRecordingControls } from "./CloudRecordingControls";
+import { MeetingBlurControl } from "./MeetingBlurControl";
 
 // Icon system: ALL call-control glyphs are lucide-react at size 18, matching the
 // rest of the meeting header (MeetingHeader.tsx, LayoutSwitcher, LangTheme). This
@@ -331,9 +332,13 @@ export const MeetingCallControls = () => {
           </span>
         </button>
 
-        {/* Virtual-background control moved to User Settings → Preferences
-            (keeps the cluster compact). The persisted choice still auto-applies
-            when the camera turns on — see audio/videoBg.ts. */}
+        {/* BLUR / background control — sits right beside the camera toggle so
+            the user picks None / Blur(light·medium·strong) where they manage
+            video. Shares the videoBgAtom + setVideoBgPref + setVideoBackground
+            state with the User Settings → Preferences picker, so the two stay in
+            sync automatically. Renders nothing on devices where Daily's
+            processor is unsupported (isVideoBgSupported gate inside). */}
+        <MeetingBlurControl />
 
         {/* INTERACTION: raise-hand + reactions. */}
         <button

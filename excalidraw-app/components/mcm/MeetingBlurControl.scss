@@ -1,0 +1,82 @@
+// In-call "blur background" control — a header icon button + a small popover of
+// None / Blur(light·medium·strong) chips, anchored beside the camera toggle.
+//
+// Design-system: rides the Glass-Desk tokens (--mcm-*) and the SAME chip look as
+// the User Settings → Preferences picker (.mcm-settings__bg-chip) so the two
+// surfaces read as one feature. Works in BOTH dark and white theme — every
+// colour is a token (the literals are only SSR/old-browser fallbacks).
+//
+// GLASS FOOTGUN: the popover surface is OPAQUE (var(--mcm-surface)) and carries
+// NO backdrop-filter, and nothing in this file blurs an ancestor of the menu —
+// a blurred ancestor traps/clips a position:absolute dropdown. Keep it opaque.
+
+@use "./type" as *;
+
+.mcm-blur-control {
+  position: relative;
+  display: inline-flex;
+}
+
+.mcm-blur-control__popover {
+  position: absolute;
+  // Opens DOWNWARD from the header button (top of the screen), matching the
+  // reactions popover's top-anchored origin.
+  top: calc(100% + 8px);
+  // Anchor to the trigger's LEFT edge (not centred) so a 3–4 chip column never
+  // runs off the right side of the header on a narrow viewport.
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 168px;
+  padding: 8px;
+  // OPAQUE surface — NOT glass. See the footgun note above.
+  background: var(--mcm-surface, #fff);
+  border: 1px solid var(--mcm-hairline, rgba(0, 0, 0, 0.1));
+  border-radius: var(--mcm-radius-md, 14px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.2);
+  z-index: 8;
+  animation: mcm-blur-pop 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.mcm-blur-control__chip {
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  @include t-btn; // 13/640 — matches the settings picker chip
+  color: var(--mcm-text-soft, rgba(0, 0, 0, 0.6));
+  background: var(--mcm-surface-2, #f0f0f3);
+  border: 1px solid transparent;
+  border-radius: var(--mcm-radius-sm, 10px);
+  cursor: pointer;
+  transition: background-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+  &:hover {
+    color: var(--mcm-text, #1b1b1f);
+  }
+  &.--active {
+    background: color-mix(
+      in srgb,
+      var(--mcm-accent, #6965db) 14%,
+      var(--mcm-surface, #fff)
+    );
+    border-color: color-mix(
+      in srgb,
+      var(--mcm-accent, #6965db) 45%,
+      transparent
+    );
+    color: var(--mcm-accent, #6965db);
+  }
+}
+
+@keyframes mcm-blur-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

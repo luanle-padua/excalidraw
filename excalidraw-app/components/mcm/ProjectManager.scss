@@ -904,6 +904,18 @@
   .mcm-pmgr__row {
     min-height: 48px;
   }
+  // The text block (name/meta stacked) only had ellipsis — no width ceiling —
+  // so a long project name + meta let flex:1 grow it until the bumped 40px
+  // palette chip + chevron were pushed toward (or off) the right edge. Cap the
+  // text column so the trailing controls always keep their place; ellipsis
+  // still clips the overflow.
+  .mcm-pmgr__row-main {
+    max-width: 60%;
+  }
+  .mcm-pmgr__row-name,
+  .mcm-pmgr__row-meta {
+    max-width: 100%;
+  }
 
   // Status segmented picker (detail view) — text labels need a 40px finger
   // target on tablet too, not only at the 480px phone breakpoint below.

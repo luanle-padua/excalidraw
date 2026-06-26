@@ -37,6 +37,8 @@ import {
   screenShareMediaAtom,
 } from "../../screenshare/screenShareState";
 
+import { galleryOwnsScreenAtom } from "../../audio/videoFocus";
+
 import { captionSurfaceAtom } from "../../data/captionState";
 
 import { AiActivityIndicator } from "./AiActivityIndicator";
@@ -123,6 +125,12 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
   const screenSharePresence = useAtomValue(screenShareStateAtom);
   const screenShareMedia = useAtomValue(screenShareMediaAtom);
   const screenShareInstance = useAtomValue(screenShareInstanceAtom);
+  // True while the gallery's Zoom-style "together" layout is itself mounting the
+  // shared screen as its stage. We then SUPPRESS the floating ScreenSharePane so
+  // the same stream isn't mounted twice ("one stream, one mount"). The floating
+  // pane returns for the non-gallery surfaces (minimal / filmstrip) where the
+  // gallery isn't showing the screen.
+  const galleryOwnsScreen = useAtomValue(galleryOwnsScreenAtom);
   // Caption surface is decided centrally by captionSurfaceAtom (data/captionState.ts) —
   // the single source of truth for WHERE the dock mounts. This canvas-bottom overlay
   // is the LOCAL presenter's fallback (they watch their own screen, so they have no
@@ -473,7 +481,10 @@ export const MeetingShell = ({ children }: { children: ReactNode }) => {
               moved into the meeting HEADER — see MeetingHeader's MEDIA group.
               The old floating bottom-center pill was removed (it overlapped the
               lower CAD / DXF anchors). */}
-          <ScreenSharePane />
+          {/* Floating screen-share viewer — suppressed when the gallery's
+              "together" layout already owns the screen (one stream, one mount);
+              still shown over minimal / filmstrip so viewers there see the share. */}
+          {!galleryOwnsScreen && <ScreenSharePane />}
           {/* Presenter self-awareness: floating self-preview + "you are
               presenting [source]" banner + Stop. Self-gates on localActive. */}
           <ScreenShareSelfView />

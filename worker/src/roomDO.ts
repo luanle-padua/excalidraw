@@ -61,6 +61,20 @@ const ROOM_USER_CHANGE_DEBOUNCE_MS = 250;
 const GHOST_TIMEOUT_MS = 130_000;
 const REAPER_INTERVAL_MS = 50_000;
 
+/** Recording reclaim grace (06-26 host-background-drop fix). When the reaper
+ *  drops a ghost socket that OWNED the recording lock, we do NOT immediately
+ *  stop the recording for the room. The common cause is the HOST briefly
+ *  backgrounding their tab (Chrome froze the heartbeat) — they are still in the
+ *  meeting and their socket auto-reconnects within seconds. Instead we mark the
+ *  recording ORPHANED (keyed by the owner's authenticated email) and keep it
+ *  logically ALIVE for this window. If a socket with the SAME email reconnects
+ *  within the window, ownership transfers to it and recording continues
+ *  uninterrupted (the recorders never even see a stop). Only if the window
+ *  expires with no reclaim do we release the lock and broadcast recording:false
+ *  — i.e. a genuine disconnect. Kept under GHOST_TIMEOUT_MS so a real dead host
+ *  still ends the session in ~3.7min worst case (130s reap + 90s grace). */
+const RECORDING_REAP_GRACE_MS = 90_000;
+
 export type ControlFrame = { ev: string; args: unknown[] };
 
 /** `bufferedAmount` exists on the runtime WebSocket but isn't in the Workers
@@ -143,6 +157,28 @@ export type WsAttachment = {
     name: string | null;
   };
 };
+
+/** Persisted ORPHANED-recording state (06-26 host-background-drop fix). When the
+ *  reaper drops the owner's ghost socket, the lock (which lived in that socket's
+ *  attachment) is gone — so we copy the recording into DO STORAGE, keyed by the
+ *  owner's authenticated email, and timestamp when it was orphaned. A reconnect
+ *  by the same email within RECORDING_REAP_GRACE_MS RECLAIMS it; otherwise the
+ *  alarm releases it. Stored (not in-memory) so it survives hibernation between
+ *  the reap and the reclaim/expiry. */
+export type OrphanedRecording = {
+  sessionId: string;
+  startedAt: number;
+  /** Authenticated email of the owner whose socket was reaped — the reclaim key.
+   *  Lowercased for a case-insensitive match against a reconnecting socket. */
+  ownerEmail: string;
+  name: string | null;
+  /** When the owning socket was reaped (ms epoch) — the grace-window clock. */
+  orphanedAt: number;
+};
+
+/** DO storage key for the single orphaned-recording record (1 DO = 1 room, and
+ *  the lock is single-owner, so at most one orphan exists at a time). */
+const ORPHANED_RECORDING_KEY = "orphanedRecording";
 
 type Env = {
   // RoomDO needs no bindings of its own for the August relay scope — the DO
@@ -397,7 +433,7 @@ export class RoomDO implements DurableObject {
         // #24 single-owner recording lock — DO is AUTHORITATIVE (handled here,
         // NOT relayed). Replaces the client-side soft check that raced on
         // late-synced RECORDING_STATE.
-        this.onRecordingAcquire(ws, self, frame.args[0]);
+        await this.onRecordingAcquire(ws, self, frame.args[0]);
         break;
       case "recording-release":
         this.onRecordingRelease(ws, self);
@@ -427,6 +463,28 @@ export class RoomDO implements DurableObject {
     }
     // Full presence list to everyone (matches io.in(room).emit on join).
     this.broadcastControl("room-user-change", [this.roomUserList()]);
+
+    // RECLAIM (06-26 host-background-drop fix): if THIS reconnecting socket is the
+    // owner of a recording that was orphaned when its previous socket was reaped
+    // (e.g. the host backgrounded their tab and the heartbeat froze), transfer
+    // the lock back onto this socket and RESUME — the recording never stopped, so
+    // we re-announce recording:true to the WHOLE room (idempotent for peers; tells
+    // the owner's own CloudRecordingControls it still owns the session).
+    const reclaimed = await this.tryReclaimRecording(ws, self);
+    if (reclaimed) {
+      this.broadcastControl("recording-state", [
+        {
+          recording: true,
+          owner: { email: reclaimed.email, name: reclaimed.name },
+          startedAt: reclaimed.startedAt,
+          sessionId: reclaimed.sessionId,
+        },
+      ]);
+      // The reclaiming socket itself is covered by the broadcast above; no
+      // separate unicast needed.
+      return;
+    }
+
     // UNICAST the current recording state to the just-joined socket so a LATE
     // joiner learns an already-active session (replaces the client's old 5s
     // RECORDING_STATE re-broadcast hack — contract §8). Only emitted when a
@@ -559,16 +617,104 @@ export class RoomDO implements DurableObject {
     return null;
   }
 
+  /** Read the persisted orphaned-recording record, or null if none / expired-and-
+   *  unread. Does NOT itself expire the record — the alarm is the single place
+   *  that releases an expired orphan (so expiry is broadcast exactly once). */
+  private async getOrphanedRecording(): Promise<OrphanedRecording | null> {
+    const o = await this.ctx.storage.get<OrphanedRecording>(
+      ORPHANED_RECORDING_KEY,
+    );
+    return o && typeof o.ownerEmail === "string" ? o : null;
+  }
+
+  /** Mark the reaped owner's recording as orphaned (kept alive for the grace
+   *  window). Keyed by lowercased email so the reclaim match is case-insensitive. */
+  private async orphanRecording(rec: {
+    sessionId: string;
+    startedAt: number;
+    email: string | null;
+    name: string | null;
+  }): Promise<void> {
+    if (!rec.email) {
+      // No identity to reclaim against → can't safely hold it open; the caller
+      // falls back to broadcasting recording:false (genuine stop).
+      return;
+    }
+    const orphan: OrphanedRecording = {
+      sessionId: rec.sessionId,
+      startedAt: rec.startedAt,
+      ownerEmail: rec.email.toLowerCase(),
+      name: rec.name,
+      orphanedAt: Date.now(),
+    };
+    await this.ctx.storage.put(ORPHANED_RECORDING_KEY, orphan);
+  }
+
+  private async clearOrphanedRecording(): Promise<void> {
+    await this.ctx.storage.delete(ORPHANED_RECORDING_KEY);
+  }
+
+  /** RECLAIM (06-26): if there's an orphaned recording within its grace window
+   *  whose owner email matches THIS reconnecting socket, transfer the lock onto
+   *  this socket's attachment and resume the session WITHOUT a stop. Returns the
+   *  resumed owner (so the caller can re-announce state to the room), else null.
+   *  An EXPIRED orphan is left for the alarm to release (single expiry path). */
+  private async tryReclaimRecording(
+    ws: WebSocket,
+    self: WsAttachment,
+  ): Promise<{
+    sessionId: string;
+    startedAt: number;
+    email: string | null;
+    name: string | null;
+  } | null> {
+    const orphan = await this.getOrphanedRecording();
+    if (!orphan) {
+      return null;
+    }
+    // Expired → not reclaimable; the alarm tick releases it + broadcasts false.
+    if (Date.now() - orphan.orphanedAt > RECORDING_REAP_GRACE_MS) {
+      return null;
+    }
+    const myEmail = (self.email || "").toLowerCase();
+    if (!myEmail || myEmail !== orphan.ownerEmail) {
+      return null; // different user — leave the orphan for its real owner.
+    }
+    // If some OTHER open socket already holds the lock (e.g. the owner opened a
+    // second tab and acquired fresh), don't double-own — just drop the orphan.
+    if (this.currentRecordingOwner()) {
+      await this.clearOrphanedRecording();
+      return null;
+    }
+    const owner = {
+      sessionId: orphan.sessionId,
+      startedAt: orphan.startedAt,
+      email: self.email || orphan.ownerEmail,
+      name: orphan.name,
+    };
+    try {
+      // Stamp the lock onto the reconnected socket (survives hibernation, auto-
+      // releases on its close). Preserve lastSeen via spread.
+      ws.serializeAttachment({ ...self, recording: owner });
+    } catch {
+      // socket racing closed — leave the orphan for another reconnect / expiry.
+      return null;
+    }
+    await this.clearOrphanedRecording();
+    return owner;
+  }
+
   /** recording-acquire `[{sessionId, startedAt}]`: grant the lock ONLY if no
-   *  other OPEN socket holds it. Reply `recording-lock` `[{ok, owner}]` to the
+   *  other OPEN socket holds it AND no live ORPHANED session belonging to someone
+   *  else is awaiting reclaim. Reply `recording-lock` `[{ok, owner}]` to the
    *  asker; on grant, broadcast `recording-state` to the room. Identity
    *  (email/name) is read from THIS socket's verified join attachment, never
    *  trusted from the payload. */
-  private onRecordingAcquire(
+  private async onRecordingAcquire(
     ws: WebSocket,
     self: WsAttachment,
     payload: unknown,
-  ): void {
+  ): Promise<void> {
     if (
       !payload ||
       typeof payload !== "object" ||
@@ -579,6 +725,36 @@ export class RoomDO implements DurableObject {
     const p = payload as { sessionId: string; startedAt?: unknown };
     const startedAt =
       typeof p.startedAt === "number" ? p.startedAt : Date.now();
+
+    // ORPHAN GUARD (06-26): a recording can be orphaned (owner reaped, awaiting
+    // reclaim within the grace window) with NO open socket holding the lock — so
+    // currentRecordingOwner() would be null and a competing acquire would slip
+    // through, starting a second session that races the original owner's reclaim.
+    // While a non-expired orphan exists: if it's THIS user's, treat acquire as a
+    // reclaim (clear orphan, fall through to grant on this fresh socket); if it
+    // belongs to someone else, report it busy.
+    const orphan = await this.getOrphanedRecording();
+    if (orphan && Date.now() - orphan.orphanedAt <= RECORDING_REAP_GRACE_MS) {
+      const myEmail = (self.email || "").toLowerCase();
+      if (myEmail && myEmail === orphan.ownerEmail) {
+        // Same owner reacquiring — drop the orphan and grant below (the client's
+        // explicit acquire wins over the implicit onJoinRoom reclaim).
+        await this.clearOrphanedRecording();
+      } else {
+        this.sendControl(ws, "recording-lock", [
+          {
+            ok: false,
+            owner: {
+              email: orphan.ownerEmail,
+              name: orphan.name,
+              startedAt: orphan.startedAt,
+              sessionId: orphan.sessionId,
+            },
+          },
+        ]);
+        return;
+      }
+    }
 
     const existing = this.currentRecordingOwner();
     if (existing) {
@@ -686,17 +862,22 @@ export class RoomDO implements DurableObject {
   async webSocketClose(
     ws: WebSocket,
     _code: number,
-    _reason: string,
+    reason: string,
     _wasClean: boolean,
   ): Promise<void> {
-    this.onSocketGone(ws);
+    // A close the REAPER itself forced (alarm → ws.close(1001,"ghost-timeout"))
+    // is the host-background case: the alarm has ALREADY orphaned any recording
+    // for the grace/reclaim window, so this close path must NOT also stop the
+    // recording (06-26). Every other close is a genuine leave → keep the
+    // immediate auto-release.
+    this.onSocketGone(ws, reason === "ghost-timeout");
   }
 
   async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
-    this.onSocketGone(ws);
+    this.onSocketGone(ws, false);
   }
 
-  private onSocketGone(ws: WebSocket): void {
+  private onSocketGone(ws: WebSocket, fromGhostReap: boolean): void {
     const self = this.getAttachment(ws);
     if (self) {
       // 0) AUTO-RELEASE the recording lock (#24). If this departing socket owned
@@ -705,7 +886,14 @@ export class RoomDO implements DurableObject {
       //    there's nothing to clear; just broadcast the false state. (No
       //    "is this socket open?" guard: by the close path it's already gone, so
       //    currentRecordingOwner() would no longer see it.)
-      if (self.recording) {
+      //    EXCEPTION (06-26): if this close was the ghost reaper's own forced
+      //    close, the alarm has already ORPHANED the recording for the
+      //    grace/reclaim window — do NOT broadcast a stop here, or a host who
+      //    just backgrounded their tab would have recording killed instantly,
+      //    defeating the reclaim. Genuine leaves (tab close, network drop) still
+      //    stop immediately; a deliberate close is anyway preceded by the
+      //    client's recording-release, which already cleared self.recording.
+      if (self.recording && !fromGhostReap) {
         this.broadcastControl("recording-state", [{ recording: false }]);
       }
       // 1) This socket was FOLLOWING others — drop it from every follower set;
@@ -762,7 +950,17 @@ export class RoomDO implements DurableObject {
   async alarm(): Promise<void> {
     const now = Date.now();
     let reaped = 0;
-    let reapedRecordingOwner = false;
+    // The recording (if any) carried by a reaped owner socket — we ORPHAN it
+    // rather than stopping immediately, so a host who briefly backgrounded their
+    // tab can reclaim on reconnect (06-26). At most one owner (single-owner lock).
+    let reapedRecording:
+      | {
+          sessionId: string;
+          startedAt: number;
+          email: string | null;
+          name: string | null;
+        }
+      | null = null;
     for (const ws of this.ctx.getWebSockets()) {
       const a = this.getAttachment(ws);
       if (!a) {
@@ -774,12 +972,10 @@ export class RoomDO implements DurableObject {
         continue;
       }
       if (now - a.lastSeen > GHOST_TIMEOUT_MS) {
-        // AUTO-RELEASE (#24): a reaped ghost that owned the recording lock takes
-        // the lock with it. webSocketClose also fires the auto-release, but a
-        // forced server close can lag — note it here so the room is told the
-        // session ended now, not minutes later when the TCP teardown lands.
+        // The lock lives in the attachment, which dies with the socket — capture
+        // it HERE (before close) so we can orphan it below.
         if (a.recording) {
-          reapedRecordingOwner = true;
+          reapedRecording = a.recording;
         }
         try {
           ws.close(1001, "ghost-timeout");
@@ -795,11 +991,45 @@ export class RoomDO implements DurableObject {
       // election re-runs off the live set without the ghost).
       this.broadcastControl("room-user-change", [this.roomUserList()]);
     }
-    if (reapedRecordingOwner) {
-      this.broadcastControl("recording-state", [{ recording: false }]);
+
+    // RECORDING GRACE (06-26 host-background-drop fix): instead of stopping the
+    // recording the moment its owner is reaped, mark it ORPHANED (keyed by the
+    // owner's email) and keep it logically alive. A reconnect by the same email
+    // within RECORDING_REAP_GRACE_MS reclaims it (onJoinRoom → tryReclaimRecording)
+    // so a host who briefly backgrounded their tab keeps recording. Only on
+    // EXPIRY (below) do we release + broadcast recording:false. If the owner had
+    // no email to reclaim against, orphanRecording() is a no-op and we stop now.
+    if (reapedRecording) {
+      if (reapedRecording.email) {
+        await this.orphanRecording(reapedRecording);
+        // Do NOT broadcast recording:false — the session is held open, awaiting
+        // a reclaim or grace-window expiry.
+      } else {
+        this.broadcastControl("recording-state", [{ recording: false }]);
+      }
     }
-    // Re-arm only while live sockets remain → empty room stops waking the DO.
-    if (this.openSockets().length > 0) {
+
+    // Expire a stale orphan: if the grace window elapsed with no reclaim, the
+    // owner is genuinely gone → release the lock and tell the room recording
+    // stopped (single expiry path, fires exactly once via the delete). Skipped
+    // when we JUST orphaned this tick (it can't be expired yet) and when another
+    // socket meanwhile reclaimed (getOrphanedRecording then returns null).
+    const orphan = await this.getOrphanedRecording();
+    if (orphan && now - orphan.orphanedAt > RECORDING_REAP_GRACE_MS) {
+      await this.clearOrphanedRecording();
+      // Only announce a stop if no live socket has since re-acquired the lock
+      // (defensive — a fresh acquire would have been a separate session).
+      if (!this.currentRecordingOwner()) {
+        this.broadcastControl("recording-state", [{ recording: false }]);
+      }
+    }
+
+    // Re-arm while live sockets remain OR an orphan is still pending (we must
+    // keep ticking to expire it even if the room briefly looks empty — though a
+    // reaped owner usually leaves peers behind). An empty room with no orphan
+    // lets the DO hibernate, preserving $0 idle.
+    const stillPendingOrphan = (await this.getOrphanedRecording()) !== null;
+    if (this.openSockets().length > 0 || stillPendingOrphan) {
       await this.ctx.storage.setAlarm(now + REAPER_INTERVAL_MS);
     }
   }

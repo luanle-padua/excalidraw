@@ -13,16 +13,21 @@
 // model (pin > screenshare > active-speaker > host > first), computed in
 // ParticipantsBar and passed down — clicking any tile toggles the local pin.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-import { LayoutGrid, Pin, PinOff, SquareUser } from "lucide-react";
+import { LayoutGrid, MonitorUp, Pin, PinOff, SquareUser } from "lucide-react";
 
 import { useT } from "../../i18n/mcm";
 
 import { useAtomValue, useSetAtom } from "../../app-jotai";
-import { gallerySubModeAtom } from "../../audio/videoFocus";
+import {
+  galleryOwnsScreenAtom,
+  gallerySubModeAtom,
+  resolveGallerySubMode,
+} from "../../audio/videoFocus";
 import { activeSpeakerAtom, visibleTilesAtom } from "../../audio/videoPerf";
 import { captionSurfaceAtom } from "../../data/captionState";
+import { screenShareMediaAtom } from "../../screenshare/screenShareState";
 
 import { MCMAvatar } from "./Avatar";
 import { LiveCaptionDock } from "./LiveCaptionDock";
@@ -32,6 +37,45 @@ import type { Tile } from "./ParticipantsBar";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import "./MeetingGallery.scss";
+
+// Mounts the shared SCREEN stream into the "together"-layout stage. Mirrors the
+// ScreenSharePane <video> binding (imperative srcObject, object-fit:contain on a
+// black well) so the same MediaStream renders identically whether it lands here
+// (gallery stage) or in the floating pane — only one is mounted at a time.
+const ScreenStage = ({
+  stream,
+  label,
+}: {
+  stream: MediaStream;
+  label: string;
+}) => {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v && v.srcObject !== stream) {
+      v.srcObject = stream;
+      void v.play().catch(() => undefined);
+    }
+    return () => {
+      // Release the track on unmount / stream swap so the well never freezes.
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [stream]);
+  return (
+    <div className="mcm-gallery__screen-well">
+      <video
+        ref={videoRef}
+        className="mcm-gallery__screen-video"
+        autoPlay
+        playsInline
+        muted
+      />
+      {label && <span className="mcm-gallery__screen-tag">{label}</span>}
+    </div>
+  );
+};
 
 // One reusable tile renderer — used by the responsive grid, the speaker big
 // tile and the speaker bottom strip so the camera/avatar/label rules never
@@ -149,8 +193,49 @@ export const MeetingGallery = ({
   // Ring on the Daily active-speaker (same signal the filmstrip uses) so both
   // surfaces agree on who's talking — including self.
   const activeSpeaker = useAtomValue(activeSpeakerAtom);
-  const subMode = useAtomValue(gallerySubModeAtom);
+  const rawSubMode = useAtomValue(gallerySubModeAtom);
   const setSubMode = useSetAtom(gallerySubModeAtom);
+
+  // Shared screen for the Zoom-style "together" layout. A VIEWER gets the remote
+  // presenter's stream; the SHARER themselves has no remoteStream but can preview
+  // their OWN screen via localStream — so the presenter also sees the together
+  // layout (what everyone else sees) instead of a blank stage.
+  const screenMedia = useAtomValue(screenShareMediaAtom);
+  const screenStream = screenMedia.remoteStream ?? screenMedia.localStream;
+  const hasScreen = !!screenStream;
+  const screenLabel = screenMedia.remoteStream
+    ? t("screenShare.presenting", { name: screenMedia.remoteSharerName ?? "" })
+    : t("screenShare.youArePresenting");
+
+  // "screen" (together) is only honoured while a share exists; once it ends the
+  // effective mode degrades back to grid so the stage is never left empty.
+  const subMode = resolveGallerySubMode(rawSubMode, hasScreen);
+
+  // AUTO-SELECT the together layout on the RISING EDGE of a share — the natural
+  // default whenever the gallery first sees a live screen (a share that started
+  // while it was open, OR opening the gallery while a share is already running:
+  // the ref seeds `false` so that opening case fires once too). It is on the EDGE
+  // only, so it is non-destructive and reversible — the user can immediately
+  // switch back to grid/speaker and we won't yank them to "screen" again for the
+  // same share.
+  const prevHasScreen = useRef(false);
+  useEffect(() => {
+    if (hasScreen && !prevHasScreen.current) {
+      setSubMode("screen");
+    }
+    prevHasScreen.current = hasScreen;
+  }, [hasScreen, setSubMode]);
+
+  // Tell MeetingShell when the gallery OWNS the screen (together layout actively
+  // mounting it) so it suppresses the duplicate floating ScreenSharePane —
+  // "one stream, one mount". Reset on unmount so closing the gallery hands the
+  // floating pane back to the other surfaces.
+  const showingScreen = subMode === "screen" && hasScreen;
+  const setGalleryOwnsScreen = useSetAtom(galleryOwnsScreenAtom);
+  useEffect(() => {
+    setGalleryOwnsScreen(showingScreen);
+    return () => setGalleryOwnsScreen(false);
+  }, [showingScreen, setGalleryOwnsScreen]);
   // The caption surface router (data/captionState.ts) returns "gallery" while
   // this full-screen modal is open, so the dock mounts HERE and nowhere else —
   // this is the single guard that keeps the live-transcription strip from
@@ -183,7 +268,8 @@ export const MeetingGallery = ({
         <span className="mcm-gallery__title">
           {t("gallery.title")} · {tiles.length}
         </span>
-        {/* Grid ↔ Speaker sub-mode — a per-user view preference. */}
+        {/* Grid ↔ Speaker ↔ Screen sub-mode — a per-user view preference. The
+            Screen ("together") toggle only appears while a screen is shared. */}
         <div className="mcm-gallery__submode" role="group">
           <button
             type="button"
@@ -209,6 +295,20 @@ export const MeetingGallery = ({
             <SquareUser size={15} strokeWidth={1.9} />
             {t("gallery.subSpeaker")}
           </button>
+          {hasScreen && (
+            <button
+              type="button"
+              className={`mcm-gallery__submode-btn${
+                subMode === "screen" ? " mcm-gallery__submode-btn--active" : ""
+              }`}
+              aria-pressed={subMode === "screen"}
+              onClick={() => setSubMode("screen")}
+              title={t("gallery.subScreen")}
+            >
+              <MonitorUp size={15} strokeWidth={1.9} />
+              {t("gallery.subScreen")}
+            </button>
+          )}
         </div>
         <button
           type="button"
@@ -220,7 +320,37 @@ export const MeetingGallery = ({
         </button>
       </div>
 
-      {subMode === "grid" || !focusTile ? (
+      {showingScreen && screenStream ? (
+        // SCREEN ("together", Zoom-style): the shared SCREEN is the big stage and
+        // EVERY camera rides the filmstrip below it. Reuses the speaker sub-mode's
+        // `__speaker/__stage/__rail` skeleton — only the stage content differs (a
+        // screen well instead of a face tile), so the layout/caption rules stay in
+        // lockstep. All tiles go to the rail (the screen, not a person, is focus).
+        <div className="mcm-gallery__speaker mcm-gallery__speaker--screen">
+          <div className="mcm-gallery__stage">
+            <ScreenStage stream={screenStream} label={screenLabel} />
+            {captionsOnGallery && <LiveCaptionDock variant="embedded" />}
+          </div>
+          {tiles.length > 0 && (
+            <div
+              className="mcm-gallery__rail"
+              aria-label={t("gallery.subScreen")}
+            >
+              {tiles.map((tile) => (
+                <GalleryTile
+                  key={tile.id}
+                  tile={tile}
+                  selfSocketId={selfSocketId}
+                  activeSpeaker={activeSpeaker}
+                  focused={tile.id === focusedSocketId}
+                  pinned={tile.id === pinnedSocketId}
+                  onPick={onPick}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : subMode === "grid" || !focusTile ? (
         // GRID: the dock is a sibling of the scrolling grid, pinned to the bottom
         // of `.mcm-gallery` (the relative anchor) so it stays put while the grid
         // scrolls. `.mcm-gallery__grid` carries extra bottom padding (SCSS) so the

@@ -160,6 +160,7 @@ export const en: Widened<typeof vi> = {
     host: "Host",
     subGrid: "Grid",
     subSpeaker: "Speaker",
+    subScreen: "Screen",
     unpin: "Unpin",
     pinHint: "Click to pin as focus",
   },

@@ -321,6 +321,59 @@
     }
   }
 
+  // ---- Screen ("together") sub-mode: shared screen as the big stage ----
+  // Reuses the speaker skeleton (__speaker / __stage / __rail). Only the stage
+  // CONTENT differs — a black 16:9 screen well (mirrors .mcm-ss-pane__body) in
+  // place of a face tile — so the layout + caption rules stay shared.
+  &__screen-well {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    // The VIDEO well stays solid black for accurate footage — theme-independent,
+    // exactly like the floating pane's body. Rounded to match the tile language.
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  &__screen-video {
+    width: 100%;
+    height: 100%;
+    // contain (not cover): never crop a shared document / slide deck.
+    object-fit: contain;
+    display: block;
+  }
+
+  // Presenter chip on the screen well — reads on the black backdrop in BOTH
+  // themes, so it uses a fixed dark pill + light text rather than --mcm tokens
+  // (which would flip dark in white mode and vanish against the black well).
+  &__screen-tag {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    max-width: calc(100% - 24px);
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    color: #fff;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 2;
+  }
+
   // Clickable tiles (pin affordance) get a hover lift + focus outline.
   &__tile--clickable {
     cursor: pointer;

@@ -603,6 +603,14 @@
       row-gap: 6px;
     }
 
+    // Touch: the quiet × remove is 26px (mouse density) — below the 40px
+    // tablet finger target. Bump its hit area (the phone block lifts it again
+    // to 44px).
+    &__role-remove {
+      width: 40px;
+      height: 40px;
+    }
+
     // Guest row: keep the contact block + actions on the row but allow the
     // actions to wrap under when the name line is long.
     &__guest-actions {
@@ -642,10 +650,10 @@
     }
 
     // Touch targets: the quiet × remove (26px) and the in-row action buttons
-    // get a ≥40px hit area on a phone.
+    // get a ≥44px hit area on a phone.
     &__role-remove {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
     }
 
     // Group head can wrap (title + count) instead of overflowing.

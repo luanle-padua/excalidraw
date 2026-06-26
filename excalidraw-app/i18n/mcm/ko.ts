@@ -167,6 +167,7 @@ export const ko: Widened<typeof vi> = {
     host: "호스트",
     subGrid: "그리드",
     subSpeaker: "발표자",
+    subScreen: "화면",
     unpin: "고정 해제",
     pinHint: "클릭하여 포커스로 고정",
   },

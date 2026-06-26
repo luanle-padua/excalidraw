@@ -15807,6 +15807,54 @@ body:has(.excalidraw.theme--dark) {
   .mcm-select {
     height: 40px;
   }
+
+  // --- Invited / Upcoming list (home) ---
+  // The card was a single non-wrapping row: a flex-shrink:0 Join button +
+  // long meeting meta crushed each other on a narrow tablet. Let it wrap so
+  // the meta block takes the full first row and the Join button drops to a
+  // comfortable second row at the 40px tablet tap target.
+  .mcm-invited__card {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .mcm-invited__meta {
+    flex: 0 1 100%;
+    min-width: 0;
+  }
+  .mcm-invited__join {
+    margin-left: auto; // sit at the row's end once it has wrapped
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+
+  // --- Meeting LIST view rows (.mcm-mcards--list) ---
+  // The horizontal row's title capped at 38% while the date + CTA were
+  // flex-shrink:0 → the row overflowed at tablet widths. Clamp the title
+  // harder, let the date shrink/ellipsis, and keep the CTA reachable at the
+  // 40px tap target without letting it grow wide.
+  .mcm-mcards--list .mcm-mcard {
+    .mcm-mcard__title {
+      max-width: 30%;
+    }
+    .mcm-mcard__when {
+      min-width: 0;
+      flex-shrink: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .mcm-mcard__cta {
+      padding: 7px 10px;
+    }
+    .mcm-mcard__cta-go {
+      min-height: 40px;
+    }
+    // Cosmetic cluster sits to the LEFT of the (now slightly tighter) CTA;
+    // re-anchor it so it never collides with or floats off the CTA edge.
+    .mcm-mcard__actions {
+      right: 150px;
+    }
+  }
 }
 
 // ---- PHONE (≤480px) --------------------------------------------------
@@ -15886,6 +15934,34 @@ body:has(.excalidraw.theme--dark) {
   // flex-wrap; just give them room to breathe.
   .mcm-chips {
     gap: 8px;
+  }
+
+  // --- Invited / Upcoming list (home) ---
+  // Already wraps from the tablet rule; on a phone bump the Join button to the
+  // 44px tap target and keep it full-width-ish at the row's end.
+  .mcm-invited__join {
+    min-height: 44px;
+  }
+
+  // --- Meeting LIST view rows (.mcm-mcards--list) ---
+  // Too little width to keep title + date + CTA on one line. Let the row wrap:
+  // the title/topic body takes the first line, the date + CTA flow below, and
+  // the cosmetic cluster is hidden (it's hover-only personalisation and there
+  // is no hover on touch — it only risked overlapping the wrapped CTA).
+  .mcm-mcards--list .mcm-mcard {
+    .mcm-mcard__main {
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+    .mcm-mcard__title {
+      max-width: 100%;
+    }
+    .mcm-mcard__cta-go {
+      min-height: 44px;
+    }
+    .mcm-mcard__actions {
+      display: none;
+    }
   }
 
   // --- Login (phone) ---

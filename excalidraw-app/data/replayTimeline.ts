@@ -17,8 +17,23 @@
 //
 // PURE + TESTABLE: no React, no atoms, no DOM, no colour side effects beyond the
 // deterministic `personColor`. Feed it a `TranscriptSegment[]`, get a plain data
-// model back. P3 (audio) will reuse `speaker.id` (the socketId) as the key to
-// "solo" a track; nothing here needs to change for that — the seam is the id.
+// model back.
+//
+// ── STABLE IDENTITY GROUPING (reconnect-lane-split fix) ──────────────────────
+// The transcript's `socketId` is per-CONNECTION: it changes every time a person
+// drops + rejoins, so grouping on it raw splits ONE person into several lanes on
+// reconnect — while the recording panel (which groups by the authenticated EMAIL
+// stamped server-side as `speaker_id`) correctly shows ONE merged channel. To
+// match the recording panel — and so per-speaker SOLO keys on the SAME id the
+// media layer compares against (`track.rec.speaker_id`) — the caller can pass a
+// `resolveIdentity(seg)` that maps a segment to a STABLE identity (the email).
+// At REPLAY TIME the live peer atom is empty (those peers are gone), so the only
+// source that survives a finished meeting is the recordings list: each `mic` row
+// carries `speaker_id` (email) + `speaker_name` (the join display name == the
+// transcript's `username`). The caller builds a username→email map from those
+// rows and hands it in. When no resolver is given (or it returns nothing for a
+// segment — e.g. an anonymous link-join with no recording), grouping falls back
+// to the raw `socketId`, i.e. byte-for-byte today's behaviour.
 
 import { personColor } from "../components/mcm/meetingColors";
 
@@ -40,8 +55,11 @@ export type SpeakerInterval = {
 
 /** One lane: a person and every block they spoke. */
 export type SpeakerTimeline = {
-  /** grouping identity = the segment socketId. Stable within a meeting; the key
-   *  P3 will use to solo this person's audio track. */
+  /** grouping identity. With a `resolveIdentity` resolver this is the STABLE
+   *  identity (the authenticated email == the recording row's `speaker_id`), so
+   *  a reconnected person is ONE lane and per-speaker SOLO matches the audio
+   *  layer's `track.rec.speaker_id`. Without a resolver it is the raw segment
+   *  socketId (legacy / anonymous fallback). */
   id: string;
   /** display name (latest `username` seen for this id). */
   name: string;
@@ -83,6 +101,14 @@ export type BuildSpeakerTimelineOptions = {
    *  sentence read as a slightly longer block than a two-word one, bounded by
    *  [minWidthMs, maxSegmentWidthMs]. Purely cosmetic. Default 55 (~18 cps). */
   msPerChar?: number;
+  /** Map a segment to its STABLE grouping identity (the authenticated email ==
+   *  the recording's `speaker_id`), so reconnect lanes merge and SOLO matches
+   *  the audio layer. Return a non-empty string to override; return null /
+   *  undefined / "" to let THIS segment fall back to its raw socketId (the
+   *  anonymous / no-recording case). Omitting the whole resolver reproduces the
+   *  legacy "group by socketId" behaviour exactly. Must be pure + deterministic
+   *  (it feeds `personColor`, the lane tint). */
+  resolveIdentity?: (seg: TranscriptSegment) => string | null | undefined;
 };
 
 const DEFAULTS = {
@@ -100,7 +126,7 @@ const estimateWidthMs = (
   text: string,
   ts: number,
   nextTs: number | undefined,
-  opts: Required<BuildSpeakerTimelineOptions>,
+  opts: Required<Omit<BuildSpeakerTimelineOptions, "resolveIdentity">>,
 ): number => {
   const byText = Math.min(
     opts.maxSegmentWidthMs,
@@ -119,11 +145,14 @@ const estimateWidthMs = (
 /**
  * Build the per-speaker lane model from the raw transcript log.
  *
- * Grouping key is `segment.socketId`; `username` supplies the display name and
- * `personColor(socketId)` the tint. Each segment becomes an interval starting at
- * its `ts` with a cosmetic width (see `estimateWidthMs`); consecutive intervals
- * of the SAME speaker whose gap is `< mergeGapMs` fuse into one block. Lanes come
- * back sorted by total talk time descending.
+ * Grouping key is the STABLE identity from `options.resolveIdentity(segment)`
+ * (the authenticated email == the recording's `speaker_id`) when supplied, else
+ * the raw `segment.socketId` (legacy / anonymous fallback). `username` supplies
+ * the display name and `personColor(id)` the tint, so colour is stable per
+ * identity (a reconnected person keeps one hue). Each segment becomes an interval
+ * starting at its `ts` with a cosmetic width (see `estimateWidthMs`); consecutive
+ * intervals of the SAME speaker whose gap is `< mergeGapMs` fuse into one block.
+ * Lanes come back sorted by total talk time descending.
  *
  * Defensive: tolerates an unsorted log (sorts a copy), empty/missing fields, and
  * a single segment. Never throws. Returns an empty model for an empty log.
@@ -132,12 +161,15 @@ export const buildSpeakerTimeline = (
   log: readonly TranscriptSegment[] | null | undefined,
   options?: BuildSpeakerTimelineOptions,
 ): SpeakerTimelineModel => {
-  const opts: Required<BuildSpeakerTimelineOptions> = {
+  // Cosmetic width/merge knobs only — `resolveIdentity` is a function, kept out
+  // of this `Required<…>`-typed numeric bag and read directly below.
+  const opts: Required<Omit<BuildSpeakerTimelineOptions, "resolveIdentity">> = {
     mergeGapMs: options?.mergeGapMs ?? DEFAULTS.mergeGapMs,
     maxSegmentWidthMs: options?.maxSegmentWidthMs ?? DEFAULTS.maxSegmentWidthMs,
     minWidthMs: options?.minWidthMs ?? DEFAULTS.minWidthMs,
     msPerChar: options?.msPerChar ?? DEFAULTS.msPerChar,
   };
+  const resolveIdentity = options?.resolveIdentity;
 
   const empty: SpeakerTimelineModel = {
     speakers: [],
@@ -160,14 +192,20 @@ export const buildSpeakerTimeline = (
     return empty;
   }
 
-  // Bucket segments by speaker id, preserving chronological order within each
-  // bucket. Track the latest username so a renamed/anon peer shows their most
-  // recent label.
+  // Bucket segments by STABLE identity, preserving chronological order within
+  // each bucket. The key is `resolveIdentity(seg)` (the email == recording
+  // `speaker_id`) when the resolver supplies one, else the raw `socketId` — so a
+  // reconnected person (new socketId, same email) lands in ONE bucket, matching
+  // the recording panel, while anonymous link-joins with no recording keep their
+  // per-connection socketId. Track the latest username for the display label.
   type Bucket = { name: string; segs: TranscriptSegment[] };
   const buckets = new Map<string, Bucket>();
   for (let i = 0; i < sorted.length; i++) {
     const seg = sorted[i];
-    const id = seg.socketId || "unknown";
+    // Stable identity first; fall back to socketId (then "unknown") so a missing
+    // resolver / unmatched segment behaves exactly as before.
+    const resolved = resolveIdentity?.(seg);
+    const id = (resolved && resolved.trim()) || seg.socketId || "unknown";
     let b = buckets.get(id);
     if (!b) {
       b = { name: seg.username || id, segs: [] };

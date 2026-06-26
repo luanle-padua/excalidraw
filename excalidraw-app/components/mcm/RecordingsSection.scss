@@ -422,4 +422,52 @@
     @include t-caption; // inline track status
     color: var(--mcm-text-soft);
   }
+
+  // =====================================================================
+  // RESPONSIVE — recordings list on tablet/phone. Purely additive (every rule
+  // is inside a max-width query → desktop layout unchanged). This panel renders
+  // inside the narrow review side-column; on a tablet the header buttons +
+  // track-row controls need finger-sized targets and the long mic/screen track
+  // names must stay readable without forcing horizontal overflow.
+  // =====================================================================
+
+  // ---- TABLET (≤768px) -----------------------------------------------
+  @media (max-width: 768px) {
+    // Header refresh + player download buttons → 40px tap targets (desktop
+    // 6–7px padding left them ~30px tall).
+    &__refresh,
+    &__download {
+      min-height: 40px;
+    }
+
+    // Track rows are full-width buttons; the 42px icon already gives ~40px of
+    // height, but pin a floor so the slim --pending rows match too. The body's
+    // min-width:0 + the name's ellipsis already prevent overflow.
+    &__track {
+      min-height: 44px;
+    }
+
+    // The session head (title + meta) can wrap rather than squeezing the
+    // timestamp/size meta off the right edge on a narrow column.
+    &__session-head {
+      flex-wrap: wrap;
+      row-gap: 4px;
+    }
+  }
+
+  // ---- PHONE (≤480px) ------------------------------------------------
+  @media (max-width: 480px) {
+    // Lift the header + download controls to the 44px phone target.
+    &__refresh,
+    &__download {
+      min-height: 44px;
+    }
+
+    // The player bar (now-playing meta + Download) wraps so the button keeps a
+    // full tap area instead of being pinched next to a long track title.
+    &__player-bar {
+      flex-wrap: wrap;
+      row-gap: 8px;
+    }
+  }
 }

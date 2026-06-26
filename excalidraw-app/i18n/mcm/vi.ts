@@ -178,9 +178,11 @@ export const vi = {
     close: "Đóng",
     you: "Bạn",
     host: "Chủ trì",
-    // Grid ↔ Speaker sub-mode bên trong gallery
+    // Grid ↔ Speaker ↔ Screen (cùng nhau) sub-mode bên trong gallery
     subGrid: "Lưới",
     subSpeaker: "Diễn giả",
+    // "Cùng nhau": màn hình chia sẻ làm sân khấu lớn + dải camera bên dưới
+    subScreen: "Màn hình",
     unpin: "Bỏ ghim",
     pinHint: "Bấm để ghim làm tiêu điểm",
   },

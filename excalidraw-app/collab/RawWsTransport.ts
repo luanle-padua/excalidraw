@@ -69,17 +69,48 @@ const STABLE_OPEN_MS = 10_000;
 const MAX_RECONNECT_ATTEMPTS = 60;
 
 /** App-level liveness heartbeat (06-18 ghost reaper). The server (RoomDO) drops
- *  a socket that stops sending `hb` for GHOST_TIMEOUT_MS (~100s), so a half-open
- *  tab no longer lingers in the WS cap / presence / host election. 40s gives the
- *  server ~2 beats of slack while waking the idle DO only ~once/minute. This is
- *  a DISTINCT control frame from the runtime ping/pong auto-response (which does
- *  NOT wake the DO and so can't refresh server-side lastSeen). */
-const HEARTBEAT_MS = 40_000;
+ *  a socket that stops sending `hb` for GHOST_TIMEOUT_MS (130s), so a half-open
+ *  tab no longer lingers in the WS cap / presence / host election. This is a
+ *  DISTINCT control frame from the runtime ping/pong auto-response (which does
+ *  NOT wake the DO and so can't refresh server-side lastSeen).
+ *
+ *  06-26 HOST-BACKGROUND-DROP FIX: lowered 40s → 25s. The reaper is 130s, so
+ *  even at 40s we nominally had ~3 beats of slack — but `setInterval` in a
+ *  BACKGROUND tab is throttled to ~once/minute and FROZEN entirely after a few
+ *  minutes (Chrome Page Freeze / memory pressure). When the host backgrounded
+ *  their tab, `hb` stopped, the DO reaped the socket, and (worst) the recording
+ *  lock it owned was released → recording STOPPED. The real fix is the Web Worker
+ *  ticker below (not throttled in background tabs) + the server-side recording
+ *  grace/reclaim window; 25s just adds a fourth beat of margin so a single
+ *  hiccupped tick never strands a live host near the 130s edge. */
+const HEARTBEAT_MS = 25_000;
 
 /** Drop a volatile (cursor/idle) frame when the socket's outbound buffer is
  *  already this deep — matches socket.io `volatile` backpressure-drop so a
  *  60fps cursor flood can't grow the buffer unboundedly (plan §3, R16). */
 const VOLATILE_BUFFER_LIMIT_BYTES = 256 * 1024;
+
+/** Body of the dedicated heartbeat Web Worker (06-26 host-background-drop fix).
+ *  A `setInterval` running on the MAIN thread is throttled to ~once/minute in a
+ *  background tab and FROZEN after a few minutes (Chrome Page Freeze) — which
+ *  silently stops our `hb` frames and gets the host reaped. A Web Worker timer
+ *  is NOT subject to that background throttling, so it keeps ticking while the
+ *  tab is hidden. The worker is intentionally trivial: tick on an interval and
+ *  postMessage back to the main thread, which sends the actual `hb` (the worker
+ *  has no WebSocket / DOM access). The interval is passed in via the first
+ *  message so the constant lives in ONE place. */
+const HEARTBEAT_WORKER_SOURCE = `
+  let timer = null;
+  self.onmessage = (e) => {
+    const interval = e && e.data;
+    if (typeof interval === "number" && interval > 0) {
+      if (timer !== null) {
+        clearInterval(timer);
+      }
+      timer = setInterval(() => self.postMessage(0), interval);
+    }
+  };
+`;
 
 export interface RawWsTransportOptions {
   /** Base URL of the Worker hosting the RoomDO, e.g.
@@ -120,8 +151,21 @@ export class RawWsTransport {
    *  flap pinning backoff at the floor (06-18 reconnect-storm fix). */
   private stableTimer: ReturnType<typeof setTimeout> | null = null;
   /** Periodic `hb` heartbeat so the server can reap this socket if it dies
-   *  half-open (06-18 ghost reaper). Runs only while the socket is open. */
+   *  half-open (06-18 ghost reaper). Runs only while the socket is open.
+   *  FALLBACK ticker — used only when a Web Worker can't be created (SSR / very
+   *  old browser); the primary ticker is the background-immune Web Worker below. */
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  /** Dedicated Web Worker that drives the heartbeat with a timer that is NOT
+   *  throttled/frozen in a background tab (06-26 host-background-drop fix). Null
+   *  when unavailable → we fall back to `heartbeatTimer`. */
+  private heartbeatWorker: Worker | null = null;
+  /** Object URL backing `heartbeatWorker`; revoked on teardown so we don't leak
+   *  blob URLs across reconnects. */
+  private heartbeatWorkerUrl: string | null = null;
+  /** Bound `visibilitychange` handler that re-touches the server with an extra
+   *  immediate `hb` on EVERY hide/show transition — belt-and-braces around the
+   *  moment a tab is backgrounded (or restored) (06-26). Null while not open. */
+  private visibilityHandler: (() => void) | null = null;
   /** Set by close() so an in-flight reconnect doesn't resurrect a torn-down
    *  transport. */
   private closedByUser = false;
@@ -344,20 +388,117 @@ export class RawWsTransport {
     };
   }
 
-  /** Begin the periodic `hb` heartbeat (ghost reaper). Idempotent. */
+  /** Send one `hb` now. sendControl is a no-op unless the socket is OPEN, so a
+   *  heartbeat can't resurrect a dead socket; the close handler stops the ticker
+   *  anyway. */
+  private sendHeartbeat(): void {
+    this.sendControl("hb", []);
+  }
+
+  /** Begin the periodic `hb` heartbeat (ghost reaper). Idempotent.
+   *
+   *  Primary path: a dedicated Web Worker timer (HEARTBEAT_WORKER_SOURCE) that
+   *  keeps ticking even when this tab is backgrounded — the main-thread
+   *  `setInterval` it replaces gets throttled to ~1/min and then FROZEN by
+   *  Chrome Page Freeze, which used to stop the host's `hb`, get it reaped, and
+   *  stop the recording (06-26 fix). We also attach a `visibilitychange`
+   *  listener for an extra immediate re-touch on hide/show. */
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(() => {
-      // sendControl is a no-op unless the socket is OPEN, so a heartbeat can't
-      // resurrect a dead socket; the close handler stops the timer anyway.
-      this.sendControl("hb", []);
-    }, HEARTBEAT_MS);
+
+    // Try the background-immune Web Worker ticker first.
+    let workerStarted = false;
+    if (
+      typeof Worker !== "undefined" &&
+      typeof Blob !== "undefined" &&
+      typeof URL !== "undefined" &&
+      typeof URL.createObjectURL === "function"
+    ) {
+      try {
+        const url = URL.createObjectURL(
+          new Blob([HEARTBEAT_WORKER_SOURCE], { type: "text/javascript" }),
+        );
+        const worker = new Worker(url);
+        worker.onmessage = () => this.sendHeartbeat();
+        // If the worker errors out, fall back to the main-thread interval so we
+        // never silently lose the heartbeat entirely.
+        worker.onerror = () => {
+          if (this.heartbeatWorker === worker) {
+            this.teardownHeartbeatWorker();
+            this.startFallbackHeartbeat();
+          }
+        };
+        worker.postMessage(HEARTBEAT_MS); // start ticking
+        this.heartbeatWorker = worker;
+        this.heartbeatWorkerUrl = url;
+        workerStarted = true;
+      } catch {
+        // Worker/Blob construction blocked (e.g. CSP) — fall back below.
+        this.teardownHeartbeatWorker();
+      }
+    }
+
+    if (!workerStarted) {
+      this.startFallbackHeartbeat();
+    }
+
+    // Belt-and-braces: re-touch the server the instant the tab is hidden AND the
+    // instant it returns — covers the brief window before the worker's first
+    // post-background tick and gives the reaper a fresh lastSeen on return.
+    if (
+      typeof document !== "undefined" &&
+      typeof document.addEventListener === "function"
+    ) {
+      const handler = () => this.sendHeartbeat();
+      this.visibilityHandler = handler;
+      document.addEventListener("visibilitychange", handler);
+    }
+  }
+
+  /** Main-thread interval fallback (SSR / no Worker / worker error). Throttled
+   *  in background tabs — but better than no heartbeat at all. */
+  private startFallbackHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      return;
+    }
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), HEARTBEAT_MS);
+  }
+
+  private teardownHeartbeatWorker(): void {
+    if (this.heartbeatWorker) {
+      this.heartbeatWorker.onmessage = null;
+      this.heartbeatWorker.onerror = null;
+      try {
+        this.heartbeatWorker.terminate();
+      } catch {
+        // already gone — ignore
+      }
+      this.heartbeatWorker = null;
+    }
+    if (this.heartbeatWorkerUrl) {
+      try {
+        URL.revokeObjectURL(this.heartbeatWorkerUrl);
+      } catch {
+        // ignore
+      }
+      this.heartbeatWorkerUrl = null;
+    }
   }
 
   private stopHeartbeat(): void {
+    this.teardownHeartbeatWorker();
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
+    }
+    if (this.visibilityHandler) {
+      if (
+        typeof document !== "undefined" &&
+        typeof document.removeEventListener === "function"
+      ) {
+        document.removeEventListener("visibilitychange", this.visibilityHandler);
+      }
+      this.visibilityHandler = null;
     }
   }
 

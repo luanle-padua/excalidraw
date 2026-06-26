@@ -87,16 +87,28 @@ export const resolveFocusedId = (
 };
 
 // ---------------------------------------------------------------------------
-// 3. gallerySubModeAtom — grid ↔ speaker split inside the gallery surface.
+// 3. gallerySubModeAtom — grid ↔ speaker ↔ screen split inside the gallery.
 // ---------------------------------------------------------------------------
 // A per-user VIEW preference (like videoLayout) so it survives reload. Only
 // meaningful while videoLayout === "gallery".
-export type GallerySubMode = "grid" | "speaker";
+//
+// "screen" is the Zoom-style "together" layout: the shared SCREEN is the big
+// stage and the cameras ride a filmstrip below it (structurally the speaker
+// sub-mode with the screen, not a face, as the stage). It is CONTEXTUAL — only
+// meaningful while a screen is actually being shared — so unlike grid/speaker
+// it is NOT persisted (a reload with no active share would land you on a blank
+// "together" view). It is selected at runtime (auto when a share starts, or by
+// the user clicking the Screen toggle) and falls back via resolveGallerySubMode.
+export type GallerySubMode = "grid" | "speaker" | "screen";
+
+/** The persisted, share-independent preference. "screen" is excluded: it only
+ *  makes sense alongside a live share, so we never write it to localStorage. */
+export type StickyGallerySubMode = "grid" | "speaker";
 
 const SUBMODE_LS_KEY = "mcm:gallerySubMode";
-const DEFAULT_SUBMODE: GallerySubMode = "grid";
+const DEFAULT_SUBMODE: StickyGallerySubMode = "grid";
 
-const isSubMode = (v: unknown): v is GallerySubMode =>
+const isStickySubMode = (v: unknown): v is StickyGallerySubMode =>
   v === "grid" || v === "speaker";
 
 const guessSubMode = (): GallerySubMode => {
@@ -105,7 +117,7 @@ const guessSubMode = (): GallerySubMode => {
   }
   try {
     const raw = window.localStorage.getItem(SUBMODE_LS_KEY);
-    return isSubMode(raw) ? raw : DEFAULT_SUBMODE;
+    return isStickySubMode(raw) ? raw : DEFAULT_SUBMODE;
   } catch {
     return DEFAULT_SUBMODE;
   }
@@ -118,12 +130,38 @@ export const gallerySubModeAtom = atom<GallerySubMode, [GallerySubMode], void>(
   (_get, set, next) => {
     set(subModeBase, next);
     try {
-      window.localStorage.setItem(SUBMODE_LS_KEY, next);
+      // Persist only the sticky (share-independent) preference; never store the
+      // contextual "screen" together-mode (see type docs above).
+      if (isStickySubMode(next)) {
+        window.localStorage.setItem(SUBMODE_LS_KEY, next);
+      }
     } catch {
       // best-effort
     }
   },
 );
+
+/** Effective sub-mode to RENDER, given the raw preference and whether a screen
+ *  stream is actually present. "screen" (together) is only honoured while a
+ *  share exists; otherwise it degrades to grid so the gallery is never stuck on
+ *  an empty stage after a share ends. grid/speaker pass through untouched. */
+export const resolveGallerySubMode = (
+  subMode: GallerySubMode,
+  hasScreen: boolean,
+): GallerySubMode =>
+  subMode === "screen" && !hasScreen ? DEFAULT_SUBMODE : subMode;
+
+// ---------------------------------------------------------------------------
+// 3b. galleryOwnsScreenAtom — "one stream, one mount" coordination flag.
+// ---------------------------------------------------------------------------
+// The gallery flips this TRUE while it is actively rendering the shared screen
+// as its "together"-layout stage. MeetingShell reads it to SUPPRESS the
+// redundant floating ScreenSharePane (otherwise the same stream would mount
+// twice — once in the gallery stage, once in the corner pane). When the gallery
+// is closed or not on the together layout it flips back to false and the
+// floating pane returns for the minimal/filmstrip surfaces. Reset on the
+// gallery's unmount so a stale `true` never wedges the pane hidden.
+export const galleryOwnsScreenAtom = atom<boolean>(false);
 
 // ---------------------------------------------------------------------------
 // 4. Floating presenter — an explicit opt-in overlay over the canvas.

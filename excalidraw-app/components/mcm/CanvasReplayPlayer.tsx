@@ -425,6 +425,38 @@ export const CanvasReplayPlayer = ({
   const t1Ref = useRef(T1);
   t1Ref.current = T1;
 
+  // RECONNECT-LANE-SPLIT FIX: map a transcript segment to the SAME stable
+  // identity the recording panel groups by — the authenticated email
+  // (`speaker_id`) — so a person who left + rejoined (new socketId per
+  // connection) is ONE lane, not several. The live peer atom is empty at replay
+  // time (those peers are gone), so the only identity source that survives a
+  // FINISHED meeting is the recordings list: each `mic` row carries
+  // `speaker_id` (email) + `speaker_name` (the display name the speaker joined
+  // with — the SAME value the transcript stamps as `username`, both server-
+  // sourced from the meeting_participant row). We build a display-name→email map
+  // from those rows and resolve each segment by its `username`. Unmatched
+  // segments (STT but no mic recording, or anonymous link-joins) fall back to
+  // socketId inside buildSpeakerTimeline — exactly today's behaviour.
+  //
+  // Names are normalised (trim + lower-case) to absorb cosmetic casing/spacing
+  // differences. Display-name collisions (two distinct people, same name) would
+  // merge — but the recording panel's own grouping (`speaker_name||speaker_id`)
+  // has the identical limitation, so the replay stays CONSISTENT with it.
+  const speakerIdByName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of recordings) {
+      if ((r.kind ?? "mixed") !== "mic" || r.status !== "ready") {
+        continue; // only per-speaker mic rows carry a (name, email) identity
+      }
+      const email = r.speaker_id?.trim().toLowerCase();
+      const name = r.speaker_name?.trim().toLowerCase();
+      if (email && name && !map.has(name)) {
+        map.set(name, email);
+      }
+    }
+    return map;
+  }, [recordings]);
+
   // P2 — "who spoke when": the live transcript log for THIS room (seeded from
   // localStorage on join, kept in sync by the collab layer) is the lane source.
   // Works with NO recording — STT runs independently. We build the per-speaker
@@ -435,8 +467,15 @@ export const CanvasReplayPlayer = ({
   // because each block is clamped into [T0, T1] by the strip.
   const transcriptLog = useAtomValue(transcriptionLogAtom);
   const speakerTimeline = useMemo(
-    () => buildSpeakerTimeline(transcriptLog),
-    [transcriptLog],
+    () =>
+      buildSpeakerTimeline(transcriptLog, {
+        // Resolve to the stable email when a matching mic recording exists; an
+        // empty map (no recordings / non-authority viewer) makes every segment
+        // fall back to socketId, i.e. the canvas-only behaviour is unchanged.
+        resolveIdentity: (seg) =>
+          speakerIdByName.get((seg.username ?? "").trim().toLowerCase()),
+      }),
+    [transcriptLog, speakerIdByName],
   );
 
   // SCREEN LANE (06-25 #28b): the shared-screen windows for the dedicated lane in
