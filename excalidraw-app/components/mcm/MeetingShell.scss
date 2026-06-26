@@ -6519,6 +6519,13 @@ body.mcm-has-filmstrip .mcm-canvas-nav {
     right: 0;
     z-index: 60;
     min-width: 240px;
+    // Never exceed the viewport. It was an unbounded 240px box anchored right:0
+    // to the record button, so on a narrow browser it ran off-screen / out of
+    // the interface. Clamp to the viewport (box-sizing so the padding + border
+    // count inside the cap); the min-width yields to max-width when they
+    // conflict, so it always fits + stays on-screen.
+    max-width: calc(100vw - 28px);
+    box-sizing: border-box;
     padding: 12px;
     border-radius: 14px;
     background: var(--mcm-surface, #fff);
