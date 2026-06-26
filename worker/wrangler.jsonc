@@ -18,6 +18,15 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-05-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Placement region hint (06-26). Pins WHERE the Worker runs to the Cloudflare
+  // data center nearest this cloud region — and therefore where its OUTBOUND
+  // fetches egress from. ROOT FIX for the AI bug: VN/SEA users were served by the
+  // Hong Kong (HKG) PoP, and the Gemini API refuses Hong Kong with 400 "User
+  // location is not supported". Singapore (aws:ap-southeast-1) is Gemini-SUPPORTED
+  // and central for the APAC team (KR/VN/PH) + near the APAC D1, so the Gemini
+  // egress now comes from a supported region. (Alternatives: aws:ap-northeast-2
+  // = Seoul, aws:ap-northeast-1 = Tokyo — all supported; NEVER aws:ap-east-1 = HK.)
+  "placement": { "region": "aws:ap-southeast-1" },
   // head_sampling_rate 0.25: keep observability on but sample 1-in-4 invocation
   // logs (audit). At ~200k events/day a 1:1 rate burns the included quota fast;
   // 0.25 keeps a representative trend while cutting log volume ~75%. Errors/
