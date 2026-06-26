@@ -196,14 +196,12 @@ export class DailyAudio {
   private active = false;
   /** local camera is publishing (default OFF — opt-in via toggleCamera) */
   private cameraOn = false;
-  /** the local self-view MediaStream while the camera is on (mirrored in UI).
-   *  With Daily-managed capture this WRAPS Daily's own persistentTrack — we do
-   *  NOT own/stop it; Daily releases it on setLocalVideo(false) / leave. */
+  /** the local self-view MediaStream while the camera is on (mirrored in UI) */
   private localVideoStream: MediaStream | null = null;
-  /** setTimeout handle for the brief self-view poll that waits for Daily's
-   *  local video track to become `playable` after setLocalVideo(true). Cleared
-   *  on camera-off / teardown so a late tick can't republish a stale self-view. */
-  private selfViewPoll: number | null = null;
+  /** pending poll that surfaces the Daily-MANAGED local track to the self-view
+   *  tile (managed path only; the track isn't `playable` the instant
+   *  setLocalVideo(true) resolves). Cleared on camera-off / teardown. */
+  private selfViewPoll: ReturnType<typeof setTimeout> | null = null;
   /** A standalone PREVIEW camera stream owned by the pre-join "green room"
    *  modal (Item 6). Acquired via getUserMedia OUTSIDE the call object (no Daily
    *  room, no publish) purely so the user can see themselves before joining; the
@@ -692,82 +690,124 @@ export class DailyAudio {
       return this.cameraOn;
     }
     if (on) {
-      // DAILY-MANAGED CAPTURE. We no longer pre-acquire a camera track via
-      // getUserMedia and hand Daily a CUSTOM external track (setInputDevicesAsync
-      // videoSource). That custom-track path is precisely what broke the virtual
-      // background: Daily's blur/image PROCESSOR only attaches to Daily's OWN
-      // managed capture pipeline, so with an external track updateInputSettings
-      // ({video:{processor}}) resolved but nothing ever processed the frames.
-      //
-      // Instead we ask Daily to OWN the camera. startCamera() acquires the
-      // managed device — firing the browser permission prompt on this user
-      // gesture and REJECTING on permission/in-use/not-found errors, so the
-      // toggle's try/catch surfaces the same cameraStateAtom guidance it used to
-      // get from the getUserMedia exception. We seed it with the effective 720p
-      // capture constraints AND the persisted background processor so the very
-      // first managed track is already the right resolution with blur/image
-      // attached. setLocalVideo(true) then publishes that managed track to the
-      // SFU. Because Daily controls the track end-to-end, the processor pipeline
-      // owns it and the background actually applies.
-      this.releaseLocalVideo();
-      const tier = this.effectiveQualityTier();
+      // Acquire a 720p camera (1280x720 @ 30fps). This is the QUALITY floor we
+      // feed Daily's simulcast encoder — capturing low (was 360p) means even the
+      // TOP simulcast layer is soft, so faces look blurry no matter the network.
+      // 720p is the deliberate balance: sharp for an internal meeting without the
+      // CPU/egress hit of 1080p. `ideal` (not `exact`) lets a weaker webcam fall
+      // back gracefully instead of failing getUserMedia. Daily downscales to
+      // lower layers itself for constrained receivers (see updateSendSettings /
+      // applyReceiveLayers), so capturing high costs us nothing on the slow paths.
+      let camStream: MediaStream;
       try {
-        await call.startCamera({
-          inputSettings: {
-            video: {
-              processor: toDailyProcessor(getVideoBg()),
-              settings: {
-                width: { ideal: tier.width },
-                height: { ideal: tier.height },
-                frameRate: { ideal: tier.frameRate, max: tier.frameRate },
-              },
-            },
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 30 },
+            facingMode: "user",
           },
+          audio: false,
         });
       } catch (err) {
-        // Permission denied / no device / camera busy. Re-thrown for the caller
-        // (the camera toggle) to classify via cameraStateAtom — deliberately NOT
-        // routed through events.onError (the AUDIO error channel) so a camera
-        // failure never flips the whole call into an error state.
-        warn("startCamera failed", err);
+        // Re-thrown for the caller (the camera toggle) to surface via the
+        // cameraStateAtom toast — deliberately NOT routed through
+        // events.onError, which is the AUDIO call's error channel and would
+        // wrongly flip the whole call into an error state.
+        warn("camera getUserMedia failed", err);
         throw err;
       }
       if (!this.active || this.call !== call) {
-        // toggled off / left while awaiting the permission prompt — don't publish
-        // into a dead call. Daily owns the acquired track and releases it on the
-        // teardown that already ran.
+        // toggled off / left while awaiting the permission prompt
+        for (const t of camStream.getTracks()) {
+          t.stop();
+        }
         return this.cameraOn;
       }
-      try {
-        call.setLocalVideo(true);
-      } catch (err) {
-        warn("setLocalVideo(on) failed", err);
-        throw err;
+      const camTrack = camStream.getVideoTracks()[0] ?? null;
+      // The deviceId of the camera we just got permission for. We use the
+      // getUserMedia() above ONLY to (a) trigger the permission prompt on the
+      // user gesture and (b) learn the real deviceId — not to publish a custom
+      // track (that path can't run Daily's background processor).
+      const deviceId = camTrack?.getSettings().deviceId || null;
+      this.releaseLocalVideo();
+
+      if (deviceId) {
+        // PREFERRED — DAILY-MANAGED capture so the virtual-background processor
+        // (blur / image) actually attaches. The call object was created with
+        // `videoSource:false`, which LOCKS video input: setLocalVideo(true) alone
+        // is refused ("not allowed by daily due to videoSource set to False").
+        // We UNLOCK it by re-supplying the camera as a deviceId STRING (NOT a
+        // custom MediaStreamTrack — Daily's processor only binds to its OWN
+        // managed pipeline). So we release our probe track and let Daily own the
+        // device. Sequence per Daily docs: setInputDevicesAsync(deviceId) →
+        // updateInputSettings(processor + constraints) → setLocalVideo(true).
+        for (const t of camStream.getTracks()) {
+          t.stop();
+        }
+        try {
+          // 1) unlock + select the managed device (a managed track now exists)
+          await call.setInputDevicesAsync({ videoDeviceId: deviceId });
+          // 2) attach blur/image + 720p capture constraints to the managed
+          //    pipeline BEFORE publishing, so the first frame is already correct
+          await call.updateInputSettings({
+            video: {
+              processor: toDailyProcessor(getVideoBg()),
+              settings: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                frameRate: { ideal: 30, max: 30 },
+              },
+            },
+          });
+          if (!this.active || this.call !== call) {
+            // toggled off / left while awaiting the device — don't publish.
+            return this.cameraOn;
+          }
+          // 3) publish — unblocked now that a real device was re-supplied
+          call.setLocalVideo(true);
+        } catch (err) {
+          warn("managed camera enable failed", err);
+          throw err;
+        }
+        this.cameraOn = true;
+        // QUALITY: re-apply the effective tier (clampQuality(userPref, adminCap))
+        // now the managed camera is live. Best-effort — a tuning failure must not
+        // abort turning the camera on.
+        await this.applyVideoQuality();
+        // Belt-and-braces re-assert the persisted background (no-op duplicate of
+        // the seed above in the common case). Fire-and-forget so the toggle stays
+        // snappy; desktop-only support means a silent no-op on mobile.
+        void this.setVideoBackground(getVideoBg()).catch((err) =>
+          warn("initial video background apply failed (non-fatal)", err),
+        );
+        // Self-view: the local track is OWNED by Daily now, so read it from
+        // participants().local (polls until `playable`).
+        this.publishManagedSelfView(call);
+      } else {
+        // FALLBACK — no deviceId (rare permission/quirk). Keep the proven
+        // custom-track path so the camera still turns on; the blur processor
+        // can't attach to an external track here (acceptable degrade).
+        this.localVideoStream = camStream;
+        try {
+          await call.setInputDevicesAsync({ videoSource: camTrack ?? false });
+          call.setLocalVideo(true);
+        } catch (err) {
+          warn("setLocalVideo(on) failed", err);
+          this.releaseLocalVideo();
+          throw err;
+        }
+        this.cameraOn = true;
+        await this.applyVideoQuality();
+        void this.setVideoBackground(getVideoBg()).catch((err) =>
+          warn("initial video background apply failed (non-fatal)", err),
+        );
+        const selfSocketId = this.getSocketId();
+        if (selfSocketId && camTrack) {
+          this.videoSockets.add(selfSocketId);
+          this.events.onVideoTrack?.(selfSocketId, new MediaStream([camTrack]));
+        }
       }
-      this.cameraOn = true;
-      // QUALITY: (re)apply the effective tier now that the managed camera is
-      // live — encode preset via updateSendSettings PLUS re-sending the capture
-      // constraints + processor via updateInputSettings (so the encoder ceiling
-      // and ABR layers match the tier). The chosen tier is
-      // clampQuality(userPref, adminCap). Best-effort: a tuning failure must not
-      // abort turning the camera on (the raw feed still publishes).
-      await this.applyVideoQuality();
-      // Belt-and-braces: explicitly (re)apply the persisted background. This is a
-      // no-op duplicate of the processor startCamera/applyVideoQuality already
-      // sent in the common case, but it guarantees the blur/image is reasserted
-      // and matches the historical contract. Fire-and-forget so the toggle stays
-      // snappy; the processor warms up a beat later.
-      void this.setVideoBackground(getVideoBg()).catch((err) =>
-        warn("initial video background apply failed (non-fatal)", err),
-      );
-      // Self-view: with Daily-managed capture the local track is OWNED by Daily,
-      // so we must read it FROM Daily (participants().local.tracks.video
-      // .persistentTrack) rather than from a getUserMedia stream we no longer
-      // hold. The track may not be `playable` the instant setLocalVideo resolves
-      // (capture + processor warm-up), so publishSelfView polls briefly; if it's
-      // still not ready, onParticipantUpdated (local branch) publishes it the
-      // moment Daily reports the track playable.
-      void this.publishSelfView(call);
     } else {
       try {
         call.setLocalVideo(false);
@@ -785,62 +825,52 @@ export class DailyAudio {
     return this.cameraOn;
   }
 
-  /**
-   * Detach our reference to the local self-view stream. With DAILY-MANAGED
-   * capture the underlying camera track is OWNED by Daily (it stops it on
-   * setLocalVideo(false) / leave), so we must NOT call track.stop() here — doing
-   * so would yank Daily's own capture track out from under its processor
-   * pipeline. We only drop our wrapper reference and cancel any pending
-   * self-view poll. (The legacy getUserMedia path stopped the track here because
-   * WE owned it; that ownership has moved to Daily.)
-   */
   private releaseLocalVideo() {
     if (this.selfViewPoll != null) {
       clearTimeout(this.selfViewPoll);
       this.selfViewPoll = null;
     }
-    this.localVideoStream = null;
+    if (this.localVideoStream) {
+      // NOTE: only the FALLBACK custom-track path stores a stream here (we own
+      // it, so we stop it). On the Daily-MANAGED path localVideoStream is null —
+      // Daily owns/stops that track on setLocalVideo(false)/leave, so we must not.
+      for (const t of this.localVideoStream.getTracks()) {
+        t.stop();
+      }
+      this.localVideoStream = null;
+    }
   }
 
   /**
-   * Surface the LOCAL camera to our own self-view tile, reading the track FROM
-   * Daily (participants().local.tracks.video.persistentTrack) now that Daily
-   * owns the capture pipeline. The track is not guaranteed `playable` the instant
-   * setLocalVideo(true) resolves (capture device + background processor warm-up),
-   * so we poll a handful of frames; if it still hasn't landed, the local branch
-   * of onParticipantUpdated publishes it the moment Daily reports it playable —
-   * this poll is just the fast path so the tile fills in promptly.
-   *
-   * Idempotent against the self-view socket: emitting the same socket.id again is
-   * harmless (the consumer keys the tile on socket.id and swaps the stream).
+   * Surface the DAILY-MANAGED local camera track to our own self-view tile.
+   * On the managed path we don't hold the stream (Daily owns it), so we read
+   * participants().local.tracks.video.persistentTrack. That track isn't
+   * guaranteed `playable` the instant setLocalVideo(true) resolves (capture +
+   * processor warm-up), so we poll a handful of frames until it lands.
    */
-  private publishSelfView(call: DailyCall, attempt = 0): void {
-    if (this.selfViewPoll != null) {
-      clearTimeout(this.selfViewPoll);
-      this.selfViewPoll = null;
-    }
-    // Bail if the camera was turned off / the call was torn down while we waited.
-    if (!this.cameraOn || !this.active || this.call !== call) {
-      return;
-    }
+  private publishManagedSelfView(call: DailyCall) {
     const selfSocketId = this.getSocketId();
-    const local = call.participants?.()?.local;
-    const vTrack = local?.tracks?.video?.persistentTrack ?? null;
-    const playable = local?.tracks?.video?.state === "playable";
-    if (selfSocketId && vTrack && playable) {
-      this.localVideoStream = new MediaStream([vTrack]);
-      this.videoSockets.add(selfSocketId);
-      this.events.onVideoTrack?.(selfSocketId, this.localVideoStream);
+    if (!selfSocketId) {
       return;
     }
-    // Not ready yet — retry a few times (~150ms × 20 = 3s) before deferring
-    // entirely to the participant-updated event. We don't want to poll forever.
-    if (attempt < 20) {
-      this.selfViewPoll = setTimeout(() => {
-        this.selfViewPoll = null;
-        this.publishSelfView(call, attempt + 1);
-      }, 150) as unknown as number;
-    }
+    let tries = 0;
+    const tryPublish = () => {
+      this.selfViewPoll = null;
+      if (!this.cameraOn || this.call !== call) {
+        return;
+      }
+      const vid = call.participants()?.local?.tracks?.video;
+      const track = vid?.persistentTrack ?? null;
+      if (track && vid?.state === "playable") {
+        this.videoSockets.add(selfSocketId);
+        this.events.onVideoTrack?.(selfSocketId, new MediaStream([track]));
+        return;
+      }
+      if (tries++ < 25) {
+        this.selfViewPoll = setTimeout(tryPublish, 150);
+      }
+    };
+    tryPublish();
   }
 
   // ---- pre-join camera preview (Item 6 — "green room") -------------------
@@ -973,22 +1003,6 @@ export class DailyAudio {
    * from scratch. Best-effort throughout: a tuning failure must NEVER drop the
    * already-working camera (mirrors the updateSendSettings guard in setCamera).
    */
-  /**
-   * The EFFECTIVE capture/encode tier = clampQuality(userPref, adminCap), then
-   * floored further by the governor's temporary ceiling (minTier). Extracted so
-   * BOTH setCamera (seeding startCamera's initial managed capture) and
-   * applyVideoQuality (live retune) compute the tier identically — the camera is
-   * acquired at the right resolution from frame one rather than at a default and
-   * then resized.
-   */
-  private effectiveQualityTier(): typeof QUALITY_TIERS[keyof typeof QUALITY_TIERS] {
-    const cap = clampQuality(
-      appJotaiStore.get(videoQualityAtom),
-      appJotaiStore.get(videoQualityCapAtom),
-    );
-    return QUALITY_TIERS[minTier(this.governorCeiling, cap)];
-  }
-
   private async applyVideoQuality(): Promise<void> {
     const call = this.call;
     if (!call || !this.active || !this.cameraOn) {
@@ -999,7 +1013,11 @@ export class DailyAudio {
     // temporary ceiling — minTier guarantees it can never raise the tier above
     // this cap. While governorCeiling is "high" (the default / recovered state)
     // minTier is a no-op and the user/admin cap rules.
-    const tier = this.effectiveQualityTier();
+    const cap = clampQuality(
+      appJotaiStore.get(videoQualityAtom),
+      appJotaiStore.get(videoQualityCapAtom),
+    );
+    const tier = QUALITY_TIERS[minTier(this.governorCeiling, cap)];
 
     // Capture constraints. CRITICAL: updateInputSettings({video}) REPLACES the
     // whole video input-settings object, so passing only `settings` would WIPE
@@ -1828,25 +1846,6 @@ export class DailyAudio {
     // Catch userData that arrived after the track did.
     const p = e.participant;
     if (p.local) {
-      // SELF-VIEW (Daily-managed capture): the local camera track is owned by
-      // Daily, so the self-view tile is fed from p.tracks.video.persistentTrack
-      // the moment Daily reports it `playable`. This is the authoritative
-      // fallback for the brief poll in publishSelfView (which covers the fast
-      // path right after setLocalVideo(true)). We only (re)publish when the
-      // camera is meant to be on and we don't already have THIS exact track, so
-      // a device switch (new persistentTrack identity) refreshes the tile while
-      // an idempotent repeat is a no-op.
-      const selfSocketId = this.getSocketId();
-      const vTrack = p.tracks.video.persistentTrack ?? null;
-      const playable = p.tracks.video.state === "playable";
-      if (this.cameraOn && selfSocketId && vTrack && playable) {
-        const current = this.localVideoStream?.getVideoTracks()[0] ?? null;
-        if (current !== vTrack || !this.videoSockets.has(selfSocketId)) {
-          this.localVideoStream = new MediaStream([vTrack]);
-          this.videoSockets.add(selfSocketId);
-          this.events.onVideoTrack?.(selfSocketId, this.localVideoStream);
-        }
-      }
       return;
     }
     const socketId = this.socketIdOf(p);
