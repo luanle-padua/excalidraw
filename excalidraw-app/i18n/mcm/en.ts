@@ -1071,6 +1071,7 @@ export const en: Widened<typeof vi> = {
     blur_medium: "Medium",
     blur_strong: "Strong",
     images: "Backgrounds",
+    custom: "Your image",
     imgForest: "Forest mist",
     imgCrystal: "Crystal leaves",
     imgOffice: "Office",

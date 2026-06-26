@@ -36,7 +36,6 @@ import { useAppLangCode } from "../../app-language/language-state";
 import { audioRoomInstanceAtom } from "../../audio/audioState";
 import {
   BLUR_STRENGTHS,
-  VIDEO_BG_IMAGE_PRESETS,
   isVideoBgSupported,
   setVideoBgPref,
   videoBgAtom,
@@ -89,6 +88,8 @@ import {
 import { listMyFilesChecked, type UserFile } from "../../data/userFiles";
 import { useT } from "../../i18n/mcm";
 import { appThemeAtom } from "../../useHandleAppTheme";
+
+import { VideoBgImageRow } from "./VideoBgImageRow";
 
 import { ProfileEditor } from "./UserProfileModal";
 
@@ -852,26 +853,13 @@ const PreferencesTab = () => {
           })}
         </div>
 
-        <div className="mcm-settings__bg-grid" role="radiogroup" aria-label={t("videoBg.images")}>
-          {VIDEO_BG_IMAGE_PRESETS.map((preset) => {
-            const active =
-              videoBg.kind === "image" && videoBg.src === preset.src;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                disabled={!bgSupported}
-                className={`mcm-settings__bg-thumb${active ? " --active" : ""}`}
-                style={{ backgroundImage: `url("${preset.src}")` }}
-                onClick={() => applyVideoBg({ kind: "image", src: preset.src })}
-                title={t(preset.labelKey)}
-                aria-label={t(preset.labelKey)}
-              />
-            );
-          })}
-        </div>
+        {/* Image presets + custom-upload tile — shared with the in-call camera
+            popover (MeetingBlurControl) so both surfaces match. */}
+        <VideoBgImageRow
+          current={videoBg}
+          onPick={applyVideoBg}
+          disabled={!bgSupported}
+        />
       </div>
 
       {/* --- Video quality ---

@@ -31,6 +31,8 @@ import {
 } from "../../audio/videoBg";
 import { useT } from "../../i18n/mcm";
 
+import { VideoBgImageRow } from "./VideoBgImageRow";
+
 import "./MeetingBlurControl.scss";
 
 const ICON_SIZE = 18;
@@ -114,40 +116,46 @@ export const MeetingBlurControl = () => {
       </button>
 
       {open && (
-        <div
-          className="mcm-blur-control__popover"
-          role="radiogroup"
-          aria-label={t("videoBg.title")}
-        >
-          <button
-            type="button"
-            role="radio"
-            aria-checked={videoBg.kind === "none"}
-            className={`mcm-blur-control__chip${
-              videoBg.kind === "none" ? " --active" : ""
-            }`}
-            onClick={() => apply({ kind: "none" })}
+        <div className="mcm-blur-control__popover">
+          <div
+            className="mcm-blur-control__group"
+            role="radiogroup"
+            aria-label={t("videoBg.title")}
           >
-            {t("videoBg.none")}
-          </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={videoBg.kind === "none"}
+              className={`mcm-blur-control__chip${
+                videoBg.kind === "none" ? " --active" : ""
+              }`}
+              onClick={() => apply({ kind: "none" })}
+            >
+              {t("videoBg.none")}
+            </button>
 
-          {BLUR_LEVELS.map((level) => {
-            const isActive = videoBg.kind === "blur" && videoBg.level === level;
-            return (
-              <button
-                key={level}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                className={`mcm-blur-control__chip${
-                  isActive ? " --active" : ""
-                }`}
-                onClick={() => apply({ kind: "blur", level })}
-              >
-                {t("videoBg.blur")} · {t(`videoBg.blur_${level}`)}
-              </button>
-            );
-          })}
+            {BLUR_LEVELS.map((level) => {
+              const isActive =
+                videoBg.kind === "blur" && videoBg.level === level;
+              return (
+                <button
+                  key={level}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  className={`mcm-blur-control__chip${
+                    isActive ? " --active" : ""
+                  }`}
+                  onClick={() => apply({ kind: "blur", level })}
+                >
+                  {t("videoBg.blur")} · {t(`videoBg.blur_${level}`)}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Image presets + custom upload — same shared row as Settings. */}
+          <VideoBgImageRow current={videoBg} onPick={apply} />
         </div>
       )}
     </div>

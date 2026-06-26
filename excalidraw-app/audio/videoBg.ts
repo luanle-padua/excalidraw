@@ -54,13 +54,18 @@ export const DEFAULT_VIDEO_BG: VideoBg = { kind: "none" };
 export type VideoBgImagePreset = {
   id: string;
   /** i18n key under `videoBg.*` for the accessible label. */
-  labelKey: "videoBg.imgForest" | "videoBg.imgCrystal" | "videoBg.imgOffice";
+  labelKey: "videoBg.imgForest" | "videoBg.imgCrystal";
   src: string;
 };
 
-// Reuse the dashboard wallpaper photos (data/wallpaper.ts) + one company
-// client backdrop already shipped under /public/backgrounds. All are public
-// static assets, so the bare URL works as Daily's processor source.
+// Curated PNG presets shipped as PUBLIC static assets under /public/backgrounds
+// (same-origin → Daily fetches the bare URL with no CORS/auth, and the same URL
+// paints the CSS thumbnail). Daily's background-image accepts ONLY jpg/jpeg/png —
+// the other /public/backgrounds files are .webp (client-portal backdrops) and
+// would fail SILENTLY (no processor attaches), so they are deliberately NOT
+// listed here. Anyone who wants a different backdrop uses the "custom upload"
+// tile (see VideoBgImageRow), which passes a downscaled JPEG data URL as the
+// processor source — no new binary asset or CORS setup required.
 export const VIDEO_BG_IMAGE_PRESETS: VideoBgImagePreset[] = [
   {
     id: "forest-mist",
@@ -70,21 +75,6 @@ export const VIDEO_BG_IMAGE_PRESETS: VideoBgImagePreset[] = [
   {
     id: "crystal-leaves",
     labelKey: "videoBg.imgCrystal",
-    src: "/backgrounds/crystal-leaves.png",
-  },
-  {
-    id: "office-forest",
-    labelKey: "videoBg.imgOffice",
-    // PLACEHOLDER src. Daily's `background-image` processor accepts ONLY
-    // jpg/jpeg/png (URL or ArrayBuffer) — a .webp source fails SILENTLY (no
-    // processor attaches, camera publishes raw). The original
-    // "/backgrounds/client-forest.webp" (and every other client-* backdrop
-    // under /public/backgrounds) is webp, so there is no png/jpg "office/client"
-    // asset to point at. The ONLY png/jpg presets shipped today are forest-mist
-    // and crystal-leaves, so this placeholder must reuse one of them (it cannot
-    // be visually unique until a real office png/jpg is added). We point at
-    // crystal-leaves rather than ship a new binary asset; swap this for a real
-    // png/jpg office backdrop once one is added to /public/backgrounds.
     src: "/backgrounds/crystal-leaves.png",
   },
 ];

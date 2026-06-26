@@ -1,0 +1,60 @@
+// Shared image-preset + upload grid for the virtual-background pickers
+// (VideoBgImageRow.tsx). Rides Glass-Desk tokens (--mcm-*) so it reads correctly
+// in BOTH dark and white theme — the literals are SSR/old-browser fallbacks only.
+// Lives in its own file (no glass mixin) so it is safe inside the OPAQUE camera
+// popover (no backdrop-filter ancestor — see the dropdown footgun).
+
+.mcm-vbg-row {
+  display: grid;
+  // Auto-fit so it lays out 3-up in the wide Settings panel and wraps to fit the
+  // narrower in-call popover, without per-surface overrides.
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+}
+
+.mcm-vbg-thumb {
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  background-color: var(--mcm-surface-2, #f0f0f3);
+  background-size: cover;
+  background-position: center;
+  border: 2px solid transparent;
+  border-radius: var(--mcm-radius-sm, 10px);
+  cursor: pointer;
+  transition: border-color var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease),
+    transform var(--mcm-dur-fast, 120ms) var(--mcm-ease, ease);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: color-mix(
+      in srgb,
+      var(--mcm-accent, #6965db) 35%,
+      transparent
+    );
+  }
+
+  &.--active {
+    border-color: var(--mcm-accent, #6965db);
+    box-shadow: 0 0 0 1px var(--mcm-accent, #6965db);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  // The upload tile: a dashed "add your own" affordance until a custom image is
+  // chosen, at which point it paints itself with that image (handled inline).
+  &--upload {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mcm-text-soft, rgba(0, 0, 0, 0.55));
+    border-style: dashed;
+    border-color: var(--mcm-hairline, rgba(0, 0, 0, 0.18));
+
+    &:hover:not(:disabled) {
+      color: var(--mcm-accent, #6965db);
+    }
+  }
+}

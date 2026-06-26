@@ -27,8 +27,9 @@
   left: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 168px;
+  gap: 8px;
+  // Wide enough that the image row (2 presets + upload tile) sits on one neat row.
+  min-width: 188px;
   padding: 8px;
   // OPAQUE surface — NOT glass. See the footgun note above.
   background: var(--mcm-surface, #fff);
@@ -37,6 +38,14 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 12px 32px rgba(0, 0, 0, 0.2);
   z-index: 8;
   animation: mcm-blur-pop 160ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+// None + blur chips, stacked. Its own radiogroup (the image row below is a
+// separate group) so ARIA groups never nest.
+.mcm-blur-control__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .mcm-blur-control__chip {

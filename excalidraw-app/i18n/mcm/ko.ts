@@ -1074,6 +1074,7 @@ export const ko: Widened<typeof vi> = {
     blur_medium: "보통",
     blur_strong: "강하게",
     images: "배경 이미지",
+    custom: "내 이미지",
     imgForest: "숲 안개",
     imgCrystal: "크리스탈 잎",
     imgOffice: "사무실",

@@ -1133,6 +1133,7 @@ export const vi = {
     blur_medium: "Vừa",
     blur_strong: "Mạnh",
     images: "Ảnh nền",
+    custom: "Ảnh của bạn",
     imgForest: "Rừng sương",
     imgCrystal: "Lá pha lê",
     imgOffice: "Văn phòng",
